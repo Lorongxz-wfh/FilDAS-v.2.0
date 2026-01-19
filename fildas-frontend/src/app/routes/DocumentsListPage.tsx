@@ -6,7 +6,6 @@ interface DocumentsListPageProps {
   onSelectDocument?: (id: number) => void;
 }
 
-
 const DocumentsListPage: React.FC<DocumentsListPageProps> = ({
   onSelectDocument,
 }) => {
@@ -66,13 +65,14 @@ const DocumentsListPage: React.FC<DocumentsListPageProps> = ({
           <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-2">Title</th>
-              <th className="px-4 py-2">Office</th>
+              <th className="px-4 py-2">Code</th>
               <th className="px-4 py-2">Type</th>
               <th className="px-4 py-2">Status</th>
               <th className="px-4 py-2">Version</th>
               <th className="px-4 py-2">Created</th>
             </tr>
           </thead>
+
           <tbody>
             {documents.map((doc) => (
               <tr
@@ -81,8 +81,9 @@ const DocumentsListPage: React.FC<DocumentsListPageProps> = ({
                 onClick={() => onSelectDocument?.(doc.id)}
               >
                 <td className="px-4 py-2">{doc.title}</td>
-                <td className="px-4 py-2">{doc.office_code}</td>
-                <td className="px-4 py-2">{doc.doc_type_code}</td>
+                <td className="px-4 py-2">{doc.code}</td>
+                <td className="px-4 py-2">{doc.doctype}</td>
+
                 <td className="px-4 py-2">{doc.status}</td>
                 <td className="px-4 py-2">{doc.version_number}</td>
                 <td className="px-4 py-2 text-xs text-slate-500">

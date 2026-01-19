@@ -25,7 +25,6 @@ async function updateDocumentStatus(
   });
 }
 
-
 interface DocumentFlowProps {
   document: Document;
 }
@@ -211,7 +210,9 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
   const availableActions =
     transitions[localDocument.status as keyof typeof transitions] ?? [];
 
-  const fullCode = `FCU-EOMS-${localDocument.office_code}-${localDocument.doc_type_code}`;
+  const fullCode =
+    localDocument.code ??
+    `FCU-EOMS-${localDocument.id}-TEMP-${localDocument.doc_type_code}`;
 
   return (
     <section className="space-y-6">
@@ -329,6 +330,12 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
               Status:{" "}
               <span className="font-semibold text-slate-900">
                 {document.status}
+              </span>
+            </p>
+            <p className="mt-1 text-xs text-slate-600">
+              Type:{" "}
+              <span className="font-semibold text-slate-900">
+                {document.doctype}
               </span>
             </p>
           </div>

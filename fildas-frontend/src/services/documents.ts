@@ -1,7 +1,7 @@
 export interface CreateDocumentPayload {
   title: string;
-  office_code: string;
-  doc_type_code: string;
+  office_id: number;
+  doctype: "internal" | "external" | "forms";
   current_step_notes?: string;
   file?: File | null;
 }
@@ -9,8 +9,8 @@ export interface CreateDocumentPayload {
 export interface Document {
   id: number;
   title: string;
-  office_code: string;
-  doc_type_code: string;
+  office_id: number | null;
+  doctype: "internal" | "external" | "forms";
   code: string | null;
   status: string;
   version_number: string;
@@ -22,6 +22,8 @@ export interface Document {
   created_at: string;
   updated_at: string;
 }
+
+
 
 export async function listDocuments(): Promise<Document[]> {
   const response = await fetch("http://127.0.0.1:8000/api/documents", {
@@ -58,23 +60,30 @@ export interface ApiError extends Error {
   details?: Record<string, string[]>;
 }
 
-export async function createDocument(payload: CreateDocumentPayload): Promise<Document> {
+export async function createDocument(
+  payload: CreateDocumentPayload,
+): Promise<Document> {
   const formData = new FormData();
   formData.append("title", payload.title);
-  formData.append("office_code", payload.office_code);
-  formData.append("doc_type_code", payload.doc_type_code);
+  formData.append("office_id", payload.office_id.toString());
+  formData.append("doctype", payload.doctype);
+
   if (payload.current_step_notes) {
     formData.append("current_step_notes", payload.current_step_notes);
   }
+
   if (payload.file) {
     formData.append("file", payload.file);
   }
+
+const token = localStorage.getItem("auth_token");
 
   const response = await fetch("http://127.0.0.1:8000/api/documents", {
     method: "POST",
     headers: {
       Accept: "application/json",
-      // Do NOT set Content-Type; browser will set multipart boundary.
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // Do NOT set Content-Type for multipart
     },
     body: formData,
   });
@@ -111,3 +120,25 @@ export function getDocumentPreviewUrl(id: number): string {
   return `http://127.0.0.1:8000/api/documents/${id}/preview`;
 }
 
+export interface Office {
+  id: number;
+  name: string;
+  code: string;
+  type: "office" | "academic";
+  is_academic: boolean;
+}
+
+export async function listOffices(): Promise<Office[]> {
+  const response = await fetch("http://127.0.0.1:8000/api/offices", {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load offices (${response.status})`);
+  }
+
+  const json = await response.json();
+  return json as Office[];
+}

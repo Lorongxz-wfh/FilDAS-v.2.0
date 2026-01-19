@@ -26,6 +26,13 @@ function App() {
     setCurrentRoute("dashboard"); // default after login
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
+    setIsAuthenticated(false);
+    setCurrentRoute("dashboard");
+  };
+
   const handleNavigate = (route: string) => {
     setCurrentRoute(route);
     if (route !== "document-flow") {
@@ -78,7 +85,11 @@ function App() {
   }
 
   return (
-    <MainLayout currentRoute={currentRoute} onNavigate={handleNavigate}>
+    <MainLayout
+      currentRoute={currentRoute}
+      onNavigate={handleNavigate}
+      onLogout={handleLogout}
+    >
       {content}
     </MainLayout>
   );

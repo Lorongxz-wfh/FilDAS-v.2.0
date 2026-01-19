@@ -2,11 +2,10 @@ import React from "react";
 
 interface NavbarProps {
   title?: string;
+  onLogout?: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({
-  title = "FilDAS v2 · QA Documents",
-}) => {
+const Navbar: React.FC<NavbarProps> = ({ title = "FilDAS", onLogout }) => {
   return (
     <header className="border-b border-slate-200 bg-white/80 backdrop-blur-sm">
       <div className="flex items-center justify-between px-6 py-3">
@@ -18,9 +17,18 @@ const Navbar: React.FC<NavbarProps> = ({
             {title}
           </span>
         </div>
-        <span className="text-xs font-medium text-slate-500">
-          Light mode · Prototype
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="text-xs font-medium text-slate-500">
+            Light mode · Prototype
+          </span>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="text-xs font-medium text-slate-600 hover:text-slate-900"
+          >
+            Logout
+          </button>
+        </div>
       </div>
     </header>
   );

@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import { createDocument } from "../../services/documents";
+import OfficeDropdown from "../components/OfficeDropdown";
 
 const DocumentsCreatePage: React.FC = () => {
   const [title, setTitle] = useState("");
-  const [officeCode, setOfficeCode] = useState("QA");
-  const [docTypeCode, setDocTypeCode] = useState("P");
+  const [officeCode, setOfficeCode] = useState<number | null>(null);
+  const [doctype, setDoctype] = useState<"internal" | "external" | "forms">(
+    "internal",
+  );
   const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,14 +28,16 @@ const DocumentsCreatePage: React.FC = () => {
     try {
       const result = await createDocument({
         title,
-        office_code: officeCode,
-        doc_type_code: docTypeCode,
+        office_id: officeCode!,
+        doctype,
         current_step_notes: notes || undefined,
         file,
       });
 
       setMessage(`Document created with ID ${result.id}`);
       setTitle("");
+      setOfficeCode(null);
+      setDoctype("internal"); // or 'external' if you prefer default
       setNotes("");
       setFile(null);
     } catch (err: any) {
@@ -75,32 +80,50 @@ const DocumentsCreatePage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                Office code <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-xs outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
-                value={officeCode}
-                onChange={(e) => setOfficeCode(e.target.value)}
-                placeholder="QA, PO, HR…"
-                required
-              />
-            </div>
+            <OfficeDropdown
+              value={officeCode}
+              onChange={setOfficeCode}
+              error={fieldErrors?.office_id?.[0]}
+            />
 
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1.5">
-                Document type code <span className="text-rose-500">*</span>
+              <label className="block mb-3 text-xs font-medium text-slate-700 mb-1.5">
+                Document Type <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="text"
-                className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-xs outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
-                value={docTypeCode}
-                onChange={(e) => setDocTypeCode(e.target.value)}
-                placeholder="D, P, WI, F…"
-                required
-              />
+              <div className="flex gap-4 items-center mt-1.5">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="internal"
+                    checked={doctype === "internal"}
+                    onChange={() => setDoctype("internal")}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-slate-700">Internal</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="external"
+                    checked={doctype === "external"}
+                    onChange={() => setDoctype("external")}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-slate-700">External</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="forms"
+                    checked={doctype === "forms"}
+                    onChange={() => setDoctype("forms")}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-slate-700">Forms</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -119,10 +142,11 @@ const DocumentsCreatePage: React.FC = () => {
 
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1.5">
-              Attach file
+              Attach file <span className="text-rose-500">*</span>
             </label>
             <input
               type="file"
+              required
               className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-sky-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-sky-700 hover:file:bg-sky-100"
               onChange={(e) => {
                 const selected = e.target.files?.[0] ?? null;
@@ -130,7 +154,7 @@ const DocumentsCreatePage: React.FC = () => {
               }}
             />
             <p className="mt-1 text-[11px] text-slate-500">
-              Optional. Accepts Word, Excel, PowerPoint, or PDF (up to 10 MB).
+              Accepts Word, Excel, PowerPoint, or PDF (up to 10 MB).
             </p>
           </div>
 
@@ -163,7 +187,7 @@ const DocumentsCreatePage: React.FC = () => {
             </p>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !officeCode}
               className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-4 py-2 text-xs font-medium text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700 disabled:opacity-60"
             >
               {loading ? "Saving…" : "Save document"}
