@@ -210,9 +210,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
   const availableActions =
     transitions[localDocument.status as keyof typeof transitions] ?? [];
 
-  const fullCode =
-    localDocument.code ??
-    `FCU-EOMS-${localDocument.id}-TEMP-${localDocument.doc_type_code}`;
+  const fullCode = localDocument.code ?? "CODE-NOT-AVAILABLE";
 
   return (
     <section className="space-y-6">
