@@ -319,7 +319,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
         <div className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
             <h1 className="text-lg font-semibold tracking-tight text-slate-900">
-              {document.title}
+              {localDocument.title}
             </h1>
             <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">
               {fullCode}
@@ -327,13 +327,13 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
             <p className="mt-2 text-sm text-slate-600">
               Status:{" "}
               <span className="font-semibold text-slate-900">
-                {document.status}
+                {localDocument.status}
               </span>
             </p>
             <p className="mt-1 text-xs text-slate-600">
               Type:{" "}
               <span className="font-semibold text-slate-900">
-                {document.doctype}
+                {localDocument.doctype}
               </span>
             </p>
           </div>

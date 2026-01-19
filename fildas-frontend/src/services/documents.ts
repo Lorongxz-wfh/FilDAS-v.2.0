@@ -10,6 +10,7 @@ export interface Document {
   id: number;
   title: string;
   office_id: number | null;
+  parent_document_id: number | null;
   doctype: "internal" | "external" | "forms";
   code: string | null;
   status: string;
@@ -54,6 +55,35 @@ export async function getDocument(id: number): Promise<Document> {
   const json = await response.json();
   return json as Document;
 }
+
+export async function getDocumentVersions(rootId: number): Promise<Document[]> {
+  const allDocs: Document[] = [];
+  
+  // Load root
+  const root = await getDocument(rootId);
+  allDocs.push(root);
+  
+  // Load direct children recursively
+  async function loadChildren(parentId: number) {
+    const response = await fetch(`http://127.0.0.1:8000/api/documents?parent_document_id=${parentId}`, {
+      headers: { Accept: "application/json" },
+    });
+    
+    if (response.ok) {
+      const children = await response.json() as Document[];
+      for (const child of children) {
+        allDocs.push(child);
+        await loadChildren(child.id); // recursion for nested revisions
+      }
+    }
+  }
+  
+  await loadChildren(rootId);
+  
+  // Sort by version_number numeric
+  return allDocs.sort((a, b) => Number(a.version_number) - Number(b.version_number));
+}
+
 
 export interface ApiError extends Error {
   status?: number;
