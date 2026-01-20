@@ -3,7 +3,7 @@ import MainLayout from "./app/layout/MainLayout";
 import DashboardPage from "./app/routes/DashboardPage";
 import DocumentsListPage from "./app/routes/DocumentsListPage";
 import DocumentsCreatePage from "./app/routes/DocumentsCreatePage";
-import DocumentRequestPage from "./app/routes/DocumentRequestPage";
+import DocumentRequestPage from "./app/routes/DocumentRequestsPage";
 import DocumentFlowPage from "./app/routes/DocumentFlowPage";
 import LoginPage from "./app/routes/LoginPage";
 
@@ -19,6 +19,29 @@ function App() {
     const token =
       typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
     setIsAuthenticated(!!token);
+  }, []);
+
+  // Parse URL param for document ID
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const docId = urlParams.get("doc");
+      if (docId && !isNaN(Number(docId))) {
+        setSelectedDocumentId(Number(docId));
+        setCurrentRoute("document-flow");
+      }
+    }
+  }, []);
+
+  // Handle docChanged events from child components
+  useEffect(() => {
+    const handleDocChange = (e: CustomEvent) => {
+      setSelectedDocumentId(e.detail);
+      setCurrentRoute("document-flow");
+    };
+    window.addEventListener("docChanged", handleDocChange as any);
+    return () =>
+      window.removeEventListener("docChanged", handleDocChange as any);
   }, []);
 
   const handleLoggedIn = () => {

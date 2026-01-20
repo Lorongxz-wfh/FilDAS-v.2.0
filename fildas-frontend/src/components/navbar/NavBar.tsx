@@ -18,9 +18,6 @@ const Navbar: React.FC<NavbarProps> = ({ title = "FilDAS", onLogout }) => {
           </span>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-xs font-medium text-slate-500">
-            Light mode · Prototype
-          </span>
           <button
             type="button"
             onClick={onLogout}

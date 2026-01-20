@@ -22,18 +22,18 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
   async function createRevision(docId: number): Promise<Document> {
     const token = localStorage.getItem("auth_token");
 
-    const response = await fetch(
-      `${API_BASE}/documents/${docId}/create-revision`,
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+    const response = await fetch(`${API_BASE}/documents/${docId}/revision`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-    );
+    });
 
-    if (!response.ok) throw new Error("Failed to create revision");
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || `Failed (${response.status})`);
+    }
     return (await response.json()) as Document;
   }
 
@@ -43,20 +43,12 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
         const data = await getDocument(id);
         setDocument(data);
 
-        // Fetch all versions SAFELY
+        // Fetch versions immediately using new endpoint
         const rootId = data.parent_document_id || data.id;
-        // Load current doc FIRST, versions SECOND
-        setAllVersions([data]); // Always safe fallback
-
-        // Versions async AFTER
-        setTimeout(async () => {
-          try {
-            const versions = await getDocumentVersions(rootId);
-            setAllVersions(versions);
-          } catch (e) {
-            console.warn("Versions optional:", e);
-          }
-        }, 100);
+        const versions = await fetch(
+          `${API_BASE}/documents/${rootId}/versions`,
+        ).then((r) => r.json());
+        setAllVersions(versions);
       } catch (err: any) {
         setError(err?.message ?? "Failed to load document");
       } finally {
@@ -79,9 +71,9 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
     );
   }
 
-  // Check if this is the latest version
-  const isLatestVersion =
-    allVersions.length === 0 ||
+  // Only show revise button for original documents (version 0.0) that are latest
+  const isOriginalAndLatest =
+    (document.version_number === "0.0" && allVersions.length === 0) ||
     Number(document.version_number) ===
       Math.max(...allVersions.map((v) => Number(v.version_number)));
 
@@ -109,8 +101,8 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
               </div>
             </div>
 
-            {/* Revision button in header */}
-            {isLatestVersion && (
+            {/* Revision button in header - ONLY for original docs */}
+            {isOriginalAndLatest && (
               <button
                 type="button"
                 className="inline-flex items-center rounded-md bg-slate-700 px-4 py-2 text-xs font-medium text-white hover:bg-slate-800 whitespace-nowrap flex-shrink-0 ml-auto"
@@ -118,8 +110,8 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
                   try {
                     const revised = await createRevision(document.id);
                     window.location.href = `/?doc=${revised.id}`;
-                  } catch (e) {
-                    alert("Failed to create revision");
+                  } catch (e: any) {
+                    alert(`Revision failed: ${e.message}`);
                   }
                 }}
               >
@@ -133,7 +125,6 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
         <div className="flex-1 overflow-y-auto">
           <DocumentFlow document={document} />
         </div>
-
       </div>
 
       {/* RIGHT: Versions panel */}
@@ -148,8 +139,13 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
                 <button
                   key={v.id}
                   type="button"
-                  onClick={() => {
-                    window.location.href = `/?doc=${v.id}`;
+                  onClick={async () => {
+                    try {
+                      const docData = await getDocument(v.id);
+                      setDocument(docData);
+                    } catch (error) {
+                      alert("Failed to load document version");
+                    }
                   }}
                   className={`block w-full rounded-md px-3 py-2 text-left text-xs transition ${
                     v.id === document.id

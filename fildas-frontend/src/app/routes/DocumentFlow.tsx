@@ -1,6 +1,6 @@
 import React from "react";
 import type { Document } from "../../services/documents";
-import { getDocumentPreviewUrl } from "../../services/documents";
+import { getDocumentPreviewUrl, getDocument } from "../../services/documents";
 
 // TEMP: direct API call; later you can move this to documents service
 const API_BASE = "http://localhost:8000/api"; // make sure this matches Laravel
@@ -196,8 +196,96 @@ function phaseOrder(phaseId: PhaseId): number {
 
 const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
   const [localDocument, setLocalDocument] = React.useState(document);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const previewUrl = getDocumentPreviewUrl(localDocument.id);
+
+  // File upload handlers
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const files = Array.from(e.dataTransfer.files);
+    const file = files[0];
+
+    if (file && isValidFile(file)) {
+      await uploadFile(file);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && isValidFile(file)) {
+      uploadFile(file);
+    }
+  };
+
+  const isValidFile = (file: File): boolean => {
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ];
+
+    return (
+      allowedTypes.some(
+        (type) =>
+          file.type === type ||
+          file.name.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx)$/i),
+      ) && file.size <= 10 * 1024 * 1024
+    ); // 10MB
+  };
+
+  const uploadFile = async (file: File) => {
+    setIsUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const token = localStorage.getItem("auth_token");
+
+      const response = await fetch(
+        `http://localhost:8000/api/documents/${localDocument.id}/replace-file`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: formData,
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+
+      // Refresh document data
+      const updatedDoc = await getDocument(localDocument.id);
+      setLocalDocument(updatedDoc);
+    } catch (error) {
+      alert(`File upload failed: ${(error as Error).message}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
   const currentStep = findCurrentStep(localDocument.status);
   const currentPhase = phases.find((p) => p.id === currentStep.phase)!;
   const currentPhaseIndex = phaseOrder(currentPhase.id);
@@ -401,16 +489,70 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
           <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Document preview
           </h2>
-          <div className="h-[600px] w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-            {document.preview_path ? (
+          <div
+            className={`h-[600px] w-full overflow-hidden rounded-xl border-2 transition-all ${
+              localDocument.file_path
+                ? "border-slate-200 bg-white cursor-pointer hover:border-sky-300 hover:shadow-md"
+                : "border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-sky-400 hover:bg-sky-50"
+            }`}
+            onClick={() => fileInputRef.current?.click()}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+          >
+            {localDocument.file_path && localDocument.preview_path ? (
               <iframe
                 src={previewUrl}
                 title="Document preview"
                 className="h-full w-full"
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-slate-500">
-                Preview not available for this document.
+              <div className="flex h-full flex-col items-center justify-center p-8 text-center text-sm">
+                <div className="mb-3 h-12 w-12 rounded-full bg-slate-200 flex items-center justify-center">
+                  <svg
+                    className="h-6 w-6 text-slate-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                </div>
+                <p className="mb-1 font-medium text-slate-900">
+                  {localDocument.file_path
+                    ? "Click to replace document"
+                    : "Upload new document"}
+                </p>
+                <p className="text-slate-500 mb-4">
+                  {localDocument.file_path
+                    ? "Drag & drop or click to replace the current file"
+                    : "Drag & drop PDF, Word, Excel, PowerPoint, or click to browse (max 10MB)"}
+                </p>
+                {localDocument.file_path && (
+                  <p className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                    {localDocument.original_filename}
+                  </p>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                  className="sr-only"
+                  onChange={handleFileSelect}
+                />
+              </div>
+            )}
+            {isUploading && (
+              <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-slate-600">Uploading...</p>
+                </div>
               </div>
             )}
           </div>
