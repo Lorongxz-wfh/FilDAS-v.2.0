@@ -197,9 +197,12 @@ function phaseOrder(phaseId: PhaseId): number {
 const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
   const [localDocument, setLocalDocument] = React.useState(document);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [isSavingRevision, setIsSavingRevision] = React.useState(false);
+  const [pendingFileToUpload, setPendingFileToUpload] =
+    React.useState<File | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const previewUrl = getDocumentPreviewUrl(localDocument.id);
+  const previewUrl = getDocumentPreviewUrl(localDocument.id); // ← CORRECT: after localDocument
 
   // File upload handlers
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -222,13 +225,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
 
     if (file && isValidFile(file)) {
       await uploadFile(file);
-    }
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && isValidFile(file)) {
-      uploadFile(file);
     }
   };
 
@@ -286,6 +282,65 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
       setIsUploading(false);
     }
   };
+
+  // Revision info save (title + file)
+  const handleSaveRevisionInfo = async () => {
+    setIsSavingRevision(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("title", localDocument.title);
+      if (pendingFileToUpload) {
+        formData.append("file", pendingFileToUpload);
+      }
+
+      const token = localStorage.getItem("auth_token");
+
+      const response = await fetch(
+        `http://localhost:8000/api/documents/${localDocument.id}/revision-info`,
+        {
+          method: "PATCH",
+          headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: formData,
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Save failed: ${response.status}`);
+      }
+
+      // Refresh document data
+      const updatedDoc = await getDocument(localDocument.id);
+      setLocalDocument(updatedDoc);
+      setPendingFileToUpload(null); // Clear pending file
+    } catch (error) {
+      alert(`Save failed: ${(error as Error).message}`);
+    } finally {
+      setIsSavingRevision(false);
+    }
+  };
+
+  const handleReplaceFileClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Update fileSelect to set pending file for revisions
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && isValidFile(file)) {
+      if (localDocument.status === "Revision-Draft") {
+        setPendingFileToUpload(file);
+        // Auto-save title + new file
+        handleSaveRevisionInfo();
+      } else {
+        uploadFile(file);
+      }
+    }
+  };
+
   const currentStep = findCurrentStep(localDocument.status);
   const currentPhase = phases.find((p) => p.id === currentStep.phase)!;
   const currentPhaseIndex = phaseOrder(currentPhase.id);
@@ -406,12 +461,48 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
         {/* left: meta + notes */}
         <div className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
-            <h1 className="text-lg font-semibold tracking-tight text-slate-900">
-              {localDocument.title}
-            </h1>
-            <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">
-              {fullCode}
-            </p>
+            {localDocument.status === "Revision-Draft" ? (
+              // REVISION: Editable title + replace button
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  <input
+                    type="text"
+                    value={localDocument.title}
+                    onChange={(e) =>
+                      setLocalDocument((prev) => ({
+                        ...prev,
+                        title: e.target.value,
+                      }))
+                    }
+                    className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-lg font-semibold text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    placeholder="Enter document title"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveRevisionInfo}
+                    disabled={isSavingRevision}
+                    className="inline-flex items-center rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {isSavingRevision ? "Saving..." : "Save"}
+                  </button>
+                </div>
+                <p className="text-xs text-sky-600 bg-sky-50 px-2 py-1 rounded-full mb-2">
+                  Revision v{localDocument.version_number} - Edit title or
+                  replace file
+                </p>
+              </>
+            ) : (
+              // NORMAL: Read-only title
+              <>
+                <h1 className="text-lg font-semibold tracking-tight text-slate-900">
+                  {localDocument.title}
+                </h1>
+                <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+                  {fullCode}
+                </p>
+              </>
+            )}
+
             <p className="mt-2 text-sm text-slate-600">
               Status:{" "}
               <span className="font-semibold text-slate-900">
@@ -486,9 +577,33 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
 
         {/* right: document preview */}
         <div className="space-y-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 flex items-center justify-between">
             Document preview
+            {localDocument.status === "Revision-Draft" &&
+              localDocument.file_path && (
+                <button
+                  type="button"
+                  onClick={handleReplaceFileClick}
+                  className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-700 hover:bg-sky-200 transition-colors"
+                >
+                  <svg
+                    className="h-3 w-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                    />
+                  </svg>
+                  Change file
+                </button>
+              )}
           </h2>
+
           <div
             className={`h-[600px] w-full overflow-hidden rounded-xl border-2 transition-all ${
               localDocument.file_path

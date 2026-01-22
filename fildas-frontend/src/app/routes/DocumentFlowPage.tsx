@@ -4,6 +4,7 @@ import {
   getDocumentPreviewUrl,
   getDocumentVersions,
 } from "../../services/documents";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
 import type { Document } from "../../services/documents";
 import DocumentFlow from "./DocumentFlow";
 
@@ -60,7 +61,7 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
   }, [id]);
 
   if (loading) {
-    return <div className="text-sm text-slate-600">Loading document…</div>;
+    return <LoadingSpinner message="Loading document version..." />;
   }
 
   if (error || !document) {
@@ -71,11 +72,11 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
     );
   }
 
-  // Only show revise button for original documents (version 0.0) that are latest
-  const isOriginalAndLatest =
-    (document.version_number === "0.0" && allVersions.length === 0) ||
-    Number(document.version_number) ===
-      Math.max(...allVersions.map((v) => Number(v.version_number)));
+  // Show revise for LATEST Distributed version (v0.0, v1.0, v2.0...)
+  const isLatestVersion = !allVersions.some(
+    (v) => Number(v.version_number) > Number(document.version_number),
+  );
+  const isRevisable = isLatestVersion && document.status === "Distributed";
 
   return (
     <div className="flex h-full gap-6">
@@ -101,8 +102,8 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
               </div>
             </div>
 
-            {/* Revision button in header - ONLY for original docs */}
-            {isOriginalAndLatest && (
+            {/* Revision button - ONLY for Distributed originals */}
+            {isRevisable && (
               <button
                 type="button"
                 className="inline-flex items-center rounded-md bg-slate-700 px-4 py-2 text-xs font-medium text-white hover:bg-slate-800 whitespace-nowrap flex-shrink-0 ml-auto"
@@ -141,10 +142,13 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
                   type="button"
                   onClick={async () => {
                     try {
+                      setLoading(true);
                       const docData = await getDocument(v.id);
                       setDocument(docData);
                     } catch (error) {
                       alert("Failed to load document version");
+                    } finally {
+                      setLoading(false);
                     }
                   }}
                   className={`block w-full rounded-md px-3 py-2 text-left text-xs transition ${

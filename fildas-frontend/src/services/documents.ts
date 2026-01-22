@@ -10,6 +10,11 @@ export interface Document {
   id: number;
   title: string;
   office_id: number | null;
+  office: {     // ← ADD
+    id: number;
+    name: string;
+    code: string;
+  } | null;
   parent_document_id: number | null;
   doctype: "internal" | "external" | "forms";
   code: string | null;
@@ -83,7 +88,6 @@ export async function getDocumentVersions(rootId: number): Promise<Document[]> {
   // Sort by version_number numeric
   return allDocs.sort((a, b) => Number(a.version_number) - Number(b.version_number));
 }
-
 
 export interface ApiError extends Error {
   status?: number;
@@ -172,3 +176,14 @@ export async function listOffices(): Promise<Office[]> {
   const json = await response.json();
   return json as Office[];
 }
+
+// Get current user office from localStorage
+export const getCurrentUserOfficeId = (): number => {
+  try {
+    const user = JSON.parse(localStorage.getItem('auth_user') || '{}');
+    return user.office?.id || 0;
+  } catch {
+    return 0;
+  }
+};
+
