@@ -6,6 +6,8 @@ import DocumentsCreatePage from "./app/routes/DocumentsCreatePage";
 import DocumentRequestPage from "./app/routes/DocumentRequestsPage";
 import DocumentFlowPage from "./app/routes/DocumentFlowPage";
 import LoginPage from "./app/routes/LoginPage";
+import DocumentsAndApprovalsPage from "./app/routes/DocumentsAndApprovalsPage";
+
 
 function App() {
   const [currentRoute, setCurrentRoute] = useState<string>("dashboard");
@@ -74,6 +76,9 @@ function App() {
     case "dashboard":
       content = <DashboardPage />;
       break;
+    case "documents-approvals":
+      content = <DocumentsAndApprovalsPage />;
+      break;
     case "documents-list":
       content = (
         <DocumentsListPage
@@ -84,6 +89,7 @@ function App() {
         />
       );
       break;
+
     case "documents-create":
       content = <DocumentsCreatePage />;
       break;

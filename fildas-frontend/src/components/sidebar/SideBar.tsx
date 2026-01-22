@@ -6,10 +6,11 @@ interface SidebarProps {
 }
 
 const links = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "documents-list", label: "Documents" },
-  { id: "documents-create", label: "Create document" },
-  { id: "documents-request", label: "Request document" },
+  { id: "documents-approvals", label: "📋 Documents & Approvals" },
+  { id: "dashboard", label: "🏠 Dashboard" },
+  { id: "documents-list", label: "📄 All Documents" },
+  { id: "documents-create", label: "✨ Create document" },
+  { id: "documents-request", label: "📝 Request document" },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ current, onNavigate }) => {

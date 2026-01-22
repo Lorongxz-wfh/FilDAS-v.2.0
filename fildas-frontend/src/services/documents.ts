@@ -47,11 +47,15 @@ export async function listDocuments(): Promise<Document[]> {
 }
 
 export async function getDocument(id: number): Promise<Document> {
-  const response = await fetch(`http://127.0.0.1:8000/api/documents/${id}`, {
-    headers: {
-      Accept: "application/json",
+  const response = await fetch(
+    `http://127.0.0.1:8000/api/documents/${id}?t=${Date.now()}`, // Cache bust
+    {
+      headers: {
+        Accept: "application/json",
+        'Cache-Control': 'no-cache',  // Force fresh
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     throw new Error(`Failed to load document (${response.status})`);

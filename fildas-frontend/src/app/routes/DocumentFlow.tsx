@@ -270,13 +270,19 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
       );
 
       if (!response.ok) {
-        throw new Error(`Upload failed: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Upload failed: ${response.status}`,
+        );
       }
 
       // Refresh document data
       const updatedDoc = await getDocument(localDocument.id);
       setLocalDocument(updatedDoc);
+
+      alert("File replaced successfully! Preview updating...");
     } catch (error) {
+      console.error("Upload error:", error);
       alert(`File upload failed: ${(error as Error).message}`);
     } finally {
       setIsUploading(false);
@@ -285,21 +291,33 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
 
   // Revision info save (title + file)
   const handleSaveRevisionInfo = async () => {
+    console.log("🚀 SAVE CLICKED", {
+      id: localDocument.id,
+      hasFile: !!pendingFileToUpload,
+      title: localDocument.title,
+    });
+
+    if (!pendingFileToUpload && localDocument.title === document.title) {
+      alert("No changes detected.");
+      return;
+    }
+
     setIsSavingRevision(true);
 
     try {
       const formData = new FormData();
-      formData.append("title", localDocument.title);
       if (pendingFileToUpload) {
         formData.append("file", pendingFileToUpload);
       }
+      formData.append("title", localDocument.title);
 
       const token = localStorage.getItem("auth_token");
+      console.log("🔑 Token:", !!token ? "EXISTS" : "MISSING");
 
       const response = await fetch(
-        `http://localhost:8000/api/documents/${localDocument.id}/revision-info`,
+        `http://127.0.0.1:8000/api/documents/${localDocument.id}/revision-info`,
         {
-          method: "PATCH",
+          method: "PATCH", // ✅ Backend expects PATCH for revision-info
           headers: {
             Accept: "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -308,16 +326,27 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
         },
       );
 
+      console.log("📡 Response status:", response.status);
+
       if (!response.ok) {
-        throw new Error(`Save failed: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error("❌ Backend error:", errorData);
+        throw new Error(errorData.message || `HTTP ${response.status}`);
       }
 
-      // Refresh document data
-      const updatedDoc = await getDocument(localDocument.id);
-      setLocalDocument(updatedDoc);
-      setPendingFileToUpload(null); // Clear pending file
+      console.log("✅ Backend saved!");
+
+      // Force full refresh
+      window.location.reload(); // Nuclear option - guaranteed fresh data
+      // OR optimistic update:
+      // const updatedDoc = await getDocument(localDocument.id);
+      // setLocalDocument(updatedDoc);
+
+      setPendingFileToUpload(null);
+      alert("✅ Revision saved successfully!");
     } catch (error) {
-      alert(`Save failed: ${(error as Error).message}`);
+      console.error("💥 Error:", error);
+      alert(`Failed: ${(error as Error).message}`);
     } finally {
       setIsSavingRevision(false);
     }

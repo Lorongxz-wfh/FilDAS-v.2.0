@@ -4,29 +4,38 @@ import type { Document } from "../../services/documents";
 
 interface DocumentsListPageProps {
   onSelectDocument?: (id: number) => void;
+  documents?: Document[]; // NEW: Optional prop for filtered data
 }
 
 const DocumentsListPage: React.FC<DocumentsListPageProps> = ({
   onSelectDocument,
+  documents,
 }) => {
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadedDocuments, setLoadedDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true); // ✅ ADD THIS
+  const [error, setError] = useState<string | null>(null); // ✅ ADD THIS
+
+  // Use prop OR loaded data (single source of truth)
+  const displayDocuments = documents ?? loadedDocuments;
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await listDocuments();
-        setDocuments(data);
-      } catch (err: any) {
-        setError(err?.message ?? "Failed to load documents");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, []);
+    // Only load if no prop passed (standalone mode)
+    if (!documents) {
+      const load = async () => {
+        try {
+          const data = await listDocuments();
+          setLoadedDocuments(data);
+        } catch (err: any) {
+          setError(err?.message ?? "Failed to load documents");
+        } finally {
+          setLoading(false);
+        }
+      };
+      load();
+    } else {
+      setLoading(false); // Prop provided = instant ready
+    }
+  }, [documents]); // Re-run if prop changes
 
   if (loading) {
     return <div className="text-sm text-slate-600">Loading documents…</div>;
@@ -40,15 +49,15 @@ const DocumentsListPage: React.FC<DocumentsListPageProps> = ({
     );
   }
 
-  if (documents.length === 0) {
+  if (displayDocuments.length === 0) {
     return (
       <section className="space-y-3">
         <h1 className="text-xl font-semibold tracking-tight text-slate-900">
           Documents
         </h1>
         <p className="text-sm text-slate-600">
-          There are no documents yet. Try creating one from the “Create
-          document” page.
+          There are no documents yet. Try creating one from the "Create
+          document" page.
         </p>
       </section>
     );
@@ -74,16 +83,15 @@ const DocumentsListPage: React.FC<DocumentsListPageProps> = ({
           </thead>
 
           <tbody>
-            {documents.map((doc) => (
+            {displayDocuments.map((doc) => (
               <tr
                 key={doc.id}
                 className="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
                 onClick={() => onSelectDocument?.(doc.id)}
               >
                 <td className="px-4 py-2">{doc.title}</td>
-                <td className="px-4 py-2">{doc.code}</td>
+                <td className="px-4 py-2">{doc.code || "—"}</td>
                 <td className="px-4 py-2">{doc.doctype}</td>
-
                 <td className="px-4 py-2">{doc.status}</td>
                 <td className="px-4 py-2">{doc.version_number}</td>
                 <td className="px-4 py-2 text-xs text-slate-500">
