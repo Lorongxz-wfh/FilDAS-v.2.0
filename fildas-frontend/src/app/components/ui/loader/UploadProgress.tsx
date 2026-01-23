@@ -4,7 +4,7 @@ interface UploadProgressBarProps {
   value: number; // 0..100
 }
 
-const UploadProgressBar: React.FC<UploadProgressBarProps> = ({ value }) => {
+const UploadProgress: React.FC<UploadProgressBarProps> = ({ value }) => {
   const safe = Math.max(0, Math.min(100, value));
 
   return (
@@ -20,4 +20,4 @@ const UploadProgressBar: React.FC<UploadProgressBarProps> = ({ value }) => {
   );
 };
 
-export default UploadProgressBar;
+export default UploadProgress;

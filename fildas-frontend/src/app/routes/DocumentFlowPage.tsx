@@ -20,6 +20,17 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
 
   const API_BASE = "http://localhost:8000/api";
 
+  function getRole(): string {
+    try {
+      const raw = localStorage.getItem("auth_user");
+      if (!raw) return "";
+      const user = JSON.parse(raw);
+      return String(user?.role ?? "");
+    } catch {
+      return "";
+    }
+  }
+
   async function createRevision(docId: number): Promise<Document> {
     const token = localStorage.getItem("auth_token");
 
@@ -131,6 +142,35 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
               const rootId = latest.parent_document_id || latest.id;
               const versions = await getDocumentVersions(rootId);
               setAllVersions(versions);
+            }}
+            onDeleted={async (deletedId: number) => {
+              const role = getRole();
+
+              // If deleted doc is a revision, load previous version in-place
+              const idx = allVersions.findIndex((v) => v.id === deletedId);
+              if (idx > 0) {
+                const prev = allVersions[idx - 1];
+                setLoading(true);
+                try {
+                  const prevDoc = await getDocument(prev.id);
+                  setDocument(prevDoc);
+                  const rootId = prevDoc.parent_document_id || prevDoc.id;
+                  const versions = await getDocumentVersions(rootId);
+                  setAllVersions(versions);
+
+                  window.history.replaceState(null, "", `/?doc=${prev.id}`);
+                } finally {
+                  setLoading(false);
+                }
+                return;
+              }
+
+              // Root draft deleted → go back to appropriate list
+              if (role === "qa") {
+                window.location.href = "/?page=documents-list";
+              } else {
+                window.location.href = "/?page=documents-approvals";
+              }
             }}
           />
         </div>

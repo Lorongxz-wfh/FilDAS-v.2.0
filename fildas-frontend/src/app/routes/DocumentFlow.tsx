@@ -1,4 +1,6 @@
 import React from "react";
+import UploadProgress from "../components/ui/loader/UploadProgress";
+import InlineSpinner from "../components/ui/loader/InlineSpinner";
 import type { Document } from "../../services/documents";
 import { getDocumentPreviewUrl, getDocument } from "../../services/documents";
 
@@ -30,9 +32,26 @@ async function updateDocumentStatus(
   }
 }
 
+async function deleteDocument(id: number) {
+  const token = localStorage.getItem("auth_token");
+  const res = await fetch(`${API_BASE}/documents/${id}`, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `HTTP ${res.status}`);
+  }
+}
+
 interface DocumentFlowProps {
   document: Document;
   onChanged?: () => Promise<void> | void;
+  onDeleted?: (deletedId: number) => Promise<void> | void;
 }
 
 type PhaseId = "review" | "approval" | "distribution";
@@ -209,7 +228,11 @@ function phaseOrder(phaseId: PhaseId): number {
   return phases.findIndex((p) => p.id === phaseId);
 }
 
-const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
+const DocumentFlow: React.FC<DocumentFlowProps> = ({
+  document,
+  onChanged,
+  onDeleted,
+}) => {
   const [localDocument, setLocalDocument] = React.useState(document);
   const [initialTitle, setInitialTitle] = React.useState(document.title);
   const [initialNotes, setInitialNotes] = React.useState(
@@ -224,7 +247,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
   }, [document.id]);
 
   const [isUploading, setIsUploading] = React.useState(false);
-  const [isSavingRevision, setIsSavingRevision] = React.useState(false);
+  const [isSavingTitle, setIsSavingTitle] = React.useState(false);
+  const [isChangingStatus, setIsChangingStatus] = React.useState(false);
+
+  const [uploadProgress, setUploadProgress] = React.useState(0); // 0..100
+
   const [pendingFileToUpload, setPendingFileToUpload] =
     React.useState<File | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -242,7 +269,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
       preview_path: fresh.preview_path,
       original_filename: fresh.original_filename,
     }));
-    setPreviewNonce((n) => n + 1); // reload iframe [web:159]
+    setPreviewNonce((n) => n + 1); // reload iframe
   };
 
   const refreshForNotes = async () => {
@@ -305,31 +332,49 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
 
   const uploadFile = async (file: File) => {
     setIsUploading(true);
+    setUploadProgress(0);
 
     try {
       const formData = new FormData();
       formData.append("file", file);
 
       const token = localStorage.getItem("auth_token");
+      if (!token) throw new Error("Not authenticated.");
 
-      const response = await fetch(
-        `http://localhost:8000/api/documents/${localDocument.id}/replace-file`,
-        {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: formData,
-        },
-      );
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `Upload failed: ${response.status}`,
+        xhr.open(
+          "POST",
+          `${API_BASE}/documents/${localDocument.id}/replace-file`,
         );
-      }
+        xhr.setRequestHeader("Accept", "application/json");
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable) return;
+          const percent = Math.round((event.loaded / event.total) * 100);
+          setUploadProgress(percent);
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            try {
+              const data = JSON.parse(xhr.responseText || "{}");
+              reject(
+                new Error(data.message || `Upload failed: HTTP ${xhr.status}`),
+              );
+            } catch {
+              reject(new Error(`Upload failed: HTTP ${xhr.status}`));
+            }
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Upload failed: network error"));
+        xhr.send(formData);
+      });
 
       await refreshForPreview();
       alert("File replaced successfully! Preview updating...");
@@ -338,6 +383,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
       alert(`File upload failed: ${(error as Error).message}`);
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -345,8 +391,42 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
     fileInputRef.current?.click();
   };
 
+  async function saveTitleOnly(opts: { title: string }) {
+    const token = localStorage.getItem("auth_token");
+    if (!token) throw new Error("Not authenticated.");
+
+    // Draft uses PATCH /documents/{id}
+    if (localDocument.status === "Draft") {
+      const res = await fetch(`${API_BASE}/documents/${localDocument.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: opts.title }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${res.status}`);
+      }
+      return;
+    }
+
+    // Revision-Draft uses existing multipart endpoint (title only)
+    if (localDocument.status === "Revision-Draft") {
+      await saveRevisionInfo({ title: opts.title });
+    }
+  }
+
   async function saveRevisionInfo(opts: { title: string; file?: File }) {
-    setIsSavingRevision(true);
+    const isFileUpload = Boolean(opts.file);
+    if (isFileUpload) {
+      setIsUploading(true);
+      setUploadProgress(0);
+    }
+
     try {
       const formData = new FormData();
       formData.append("title", opts.title);
@@ -354,24 +434,59 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
 
       const token = localStorage.getItem("auth_token");
 
-      const response = await fetch(
-        `${API_BASE}/documents/${localDocument.id}/revision-info`,
-        {
-          method: "POST", // must be POST for multipart to work [web:136][web:139]
-          headers: {
-            Accept: "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: formData,
-        },
-      );
+      if (!token) throw new Error("Not authenticated.");
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP ${response.status}`);
+      if (opts.file) {
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open(
+            "POST",
+            `${API_BASE}/documents/${localDocument.id}/revision-info`,
+          );
+          xhr.setRequestHeader("Accept", "application/json");
+          xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+          xhr.upload.onprogress = (event) => {
+            if (!event.lengthComputable) return;
+            const percent = Math.round((event.loaded / event.total) * 100);
+            setUploadProgress(percent);
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve();
+            else {
+              try {
+                const data = JSON.parse(xhr.responseText || "{}");
+                reject(new Error(data.message || `HTTP ${xhr.status}`));
+              } catch {
+                reject(new Error(`HTTP ${xhr.status}`));
+              }
+            }
+          };
+
+          xhr.onerror = () => reject(new Error("Network error"));
+          xhr.send(formData);
+        });
+      } else {
+        const response = await fetch(
+          `${API_BASE}/documents/${localDocument.id}/revision-info`,
+          {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          },
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `HTTP ${response.status}`);
+        }
       }
 
-      setPendingFileToUpload(null);
+      if (opts.file) setPendingFileToUpload(null);
 
       // If a file was included, refresh preview only; otherwise do nothing extra here.
       // (Title is already updated locally + parent list refresh handled by onChanged)
@@ -380,7 +495,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
       }
       // Title-only saves don’t need any extra refresh (already in localDocument)
     } finally {
-      setIsSavingRevision(false);
+      if (isFileUpload) {
+        setIsUploading(false);
+        setUploadProgress(0);
+      }
     }
   }
 
@@ -430,8 +548,12 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
   }, [localDocument.current_step_notes, localDocument.id, initialNotes]);
 
   React.useEffect(() => {
-    // Only auto-save for Revision-Draft
-    if (localDocument.status !== "Revision-Draft") return;
+    // Auto-save for Draft and Revision-Draft
+    if (
+      localDocument.status !== "Draft" &&
+      localDocument.status !== "Revision-Draft"
+    )
+      return;
 
     // If user hasn't changed title compared to loaded version, do nothing
     if (localDocument.title === initialTitle) return;
@@ -442,11 +564,14 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
     }
 
     titleSaveTimerRef.current = window.setTimeout(async () => {
+      setIsSavingTitle(true);
       try {
-        await saveRevisionInfo({ title: localDocument.title });
+        await saveTitleOnly({ title: localDocument.title });
         setInitialTitle(localDocument.title); // reset baseline after successful save
       } catch (e) {
         console.error("Auto-save title failed", e);
+      } finally {
+        setIsSavingTitle(false);
       }
     }, 600);
 
@@ -455,7 +580,12 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
         window.clearTimeout(titleSaveTimerRef.current);
       }
     };
-  }, [localDocument.title, localDocument.status, localDocument.id]);
+  }, [
+    localDocument.title,
+    localDocument.status,
+    localDocument.id,
+    initialTitle,
+  ]);
 
   const handleSaveRevisionInfo = async () => {
     await saveRevisionInfo({
@@ -613,8 +743,13 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
                     className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-lg font-semibold text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                     placeholder="Enter document title"
                   />
-                  {/* No manual save button for Draft/Revision-Draft */}
+                  {isSavingTitle && (
+                    <span className="ml-1 text-slate-400">
+                      <InlineSpinner />
+                    </span>
+                  )}
                 </div>
+
                 <p className="text-xs text-sky-600 bg-sky-50 px-2 py-1 rounded-full mb-2">
                   Revision v{localDocument.version_number} - Edit title or
                   replace file
@@ -657,18 +792,23 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
               </p>
             )}
 
-            {availableActions.length > 0 && (
-              <div className="mt-3 flex flex-col gap-2">
+            {(availableActions.length > 0 ||
+              localDocument.status === "Draft" ||
+              localDocument.status === "Revision-Draft") && (
+              <div className="mt-3 flex flex-wrap gap-2">
                 {availableActions.map((action, index) => (
                   <button
                     key={action.toStatus}
                     type="button"
+                    disabled={isChangingStatus}
                     className={`inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium ${
                       index === 0
                         ? "bg-sky-600 text-white hover:bg-sky-700"
                         : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
+                    } ${isChangingStatus ? "opacity-60 cursor-not-allowed" : ""}`}
                     onClick={async () => {
+                      if (isChangingStatus) return;
+
                       const resolvedStatus =
                         action.toStatus === "QA_EDIT"
                           ? localDocument.parent_document_id
@@ -676,23 +816,66 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
                             : "Draft"
                           : action.toStatus;
 
-                      await updateDocumentStatus(
-                        localDocument.id,
-                        resolvedStatus,
-                        localDocument.current_step_notes ?? null,
-                      );
+                      setIsChangingStatus(true);
+                      try {
+                        await updateDocumentStatus(
+                          localDocument.id,
+                          resolvedStatus,
+                          localDocument.current_step_notes ?? null,
+                        );
 
-                      setLocalDocument((prev) => ({
-                        ...prev,
-                        status: resolvedStatus,
-                      }));
+                        setLocalDocument((prev) => ({
+                          ...prev,
+                          status: resolvedStatus,
+                        }));
 
-                      if (onChanged) await onChanged();
+                        if (onChanged) await onChanged();
+                      } finally {
+                        setIsChangingStatus(false);
+                      }
                     }}
                   >
-                    {action.label}
+                    <span className="inline-flex items-center gap-2">
+                      {isChangingStatus && (
+                        <InlineSpinner className="h-3 w-3 border-2" />
+                      )}
+                      {action.label}
+                    </span>
                   </button>
                 ))}
+
+                {(localDocument.status === "Draft" ||
+                  localDocument.status === "Revision-Draft") && (
+                  <button
+                    type="button"
+                    disabled={isChangingStatus}
+                    className={`inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium border border-rose-300 bg-white text-rose-700 hover:bg-rose-50 ${
+                      isChangingStatus ? "opacity-60 cursor-not-allowed" : ""
+                    }`}
+                    onClick={async () => {
+                      const label =
+                        localDocument.status === "Draft"
+                          ? "Cancel Draft"
+                          : "Cancel Revision";
+
+                      const ok = window.confirm(
+                        `${label}?\n\nThis will delete this document and cannot be undone.`,
+                      );
+                      if (!ok) return;
+
+                      try {
+                        await deleteDocument(localDocument.id);
+                        if (onDeleted) await onDeleted(localDocument.id);
+                      } catch (e) {
+                        alert((e as Error).message);
+                      }
+                    }}
+                  >
+                    {localDocument.status === "Draft"
+                      ? "Cancel Draft"
+                      : "Cancel Revision"}
+                  </button>
+                )}
               </div>
             )}
 
@@ -771,14 +954,16 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
               Download
             </button>
           )}
-
           <div
-            className={`h-[600px] w-full overflow-hidden rounded-xl border-2 transition-all ${
+            className={`relative h-[600px] w-full overflow-hidden rounded-xl border-2 transition-all ${
               localDocument.file_path
                 ? "border-slate-200 bg-white cursor-pointer hover:border-sky-300 hover:shadow-md"
                 : "border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-sky-400 hover:bg-sky-50"
             }`}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              if (isUploading) return;
+              fileInputRef.current?.click();
+            }}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -826,12 +1011,15 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
             )}
             {isUploading && (
               <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600 mx-auto mb-2"></div>
-                  <p className="text-sm text-slate-600">Uploading...</p>
+                <div className="w-full max-w-sm rounded-xl bg-white p-4 shadow-md">
+                  <p className="mb-3 text-sm font-medium text-slate-700">
+                    {uploadProgress >= 100 ? "Processing..." : "Uploading..."}
+                  </p>
+                  <UploadProgress value={uploadProgress} />
                 </div>
               </div>
             )}
+
             {/* ✅ ALWAYS VISIBLE - end of preview div */}
             <input
               ref={fileInputRef}
