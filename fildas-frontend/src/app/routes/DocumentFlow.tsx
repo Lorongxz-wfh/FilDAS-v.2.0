@@ -12,7 +12,7 @@ async function updateDocumentStatus(
 ) {
   const token = localStorage.getItem("auth_token");
 
-  await fetch(`${API_BASE}/documents/${id}`, {
+  const res = await fetch(`${API_BASE}/documents/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -23,10 +23,16 @@ async function updateDocumentStatus(
       current_step_notes: notes ?? undefined,
     }),
   });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || `HTTP ${res.status}`);
+  }
 }
 
 interface DocumentFlowProps {
   document: Document;
+  onChanged?: () => Promise<void> | void;
 }
 
 type PhaseId = "review" | "approval" | "distribution";
@@ -113,19 +119,28 @@ type TransitionAction = {
 const transitions: Record<string, TransitionAction[]> = {
   // Review phase
   Draft: [
+    // ✅ Explicit Draft
     {
       toStatus: "For Department Review",
       label: "Send to Department for review",
     },
   ],
+  "Revision-Draft": [
+    // ✅ Explicit Revision-Draft
+    {
+      toStatus: "For Department Review",
+      label: "Send to Department for review (revision)",
+    },
+  ],
+
   "For Department Review": [
     {
       toStatus: "For VPAA Review",
       label: "Forward to VPAA for review",
     },
     {
-      toStatus: "Draft",
-      label: "Return to QA",
+      toStatus: "QA_EDIT",
+      label: "Return to QA (edit)",
     },
   ],
   "For VPAA Review": [
@@ -134,8 +149,8 @@ const transitions: Record<string, TransitionAction[]> = {
       label: "Start approval phase (Department approval)",
     },
     {
-      toStatus: "Draft",
-      label: "Return to QA",
+      toStatus: "QA_EDIT",
+      label: "Return to QA (edit)",
     },
   ],
 
@@ -146,8 +161,8 @@ const transitions: Record<string, TransitionAction[]> = {
       label: "Forward to VPAA for approval",
     },
     {
-      toStatus: "Draft",
-      label: "Return to QA review",
+      toStatus: "QA_EDIT",
+      label: "Return to QA (edit)",
     },
   ],
   "For VPAA Approval": [
@@ -156,8 +171,8 @@ const transitions: Record<string, TransitionAction[]> = {
       label: "Forward to President for approval",
     },
     {
-      toStatus: "Draft",
-      label: "Return to QA review",
+      toStatus: "QA_EDIT",
+      label: "Return to QA (edit)",
     },
   ],
   "For President Approval": [
@@ -166,8 +181,8 @@ const transitions: Record<string, TransitionAction[]> = {
       label: "Forward to QA for distribution",
     },
     {
-      toStatus: "Draft",
-      label: "Return to QA review",
+      toStatus: "QA_EDIT",
+      label: "Return to QA (edit)",
     },
   ],
 
@@ -178,8 +193,8 @@ const transitions: Record<string, TransitionAction[]> = {
       label: "Mark as distributed",
     },
     {
-      toStatus: "Draft",
-      label: "Return to QA review",
+      toStatus: "QA_EDIT",
+      label: "Return to QA (edit)",
     },
   ],
   Distributed: [],
@@ -194,15 +209,51 @@ function phaseOrder(phaseId: PhaseId): number {
   return phases.findIndex((p) => p.id === phaseId);
 }
 
-const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
+const DocumentFlow: React.FC<DocumentFlowProps> = ({ document, onChanged }) => {
   const [localDocument, setLocalDocument] = React.useState(document);
+  const [initialTitle, setInitialTitle] = React.useState(document.title);
+  const [initialNotes, setInitialNotes] = React.useState(
+    document.current_step_notes ?? "",
+  );
+
+  React.useEffect(() => {
+    setLocalDocument(document);
+    setInitialTitle(document.title);
+    setInitialNotes(document.current_step_notes ?? "");
+    setPendingFileToUpload(null);
+  }, [document.id]);
+
   const [isUploading, setIsUploading] = React.useState(false);
   const [isSavingRevision, setIsSavingRevision] = React.useState(false);
   const [pendingFileToUpload, setPendingFileToUpload] =
     React.useState<File | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const previewUrl = getDocumentPreviewUrl(localDocument.id); // ← CORRECT: after localDocument
+  const [previewNonce, setPreviewNonce] = React.useState(0);
+
+  const previewUrl = `${getDocumentPreviewUrl(localDocument.id)}?v=${previewNonce}`;
+
+  const refreshForPreview = async () => {
+    const fresh = await getDocument(localDocument.id);
+    // Update only file/preview-related fields + keep other local edits
+    setLocalDocument((prev) => ({
+      ...prev,
+      file_path: fresh.file_path,
+      preview_path: fresh.preview_path,
+      original_filename: fresh.original_filename,
+    }));
+    setPreviewNonce((n) => n + 1); // reload iframe [web:159]
+  };
+
+  const refreshForNotes = async () => {
+    const fresh = await getDocument(localDocument.id);
+    // Update only notes-related field
+    setLocalDocument((prev) => ({
+      ...prev,
+      current_step_notes: fresh.current_step_notes,
+    }));
+    setInitialNotes(fresh.current_step_notes ?? "");
+  };
 
   // File upload handlers
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -224,7 +275,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
     const file = files[0];
 
     if (file && isValidFile(file)) {
-      await uploadFile(file);
+      if (localDocument.status === "Revision-Draft") {
+        await saveRevisionInfo({ file, title: localDocument.title });
+      } else {
+        await uploadFile(file);
+      }
     }
   };
 
@@ -276,10 +331,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
         );
       }
 
-      // Refresh document data
-      const updatedDoc = await getDocument(localDocument.id);
-      setLocalDocument(updatedDoc);
-
+      await refreshForPreview();
       alert("File replaced successfully! Preview updating...");
     } catch (error) {
       console.error("Upload error:", error);
@@ -289,35 +341,23 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
     }
   };
 
-  // Revision info save (title + file)
-  const handleSaveRevisionInfo = async () => {
-    console.log("🚀 SAVE CLICKED", {
-      id: localDocument.id,
-      hasFile: !!pendingFileToUpload,
-      title: localDocument.title,
-    });
+  const handleReplaceFileClick = () => {
+    fileInputRef.current?.click();
+  };
 
-    if (!pendingFileToUpload && localDocument.title === document.title) {
-      alert("No changes detected.");
-      return;
-    }
-
+  async function saveRevisionInfo(opts: { title: string; file?: File }) {
     setIsSavingRevision(true);
-
     try {
       const formData = new FormData();
-      if (pendingFileToUpload) {
-        formData.append("file", pendingFileToUpload);
-      }
-      formData.append("title", localDocument.title);
+      formData.append("title", opts.title);
+      if (opts.file) formData.append("file", opts.file);
 
       const token = localStorage.getItem("auth_token");
-      console.log("🔑 Token:", !!token ? "EXISTS" : "MISSING");
 
       const response = await fetch(
-        `http://127.0.0.1:8000/api/documents/${localDocument.id}/revision-info`,
+        `${API_BASE}/documents/${localDocument.id}/revision-info`,
         {
-          method: "PATCH", // ✅ Backend expects PATCH for revision-info
+          method: "POST", // must be POST for multipart to work [web:136][web:139]
           headers: {
             Accept: "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -326,46 +366,112 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
         },
       );
 
-      console.log("📡 Response status:", response.status);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("❌ Backend error:", errorData);
         throw new Error(errorData.message || `HTTP ${response.status}`);
       }
 
-      console.log("✅ Backend saved!");
-
-      // Force full refresh
-      window.location.reload(); // Nuclear option - guaranteed fresh data
-      // OR optimistic update:
-      // const updatedDoc = await getDocument(localDocument.id);
-      // setLocalDocument(updatedDoc);
-
       setPendingFileToUpload(null);
-      alert("✅ Revision saved successfully!");
-    } catch (error) {
-      console.error("💥 Error:", error);
-      alert(`Failed: ${(error as Error).message}`);
+
+      // If a file was included, refresh preview only; otherwise do nothing extra here.
+      // (Title is already updated locally + parent list refresh handled by onChanged)
+      if (opts.file) {
+        await refreshForPreview();
+      }
+      // Title-only saves don’t need any extra refresh (already in localDocument)
     } finally {
       setIsSavingRevision(false);
     }
-  };
+  }
 
-  const handleReplaceFileClick = () => {
-    fileInputRef.current?.click();
+  const titleSaveTimerRef = React.useRef<number | null>(null);
+
+  const notesSaveTimerRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    // Don’t auto-save if nothing changed vs the currently loaded doc
+    if ((localDocument.current_step_notes ?? "") === initialNotes) return;
+
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
+
+    if (notesSaveTimerRef.current)
+      window.clearTimeout(notesSaveTimerRef.current);
+
+    notesSaveTimerRef.current = window.setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/documents/${localDocument.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            current_step_notes: localDocument.current_step_notes,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || `HTTP ${res.status}`);
+        }
+
+        await refreshForNotes();
+      } catch (e) {
+        console.error("Auto-save notes failed", e);
+      }
+    }, 600);
+
+    return () => {
+      if (notesSaveTimerRef.current)
+        window.clearTimeout(notesSaveTimerRef.current);
+    };
+  }, [localDocument.current_step_notes, localDocument.id, initialNotes]);
+
+  React.useEffect(() => {
+    // Only auto-save for Revision-Draft
+    if (localDocument.status !== "Revision-Draft") return;
+
+    // If user hasn't changed title compared to loaded version, do nothing
+    if (localDocument.title === initialTitle) return;
+
+    // Debounce: wait 600ms after last keystroke
+    if (titleSaveTimerRef.current) {
+      window.clearTimeout(titleSaveTimerRef.current);
+    }
+
+    titleSaveTimerRef.current = window.setTimeout(async () => {
+      try {
+        await saveRevisionInfo({ title: localDocument.title });
+        setInitialTitle(localDocument.title); // reset baseline after successful save
+      } catch (e) {
+        console.error("Auto-save title failed", e);
+      }
+    }, 600);
+
+    return () => {
+      if (titleSaveTimerRef.current) {
+        window.clearTimeout(titleSaveTimerRef.current);
+      }
+    };
+  }, [localDocument.title, localDocument.status, localDocument.id]);
+
+  const handleSaveRevisionInfo = async () => {
+    await saveRevisionInfo({
+      title: localDocument.title,
+      file: pendingFileToUpload ?? undefined,
+    });
   };
 
   // Update fileSelect to set pending file for revisions
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && isValidFile(file)) {
       if (localDocument.status === "Revision-Draft") {
-        setPendingFileToUpload(file);
-        // Auto-save title + new file
-        handleSaveRevisionInfo();
+        await saveRevisionInfo({ file, title: localDocument.title });
       } else {
-        uploadFile(file);
+        await uploadFile(file);
       }
     }
   };
@@ -490,7 +596,8 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
         {/* left: meta + notes */}
         <div className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
-            {localDocument.status === "Revision-Draft" ? (
+            {localDocument.status === "Draft" ||
+            localDocument.status === "Revision-Draft" ? (
               // REVISION: Editable title + replace button
               <>
                 <div className="flex items-center gap-3 mb-3">
@@ -506,14 +613,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
                     className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-lg font-semibold text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                     placeholder="Enter document title"
                   />
-                  <button
-                    type="button"
-                    onClick={handleSaveRevisionInfo}
-                    disabled={isSavingRevision}
-                    className="inline-flex items-center rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                  >
-                    {isSavingRevision ? "Saving..." : "Save"}
-                  </button>
+                  {/* No manual save button for Draft/Revision-Draft */}
                 </div>
                 <p className="text-xs text-sky-600 bg-sky-50 px-2 py-1 rounded-full mb-2">
                   Revision v{localDocument.version_number} - Edit title or
@@ -569,16 +669,25 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
                         : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                     }`}
                     onClick={async () => {
+                      const resolvedStatus =
+                        action.toStatus === "QA_EDIT"
+                          ? localDocument.parent_document_id
+                            ? "Revision-Draft"
+                            : "Draft"
+                          : action.toStatus;
+
                       await updateDocumentStatus(
                         localDocument.id,
-                        action.toStatus,
+                        resolvedStatus,
                         localDocument.current_step_notes ?? null,
                       );
 
                       setLocalDocument((prev) => ({
                         ...prev,
-                        status: action.toStatus,
+                        status: resolvedStatus,
                       }));
+
+                      if (onChanged) await onChanged();
                     }}
                   >
                     {action.label}
@@ -608,7 +717,8 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
         <div className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 flex items-center justify-between">
             Document preview
-            {localDocument.status === "Revision-Draft" &&
+            {(localDocument.status === "Draft" ||
+              localDocument.status === "Revision-Draft") &&
               localDocument.file_path && (
                 <button
                   type="button"
@@ -633,6 +743,35 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
               )}
           </h2>
 
+          {[
+            "For Department Approval",
+            "For VPAA Approval",
+            "For President Approval",
+          ].includes(localDocument.status) && (
+            <button
+              type="button"
+              onClick={() =>
+                window.open(getDocumentPreviewUrl(localDocument.id), "_blank")
+              }
+              className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-200 transition-colors ml-2"
+            >
+              <svg
+                className="h-3 w-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 10l-5.5 5.5m0 0L8 19l5.5-5.5m0 0L19 8m-5.5 5.5V6a1 1 0 012 0v9"
+                />
+              </svg>
+              Download
+            </button>
+          )}
+
           <div
             className={`h-[600px] w-full overflow-hidden rounded-xl border-2 transition-all ${
               localDocument.file_path
@@ -646,6 +785,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
           >
             {localDocument.file_path && localDocument.preview_path ? (
               <iframe
+                key={`${localDocument.id}-${previewNonce}`}
                 src={previewUrl}
                 title="Document preview"
                 className="h-full w-full"
@@ -682,13 +822,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
                     {localDocument.original_filename}
                   </p>
                 )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                  className="sr-only"
-                  onChange={handleFileSelect}
-                />
               </div>
             )}
             {isUploading && (
@@ -699,6 +832,14 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({ document }) => {
                 </div>
               </div>
             )}
+            {/* ✅ ALWAYS VISIBLE - end of preview div */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+              className="sr-only"
+              onChange={handleFileSelect}
+            />
           </div>
         </div>
       </div>

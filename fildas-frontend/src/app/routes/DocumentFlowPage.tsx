@@ -46,9 +46,7 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
 
         // Fetch versions immediately using new endpoint
         const rootId = data.parent_document_id || data.id;
-        const versions = await fetch(
-          `${API_BASE}/documents/${rootId}/versions`,
-        ).then((r) => r.json());
+        const versions = await getDocumentVersions(rootId);
         setAllVersions(versions);
       } catch (err: any) {
         setError(err?.message ?? "Failed to load document");
@@ -124,7 +122,17 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
 
         {/* Document Flow */}
         <div className="flex-1 overflow-y-auto">
-          <DocumentFlow document={document} />
+          <DocumentFlow
+            document={document}
+            onChanged={async () => {
+              const latest = await getDocument(document.id);
+              setDocument(latest);
+
+              const rootId = latest.parent_document_id || latest.id;
+              const versions = await getDocumentVersions(rootId);
+              setAllVersions(versions);
+            }}
+          />
         </div>
       </div>
 

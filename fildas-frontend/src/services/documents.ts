@@ -19,7 +19,7 @@ export interface Document {
   doctype: "internal" | "external" | "forms";
   code: string | null;
   status: string;
-  version_number: string;
+  version_number: number;
   file_path: string | null;
   preview_path: string | null;
   original_filename: string | null;
@@ -43,7 +43,13 @@ export async function listDocuments(): Promise<Document[]> {
   }
 
   const json = await response.json();
-  return json as Document[];
+  const docs = Array.isArray(json) ? json : json?.data;
+
+  if (!Array.isArray(docs)) {
+    throw new Error("Invalid documents response format");
+  }
+
+  return docs as Document[];
 }
 
 export async function getDocument(id: number): Promise<Document> {
@@ -62,36 +68,37 @@ export async function getDocument(id: number): Promise<Document> {
   }
 
   const json = await response.json();
-  return json as Document;
+  const doc = (json?.data ?? json);
+
+  if (!doc || typeof doc !== "object") {
+    throw new Error("Invalid document response format");
+  }
+
+  return doc as Document;
+
 }
 
 export async function getDocumentVersions(rootId: number): Promise<Document[]> {
-  const allDocs: Document[] = [];
-  
-  // Load root
-  const root = await getDocument(rootId);
-  allDocs.push(root);
-  
-  // Load direct children recursively
-  async function loadChildren(parentId: number) {
-    const response = await fetch(`http://127.0.0.1:8000/api/documents?parent_document_id=${parentId}`, {
-      headers: { Accept: "application/json" },
-    });
-    
-    if (response.ok) {
-      const children = await response.json() as Document[];
-      for (const child of children) {
-        allDocs.push(child);
-        await loadChildren(child.id); // recursion for nested revisions
-      }
-    }
+  const response = await fetch(
+    `http://127.0.0.1:8000/api/documents/${rootId}/versions?t=${Date.now()}`,
+    { headers: { Accept: "application/json" } }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to load document versions (${response.status})`);
   }
-  
-  await loadChildren(rootId);
-  
-  // Sort by version_number numeric
-  return allDocs.sort((a, b) => Number(a.version_number) - Number(b.version_number));
+
+  const json = await response.json();
+  const versions = Array.isArray(json) ? json : json?.data;
+
+  if (!Array.isArray(versions)) {
+    throw new Error("Invalid versions response format");
+  }
+
+  return versions as Document[];
 }
+
+
 
 export interface ApiError extends Error {
   status?: number;
@@ -151,7 +158,8 @@ const token = localStorage.getItem("auth_token");
   }
 
   const json = await response.json();
-  return json as Document;
+  const doc = (json?.data ?? json);
+  return doc as Document;
 }
 
 export function getDocumentPreviewUrl(id: number): string {
