@@ -166,6 +166,43 @@ export function getDocumentPreviewUrl(id: number): string {
   return `http://127.0.0.1:8000/api/documents/${id}/preview`;
 }
 
+export async function downloadDocument(document: Document): Promise<void> {
+  const token = localStorage.getItem("auth_token");
+  if (!token) throw new Error("Not authenticated");
+
+  const url = `http://127.0.0.1:8000/api/documents/${document.id}/download`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/octet-stream",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    let msg = `Download failed (${res.status})`;
+    try {
+      const j = await res.json();
+      if (j?.message) msg = j.message;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  const blob = await res.blob();
+  const objectUrl = window.URL.createObjectURL(blob);
+
+  const a = window.document.createElement("a");
+  a.href = objectUrl;
+  a.download = document.original_filename || `document-${document.id}`;
+  window.document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  window.URL.revokeObjectURL(objectUrl);
+}
+
+
 export interface Office {
   id: number;
   name: string;

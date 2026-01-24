@@ -87,7 +87,7 @@ const DocumentsCreatePage: React.FC = () => {
             />
 
             <div>
-              <label className="block mb-3 text-xs font-medium text-slate-700 mb-1.5">
+              <label className="block mb-4.5 text-xs font-medium text-slate-700">
                 Document Type <span className="text-rose-500">*</span>
               </label>
               <div className="flex gap-4 items-center mt-1.5">

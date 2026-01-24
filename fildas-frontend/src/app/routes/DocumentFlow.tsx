@@ -955,7 +955,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             </button>
           )}
           <div
-            className={`relative h-[600px] w-full overflow-hidden rounded-xl border-2 transition-all ${
+            className={`relative h-150 w-full overflow-hidden rounded-xl border-2 transition-all ${
               localDocument.file_path
                 ? "border-slate-200 bg-white cursor-pointer hover:border-sky-300 hover:shadow-md"
                 : "border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-sky-400 hover:bg-sky-50"

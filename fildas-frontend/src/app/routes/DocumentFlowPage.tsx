@@ -1,18 +1,22 @@
 import React, { useEffect, useState } from "react";
-import {
-  getDocument,
-  getDocumentPreviewUrl,
-  getDocumentVersions,
-} from "../../services/documents";
+import { getDocument, getDocumentVersions } from "../../services/documents";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import type { Document } from "../../services/documents";
 import DocumentFlow from "./DocumentFlow";
+import { useNavigate, useParams } from "react-router-dom";
+import Button from "../components/ui/Button";
+import { Card, CardHeader } from "../components/ui/Card";
+import Alert from "../components/ui/Alert";
 
-interface DocumentFlowPageProps {
-  id: number;
-}
+const DocumentFlowPage: React.FC = () => {
+  const navigate = useNavigate();
+  const params = useParams();
+  const id = Number(params.id);
 
-const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
+  if (!params.id || Number.isNaN(id)) {
+    return <Alert variant="danger">Invalid document id.</Alert>;
+  }
+
   const [document, setDocument] = useState<Document | null>(null);
   const [allVersions, setAllVersions] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,6 +53,58 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
     return (await response.json()) as Document;
   }
 
+  async function cancelRevision(docId: number): Promise<Document> {
+    const token = localStorage.getItem("auth_token");
+
+    const response = await fetch(
+      `${API_BASE}/documents/${docId}/cancel-revision`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || `Failed (${response.status})`);
+    }
+
+    const json = await response.json();
+    return (json?.data ?? json) as Document;
+  }
+
+  async function downloadDistributed(doc: Document): Promise<void> {
+    const token = localStorage.getItem("auth_token");
+    if (!token) throw new Error("Not authenticated");
+
+    const res = await fetch(`${API_BASE}/documents/${doc.id}/download`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Download failed (${res.status})`);
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = window.document.createElement("a");
+    a.href = url;
+    a.download = doc.original_filename || `document-${doc.id}`;
+    window.document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    window.URL.revokeObjectURL(url);
+  }
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -58,7 +114,10 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
         // Fetch versions immediately using new endpoint
         const rootId = data.parent_document_id || data.id;
         const versions = await getDocumentVersions(rootId);
-        setAllVersions(versions);
+        const sorted = [...versions].sort(
+          (a, b) => Number(b.version_number) - Number(a.version_number),
+        );
+        setAllVersions(sorted);
       } catch (err: any) {
         setError(err?.message ?? "Failed to load document");
       } finally {
@@ -74,11 +133,7 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
   }
 
   if (error || !document) {
-    return (
-      <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-        {error ?? "Document not found."}
-      </div>
-    );
+    return <Alert variant="danger">{error ?? "Document not found."}</Alert>;
   }
 
   // Show revise for LATEST Distributed version (v0.0, v1.0, v2.0...)
@@ -92,44 +147,86 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
       {/* LEFT/CENTER: Main content */}
       <div className="flex-1 flex flex-col min-h-0">
         {/* Header WITH REVISION BUTTON */}
-        <div className="rounded-xl border-b border-slate-200 bg-white px-6 py-4 mb-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 truncate">
-                {document.title}
-              </h1>
-              <div className="mt-2 flex items-center gap-4 text-sm text-slate-600">
-                <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">
-                  {document.code}
-                </span>
-                <span>
-                  v{document.version_number}
-                  <span className="ml-1 font-semibold text-slate-900">
-                    ({document.status})
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 truncate">
+                  {document.title}
+                </h1>
+                <div className="mt-2 flex items-center gap-4 text-sm text-slate-600">
+                  <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">
+                    {document.code}
                   </span>
-                </span>
+                  <span>
+                    v{document.version_number}
+                    <span className="ml-1 font-semibold text-slate-900">
+                      ({document.status})
+                    </span>
+                  </span>
+                </div>
+              </div>
+              <div className="ml-auto flex items-center gap-2 shrink-0">
+                {document.status === "Distributed" && document.file_path && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await downloadDistributed(document);
+                      } catch (e: any) {
+                        alert(e.message || "Download failed");
+                      }
+                    }}
+                  >
+                    Download
+                  </Button>
+                )}
+
+                {document.status === "Revision-Draft" && (
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={async () => {
+                      if (!confirm("Cancel this revision draft?")) return;
+
+                      try {
+                        const restored = await cancelRevision(document.id);
+                        navigate(`/documents/${restored.id}`, {
+                          replace: true,
+                        });
+                      } catch (e: any) {
+                        alert(e.message || "Cancel revision failed");
+                      }
+                    }}
+                  >
+                    Cancel revision
+                  </Button>
+                )}
+
+                {isRevisable && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const revised = await createRevision(document.id);
+                        navigate(`/documents/${revised.id}`);
+                      } catch (e: any) {
+                        alert(`Revision failed: ${e.message}`);
+                      }
+                    }}
+                  >
+                    Revise Document
+                  </Button>
+                )}
               </div>
             </div>
-
-            {/* Revision button - ONLY for Distributed originals */}
-            {isRevisable && (
-              <button
-                type="button"
-                className="inline-flex items-center rounded-md bg-slate-700 px-4 py-2 text-xs font-medium text-white hover:bg-slate-800 whitespace-nowrap flex-shrink-0 ml-auto"
-                onClick={async () => {
-                  try {
-                    const revised = await createRevision(document.id);
-                    window.location.href = `/?doc=${revised.id}`;
-                  } catch (e: any) {
-                    alert(`Revision failed: ${e.message}`);
-                  }
-                }}
-              >
-                Revise Document
-              </button>
-            )}
-          </div>
-        </div>
+          </CardHeader>
+        </Card>
 
         {/* Document Flow */}
         <div className="flex-1 overflow-y-auto">
@@ -141,7 +238,10 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
 
               const rootId = latest.parent_document_id || latest.id;
               const versions = await getDocumentVersions(rootId);
-              setAllVersions(versions);
+              const sorted = [...versions].sort(
+                (a, b) => Number(b.version_number) - Number(a.version_number),
+              );
+              setAllVersions(sorted);
             }}
             onDeleted={async (deletedId: number) => {
               const role = getRole();
@@ -156,9 +256,13 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
                   setDocument(prevDoc);
                   const rootId = prevDoc.parent_document_id || prevDoc.id;
                   const versions = await getDocumentVersions(rootId);
-                  setAllVersions(versions);
+                  const sorted = [...versions].sort(
+                    (a, b) =>
+                      Number(b.version_number) - Number(a.version_number),
+                  );
+                  setAllVersions(sorted);
 
-                  window.history.replaceState(null, "", `/?doc=${prev.id}`);
+                  navigate(`/documents/${prev.id}`, { replace: true });
                 } finally {
                   setLoading(false);
                 }
@@ -167,9 +271,9 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
 
               // Root draft deleted → go back to appropriate list
               if (role === "qa") {
-                window.location.href = "/?page=documents-list";
+                navigate("/documents");
               } else {
-                window.location.href = "/?page=documents-approvals";
+                navigate("/documents-approvals");
               }
             }}
           />
@@ -177,7 +281,7 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
       </div>
 
       {/* RIGHT: Versions panel */}
-      <div className="w-56 flex-shrink-0 ml-4 border-l border-slate-200">
+      <div className="w-56 shrink-0 ml-4 border-l border-slate-200">
         <div className="h-[calc(100vh-12rem)] overflow-y-auto p-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-4">
@@ -193,6 +297,7 @@ const DocumentFlowPage: React.FC<DocumentFlowPageProps> = ({ id }) => {
                       setLoading(true);
                       const docData = await getDocument(v.id);
                       setDocument(docData);
+                      navigate(`/documents/${v.id}`, { replace: true });
                     } catch (error) {
                       alert("Failed to load document version");
                     } finally {

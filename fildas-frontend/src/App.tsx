@@ -1,127 +1,35 @@
-import React, { useState, useEffect } from "react";
-import MainLayout from "./app/layout/MainLayout";
+import React from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+
+import LoginPage from "./app/routes/LoginPage";
 import DashboardPage from "./app/routes/DashboardPage";
+import DocumentsAndApprovalsPage from "./app/routes/DocumentsAndApprovalsPage";
 import DocumentsListPage from "./app/routes/DocumentsListPage";
 import DocumentsCreatePage from "./app/routes/DocumentsCreatePage";
 import DocumentRequestPage from "./app/routes/DocumentRequestsPage";
 import DocumentFlowPage from "./app/routes/DocumentFlowPage";
-import LoginPage from "./app/routes/LoginPage";
-import DocumentsAndApprovalsPage from "./app/routes/DocumentsAndApprovalsPage";
 
+import ProtectedLayout from "./app/routes/ProtectedLayout";
 
-function App() {
-  const [currentRoute, setCurrentRoute] = useState<string>("dashboard");
-  const [selectedDocumentId, setSelectedDocumentId] = useState<number | null>(
-    null,
-  );
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-
-  // check token on first load
-  useEffect(() => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
-    setIsAuthenticated(!!token);
-  }, []);
-
-  // Parse URL param for document ID
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const docId = urlParams.get("doc");
-      if (docId && !isNaN(Number(docId))) {
-        setSelectedDocumentId(Number(docId));
-        setCurrentRoute("document-flow");
-      }
-    }
-  }, []);
-
-  // Handle docChanged events from child components
-  useEffect(() => {
-    const handleDocChange = (e: CustomEvent) => {
-      setSelectedDocumentId(e.detail);
-      setCurrentRoute("document-flow");
-    };
-    window.addEventListener("docChanged", handleDocChange as any);
-    return () =>
-      window.removeEventListener("docChanged", handleDocChange as any);
-  }, []);
-
-  const handleLoggedIn = () => {
-    setIsAuthenticated(true);
-    setCurrentRoute("dashboard"); // default after login
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_user");
-    setIsAuthenticated(false);
-    setCurrentRoute("dashboard");
-  };
-
-  const handleNavigate = (route: string) => {
-    setCurrentRoute(route);
-    if (route !== "document-flow") {
-      setSelectedDocumentId(null);
-    }
-  };
-
-  if (!isAuthenticated) {
-    // not logged in: show only login page
-    return <LoginPage onLoggedIn={handleLoggedIn} />;
-  }
-
-  let content: React.ReactNode = null;
-
-  switch (currentRoute) {
-    case "dashboard":
-      content = <DashboardPage />;
-      break;
-    case "documents-approvals":
-      content = <DocumentsAndApprovalsPage />;
-      break;
-    case "documents-list":
-      content = (
-        <DocumentsListPage
-          onSelectDocument={(id) => {
-            setSelectedDocumentId(id);
-            setCurrentRoute("document-flow");
-          }}
-        />
-      );
-      break;
-
-    case "documents-create":
-      content = <DocumentsCreatePage />;
-      break;
-    case "documents-request":
-      content = <DocumentRequestPage />;
-      break;
-    case "document-flow":
-      if (selectedDocumentId != null) {
-        content = <DocumentFlowPage id={selectedDocumentId} />;
-      } else {
-        content = (
-          <div className="text-sm text-slate-600">No document selected.</div>
-        );
-      }
-      break;
-    default:
-      content = (
-        <div className="text-sm text-slate-600">
-          This page is not implemented yet.
-        </div>
-      );
-  }
-
+export default function App() {
   return (
-    <MainLayout
-      currentRoute={currentRoute}
-      onNavigate={handleNavigate}
-      onLogout={handleLogout}
-    >
-      {content}
-    </MainLayout>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+
+      <Route element={<ProtectedLayout />}>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route
+          path="/documents-approvals"
+          element={<DocumentsAndApprovalsPage />}
+        />
+        <Route path="/documents" element={<DocumentsListPage />} />
+        <Route path="/documents/create" element={<DocumentsCreatePage />} />
+        <Route path="/documents/request" element={<DocumentRequestPage />} />
+        <Route path="/documents/:id" element={<DocumentFlowPage />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
   );
 }
-
-export default App;

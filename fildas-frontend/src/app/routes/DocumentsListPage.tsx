@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { listDocuments } from "../../services/documents";
 import type { Document } from "../../services/documents";
+import { useNavigate } from "react-router-dom";
+import Table, { type TableColumn } from "../components/ui/Table";
+import PageHeading from "../components/ui/PageHeading";
+import Button from "../components/ui/Button";
 
 interface DocumentsListPageProps {
-  onSelectDocument?: (id: number) => void;
-  documents?: Document[]; // NEW: Optional prop for filtered data
+  documents?: Document[]; // Optional prop for filtered data
 }
 
-const DocumentsListPage: React.FC<DocumentsListPageProps> = ({
-  onSelectDocument,
-  documents,
-}) => {
+const DocumentsListPage: React.FC<DocumentsListPageProps> = ({ documents }) => {
+  const navigate = useNavigate();
+
   const [loadedDocuments, setLoadedDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true); // ✅ ADD THIS
   const [error, setError] = useState<string | null>(null); // ✅ ADD THIS
@@ -37,71 +39,54 @@ const DocumentsListPage: React.FC<DocumentsListPageProps> = ({
     }
   }, [documents]); // Re-run if prop changes
 
-  if (loading) {
-    return <div className="text-sm text-slate-600">Loading documents…</div>;
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-        {error}
-      </div>
-    );
-  }
-
-  if (displayDocuments.length === 0) {
-    return (
-      <section className="space-y-3">
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-          Documents
-        </h1>
-        <p className="text-sm text-slate-600">
-          There are no documents yet. Try creating one from the "Create
-          document" page.
-        </p>
-      </section>
-    );
-  }
-
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-        Documents
-      </h1>
+      <PageHeading
+        title="Documents"
+        right={
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={() => navigate("/documents/create")}
+          >
+            Create document
+          </Button>
+        }
+      />
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-        <table className="min-w-full text-left text-sm text-slate-700">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-2">Title</th>
-              <th className="px-4 py-2">Code</th>
-              <th className="px-4 py-2">Type</th>
-              <th className="px-4 py-2">Status</th>
-              <th className="px-4 py-2">Version</th>
-              <th className="px-4 py-2">Created</th>
-            </tr>
-          </thead>
+      {(() => {
+        const columns: TableColumn<Document>[] = [
+          { key: "title", header: "Title", render: (d) => d.title },
+          { key: "code", header: "Code", render: (d) => d.code || "—" },
+          { key: "type", header: "Type", render: (d) => d.doctype },
+          { key: "status", header: "Status", render: (d) => d.status },
+          {
+            key: "version",
+            header: "Version",
+            render: (d) => d.version_number,
+            align: "right",
+          },
+          {
+            key: "created",
+            header: "Created",
+            render: (d) => new Date(d.created_at).toLocaleDateString(),
+            className: "text-xs text-slate-500",
+          },
+        ];
 
-          <tbody>
-            {displayDocuments.map((doc) => (
-              <tr
-                key={doc.id}
-                className="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
-                onClick={() => onSelectDocument?.(doc.id)}
-              >
-                <td className="px-4 py-2">{doc.title}</td>
-                <td className="px-4 py-2">{doc.code || "—"}</td>
-                <td className="px-4 py-2">{doc.doctype}</td>
-                <td className="px-4 py-2">{doc.status}</td>
-                <td className="px-4 py-2">{doc.version_number}</td>
-                <td className="px-4 py-2 text-xs text-slate-500">
-                  {new Date(doc.created_at).toLocaleDateString()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        return (
+          <Table<Document>
+            columns={columns}
+            rows={displayDocuments}
+            rowKey={(d) => d.id}
+            onRowClick={(d) => navigate(`/documents/${d.id}`)}
+            loading={loading}
+            error={error}
+            emptyMessage='There are no documents yet. Try creating one from the "Create document" page.'
+          />
+        );
+      })()}
     </section>
   );
 };

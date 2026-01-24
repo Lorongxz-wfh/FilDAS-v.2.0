@@ -2,11 +2,10 @@ import React from "react";
 
 const API_BASE = "http://localhost:8000/api"; // same as elsewhere
 
-interface LoginPageProps {
-  onLoggedIn: () => void;
-}
+import { useNavigate } from "react-router-dom";
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLoggedIn }) => {
+const LoginPage: React.FC = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
@@ -35,7 +34,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoggedIn }) => {
       localStorage.setItem("auth_token", data.token);
       localStorage.setItem("auth_user", JSON.stringify(data.user));
 
-      onLoggedIn(); // tell App to go to dashboard
+      navigate("/dashboard", { replace: true });
     } catch {
       setError("Network error");
     } finally {

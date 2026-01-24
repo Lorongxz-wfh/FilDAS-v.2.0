@@ -43,7 +43,7 @@ const PendingActionsSection: React.FC<Props> = ({
                 {doc.code} • v{doc.version_number}
               </p>
             </div>
-            <div className="ml-3 flex-shrink-0">
+            <div className="ml-3 shrink-0">
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-sky-100 text-sky-800">
                 Take Action →
               </span>
