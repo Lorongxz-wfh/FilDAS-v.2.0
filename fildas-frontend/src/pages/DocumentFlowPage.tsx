@@ -3,19 +3,20 @@ import {
   getDocument,
   getDocumentVersions,
   getDocumentVersion,
+  createRevision,
+  cancelRevision,
+  downloadDocument,
+  type Document,
   type DocumentVersion,
-} from "../../services/documents";
-import LoadingSpinner from "../components/ui/LoadingSpinner";
-import type { Document } from "../../services/documents";
-import DocumentFlow from "./DocumentFlow";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+} from "../services/documents";
+import LoadingSpinner from "../components/ui/loader/LoadingSpinner";
+import DocumentFlow from "../components/documents/DocumentFlow";
+import { useParams, useSearchParams } from "react-router-dom";
 import Button from "../components/ui/Button";
-import { downloadDocument } from "../../services/documents";
 import { Card, CardHeader } from "../components/ui/Card";
 import Alert from "../components/ui/Alert";
 
 const DocumentFlowPage: React.FC = () => {
-  const navigate = useNavigate();
   const params = useParams();
   const id = Number(params.id);
 
@@ -30,90 +31,6 @@ const DocumentFlowPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const API_BASE = "http://localhost:8000/api";
-
-  function getRole(): string {
-    try {
-      const raw = localStorage.getItem("auth_user");
-      if (!raw) return "";
-      const user = JSON.parse(raw);
-      return String(user?.role ?? "");
-    } catch {
-      return "";
-    }
-  }
-
-  async function createRevision(docId: number): Promise<DocumentVersion> {
-    const token = localStorage.getItem("auth_token");
-
-    const response = await fetch(`${API_BASE}/documents/${docId}/revision`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || `Failed (${response.status})`);
-    }
-
-    return (await response.json()) as DocumentVersion;
-  }
-
-  async function cancelRevision(docId: number): Promise<Document> {
-    const token = localStorage.getItem("auth_token");
-
-    const response = await fetch(
-      `${API_BASE}/documents/${docId}/cancel-revision`,
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      },
-    );
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.message || `Failed (${response.status})`);
-    }
-
-    const json = await response.json();
-    return (json?.data ?? json) as Document;
-  }
-
-  async function downloadDistributed(doc: Document): Promise<void> {
-    const token = localStorage.getItem("auth_token");
-    if (!token) throw new Error("Not authenticated");
-
-    const res = await fetch(`${API_BASE}/documents/${doc.id}/download`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || `Download failed (${res.status})`);
-    }
-
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-
-    const a = window.document.createElement("a");
-    a.href = url;
-    a.download = doc.original_filename || `document-${doc.id}`;
-    window.document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    window.URL.revokeObjectURL(url);
-  }
 
   useEffect(() => {
     const load = async () => {
@@ -168,7 +85,7 @@ const DocumentFlowPage: React.FC = () => {
   const isRevisable = isLatestSelected && current?.status === "Distributed";
 
   return (
-    <div className="flex h-full gap-6">
+    <div className="flex h-full min-h-0 gap-6 overflow-hidden">
       {/* LEFT/CENTER: Main content */}
       <div className="flex-1 flex flex-col min-h-0">
         {/* Header WITH REVISION BUTTON */}
@@ -210,6 +127,46 @@ const DocumentFlowPage: React.FC = () => {
                       Download
                     </Button>
                   )}
+
+                {selectedVersion?.status === "Draft" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        if (!confirm("Cancel this revision draft?")) return;
+
+                        await cancelRevision(selectedVersion.id);
+
+                        // refresh everything
+                        const latest = await getDocument(document.id);
+                        setDocument(latest);
+
+                        const versions = await getDocumentVersions(document.id);
+                        const sorted = [...versions].sort(
+                          (a, b) =>
+                            Number(b.version_number) - Number(a.version_number),
+                        );
+                        setAllVersions(sorted);
+
+                        // switch to latest version after cancel
+                        const next = sorted[0] ?? null;
+                        setSelectedVersion(next);
+                        setSearchParams((prev) => {
+                          const p = new URLSearchParams(prev);
+                          if (next) p.set("version", String(next.id));
+                          else p.delete("version");
+                          return p;
+                        });
+                      } catch (e: any) {
+                        alert(e.message || "Cancel failed");
+                      }
+                    }}
+                  >
+                    Cancel revision
+                  </Button>
+                )}
 
                 {isRevisable && (
                   <Button
@@ -264,8 +221,8 @@ const DocumentFlowPage: React.FC = () => {
       </div>
 
       {/* RIGHT: Versions panel */}
-      <div className="w-56 shrink-0 ml-4 border-l border-slate-200">
-        <div className="h-[calc(100vh-12rem)] overflow-y-auto p-4">
+      <div className="w-56 shrink-0 ml-4 border-l border-slate-200 h-full min-h-0">
+        <div className="h-full min-h-0 overflow-y-auto p-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-4">
               Document Versions

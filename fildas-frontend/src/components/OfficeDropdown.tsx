@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import type { Office } from "../../services/documents";
-import { listOffices } from "../../services/documents";
+import type { Office } from "../services/documents";
+import { listOffices } from "../services/documents";
 
 interface OfficeDropdownProps {
   value: number | null;

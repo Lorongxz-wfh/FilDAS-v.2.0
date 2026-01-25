@@ -1,15 +1,15 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
-import LoginPage from "./app/routes/LoginPage";
-import DashboardPage from "./app/routes/DashboardPage";
-import DocumentsAndApprovalsPage from "./app/routes/DocumentsAndApprovalsPage";
-import DocumentsListPage from "./app/routes/DocumentsListPage";
-import DocumentsCreatePage from "./app/routes/DocumentsCreatePage";
-import DocumentRequestPage from "./app/routes/DocumentRequestsPage";
-import DocumentFlowPage from "./app/routes/DocumentFlowPage";
+import LoginPage from "./pages/LoginPage";
+import DashboardPage from "./pages/DashboardPage";
+import DocumentsAndApprovalsPage from "./pages/DocumentsAndApprovalsPage";
+import DocumentsListPage from "./pages/DocumentsListPage";
+import DocumentsCreatePage from "./pages/DocumentsCreatePage";
+import DocumentRequestPage from "./pages/unused/DocumentRequestsPage";
+import DocumentFlowPage from "./pages/DocumentFlowPage";
 
-import ProtectedLayout from "./app/routes/ProtectedLayout";
+import ProtectedLayout from "./pages/ProtectedLayout";
 
 export default function App() {
   return (

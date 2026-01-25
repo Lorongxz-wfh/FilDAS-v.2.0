@@ -3,7 +3,7 @@ import React from "react";
 const API_BASE = "http://localhost:8000/api"; // same as elsewhere
 
 import { useNavigate } from "react-router-dom";
-import { setAuthUser } from "../../lib/auth"; // adjust path if needed
+import { setAuthUser } from "../lib/auth"; // adjust path if needed
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();

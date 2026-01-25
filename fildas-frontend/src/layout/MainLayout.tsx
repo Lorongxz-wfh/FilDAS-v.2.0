@@ -1,6 +1,6 @@
 import React from "react";
-import Navbar from "../../components/navbar/NavBar";
-import Sidebar from "../../components/sidebar/SideBar";
+import Navbar from "../components/navbar/NavBar";
+import Sidebar from "../components/sidebar/SideBar";
 
 interface MainLayoutProps {
   children: React.ReactNode;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { listDocuments } from "../../services/documents";
-import type { Document } from "../../services/documents";
+import { listDocuments } from "../services/documents";
+import type { Document } from "../services/documents";
 import { useNavigate } from "react-router-dom";
 import Table, { type TableColumn } from "../components/ui/Table";
 import PageHeading from "../components/ui/PageHeading";
@@ -40,7 +40,7 @@ const DocumentsListPage: React.FC<DocumentsListPageProps> = ({ documents }) => {
   }, [documents]); // Re-run if prop changes
 
   return (
-    <section className="space-y-4">
+    <section className="flex flex-col gap-4 min-h-0 h-full">
       <PageHeading
         title="Documents"
         right={
@@ -76,15 +76,20 @@ const DocumentsListPage: React.FC<DocumentsListPageProps> = ({ documents }) => {
         ];
 
         return (
-          <Table<Document>
-            columns={columns}
-            rows={displayDocuments}
-            rowKey={(d) => d.id}
-            onRowClick={(d) => navigate(`/documents/${d.id}`)}
-            loading={loading}
-            error={error}
-            emptyMessage='There are no documents yet. Try creating one from the "Create document" page.'
-          />
+          <div className="flex-1 min-h-0 rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div className="h-full min-h-0 overflow-y-auto">
+              <Table<Document>
+                className="h-full"
+                columns={columns}
+                rows={displayDocuments}
+                rowKey={(d) => d.id}
+                onRowClick={(d) => navigate(`/documents/${d.id}`)}
+                loading={loading}
+                error={error}
+                emptyMessage='There are no documents yet. Try creating one from the "Create document" page.'
+              />
+            </div>
+          </div>
         );
       })()}
     </section>

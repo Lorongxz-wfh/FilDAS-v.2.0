@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { listDocuments } from "../../services/documents";
-import type { Document } from "../../services/documents";
+import { listDocuments } from "../services/documents";
+import type { Document } from "../services/documents";
 import PendingActionsSection from "../components/PendingActionsSection";
 import DocumentsListPage from "./DocumentsListPage";
-import { getUserRole, isPendingForRole, isQA } from "../../lib/roleFilters";
+import { getUserRole, isPendingForRole, isQA } from "../lib/roleFilters";
 
 import Alert from "../components/ui/Alert";
 import { Card, CardBody } from "../components/ui/Card";

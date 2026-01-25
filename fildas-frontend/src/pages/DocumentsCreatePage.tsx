@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { createDocument } from "../../services/documents";
+import { createDocumentWithProgress } from "../services/documents";
 import OfficeDropdown from "../components/OfficeDropdown";
 
 const DocumentsCreatePage: React.FC = () => {
@@ -17,6 +17,7 @@ const DocumentsCreatePage: React.FC = () => {
     string,
     string[]
   > | null>(null);
+  const [uploadPct, setUploadPct] = useState(0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,15 +27,19 @@ const DocumentsCreatePage: React.FC = () => {
     setFieldErrors(null);
 
     try {
-      const result = await createDocument({
-        title,
-        owner_office_id: officeCode!,
-        doctype,
-        // notes removed for now (will be DocumentMessage later)
-        file,
-      });
+      setUploadPct(0);
 
-      setMessage(`Document created with ID ${result.id}`);
+      const result = await createDocumentWithProgress(
+        {
+          title,
+          owner_office_id: officeCode!,
+          doctype,
+          file,
+        },
+        (pct) => setUploadPct(pct),
+      );
+
+      setMessage("Document created successfully.");
       setTitle("");
       setOfficeCode(null);
       setDoctype("internal"); // or 'external' if you prefer default
@@ -49,6 +54,7 @@ const DocumentsCreatePage: React.FC = () => {
       }
     } finally {
       setLoading(false);
+      setUploadPct(0);
     }
   };
 
@@ -145,15 +151,33 @@ const DocumentsCreatePage: React.FC = () => {
             <label className="block text-xs font-medium text-slate-700 mb-1.5">
               Attach file <span className="text-rose-500">*</span>
             </label>
-            <input
-              type="file"
-              required
-              className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-sky-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-sky-700 hover:file:bg-sky-100"
-              onChange={(e) => {
-                const selected = e.target.files?.[0] ?? null;
-                setFile(selected);
-              }}
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type="file"
+                required
+                disabled={loading}
+                className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-sky-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-sky-700 hover:file:bg-sky-100 disabled:opacity-60"
+                onChange={(e) => {
+                  const selected = e.target.files?.[0] ?? null;
+                  setFile(selected);
+                }}
+              />
+
+              {loading && (
+                <div className="w-28 shrink-0">
+                  <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden">
+                    <div
+                      className="h-2 bg-sky-600 transition-[width]"
+                      style={{ width: `${Math.max(2, uploadPct)}%` }}
+                    />
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-500 text-right">
+                    {uploadPct}%
+                  </div>
+                </div>
+              )}
+            </div>
+
             <p className="mt-1 text-[11px] text-slate-500">
               Accepts Word, Excel, PowerPoint, or PDF (up to 10 MB).
             </p>

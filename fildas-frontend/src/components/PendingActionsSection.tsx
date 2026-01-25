@@ -1,5 +1,5 @@
 import React from "react";
-import type { Document } from "../../services/documents";
+import type { Document } from "../services/documents";
 
 interface Props {
   documents: Document[];

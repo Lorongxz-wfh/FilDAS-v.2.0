@@ -1,6 +1,6 @@
 import React from "react";
-import UploadProgress from "../components/ui/loader/UploadProgress";
-import InlineSpinner from "../components/ui/loader/InlineSpinner";
+import UploadProgress from "../ui/loader/UploadProgress";
+import InlineSpinner from "../ui/loader/InlineSpinner";
 import type {
   Document,
   DocumentVersion,
@@ -15,10 +15,9 @@ import {
   listWorkflowTasks,
   listDocumentMessages,
   postDocumentMessage,
+  replaceDocumentVersionFileWithProgress,
+  updateDocumentTitle,
 } from "../../services/documents";
-
-// TEMP: direct API call; later you can move this to documents service
-const API_BASE = "http://localhost:8000/api"; // make sure this matches Laravel
 
 interface DocumentFlowProps {
   document: Document;
@@ -326,47 +325,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     setUploadProgress(0);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const token = localStorage.getItem("auth_token");
-      if (!token) throw new Error("Not authenticated.");
-
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-
-        xhr.open(
-          "POST",
-          `${API_BASE}/document-versions/${localVersion.id}/replace-file`,
-        );
-
-        xhr.setRequestHeader("Accept", "application/json");
-        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-
-        xhr.upload.onprogress = (event) => {
-          if (!event.lengthComputable) return;
-          const percent = Math.round((event.loaded / event.total) * 100);
-          setUploadProgress(percent);
-        };
-
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve();
-          } else {
-            try {
-              const data = JSON.parse(xhr.responseText || "{}");
-              reject(
-                new Error(data.message || `Upload failed: HTTP ${xhr.status}`),
-              );
-            } catch {
-              reject(new Error(`Upload failed: HTTP ${xhr.status}`));
-            }
-          }
-        };
-
-        xhr.onerror = () => reject(new Error("Upload failed: network error"));
-        xhr.send(formData);
-      });
+      await replaceDocumentVersionFileWithProgress(
+        localVersion.id,
+        file,
+        (pct) => setUploadProgress(pct),
+      );
 
       await refreshForPreview();
       alert("File replaced successfully! Preview updating...");
@@ -426,23 +389,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   }, [version.id]);
 
   async function saveTitleOnly(opts: { title: string }) {
-    const token = localStorage.getItem("auth_token");
-    if (!token) throw new Error("Not authenticated.");
-
-    const res = await fetch(`${API_BASE}/documents/${document.id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ title: opts.title }),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || `HTTP ${res.status}`);
-    }
+    await updateDocumentTitle(document.id, opts.title);
   }
 
   const titleSaveTimerRef = React.useRef<number | null>(null);
@@ -619,11 +566,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                     </span>
                   )}
                 </div>
-
-                <p className="text-xs text-sky-600 bg-sky-50 px-2 py-1 rounded-full mb-2">
-                  Draft v{localVersion.version_number} - Edit title or replace
-                  file
-                </p>
               </>
             ) : (
               <>
@@ -729,14 +671,14 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             )}
 
             <div className="mt-4">
-              <div className="flex gap-2">
+              <div className="flex border-b border-slate-200">
                 <button
                   type="button"
                   onClick={() => setActiveSideTab("comments")}
-                  className={`rounded-full px-3 py-1 text-xs font-medium border ${
+                  className={`-mb-px px-3 py-2 text-xs font-medium border border-slate-200 border-b-0 rounded-t-md ${
                     activeSideTab === "comments"
-                      ? "border-sky-600 bg-sky-50 text-sky-700"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      ? "border-slate-200 bg-white text-slate-900"
+                      : "border-transparent bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
                   Comments
@@ -745,10 +687,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveSideTab("logs")}
-                  className={`rounded-full px-3 py-1 text-xs font-medium border ${
+                  className={`-mb-px px-3 py-2 text-xs font-medium border border-slate-200 border-b-0 rounded-t-md ${
                     activeSideTab === "logs"
-                      ? "border-sky-600 bg-sky-50 text-sky-700"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      ? "border-slate-200 bg-white text-slate-900"
+                      : "border-transparent bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
                   Workflow logs

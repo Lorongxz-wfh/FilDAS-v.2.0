@@ -1,3 +1,14 @@
+import { getAuthUser } from "../lib/auth";
+
+
+const API_BASE = "http://127.0.0.1:8000/api";
+
+function getAuthToken(): string {
+  const token = localStorage.getItem("auth_token");
+  if (!token) throw new Error("Not authenticated");
+  return token;
+}
+
 export interface CreateDocumentPayload {
   title: string;
   owner_office_id: number;
@@ -7,6 +18,7 @@ export interface CreateDocumentPayload {
   semester?: string;
   file?: File | null;
 }
+
 
 export interface Document {
   id: number;
@@ -29,6 +41,66 @@ export interface Document {
   created_by: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export async function createDocumentWithProgress(
+  payload: CreateDocumentPayload,
+  onProgress?: (pct: number) => void,
+): Promise<Document> {
+  const formData = new FormData();
+  formData.append("title", payload.title);
+  formData.append("owner_office_id", payload.owner_office_id.toString());
+  formData.append("doctype", payload.doctype);
+
+  if (payload.visibility_scope) formData.append("visibility_scope", payload.visibility_scope);
+  if (payload.school_year) formData.append("school_year", payload.school_year);
+  if (payload.semester) formData.append("semester", payload.semester);
+  if (payload.file) formData.append("file", payload.file);
+
+  const token = getAuthToken();
+
+  const url = `${API_BASE}/documents`;
+
+  return await new Promise<Document>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      const pct = Math.round((event.loaded / event.total) * 100);
+      onProgress?.(pct);
+    };
+
+    xhr.onload = () => {
+      const ok = xhr.status >= 200 && xhr.status < 300;
+      if (!ok) {
+        try {
+          const data = JSON.parse(xhr.responseText || "{}");
+          const err: ApiError = new Error(data.message || `Request failed (${xhr.status})`);
+          err.status = xhr.status;
+          if (data?.errors && typeof data.errors === "object") err.details = data.errors;
+          reject(err);
+        } catch {
+          reject(new Error(`Request failed (${xhr.status})`));
+        }
+        return;
+      }
+
+      try {
+        const json = JSON.parse(xhr.responseText || "{}");
+        const doc = (json?.data ?? json) as Document;
+        resolve(doc);
+      } catch {
+        reject(new Error("Invalid server response"));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.send(formData);
+  });
 }
 
 export interface DocumentVersion {
@@ -73,7 +145,6 @@ export interface DocumentMessageSender {
   role?: { id: number; name: string } | null;
 }
 
-
 export interface DocumentMessage {
   id: number;
   document_version_id: number;
@@ -86,18 +157,18 @@ export interface DocumentMessage {
 }
 
 export async function listDocumentMessages(versionId: number): Promise<DocumentMessage[]> {
-  const token = localStorage.getItem("auth_token");
-  if (!token) throw new Error("Not authenticated");
+const token = getAuthToken();
 
-  const res = await fetch(
-    `http://127.0.0.1:8000/api/document-versions/${versionId}/messages?t=${Date.now()}`,
-    {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+const res = await fetch(
+  `${API_BASE}/document-versions/${versionId}/messages?t=${Date.now()}`,
+
+  {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
     },
-  );
+  },
+);
 
   if (!res.ok) {
     let msg = `Failed to load messages (${res.status})`;
@@ -115,10 +186,10 @@ export async function postDocumentMessage(
   versionId: number,
   payload: { message: string; type?: DocumentMessage["type"] },
 ): Promise<DocumentMessage> {
-  const token = localStorage.getItem("auth_token");
-  if (!token) throw new Error("Not authenticated");
+const token = getAuthToken();
 
-  const res = await fetch(`http://127.0.0.1:8000/api/document-versions/${versionId}/messages`, {
+const res = await fetch(`${API_BASE}/document-versions/${versionId}/messages`, {
+
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -141,7 +212,7 @@ export async function postDocumentMessage(
 }
 
 export async function listDocuments(): Promise<Document[]> {
-  const response = await fetch("http://127.0.0.1:8000/api/documents", {
+  const response = await fetch(`${API_BASE}/documents`, {
     headers: {
       Accept: "application/json",
     },
@@ -163,7 +234,7 @@ export async function listDocuments(): Promise<Document[]> {
 
 export async function getDocument(id: number): Promise<Document> {
   const response = await fetch(
-    `http://127.0.0.1:8000/api/documents/${id}?t=${Date.now()}`, // Cache bust
+    `${API_BASE}/documents/${id}?t=${Date.now()}`,
     {
       headers: {
         Accept: "application/json",
@@ -189,7 +260,7 @@ export async function getDocument(id: number): Promise<Document> {
 
 export async function getDocumentVersions(documentId: number): Promise<DocumentVersion[]> {
   const response = await fetch(
-    `http://127.0.0.1:8000/api/documents/${documentId}/versions?t=${Date.now()}`,
+    `${API_BASE}/documents/${documentId}/versions?t=${Date.now()}`,
     { headers: { Accept: "application/json" } }
   );
 
@@ -208,9 +279,46 @@ return versions as DocumentVersion[];
 
 }
 
+export async function createRevision(documentId: number): Promise<DocumentVersion> {
+  const token = getAuthToken();
+
+  const res = await fetch(`${API_BASE}/documents/${documentId}/revision`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Failed (${res.status})`);
+  }
+
+  return (await res.json()) as DocumentVersion;
+}
+
+export async function cancelRevision(versionId: number): Promise<void> {
+  const token = getAuthToken();
+
+  const res = await fetch(`${API_BASE}/document-versions/${versionId}/cancel`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Failed (${res.status})`);
+  }
+}
+
+
 export async function getDocumentVersion(versionId: number): Promise<{ version: DocumentVersion; document: Document }> {
   const response = await fetch(
-    `http://127.0.0.1:8000/api/document-versions/${versionId}?t=${Date.now()}`,
+    `${API_BASE}/document-versions/${versionId}?t=${Date.now()}`,
     { headers: { Accept: "application/json" } },
   );
 
@@ -243,9 +351,9 @@ if (payload.semester) formData.append("semester", payload.semester);
     formData.append("file", payload.file);
   }
 
-const token = localStorage.getItem("auth_token");
+const token = getAuthToken();
 
-  const response = await fetch("http://127.0.0.1:8000/api/documents", {
+  const response = await fetch(`${API_BASE}/documents`, {
     method: "POST",
     headers: {
       Accept: "application/json",
@@ -285,14 +393,78 @@ const token = localStorage.getItem("auth_token");
 }
 
 export function getDocumentPreviewUrl(versionId: number): string {
-  return `http://127.0.0.1:8000/api/document-versions/${versionId}/preview`;
+  return `${API_BASE}/document-versions/${versionId}/preview`;
 }
 
-export async function downloadDocument(version: DocumentVersion): Promise<void> {
-  const token = localStorage.getItem("auth_token");
-  if (!token) throw new Error("Not authenticated");
+export async function replaceDocumentVersionFileWithProgress(
+  versionId: number,
+  file: File,
+  onProgress?: (pct: number) => void,
+): Promise<void> {
+  const token = getAuthToken();
 
-  const url = `http://127.0.0.1:8000/api/document-versions/${version.id}/download`;
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const url = `${API_BASE}/document-versions/${versionId}/replace-file`;
+
+  return await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      const pct = Math.round((event.loaded / event.total) * 100);
+      onProgress?.(pct);
+    };
+
+    xhr.onload = () => {
+      const ok = xhr.status >= 200 && xhr.status < 300;
+      if (ok) return resolve();
+
+      try {
+        const data = JSON.parse(xhr.responseText || "{}");
+        reject(new Error(data.message || `Upload failed (${xhr.status})`));
+      } catch {
+        reject(new Error(`Upload failed (${xhr.status})`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error("Upload failed (network error)"));
+    xhr.send(formData);
+  });
+}
+
+export async function updateDocumentTitle(
+  documentId: number,
+  title: string,
+): Promise<void> {
+  const token = getAuthToken();
+
+  const res = await fetch(`${API_BASE}/documents/${documentId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ title }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Failed (${res.status})`);
+  }
+}
+
+
+export async function downloadDocument(version: DocumentVersion): Promise<void> {
+const token = getAuthToken();
+const url = `${API_BASE}/document-versions/${version.id}/download`;
+
 
   const res = await fetch(url, {
     method: "GET",
@@ -333,7 +505,7 @@ export interface Office {
 }
 
 export async function listOffices(): Promise<Office[]> {
-  const response = await fetch("http://127.0.0.1:8000/api/offices", {
+  const response = await fetch(`${API_BASE}/offices`, {
     headers: {
       Accept: "application/json",
     },
@@ -347,14 +519,8 @@ export async function listOffices(): Promise<Office[]> {
   return json as Office[];
 }
 
-// Get current user office from localStorage
 export const getCurrentUserOfficeId = (): number => {
-  try {
-    const user = JSON.parse(localStorage.getItem('auth_user') || '{}');
-    return user.office?.id || 0;
-  } catch {
-    return 0;
-  }
+  return getAuthUser()?.office?.id ?? 0;
 };
 
 export async function submitWorkflowAction(
@@ -362,10 +528,10 @@ export async function submitWorkflowAction(
   action: string,
   note?: string,
 ): Promise<DocumentVersion> {
-  const token = localStorage.getItem("auth_token");
-  if (!token) throw new Error("Not authenticated");
+const token = getAuthToken();
 
-  const res = await fetch(`http://127.0.0.1:8000/api/document-versions/${versionId}/actions`, {
+const res = await fetch(`${API_BASE}/document-versions/${versionId}/actions`, {
+
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -389,10 +555,10 @@ export async function submitWorkflowAction(
 }
 
 export async function listWorkflowTasks(versionId: number): Promise<WorkflowTask[]> {
-  const token = localStorage.getItem("auth_token");
-  if (!token) throw new Error("Not authenticated");
+const token = getAuthToken();
 
-  const res = await fetch(`http://127.0.0.1:8000/api/document-versions/${versionId}/tasks?t=${Date.now()}`, {
+const res = await fetch(`${API_BASE}/document-versions/${versionId}/tasks?t=${Date.now()}`, {
+
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${token}`,
