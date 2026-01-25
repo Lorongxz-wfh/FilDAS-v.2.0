@@ -1,8 +1,10 @@
 export interface CreateDocumentPayload {
   title: string;
-  office_id: number;
+  owner_office_id: number;
   doctype: "internal" | "external" | "forms";
-  current_step_notes?: string;
+  visibility_scope?: "office" | "global";
+  school_year?: string;
+  semester?: string;
   file?: File | null;
 }
 
@@ -15,7 +17,7 @@ export interface Document {
     name: string;
     code: string;
   } | null;
-  parent_document_id: number | null;
+  parent_document_id?: number | null;
   doctype: "internal" | "external" | "forms";
   code: string | null;
   status: string;
@@ -23,13 +25,120 @@ export interface Document {
   file_path: string | null;
   preview_path: string | null;
   original_filename: string | null;
-  current_step_notes: string | null;
+  current_step_notes?: string | null;
   created_by: number | null;
   created_at: string;
   updated_at: string;
 }
 
+export interface DocumentVersion {
+  id: number;
+  document_id: number;
+  version_number: number;
+  status: string;
+  file_path: string | null;
+  preview_path: string | null;
+  original_filename: string | null;
+  distributed_at: string | null;
+  superseded_at: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
+export interface ApiError extends Error {
+  status?: number;
+  details?: Record<string, string[]>;
+}
+
+export interface WorkflowTask {
+  id: number;
+  document_version_id: number;
+  phase: "review" | "approval" | "registration";
+  step: string;
+  status: "open" | "completed" | "returned" | "rejected";
+  opened_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  assigned_office_id?: number | null;
+  assigned_role_id?: number | null;
+  assigned_user_id?: number | null;
+}
+
+export interface DocumentMessageSender {
+  id: number;
+  full_name: string;
+  profile_photo_path?: string | null;
+  role?: { id: number; name: string } | null;
+}
+
+
+export interface DocumentMessage {
+  id: number;
+  document_version_id: number;
+  sender_user_id: number;
+  type: "comment" | "return_note" | "approval_note" | "system";
+  message: string;
+  created_at: string;
+  updated_at: string;
+  sender?: DocumentMessageSender | null;
+}
+
+export async function listDocumentMessages(versionId: number): Promise<DocumentMessage[]> {
+  const token = localStorage.getItem("auth_token");
+  if (!token) throw new Error("Not authenticated");
+
+  const res = await fetch(
+    `http://127.0.0.1:8000/api/document-versions/${versionId}/messages?t=${Date.now()}`,
+    {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  if (!res.ok) {
+    let msg = `Failed to load messages (${res.status})`;
+    try {
+      const j = await res.json();
+      if (j?.message) msg = j.message;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  return (await res.json()) as DocumentMessage[];
+}
+
+export async function postDocumentMessage(
+  versionId: number,
+  payload: { message: string; type?: DocumentMessage["type"] },
+): Promise<DocumentMessage> {
+  const token = localStorage.getItem("auth_token");
+  if (!token) throw new Error("Not authenticated");
+
+  const res = await fetch(`http://127.0.0.1:8000/api/document-versions/${versionId}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let msg = `Failed to send message (${res.status})`;
+    try {
+      const j = await res.json();
+      if (j?.message) msg = j.message;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  return (await res.json()) as DocumentMessage;
+}
 
 export async function listDocuments(): Promise<Document[]> {
   const response = await fetch("http://127.0.0.1:8000/api/documents", {
@@ -78,9 +187,9 @@ export async function getDocument(id: number): Promise<Document> {
 
 }
 
-export async function getDocumentVersions(rootId: number): Promise<Document[]> {
+export async function getDocumentVersions(documentId: number): Promise<DocumentVersion[]> {
   const response = await fetch(
-    `http://127.0.0.1:8000/api/documents/${rootId}/versions?t=${Date.now()}`,
+    `http://127.0.0.1:8000/api/documents/${documentId}/versions?t=${Date.now()}`,
     { headers: { Accept: "application/json" } }
   );
 
@@ -89,33 +198,46 @@ export async function getDocumentVersions(rootId: number): Promise<Document[]> {
   }
 
   const json = await response.json();
-  const versions = Array.isArray(json) ? json : json?.data;
+const versions = Array.isArray(json) ? json : json?.data;
 
-  if (!Array.isArray(versions)) {
-    throw new Error("Invalid versions response format");
-  }
-
-  return versions as Document[];
+if (!Array.isArray(versions)) {
+  throw new Error("Invalid versions response format");
 }
 
+return versions as DocumentVersion[];
 
+}
 
-export interface ApiError extends Error {
-  status?: number;
-  details?: Record<string, string[]>;
+export async function getDocumentVersion(versionId: number): Promise<{ version: DocumentVersion; document: Document }> {
+  const response = await fetch(
+    `http://127.0.0.1:8000/api/document-versions/${versionId}?t=${Date.now()}`,
+    { headers: { Accept: "application/json" } },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to load document version (${response.status})`);
+  }
+
+  const json = await response.json();
+  if (!json?.version || !json?.document) {
+    throw new Error("Invalid document version response format");
+  }
+
+  return { version: json.version as DocumentVersion, document: (json.document.data ?? json.document) as Document };
 }
 
 export async function createDocument(
   payload: CreateDocumentPayload,
 ): Promise<Document> {
   const formData = new FormData();
-  formData.append("title", payload.title);
-  formData.append("office_id", payload.office_id.toString());
-  formData.append("doctype", payload.doctype);
+formData.append("title", payload.title);
+formData.append("owner_office_id", payload.owner_office_id.toString());
+formData.append("doctype", payload.doctype);
 
-  if (payload.current_step_notes) {
-    formData.append("current_step_notes", payload.current_step_notes);
-  }
+if (payload.visibility_scope) formData.append("visibility_scope", payload.visibility_scope);
+if (payload.school_year) formData.append("school_year", payload.school_year);
+if (payload.semester) formData.append("semester", payload.semester);
+
 
   if (payload.file) {
     formData.append("file", payload.file);
@@ -162,15 +284,15 @@ const token = localStorage.getItem("auth_token");
   return doc as Document;
 }
 
-export function getDocumentPreviewUrl(id: number): string {
-  return `http://127.0.0.1:8000/api/documents/${id}/preview`;
+export function getDocumentPreviewUrl(versionId: number): string {
+  return `http://127.0.0.1:8000/api/document-versions/${versionId}/preview`;
 }
 
-export async function downloadDocument(document: Document): Promise<void> {
+export async function downloadDocument(version: DocumentVersion): Promise<void> {
   const token = localStorage.getItem("auth_token");
   if (!token) throw new Error("Not authenticated");
 
-  const url = `http://127.0.0.1:8000/api/documents/${document.id}/download`;
+  const url = `http://127.0.0.1:8000/api/document-versions/${version.id}/download`;
 
   const res = await fetch(url, {
     method: "GET",
@@ -194,14 +316,13 @@ export async function downloadDocument(document: Document): Promise<void> {
 
   const a = window.document.createElement("a");
   a.href = objectUrl;
-  a.download = document.original_filename || `document-${document.id}`;
+  a.download = version.original_filename || `document-version-${version.id}`;
   window.document.body.appendChild(a);
   a.click();
   a.remove();
 
   window.URL.revokeObjectURL(objectUrl);
 }
-
 
 export interface Office {
   id: number;
@@ -235,4 +356,58 @@ export const getCurrentUserOfficeId = (): number => {
     return 0;
   }
 };
+
+export async function submitWorkflowAction(
+  versionId: number,
+  action: string,
+  note?: string,
+): Promise<DocumentVersion> {
+  const token = localStorage.getItem("auth_token");
+  if (!token) throw new Error("Not authenticated");
+
+  const res = await fetch(`http://127.0.0.1:8000/api/document-versions/${versionId}/actions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ action, note }),
+  });
+
+  if (!res.ok) {
+    let msg = `Request failed (${res.status})`;
+    try {
+      const j = await res.json();
+      if (j?.message) msg = j.message;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  const json = await res.json();
+  return json.version as DocumentVersion;
+}
+
+export async function listWorkflowTasks(versionId: number): Promise<WorkflowTask[]> {
+  const token = localStorage.getItem("auth_token");
+  if (!token) throw new Error("Not authenticated");
+
+  const res = await fetch(`http://127.0.0.1:8000/api/document-versions/${versionId}/tasks?t=${Date.now()}`, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    let msg = `Failed to load workflow tasks (${res.status})`;
+    try {
+      const j = await res.json();
+      if (j?.message) msg = j.message;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  return (await res.json()) as WorkflowTask[];
+}
 

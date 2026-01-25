@@ -28,9 +28,9 @@ const DocumentsCreatePage: React.FC = () => {
     try {
       const result = await createDocument({
         title,
-        office_id: officeCode!,
+        owner_office_id: officeCode!,
         doctype,
-        current_step_notes: notes || undefined,
+        // notes removed for now (will be DocumentMessage later)
         file,
       });
 
@@ -83,7 +83,7 @@ const DocumentsCreatePage: React.FC = () => {
             <OfficeDropdown
               value={officeCode}
               onChange={setOfficeCode}
-              error={fieldErrors?.office_id?.[0]}
+              error={fieldErrors?.owner_office_id?.[0]}
             />
 
             <div>
@@ -133,10 +133,11 @@ const DocumentsCreatePage: React.FC = () => {
             </label>
             <textarea
               rows={3}
-              className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-xs outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+              disabled
+              className="block w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 shadow-xs outline-none"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Draft created by QA, pending department head review."
+              placeholder="Notes will be enabled after workflow/messages migration."
             />
           </div>
 

@@ -1,57 +1,29 @@
 import React from "react";
 import UploadProgress from "../components/ui/loader/UploadProgress";
 import InlineSpinner from "../components/ui/loader/InlineSpinner";
-import type { Document } from "../../services/documents";
-import { getDocumentPreviewUrl, getDocument } from "../../services/documents";
+import type {
+  Document,
+  DocumentVersion,
+  WorkflowTask,
+  DocumentMessage,
+} from "../../services/documents";
+
+import {
+  getDocumentPreviewUrl,
+  getDocumentVersion,
+  submitWorkflowAction,
+  listWorkflowTasks,
+  listDocumentMessages,
+  postDocumentMessage,
+} from "../../services/documents";
 
 // TEMP: direct API call; later you can move this to documents service
 const API_BASE = "http://localhost:8000/api"; // make sure this matches Laravel
 
-async function updateDocumentStatus(
-  id: number,
-  status: string,
-  notes?: string | null,
-) {
-  const token = localStorage.getItem("auth_token");
-
-  const res = await fetch(`${API_BASE}/documents/${id}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({
-      status,
-      current_step_notes: notes ?? undefined,
-    }),
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || `HTTP ${res.status}`);
-  }
-}
-
-async function deleteDocument(id: number) {
-  const token = localStorage.getItem("auth_token");
-  const res = await fetch(`${API_BASE}/documents/${id}`, {
-    method: "DELETE",
-    headers: {
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
-  }
-}
-
 interface DocumentFlowProps {
   document: Document;
+  version: DocumentVersion;
   onChanged?: () => Promise<void> | void;
-  onDeleted?: (deletedId: number) => Promise<void> | void;
 }
 
 type PhaseId = "review" | "approval" | "distribution";
@@ -219,6 +191,29 @@ const transitions: Record<string, TransitionAction[]> = {
   Distributed: [],
 };
 
+function toWorkflowAction(toStatus: string): string | null {
+  switch (toStatus) {
+    case "For Department Review":
+      return "SEND_TO_DEPT_REVIEW";
+    case "For VPAA Review":
+      return "FORWARD_TO_VPAA_REVIEW";
+    case "For Department Approval":
+      return "START_DEPT_APPROVAL";
+    case "For VPAA Approval":
+      return "FORWARD_TO_VPAA_APPROVAL";
+    case "For President Approval":
+      return "FORWARD_TO_PRESIDENT_APPROVAL";
+    case "For QA Distribution":
+      return "FORWARD_TO_QA_DISTRIBUTION";
+    case "Distributed":
+      return "MARK_DISTRIBUTED";
+    case "QA_EDIT":
+      return "RETURN_TO_QA_EDIT";
+    default:
+      return null;
+  }
+}
+
 function findCurrentStep(status: string): FlowStep {
   const found = flowSteps.find((s) => s.statusValue === status);
   return found ?? flowSteps[0];
@@ -228,61 +223,61 @@ function phaseOrder(phaseId: PhaseId): number {
   return phases.findIndex((p) => p.id === phaseId);
 }
 
+function formatWhen(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
+  }
+}
+
 const DocumentFlow: React.FC<DocumentFlowProps> = ({
   document,
+  version,
   onChanged,
-  onDeleted,
 }) => {
-  const [localDocument, setLocalDocument] = React.useState(document);
+  const [localVersion, setLocalVersion] = React.useState(version);
+  const [localTitle, setLocalTitle] = React.useState(document.title);
   const [initialTitle, setInitialTitle] = React.useState(document.title);
-  const [initialNotes, setInitialNotes] = React.useState(
-    document.current_step_notes ?? "",
-  );
 
   React.useEffect(() => {
-    setLocalDocument(document);
+    setLocalVersion(version);
     setInitialTitle(document.title);
-    setInitialNotes(document.current_step_notes ?? "");
-    setPendingFileToUpload(null);
-  }, [document.id]);
+    setLocalTitle(document.title);
+  }, [document.id, version.id]);
 
   const [isUploading, setIsUploading] = React.useState(false);
   const [isSavingTitle, setIsSavingTitle] = React.useState(false);
+  const [tasks, setTasks] = React.useState<WorkflowTask[]>([]);
+  const [messages, setMessages] = React.useState<DocumentMessage[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = React.useState(false);
+  const [draftMessage, setDraftMessage] = React.useState("");
+  const [isSendingMessage, setIsSendingMessage] = React.useState(false);
+  const [isLoadingTasks, setIsLoadingTasks] = React.useState(false);
+  const [uploadProgress, setUploadProgress] = React.useState(0);
   const [isChangingStatus, setIsChangingStatus] = React.useState(false);
+  const [activeSideTab, setActiveSideTab] = React.useState<"comments" | "logs">(
+    "comments",
+  );
 
-  const [uploadProgress, setUploadProgress] = React.useState(0); // 0..100
-
-  const [pendingFileToUpload, setPendingFileToUpload] =
-    React.useState<File | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const [previewNonce, setPreviewNonce] = React.useState(0);
 
-  const previewUrl = `${getDocumentPreviewUrl(localDocument.id)}?v=${previewNonce}`;
+  const previewUrl = `${getDocumentPreviewUrl(localVersion.id)}?v=${previewNonce}`;
 
   const refreshForPreview = async () => {
-    const fresh = await getDocument(localDocument.id);
-    // Update only file/preview-related fields + keep other local edits
-    setLocalDocument((prev) => ({
+    const { version: fresh } = await getDocumentVersion(localVersion.id);
+    setLocalVersion((prev) => ({
       ...prev,
       file_path: fresh.file_path,
       preview_path: fresh.preview_path,
       original_filename: fresh.original_filename,
     }));
+
     setPreviewNonce((n) => n + 1); // reload iframe
   };
 
-  const refreshForNotes = async () => {
-    const fresh = await getDocument(localDocument.id);
-    // Update only notes-related field
-    setLocalDocument((prev) => ({
-      ...prev,
-      current_step_notes: fresh.current_step_notes,
-    }));
-    setInitialNotes(fresh.current_step_notes ?? "");
-  };
-
-  // File upload handlers
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -302,11 +297,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     const file = files[0];
 
     if (file && isValidFile(file)) {
-      if (localDocument.status === "Revision-Draft") {
-        await saveRevisionInfo({ file, title: localDocument.title });
-      } else {
-        await uploadFile(file);
-      }
+      await uploadFile(file);
     }
   };
 
@@ -346,8 +337,9 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
         xhr.open(
           "POST",
-          `${API_BASE}/documents/${localDocument.id}/replace-file`,
+          `${API_BASE}/document-versions/${localVersion.id}/replace-file`,
         );
+
         xhr.setRequestHeader("Accept", "application/json");
         xhr.setRequestHeader("Authorization", `Bearer ${token}`);
 
@@ -391,183 +383,85 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     fileInputRef.current?.click();
   };
 
+  React.useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      setIsLoadingTasks(true);
+      try {
+        const t = await listWorkflowTasks(version.id);
+        if (alive) setTasks(t);
+      } catch (e) {
+        console.error("Failed to load tasks", e);
+        if (alive) setTasks([]);
+      } finally {
+        if (alive) setIsLoadingTasks(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [version.id]);
+
+  React.useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      setIsLoadingMessages(true);
+      try {
+        const m = await listDocumentMessages(version.id);
+        if (alive) setMessages(m);
+      } catch (e) {
+        console.error("Failed to load messages", e);
+        if (alive) setMessages([]);
+      } finally {
+        if (alive) setIsLoadingMessages(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [version.id]);
+
   async function saveTitleOnly(opts: { title: string }) {
     const token = localStorage.getItem("auth_token");
     if (!token) throw new Error("Not authenticated.");
 
-    // Draft uses PATCH /documents/{id}
-    if (localDocument.status === "Draft") {
-      const res = await fetch(`${API_BASE}/documents/${localDocument.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ title: opts.title }),
-      });
+    const res = await fetch(`${API_BASE}/documents/${document.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ title: opts.title }),
+    });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `HTTP ${res.status}`);
-      }
-      return;
-    }
-
-    // Revision-Draft uses existing multipart endpoint (title only)
-    if (localDocument.status === "Revision-Draft") {
-      await saveRevisionInfo({ title: opts.title });
-    }
-  }
-
-  async function saveRevisionInfo(opts: { title: string; file?: File }) {
-    const isFileUpload = Boolean(opts.file);
-    if (isFileUpload) {
-      setIsUploading(true);
-      setUploadProgress(0);
-    }
-
-    try {
-      const formData = new FormData();
-      formData.append("title", opts.title);
-      if (opts.file) formData.append("file", opts.file);
-
-      const token = localStorage.getItem("auth_token");
-
-      if (!token) throw new Error("Not authenticated.");
-
-      if (opts.file) {
-        await new Promise<void>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open(
-            "POST",
-            `${API_BASE}/documents/${localDocument.id}/revision-info`,
-          );
-          xhr.setRequestHeader("Accept", "application/json");
-          xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-
-          xhr.upload.onprogress = (event) => {
-            if (!event.lengthComputable) return;
-            const percent = Math.round((event.loaded / event.total) * 100);
-            setUploadProgress(percent);
-          };
-
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) resolve();
-            else {
-              try {
-                const data = JSON.parse(xhr.responseText || "{}");
-                reject(new Error(data.message || `HTTP ${xhr.status}`));
-              } catch {
-                reject(new Error(`HTTP ${xhr.status}`));
-              }
-            }
-          };
-
-          xhr.onerror = () => reject(new Error("Network error"));
-          xhr.send(formData);
-        });
-      } else {
-        const response = await fetch(
-          `${API_BASE}/documents/${localDocument.id}/revision-info`,
-          {
-            method: "POST",
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData,
-          },
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `HTTP ${response.status}`);
-        }
-      }
-
-      if (opts.file) setPendingFileToUpload(null);
-
-      // If a file was included, refresh preview only; otherwise do nothing extra here.
-      // (Title is already updated locally + parent list refresh handled by onChanged)
-      if (opts.file) {
-        await refreshForPreview();
-      }
-      // Title-only saves don’t need any extra refresh (already in localDocument)
-    } finally {
-      if (isFileUpload) {
-        setIsUploading(false);
-        setUploadProgress(0);
-      }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
     }
   }
 
   const titleSaveTimerRef = React.useRef<number | null>(null);
 
-  const notesSaveTimerRef = React.useRef<number | null>(null);
-
   React.useEffect(() => {
-    // Don’t auto-save if nothing changed vs the currently loaded doc
-    if ((localDocument.current_step_notes ?? "") === initialNotes) return;
+    // Auto-save title only while Draft version exists
+    if (localVersion.status !== "Draft") return;
 
-    const token = localStorage.getItem("auth_token");
-    if (!token) return;
+    if (localTitle === initialTitle) return;
 
-    if (notesSaveTimerRef.current)
-      window.clearTimeout(notesSaveTimerRef.current);
-
-    notesSaveTimerRef.current = window.setTimeout(async () => {
-      try {
-        const res = await fetch(`${API_BASE}/documents/${localDocument.id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            current_step_notes: localDocument.current_step_notes,
-          }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.message || `HTTP ${res.status}`);
-        }
-
-        await refreshForNotes();
-      } catch (e) {
-        console.error("Auto-save notes failed", e);
-      }
-    }, 600);
-
-    return () => {
-      if (notesSaveTimerRef.current)
-        window.clearTimeout(notesSaveTimerRef.current);
-    };
-  }, [localDocument.current_step_notes, localDocument.id, initialNotes]);
-
-  React.useEffect(() => {
-    // Auto-save for Draft and Revision-Draft
-    if (
-      localDocument.status !== "Draft" &&
-      localDocument.status !== "Revision-Draft"
-    )
-      return;
-
-    // If user hasn't changed title compared to loaded version, do nothing
-    if (localDocument.title === initialTitle) return;
-
-    // Debounce: wait 600ms after last keystroke
-    if (titleSaveTimerRef.current) {
+    if (titleSaveTimerRef.current)
       window.clearTimeout(titleSaveTimerRef.current);
-    }
 
     titleSaveTimerRef.current = window.setTimeout(async () => {
       setIsSavingTitle(true);
       try {
-        await saveTitleOnly({ title: localDocument.title });
-        setInitialTitle(localDocument.title); // reset baseline after successful save
+        await saveTitleOnly({ title: localTitle });
+        setInitialTitle(localTitle);
+        if (onChanged) await onChanged();
       } catch (e) {
         console.error("Auto-save title failed", e);
       } finally {
@@ -576,37 +470,20 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     }, 600);
 
     return () => {
-      if (titleSaveTimerRef.current) {
+      if (titleSaveTimerRef.current)
         window.clearTimeout(titleSaveTimerRef.current);
-      }
     };
-  }, [
-    localDocument.title,
-    localDocument.status,
-    localDocument.id,
-    initialTitle,
-  ]);
-
-  const handleSaveRevisionInfo = async () => {
-    await saveRevisionInfo({
-      title: localDocument.title,
-      file: pendingFileToUpload ?? undefined,
-    });
-  };
+  }, [localTitle, localVersion.status, document.id, initialTitle]);
 
   // Update fileSelect to set pending file for revisions
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && isValidFile(file)) {
-      if (localDocument.status === "Revision-Draft") {
-        await saveRevisionInfo({ file, title: localDocument.title });
-      } else {
-        await uploadFile(file);
-      }
+      await uploadFile(file);
     }
   };
 
-  const currentStep = findCurrentStep(localDocument.status);
+  const currentStep = findCurrentStep(localVersion.status);
   const currentPhase = phases.find((p) => p.id === currentStep.phase)!;
   const currentPhaseIndex = phaseOrder(currentPhase.id);
 
@@ -616,9 +493,9 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const nextStep = flowSteps[currentGlobalIndex + 1] ?? null;
 
   const availableActions =
-    transitions[localDocument.status as keyof typeof transitions] ?? [];
+    transitions[localVersion.status as keyof typeof transitions] ?? [];
 
-  const fullCode = localDocument.code ?? "CODE-NOT-AVAILABLE";
+  const fullCode = document.code ?? "CODE-NOT-AVAILABLE";
 
   return (
     <section className="space-y-6">
@@ -726,20 +603,13 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         {/* left: meta + notes */}
         <div className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
-            {localDocument.status === "Draft" ||
-            localDocument.status === "Revision-Draft" ? (
-              // REVISION: Editable title + replace button
+            {localVersion.status === "Draft" ? (
               <>
                 <div className="flex items-center gap-3 mb-3">
                   <input
                     type="text"
-                    value={localDocument.title}
-                    onChange={(e) =>
-                      setLocalDocument((prev) => ({
-                        ...prev,
-                        title: e.target.value,
-                      }))
-                    }
+                    value={localTitle}
+                    onChange={(e) => setLocalTitle(e.target.value)}
                     className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-lg font-semibold text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                     placeholder="Enter document title"
                   />
@@ -751,15 +621,14 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                 </div>
 
                 <p className="text-xs text-sky-600 bg-sky-50 px-2 py-1 rounded-full mb-2">
-                  Revision v{localDocument.version_number} - Edit title or
-                  replace file
+                  Draft v{localVersion.version_number} - Edit title or replace
+                  file
                 </p>
               </>
             ) : (
-              // NORMAL: Read-only title
               <>
                 <h1 className="text-lg font-semibold tracking-tight text-slate-900">
-                  {localDocument.title}
+                  {document.title}
                 </h1>
                 <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">
                   {fullCode}
@@ -770,13 +639,13 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             <p className="mt-2 text-sm text-slate-600">
               Status:{" "}
               <span className="font-semibold text-slate-900">
-                {localDocument.status}
+                {localVersion.status}
               </span>
             </p>
             <p className="mt-1 text-xs text-slate-600">
               Type:{" "}
               <span className="font-semibold text-slate-900">
-                {localDocument.doctype}
+                {document.doctype}
               </span>
             </p>
           </div>
@@ -792,44 +661,57 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               </p>
             )}
 
-            {(availableActions.length > 0 ||
-              localDocument.status === "Draft" ||
-              localDocument.status === "Revision-Draft") && (
+            {availableActions.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
-                {availableActions.map((action, index) => (
+                {availableActions.map((action) => (
                   <button
                     key={action.toStatus}
                     type="button"
                     disabled={isChangingStatus}
-                    className={`inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium ${
-                      index === 0
-                        ? "bg-sky-600 text-white hover:bg-sky-700"
-                        : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                    } ${isChangingStatus ? "opacity-60 cursor-not-allowed" : ""}`}
+                    className={`inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium border ${
+                      isChangingStatus
+                        ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
                     onClick={async () => {
-                      if (isChangingStatus) return;
+                      const code = toWorkflowAction(action.toStatus);
+                      if (!code) {
+                        alert("Action not mapped yet.");
+                        return;
+                      }
 
-                      const resolvedStatus =
-                        action.toStatus === "QA_EDIT"
-                          ? localDocument.parent_document_id
-                            ? "Revision-Draft"
-                            : "Draft"
-                          : action.toStatus;
+                      let note: string | null = null;
+
+                      if (action.toStatus === "QA_EDIT") {
+                        note = window.prompt("Return note (required):", "");
+                        if (note === null) return; // user cancelled
+                        if (note.trim().length === 0) {
+                          alert("Return note is required.");
+                          return;
+                        }
+                      }
+
+                      const ok = window.confirm(`${action.label}?`);
+                      if (!ok) return;
 
                       setIsChangingStatus(true);
                       try {
-                        await updateDocumentStatus(
-                          localDocument.id,
-                          resolvedStatus,
-                          localDocument.current_step_notes ?? null,
+                        const updated = await submitWorkflowAction(
+                          localVersion.id,
+                          code,
+                          note ?? undefined,
                         );
 
-                        setLocalDocument((prev) => ({
-                          ...prev,
-                          status: resolvedStatus,
-                        }));
+                        setLocalVersion(updated);
+                        setTasks(await listWorkflowTasks(updated.id));
+                        setMessages(await listDocumentMessages(updated.id));
+
+                        if (action.toStatus === "QA_EDIT")
+                          setActiveSideTab("comments");
 
                         if (onChanged) await onChanged();
+                      } catch (e) {
+                        alert((e as Error).message);
                       } finally {
                         setIsChangingStatus(false);
                       }
@@ -843,56 +725,147 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                     </span>
                   </button>
                 ))}
-
-                {(localDocument.status === "Draft" ||
-                  localDocument.status === "Revision-Draft") && (
-                  <button
-                    type="button"
-                    disabled={isChangingStatus}
-                    className={`inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium border border-rose-300 bg-white text-rose-700 hover:bg-rose-50 ${
-                      isChangingStatus ? "opacity-60 cursor-not-allowed" : ""
-                    }`}
-                    onClick={async () => {
-                      const label =
-                        localDocument.status === "Draft"
-                          ? "Cancel Draft"
-                          : "Cancel Revision";
-
-                      const ok = window.confirm(
-                        `${label}?\n\nThis will delete this document and cannot be undone.`,
-                      );
-                      if (!ok) return;
-
-                      try {
-                        await deleteDocument(localDocument.id);
-                        if (onDeleted) await onDeleted(localDocument.id);
-                      } catch (e) {
-                        alert((e as Error).message);
-                      }
-                    }}
-                  >
-                    {localDocument.status === "Draft"
-                      ? "Cancel Draft"
-                      : "Cancel Revision"}
-                  </button>
-                )}
               </div>
             )}
 
-            <h2 className="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Notes / comments
-            </h2>
-            <textarea
-              className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-800 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-              rows={3}
-              value={localDocument.current_step_notes ?? ""}
-              onChange={(e) =>
-                setLocalDocument((prev) => ({
-                  ...prev,
-                  current_step_notes: e.target.value,
-                }))
-              }
-            />
+            <div className="mt-4">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveSideTab("comments")}
+                  className={`rounded-full px-3 py-1 text-xs font-medium border ${
+                    activeSideTab === "comments"
+                      ? "border-sky-600 bg-sky-50 text-sky-700"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  Comments
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveSideTab("logs")}
+                  className={`rounded-full px-3 py-1 text-xs font-medium border ${
+                    activeSideTab === "logs"
+                      ? "border-sky-600 bg-sky-50 text-sky-700"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  Workflow logs
+                </button>
+              </div>
+
+              {activeSideTab === "logs" ? (
+                <div className="mt-3">
+                  {isLoadingTasks ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Loading workflow tasks…
+                    </p>
+                  ) : tasks.length === 0 ? (
+                    <p className="mt-1 text-xs text-slate-500">
+                      No workflow tasks yet.
+                    </p>
+                  ) : (
+                    <div className="h-56 overflow-y-auto space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
+                      {tasks.map((t) => (
+                        <div
+                          key={t.id}
+                          className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm"
+                        >
+                          <p className="text-xs text-slate-700">
+                            <span className="font-semibold">{t.phase}</span> /{" "}
+                            {t.step} — {t.status}
+                          </p>
+                          <p className="text-[11px] text-slate-500">
+                            Opened:{" "}
+                            {t.opened_at ? formatWhen(t.opened_at) : "-"}
+                            {t.completed_at
+                              ? ` • Completed: ${formatWhen(t.completed_at)}`
+                              : ""}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {isLoadingMessages ? (
+                    <p className="text-xs text-slate-500">Loading messages…</p>
+                  ) : messages.length === 0 ? (
+                    <p className="text-xs text-slate-500">No messages yet.</p>
+                  ) : (
+                    <div className="h-56 overflow-y-auto space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
+                      {messages.map((m) => (
+                        <div
+                          key={m.id}
+                          className="rounded-xl bg-white/80 border border-slate-200 px-3 py-2 shadow-sm"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] text-slate-500 truncate">
+                              {m.sender?.full_name ?? "Unknown"} —{" "}
+                              {m.sender?.role?.name ?? "-"} —{" "}
+                              {formatWhen(m.created_at)}
+                            </p>
+
+                            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                              {m.type}
+                            </span>
+                          </div>
+
+                          <p className="text-sm text-slate-800 whitespace-pre-wrap">
+                            {m.message}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <textarea
+                      className="flex-1 rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-800 shadow-sm"
+                      rows={2}
+                      value={draftMessage}
+                      onChange={(e) => setDraftMessage(e.target.value)}
+                      placeholder="Write a comment…"
+                    />
+                    <button
+                      type="button"
+                      disabled={
+                        isSendingMessage || draftMessage.trim().length === 0
+                      }
+                      className={`rounded-md px-3 py-2 text-xs font-medium border ${
+                        isSendingMessage || draftMessage.trim().length === 0
+                          ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                          : "border-sky-600 bg-sky-600 text-white hover:bg-sky-700"
+                      }`}
+                      onClick={async () => {
+                        const text = draftMessage.trim();
+                        if (!text) return;
+
+                        setIsSendingMessage(true);
+                        try {
+                          await postDocumentMessage(localVersion.id, {
+                            message: text,
+                            type: "comment",
+                          });
+                          setDraftMessage("");
+                          setMessages(
+                            await listDocumentMessages(localVersion.id),
+                          );
+                        } catch (e) {
+                          alert((e as Error).message);
+                        } finally {
+                          setIsSendingMessage(false);
+                        }
+                      }}
+                    >
+                      {isSendingMessage ? "Sending…" : "Send"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -900,41 +873,17 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         <div className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 flex items-center justify-between">
             Document preview
-            {(localDocument.status === "Draft" ||
-              localDocument.status === "Revision-Draft") &&
-              localDocument.file_path && (
-                <button
-                  type="button"
-                  onClick={handleReplaceFileClick}
-                  className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-700 hover:bg-sky-200 transition-colors"
-                >
-                  <svg
-                    className="h-3 w-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-                    />
-                  </svg>
-                  Change file
-                </button>
-              )}
           </h2>
 
           {[
             "For Department Approval",
             "For VPAA Approval",
             "For President Approval",
-          ].includes(localDocument.status) && (
+          ].includes(localVersion.status) && (
             <button
               type="button"
               onClick={() =>
-                window.open(getDocumentPreviewUrl(localDocument.id), "_blank")
+                window.open(getDocumentPreviewUrl(localVersion.id), "_blank")
               }
               className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-200 transition-colors ml-2"
             >
@@ -956,7 +905,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
           )}
           <div
             className={`relative h-150 w-full overflow-hidden rounded-xl border-2 transition-all ${
-              localDocument.file_path
+              localVersion.file_path
                 ? "border-slate-200 bg-white cursor-pointer hover:border-sky-300 hover:shadow-md"
                 : "border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-sky-400 hover:bg-sky-50"
             }`}
@@ -968,9 +917,9 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
           >
-            {localDocument.file_path && localDocument.preview_path ? (
+            {localVersion.file_path && localVersion.preview_path ? (
               <iframe
-                key={`${localDocument.id}-${previewNonce}`}
+                key={`${localVersion.id}-${previewNonce}`}
                 src={previewUrl}
                 title="Document preview"
                 className="h-full w-full"
@@ -993,18 +942,18 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                   </svg>
                 </div>
                 <p className="mb-1 font-medium text-slate-900">
-                  {localDocument.file_path
+                  {localVersion.file_path
                     ? "Click to replace document"
                     : "Upload new document"}
                 </p>
                 <p className="text-slate-500 mb-4">
-                  {localDocument.file_path
+                  {localVersion.file_path
                     ? "Drag & drop or click to replace the current file"
                     : "Drag & drop PDF, Word, Excel, PowerPoint, or click to browse (max 10MB)"}
                 </p>
-                {localDocument.file_path && (
+                {localVersion.file_path && (
                   <p className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {localDocument.original_filename}
+                    {localVersion.original_filename}
                   </p>
                 )}
               </div>

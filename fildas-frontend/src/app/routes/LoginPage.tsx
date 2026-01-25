@@ -3,6 +3,7 @@ import React from "react";
 const API_BASE = "http://localhost:8000/api"; // same as elsewhere
 
 import { useNavigate } from "react-router-dom";
+import { setAuthUser } from "../../lib/auth"; // adjust path if needed
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ const LoginPage: React.FC = () => {
 
       const data = await res.json();
       localStorage.setItem("auth_token", data.token);
-      localStorage.setItem("auth_user", JSON.stringify(data.user));
+      setAuthUser(data.user);
 
       navigate("/dashboard", { replace: true });
     } catch {

@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { getDocument, getDocumentVersions } from "../../services/documents";
+import {
+  getDocument,
+  getDocumentVersions,
+  getDocumentVersion,
+  type DocumentVersion,
+} from "../../services/documents";
 import LoadingSpinner from "../components/ui/LoadingSpinner";
 import type { Document } from "../../services/documents";
 import DocumentFlow from "./DocumentFlow";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Button from "../components/ui/Button";
+import { downloadDocument } from "../../services/documents";
 import { Card, CardHeader } from "../components/ui/Card";
 import Alert from "../components/ui/Alert";
 
@@ -18,7 +24,10 @@ const DocumentFlowPage: React.FC = () => {
   }
 
   const [document, setDocument] = useState<Document | null>(null);
-  const [allVersions, setAllVersions] = useState<Document[]>([]);
+  const [allVersions, setAllVersions] = useState<DocumentVersion[]>([]);
+  const [selectedVersion, setSelectedVersion] =
+    useState<DocumentVersion | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +44,7 @@ const DocumentFlowPage: React.FC = () => {
     }
   }
 
-  async function createRevision(docId: number): Promise<Document> {
+  async function createRevision(docId: number): Promise<DocumentVersion> {
     const token = localStorage.getItem("auth_token");
 
     const response = await fetch(`${API_BASE}/documents/${docId}/revision`, {
@@ -50,7 +59,8 @@ const DocumentFlowPage: React.FC = () => {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.message || `Failed (${response.status})`);
     }
-    return (await response.json()) as Document;
+
+    return (await response.json()) as DocumentVersion;
   }
 
   async function cancelRevision(docId: number): Promise<Document> {
@@ -111,13 +121,23 @@ const DocumentFlowPage: React.FC = () => {
         const data = await getDocument(id);
         setDocument(data);
 
-        // Fetch versions immediately using new endpoint
-        const rootId = data.parent_document_id || data.id;
-        const versions = await getDocumentVersions(rootId);
+        // Versions for this document family
+        const versions = await getDocumentVersions(id);
         const sorted = [...versions].sort(
           (a, b) => Number(b.version_number) - Number(a.version_number),
         );
         setAllVersions(sorted);
+
+        // Choose selected version from query param; fallback to latest version
+        const qp = searchParams.get("version");
+        const qpId = qp ? Number(qp) : NaN;
+
+        if (qp && !Number.isNaN(qpId)) {
+          const { version } = await getDocumentVersion(qpId);
+          setSelectedVersion(version);
+        } else {
+          setSelectedVersion(sorted[0] ?? null);
+        }
       } catch (err: any) {
         setError(err?.message ?? "Failed to load document");
       } finally {
@@ -126,7 +146,7 @@ const DocumentFlowPage: React.FC = () => {
     };
 
     load();
-  }, [id]);
+  }, [id, searchParams]);
 
   if (loading) {
     return <LoadingSpinner message="Loading document version..." />;
@@ -137,10 +157,15 @@ const DocumentFlowPage: React.FC = () => {
   }
 
   // Show revise for LATEST Distributed version (v0.0, v1.0, v2.0...)
-  const isLatestVersion = !allVersions.some(
-    (v) => Number(v.version_number) > Number(document.version_number),
-  );
-  const isRevisable = isLatestVersion && document.status === "Distributed";
+  const current = selectedVersion ?? allVersions[0] ?? null;
+
+  const isLatestSelected = current
+    ? !allVersions.some(
+        (v) => Number(v.version_number) > Number(current.version_number),
+      )
+    : false;
+
+  const isRevisable = isLatestSelected && current?.status === "Distributed";
 
   return (
     <div className="flex h-full gap-6">
@@ -159,52 +184,32 @@ const DocumentFlowPage: React.FC = () => {
                     {document.code}
                   </span>
                   <span>
-                    v{document.version_number}
+                    v
+                    {selectedVersion?.version_number ?? document.version_number}{" "}
                     <span className="ml-1 font-semibold text-slate-900">
-                      ({document.status})
+                      ({selectedVersion?.status ?? document.status}){" "}
                     </span>
                   </span>
                 </div>
               </div>
               <div className="ml-auto flex items-center gap-2 shrink-0">
-                {document.status === "Distributed" && document.file_path && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        await downloadDistributed(document);
-                      } catch (e: any) {
-                        alert(e.message || "Download failed");
-                      }
-                    }}
-                  >
-                    Download
-                  </Button>
-                )}
-
-                {document.status === "Revision-Draft" && (
-                  <Button
-                    type="button"
-                    variant="danger"
-                    size="sm"
-                    onClick={async () => {
-                      if (!confirm("Cancel this revision draft?")) return;
-
-                      try {
-                        const restored = await cancelRevision(document.id);
-                        navigate(`/documents/${restored.id}`, {
-                          replace: true,
-                        });
-                      } catch (e: any) {
-                        alert(e.message || "Cancel revision failed");
-                      }
-                    }}
-                  >
-                    Cancel revision
-                  </Button>
-                )}
+                {selectedVersion?.status === "Distributed" &&
+                  selectedVersion.file_path && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await downloadDocument(selectedVersion);
+                        } catch (e: any) {
+                          alert(e.message || "Download failed");
+                        }
+                      }}
+                    >
+                      Download
+                    </Button>
+                  )}
 
                 {isRevisable && (
                   <Button
@@ -214,7 +219,14 @@ const DocumentFlowPage: React.FC = () => {
                     onClick={async () => {
                       try {
                         const revised = await createRevision(document.id);
-                        navigate(`/documents/${revised.id}`);
+
+                        // set selected version in URL and state
+                        setSearchParams((prev) => {
+                          const p = new URLSearchParams(prev);
+                          p.set("version", String(revised.id));
+                          return p;
+                        });
+                        setSelectedVersion(revised);
                       } catch (e: any) {
                         alert(`Revision failed: ${e.message}`);
                       }
@@ -230,53 +242,24 @@ const DocumentFlowPage: React.FC = () => {
 
         {/* Document Flow */}
         <div className="flex-1 overflow-y-auto">
-          <DocumentFlow
-            document={document}
-            onChanged={async () => {
-              const latest = await getDocument(document.id);
-              setDocument(latest);
+          {selectedVersion ? (
+            <DocumentFlow
+              document={document}
+              version={selectedVersion}
+              onChanged={async () => {
+                const latest = await getDocument(document.id);
+                setDocument(latest);
 
-              const rootId = latest.parent_document_id || latest.id;
-              const versions = await getDocumentVersions(rootId);
-              const sorted = [...versions].sort(
-                (a, b) => Number(b.version_number) - Number(a.version_number),
-              );
-              setAllVersions(sorted);
-            }}
-            onDeleted={async (deletedId: number) => {
-              const role = getRole();
-
-              // If deleted doc is a revision, load previous version in-place
-              const idx = allVersions.findIndex((v) => v.id === deletedId);
-              if (idx > 0) {
-                const prev = allVersions[idx - 1];
-                setLoading(true);
-                try {
-                  const prevDoc = await getDocument(prev.id);
-                  setDocument(prevDoc);
-                  const rootId = prevDoc.parent_document_id || prevDoc.id;
-                  const versions = await getDocumentVersions(rootId);
-                  const sorted = [...versions].sort(
-                    (a, b) =>
-                      Number(b.version_number) - Number(a.version_number),
-                  );
-                  setAllVersions(sorted);
-
-                  navigate(`/documents/${prev.id}`, { replace: true });
-                } finally {
-                  setLoading(false);
-                }
-                return;
-              }
-
-              // Root draft deleted → go back to appropriate list
-              if (role === "qa") {
-                navigate("/documents");
-              } else {
-                navigate("/documents-approvals");
-              }
-            }}
-          />
+                const versions = await getDocumentVersions(document.id);
+                const sorted = [...versions].sort(
+                  (a, b) => Number(b.version_number) - Number(a.version_number),
+                );
+                setAllVersions(sorted);
+              }}
+            />
+          ) : (
+            <Alert variant="warning">No version available.</Alert>
+          )}
         </div>
       </div>
 
@@ -293,19 +276,17 @@ const DocumentFlowPage: React.FC = () => {
                   key={v.id}
                   type="button"
                   onClick={async () => {
-                    try {
-                      setLoading(true);
-                      const docData = await getDocument(v.id);
-                      setDocument(docData);
-                      navigate(`/documents/${v.id}`, { replace: true });
-                    } catch (error) {
-                      alert("Failed to load document version");
-                    } finally {
-                      setLoading(false);
-                    }
+                    // Update query param only; keep same document id route
+                    setSearchParams((prev) => {
+                      const p = new URLSearchParams(prev);
+                      p.set("version", String(v.id));
+                      return p;
+                    });
+
+                    setSelectedVersion(v);
                   }}
                   className={`block w-full rounded-md px-3 py-2 text-left text-xs transition ${
-                    v.id === document.id
+                    v.id === selectedVersion?.id
                       ? "bg-sky-100 text-sky-900 font-semibold border border-sky-200"
                       : "text-slate-700 hover:bg-slate-50"
                   }`}
