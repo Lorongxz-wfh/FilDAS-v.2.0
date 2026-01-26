@@ -107,18 +107,18 @@ const MyWorkQueuePage: React.FC = () => {
 
         {/* Documents List */}
         <div className="lg:col-span-8">
-          {isQA(userRole) ? (
-            <DocumentsListPage />
-          ) : (
-            <DocumentsListPage
-              documents={allDocuments.filter((doc) =>
-                [
-                  "Distributed",
-                  ...pendingActions.map((d) => d.status),
-                ].includes(doc.status),
-              )}
-            />
-          )}
+          <DocumentsListPage
+            documents={
+              isQA(userRole)
+                ? allDocuments
+                : allDocuments.filter((doc) =>
+                    [
+                      "Distributed",
+                      ...pendingActions.map((d) => d.status),
+                    ].includes(doc.status),
+                  )
+            }
+          />
         </div>
       </div>
     </div>

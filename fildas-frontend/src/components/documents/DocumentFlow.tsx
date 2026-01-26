@@ -275,6 +275,13 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const [isLoadingTasks, setIsLoadingTasks] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState(0);
   const [isChangingStatus, setIsChangingStatus] = React.useState(false);
+
+  const [isBurstPolling, setIsBurstPolling] = React.useState(false);
+
+  const defaultPollRef = React.useRef<number | null>(null);
+  const burstPollRef = React.useRef<number | null>(null);
+  const burstTimeoutRef = React.useRef<number | null>(null);
+
   const [activeSideTab, setActiveSideTab] = React.useState<"comments" | "logs">(
     "comments",
   );
@@ -285,21 +292,32 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
   const [signedPreviewUrl, setSignedPreviewUrl] = React.useState<string>("");
 
+  const [isPreviewLoading, setIsPreviewLoading] = React.useState(false);
+
   React.useEffect(() => {
     let alive = true;
 
     (async () => {
       try {
         if (!localVersion.preview_path) {
-          if (alive) setSignedPreviewUrl("");
+          if (alive) {
+            setIsPreviewLoading(false);
+            setSignedPreviewUrl("");
+          }
           return;
         }
 
         const res = await getDocumentPreviewLink(localVersion.id);
-        if (alive) setSignedPreviewUrl(res.url);
+        if (alive) {
+          setIsPreviewLoading(true);
+          setSignedPreviewUrl(res.url);
+        }
       } catch (e) {
         console.error("Failed to load signed preview url", e);
-        if (alive) setSignedPreviewUrl("");
+        if (alive) {
+          setIsPreviewLoading(false);
+          setSignedPreviewUrl("");
+        }
       }
     })();
 
@@ -319,6 +337,60 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
     setPreviewNonce((n) => n + 1); // reload iframe
   };
+
+  const refreshAll = React.useCallback(async () => {
+    const { version: freshVersion } = await getDocumentVersion(localVersion.id);
+
+    setLocalVersion((prev) => {
+      const statusChanged = prev.status !== freshVersion.status;
+      const previewChanged =
+        prev.preview_path !== freshVersion.preview_path ||
+        prev.file_path !== freshVersion.file_path;
+
+      // If preview changed, bump nonce so iframe reloads
+      if (previewChanged) setPreviewNonce((n) => n + 1);
+
+      // Optional: if status changed, you can auto-switch to logs
+      // if (statusChanged) setActiveSideTab("logs");
+
+      return {
+        ...prev,
+        ...freshVersion,
+      };
+    });
+
+    // Keep tasks/messages synced
+    const [t, m] = await Promise.all([
+      listWorkflowTasks(localVersion.id),
+      listDocumentMessages(localVersion.id),
+    ]);
+    setTasks(t);
+    setMessages(m);
+  }, [localVersion.id]);
+
+  const stopBurstPolling = React.useCallback(() => {
+    setIsBurstPolling(false);
+
+    if (burstPollRef.current) window.clearInterval(burstPollRef.current);
+    burstPollRef.current = null;
+
+    if (burstTimeoutRef.current) window.clearTimeout(burstTimeoutRef.current);
+    burstTimeoutRef.current = null;
+  }, []);
+
+  const startBurstPolling = React.useCallback(() => {
+    stopBurstPolling();
+    setIsBurstPolling(true);
+
+    burstPollRef.current = window.setInterval(() => {
+      refreshAll().catch(() => {});
+    }, 1000);
+
+    // auto-stop after 25 seconds (tune as you like)
+    burstTimeoutRef.current = window.setTimeout(() => {
+      stopBurstPolling();
+    }, 25000);
+  }, [refreshAll, stopBurstPolling]);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -397,7 +469,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     (async () => {
       setIsLoadingTasks(true);
       try {
-        const t = await listWorkflowTasks(version.id);
+        const t = await listWorkflowTasks(localVersion.id);
         if (alive) setTasks(t);
       } catch (e) {
         console.error("Failed to load tasks", e);
@@ -413,7 +485,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     return () => {
       alive = false;
     };
-  }, [version.id]);
+  }, [localVersion.id]);
 
   React.useEffect(() => {
     let alive = true;
@@ -514,6 +586,8 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const assignedOfficeId = currentTask?.assigned_office_id ?? null;
   const myOfficeId = userOfficeId;
   const fullCode = document.code ?? "CODE-NOT-AVAILABLE";
+
+  // UI
 
   return (
     <section className="space-y-6">
@@ -779,6 +853,16 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               </p>
             )}
 
+            {isBurstPolling && (
+              <button
+                type="button"
+                onClick={stopBurstPolling}
+                className="mt-2 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Stop live updates
+              </button>
+            )}
+
             {availableActions.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {availableActions.map((action) => (
@@ -791,7 +875,9 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                         ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
                         : action.toStatus === "QA_EDIT"
                           ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
-                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          : action.toStatus === "Distributed"
+                            ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                            : "border-sky-600 bg-sky-600 text-white hover:bg-sky-700"
                     }`}
                     onClick={async () => {
                       const code = toWorkflowAction(action.toStatus);
@@ -826,6 +912,8 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                         setLocalVersion(updated);
                         setTasks(await listWorkflowTasks(updated.id));
                         setMessages(await listDocumentMessages(updated.id));
+
+                        startBurstPolling();
 
                         if (action.toStatus === "QA_EDIT")
                           setActiveSideTab("comments");
@@ -1031,6 +1119,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                 src={signedPreviewUrl || "about:blank"}
                 title="Document preview"
                 className="h-full w-full"
+                onLoad={() => setIsPreviewLoading(false)}
               />
             ) : (
               <div className="flex h-full flex-col items-center justify-center p-8 text-center text-sm">
@@ -1074,6 +1163,12 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                   </p>
                   <UploadProgress value={uploadProgress} />
                 </div>
+              </div>
+            )}
+
+            {isPreviewLoading && (
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
+                <InlineSpinner className="h-8 w-8 border-2" />
               </div>
             )}
 

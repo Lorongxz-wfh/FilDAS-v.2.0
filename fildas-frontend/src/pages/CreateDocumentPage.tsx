@@ -1,8 +1,20 @@
 import React, { useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { getAuthUser } from "../lib/auth";
 import { createDocumentWithProgress } from "../services/documents";
 import OfficeDropdown from "../components/OfficeDropdown";
 
 const CreateDocumentPage: React.FC = () => {
+  const navigate = useNavigate();
+
+  const me = getAuthUser();
+  if (!me) return <Navigate to="/login" replace />;
+
+  // QA drafts the document in your workflow, so only QA can access this page.
+  const role = String(me.role ?? "").toUpperCase();
+  if (role !== "QA") return <Navigate to="/work-queue" replace />;
+
+
   const [title, setTitle] = useState("");
   const [officeCode, setOfficeCode] = useState<number | null>(null);
   const [doctype, setDoctype] = useState<"internal" | "external" | "forms">(
@@ -40,11 +52,8 @@ const CreateDocumentPage: React.FC = () => {
       );
 
       setMessage("Document created successfully.");
-      setTitle("");
-      setOfficeCode(null);
-      setDoctype("internal"); // or 'external' if you prefer default
-      setNotes("");
-      setFile(null);
+      // After create, redirect to the document flow page so workflow + comments are available.
+      navigate(`/documents/${result.id}`);
     } catch (err: any) {
       const message = err?.message ?? "Failed to create document";
       setError(message);
