@@ -1,6 +1,6 @@
 import React from "react";
 
-const DocumentRequestsPage: React.FC = () => {
+const RequestDocumentPage: React.FC = () => {
   return (
     <section className="space-y-4">
       <h1 className="text-xl font-semibold tracking-tight text-slate-900">
@@ -16,4 +16,4 @@ const DocumentRequestsPage: React.FC = () => {
   );
 };
 
-export default DocumentRequestsPage;
+export default RequestDocumentPage;

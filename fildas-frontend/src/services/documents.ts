@@ -212,9 +212,12 @@ const res = await fetch(`${API_BASE}/document-versions/${versionId}/messages`, {
 }
 
 export async function listDocuments(): Promise<Document[]> {
+  const token = getAuthToken();
+
   const response = await fetch(`${API_BASE}/documents`, {
     headers: {
       Accept: "application/json",
+      Authorization: `Bearer ${token}`,
     },
   });
 
@@ -233,12 +236,15 @@ export async function listDocuments(): Promise<Document[]> {
 }
 
 export async function getDocument(id: number): Promise<Document> {
+  const token = getAuthToken();
+
   const response = await fetch(
     `${API_BASE}/documents/${id}?t=${Date.now()}`,
     {
       headers: {
         Accept: "application/json",
-        'Cache-Control': 'no-cache',  // Force fresh
+        "Cache-Control": "no-cache",
+        Authorization: `Bearer ${token}`,
       },
     },
   );
@@ -259,10 +265,18 @@ export async function getDocument(id: number): Promise<Document> {
 }
 
 export async function getDocumentVersions(documentId: number): Promise<DocumentVersion[]> {
+  const token = getAuthToken();
+
   const response = await fetch(
     `${API_BASE}/documents/${documentId}/versions?t=${Date.now()}`,
-    { headers: { Accept: "application/json" } }
+    {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
   );
+
 
   if (!response.ok) {
     throw new Error(`Failed to load document versions (${response.status})`);
@@ -315,11 +329,34 @@ export async function cancelRevision(versionId: number): Promise<void> {
   }
 }
 
+export async function deleteDraftVersion(versionId: number): Promise<void> {
+  const token = getAuthToken();
+
+  const res = await fetch(`${API_BASE}/document-versions/${versionId}`, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Failed (${res.status})`);
+  }
+}
 
 export async function getDocumentVersion(versionId: number): Promise<{ version: DocumentVersion; document: Document }> {
+  const token = getAuthToken();
+
   const response = await fetch(
     `${API_BASE}/document-versions/${versionId}?t=${Date.now()}`,
-    { headers: { Accept: "application/json" } },
+    {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    },
   );
 
   if (!response.ok) {
@@ -555,15 +592,18 @@ const res = await fetch(`${API_BASE}/document-versions/${versionId}/actions`, {
 }
 
 export async function listWorkflowTasks(versionId: number): Promise<WorkflowTask[]> {
-const token = getAuthToken();
+  const token = getAuthToken();
 
-const res = await fetch(`${API_BASE}/document-versions/${versionId}/tasks?t=${Date.now()}`, {
+  const url = `${API_BASE}/document-versions/${versionId}/tasks?t=${Date.now()}`;
+  console.log("[Workflow] GET", url);
 
+  const res = await fetch(url, {
     headers: {
       Accept: "application/json",
       Authorization: `Bearer ${token}`,
     },
   });
+
 
   if (!res.ok) {
     let msg = `Failed to load workflow tasks (${res.status})`;
@@ -577,3 +617,21 @@ const res = await fetch(`${API_BASE}/document-versions/${versionId}/tasks?t=${Da
   return (await res.json()) as WorkflowTask[];
 }
 
+export async function getDocumentPreviewLink(versionId: number): Promise<{ url: string; expires_in_minutes: number }> {
+  const token = getAuthToken();
+
+  const res = await fetch(`${API_BASE}/document-versions/${versionId}/preview-link?t=${Date.now()}`, {
+    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    let msg = `Failed to get preview link (${res.status})`;
+    try {
+      const j = await res.json();
+      if (j?.message) msg = j.message;
+    } catch {}
+    throw new Error(msg);
+  }
+
+  return (await res.json()) as { url: string; expires_in_minutes: number };
+}

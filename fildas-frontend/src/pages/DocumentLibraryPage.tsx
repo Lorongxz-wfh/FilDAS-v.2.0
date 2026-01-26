@@ -6,11 +6,11 @@ import Table, { type TableColumn } from "../components/ui/Table";
 import PageHeading from "../components/ui/PageHeading";
 import Button from "../components/ui/Button";
 
-interface DocumentsListPageProps {
+interface DocumentLibraryPageProps {
   documents?: Document[]; // Optional prop for filtered data
 }
 
-const DocumentsListPage: React.FC<DocumentsListPageProps> = ({ documents }) => {
+const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({ documents }) => {
   const navigate = useNavigate();
 
   const [loadedDocuments, setLoadedDocuments] = useState<Document[]>([]);
@@ -96,4 +96,4 @@ const DocumentsListPage: React.FC<DocumentsListPageProps> = ({ documents }) => {
   );
 };
 
-export default DocumentsListPage;
+export default DocumentLibraryPage;

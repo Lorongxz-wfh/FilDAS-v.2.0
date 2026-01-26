@@ -8,8 +8,10 @@ import type {
   DocumentMessage,
 } from "../../services/documents";
 
+import { getCurrentUserOfficeId } from "../../services/documents";
+
 import {
-  getDocumentPreviewUrl,
+  getDocumentPreviewLink,
   getDocumentVersion,
   submitWorkflowAction,
   listWorkflowTasks,
@@ -17,6 +19,9 @@ import {
   postDocumentMessage,
   replaceDocumentVersionFileWithProgress,
   updateDocumentTitle,
+  downloadDocument,
+  deleteDraftVersion,
+  cancelRevision,
 } from "../../services/documents";
 
 interface DocumentFlowProps {
@@ -25,7 +30,7 @@ interface DocumentFlowProps {
   onChanged?: () => Promise<void> | void;
 }
 
-type PhaseId = "review" | "approval" | "distribution";
+type PhaseId = "review" | "approval" | "registration";
 
 interface Phase {
   id: PhaseId;
@@ -42,7 +47,7 @@ interface FlowStep {
 const phases: Phase[] = [
   { id: "review", label: "Review" },
   { id: "approval", label: "Approval" },
-  { id: "distribution", label: "Distribution" },
+  { id: "registration", label: "Registration / Distribution" },
 ];
 
 const flowSteps: FlowStep[] = [
@@ -60,9 +65,15 @@ const flowSteps: FlowStep[] = [
     phase: "review",
   },
   {
-    id: "vpaa_review",
+    id: "vpaareview",
     label: "VPAA review",
     statusValue: "For VPAA Review",
+    phase: "review",
+  },
+  {
+    id: "qafinalcheck",
+    label: "QA final check",
+    statusValue: "For QA Final Check",
     phase: "review",
   },
 
@@ -91,13 +102,13 @@ const flowSteps: FlowStep[] = [
     id: "qa_distribution",
     label: "QA distribution",
     statusValue: "For QA Distribution",
-    phase: "distribution",
+    phase: "registration",
   },
   {
     id: "distributed",
     label: "Distributed",
     statusValue: "Distributed",
-    phase: "distribution",
+    phase: "registration",
   },
 ];
 
@@ -135,13 +146,18 @@ const transitions: Record<string, TransitionAction[]> = {
   ],
   "For VPAA Review": [
     {
+      toStatus: "For QA Final Check",
+      label: "Send back to QA for final check",
+    },
+    { toStatus: "QA_EDIT", label: "Return to QA edit" },
+  ],
+
+  "For QA Final Check": [
+    {
       toStatus: "For Department Approval",
       label: "Start approval phase (Department approval)",
     },
-    {
-      toStatus: "QA_EDIT",
-      label: "Return to QA (edit)",
-    },
+    { toStatus: "QA_EDIT", label: "Return to QA edit" },
   ],
 
   // Approval phase
@@ -196,6 +212,8 @@ function toWorkflowAction(toStatus: string): string | null {
       return "SEND_TO_DEPT_REVIEW";
     case "For VPAA Review":
       return "FORWARD_TO_VPAA_REVIEW";
+    case "For QA Final Check":
+      return "VPAA_SEND_BACK_TO_QA_FINAL_CHECK";
     case "For Department Approval":
       return "START_DEPT_APPROVAL";
     case "For VPAA Approval":
@@ -248,8 +266,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const [isUploading, setIsUploading] = React.useState(false);
   const [isSavingTitle, setIsSavingTitle] = React.useState(false);
   const [tasks, setTasks] = React.useState<WorkflowTask[]>([]);
+  const [isTasksReady, setIsTasksReady] = React.useState(false);
   const [messages, setMessages] = React.useState<DocumentMessage[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = React.useState(false);
+
   const [draftMessage, setDraftMessage] = React.useState("");
   const [isSendingMessage, setIsSendingMessage] = React.useState(false);
   const [isLoadingTasks, setIsLoadingTasks] = React.useState(false);
@@ -263,7 +283,30 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
   const [previewNonce, setPreviewNonce] = React.useState(0);
 
-  const previewUrl = `${getDocumentPreviewUrl(localVersion.id)}?v=${previewNonce}`;
+  const [signedPreviewUrl, setSignedPreviewUrl] = React.useState<string>("");
+
+  React.useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        if (!localVersion.preview_path) {
+          if (alive) setSignedPreviewUrl("");
+          return;
+        }
+
+        const res = await getDocumentPreviewLink(localVersion.id);
+        if (alive) setSignedPreviewUrl(res.url);
+      } catch (e) {
+        console.error("Failed to load signed preview url", e);
+        if (alive) setSignedPreviewUrl("");
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [localVersion.id, localVersion.preview_path, previewNonce]);
 
   const refreshForPreview = async () => {
     const { version: fresh } = await getDocumentVersion(localVersion.id);
@@ -349,6 +392,8 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   React.useEffect(() => {
     let alive = true;
 
+    setIsTasksReady(false);
+
     (async () => {
       setIsLoadingTasks(true);
       try {
@@ -358,7 +403,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         console.error("Failed to load tasks", e);
         if (alive) setTasks([]);
       } finally {
-        if (alive) setIsLoadingTasks(false);
+        if (alive) {
+          setIsLoadingTasks(false);
+          setIsTasksReady(true);
+        }
       }
     })();
 
@@ -373,7 +421,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     (async () => {
       setIsLoadingMessages(true);
       try {
-        const m = await listDocumentMessages(version.id);
+        const m = await listDocumentMessages(localVersion.id);
         if (alive) setMessages(m);
       } catch (e) {
         console.error("Failed to load messages", e);
@@ -386,7 +434,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     return () => {
       alive = false;
     };
-  }, [version.id]);
+  }, [localVersion.id]);
 
   async function saveTitleOnly(opts: { title: string }) {
     await updateDocumentTitle(document.id, opts.title);
@@ -439,9 +487,32 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   );
   const nextStep = flowSteps[currentGlobalIndex + 1] ?? null;
 
+  const [currentTask, setCurrentTask] = React.useState<WorkflowTask | null>(
+    null,
+  );
+
+  React.useEffect(() => {
+    if (!tasks.length) {
+      setCurrentTask(null);
+      return;
+    }
+    const open = tasks.find((t) => t.status === "open") ?? tasks[0] ?? null;
+    setCurrentTask(open);
+  }, [tasks]);
+
+  const userOfficeId = getCurrentUserOfficeId(); // if you already expose this on frontend
+
+  const canAct =
+    isTasksReady &&
+    !!currentTask &&
+    !!currentTask.assigned_office_id &&
+    currentTask.assigned_office_id === userOfficeId;
+
   const availableActions =
     transitions[localVersion.status as keyof typeof transitions] ?? [];
 
+  const assignedOfficeId = currentTask?.assigned_office_id ?? null;
+  const myOfficeId = userOfficeId;
   const fullCode = document.code ?? "CODE-NOT-AVAILABLE";
 
   return (
@@ -552,7 +623,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
           <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
             {localVersion.status === "Draft" ? (
               <>
-                <div className="flex items-center gap-3 mb-3">
+                <div className="flex items-center gap-3 mb-2">
                   <input
                     type="text"
                     value={localTitle}
@@ -566,6 +637,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                     </span>
                   )}
                 </div>
+
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  {fullCode}
+                </p>
               </>
             ) : (
               <>
@@ -577,6 +652,97 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                 </p>
               </>
             )}
+
+            {/* Action buttons (version-level) */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {localVersion.status === "Distributed" &&
+                localVersion.file_path && (
+                  <button
+                    type="button"
+                    className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    onClick={async () => {
+                      try {
+                        await downloadDocument(localVersion);
+                      } catch (e: any) {
+                        alert(e.message || "Download failed");
+                      }
+                    }}
+                  >
+                    Download
+                  </button>
+                )}
+
+              {localVersion.status === "Draft" && (
+                <button
+                  type="button"
+                  className="rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                  onClick={async () => {
+                    try {
+                      const isRevisionDraft =
+                        Number(localVersion.version_number) > 0;
+                      const msg = isRevisionDraft
+                        ? "Delete this draft revision?"
+                        : "Delete this draft? (This will remove the whole document draft)";
+                      if (!confirm(msg)) return;
+
+                      await deleteDraftVersion(localVersion.id);
+
+                      // Let the page refresh versions + redirect selection logic
+                      if (onChanged) await onChanged();
+                    } catch (e: any) {
+                      alert(e.message || "Delete failed");
+                    }
+                  }}
+                >
+                  Delete draft
+                </button>
+              )}
+
+              {localVersion.status === "Draft" &&
+                Number(localVersion.version_number) > 0 && (
+                  <button
+                    type="button"
+                    className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    onClick={async () => {
+                      try {
+                        if (!confirm("Cancel this revision draft?")) return;
+                        await cancelRevision(localVersion.id);
+                        const { version: fresh } = await getDocumentVersion(
+                          localVersion.id,
+                        ).catch(() => ({ version: localVersion }));
+                        setLocalVersion(fresh);
+                        if (onChanged) await onChanged();
+                      } catch (e: any) {
+                        alert(e.message || "Cancel failed");
+                      }
+                    }}
+                  >
+                    Cancel revision
+                  </button>
+                )}
+            </div>
+
+            {/* Metadata row */}
+            <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-500">
+              <div>
+                <span className="font-medium text-slate-600">Version:</span> v
+                {localVersion.version_number}
+              </div>
+              <div>
+                <span className="font-medium text-slate-600">Updated:</span>{" "}
+                {formatWhen(localVersion.updated_at)}
+              </div>
+              <div>
+                <span className="font-medium text-slate-600">Created:</span>{" "}
+                {formatWhen(localVersion.created_at)}
+              </div>
+              <div>
+                <span className="font-medium text-slate-600">Distributed:</span>{" "}
+                {localVersion.distributed_at
+                  ? formatWhen(localVersion.distributed_at)
+                  : "-"}
+              </div>
+            </div>
 
             <p className="mt-2 text-sm text-slate-600">
               Status:{" "}
@@ -603,17 +769,29 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               </p>
             )}
 
+            <p className="mt-2 text-xs text-slate-500">
+              Assigned to office ID: {assignedOfficeId ?? "-"} (You:{" "}
+              {myOfficeId || "-"})
+            </p>
+            {!isTasksReady && (
+              <p className="mt-1 text-[11px] text-slate-400">
+                Checking permissions…
+              </p>
+            )}
+
             {availableActions.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {availableActions.map((action) => (
                   <button
                     key={action.toStatus}
                     type="button"
-                    disabled={isChangingStatus}
+                    disabled={isChangingStatus || !canAct}
                     className={`inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium border ${
-                      isChangingStatus
+                      isChangingStatus || !canAct
                         ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
-                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                        : action.toStatus === "QA_EDIT"
+                          ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                     }`}
                     onClick={async () => {
                       const code = toWorkflowAction(action.toStatus);
@@ -626,6 +804,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
                       if (action.toStatus === "QA_EDIT") {
                         note = window.prompt("Return note (required):", "");
+
                         if (note === null) return; // user cancelled
                         if (note.trim().length === 0) {
                           alert("Return note is required.");
@@ -817,34 +996,21 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             Document preview
           </h2>
 
-          {[
-            "For Department Approval",
-            "For VPAA Approval",
-            "For President Approval",
-          ].includes(localVersion.status) && (
-            <button
-              type="button"
-              onClick={() =>
-                window.open(getDocumentPreviewUrl(localVersion.id), "_blank")
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await getDocumentPreviewLink(localVersion.id);
+                window.open(res.url, "_blank");
+              } catch (e: any) {
+                alert(e.message || "Failed to open preview");
               }
-              className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-200 transition-colors ml-2"
-            >
-              <svg
-                className="h-3 w-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 10l-5.5 5.5m0 0L8 19l5.5-5.5m0 0L19 8m-5.5 5.5V6a1 1 0 012 0v9"
-                />
-              </svg>
-              Download
-            </button>
-          )}
+            }}
+            className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors ml-2"
+          >
+            Open preview
+          </button>
+
           <div
             className={`relative h-150 w-full overflow-hidden rounded-xl border-2 transition-all ${
               localVersion.file_path
@@ -862,7 +1028,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             {localVersion.file_path && localVersion.preview_path ? (
               <iframe
                 key={`${localVersion.id}-${previewNonce}`}
-                src={previewUrl}
+                src={signedPreviewUrl || "about:blank"}
                 title="Document preview"
                 className="h-full w-full"
               />

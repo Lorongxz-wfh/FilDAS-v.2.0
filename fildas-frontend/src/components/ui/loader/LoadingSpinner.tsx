@@ -7,13 +7,19 @@ interface LoadingSpinnerProps {
 const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   message = "Loading...",
 }) => (
-  <div className="flex h-full items-center justify-center bg-white/90 backdrop-blur-sm">
-    <div className="text-center p-8 rounded-xl shadow-lg max-w-sm mx-4">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600 mx-auto mb-4"></div>
-      <p className="text-lg font-semibold text-slate-800 mb-1">{message}</p>
-      <p className="text-sm text-slate-600">
-        {message === "Loading..." ? "Please wait while we load the data." : ""}
-      </p>
+  <div className="flex h-full items-center justify-center bg-slate-50/70 backdrop-blur-sm">
+    <div className="mx-4 w-full max-w-xs rounded-2xl border border-slate-200 bg-white/85 px-6 py-5 shadow-sm">
+      <div className="flex flex-col items-center text-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-sky-600" />
+
+        <p className="mt-3 text-sm font-medium text-slate-800">{message}</p>
+
+        {message === "Loading..." ? (
+          <p className="mt-1 text-xs text-slate-600">
+            Loading document version…
+          </p>
+        ) : null}
+      </div>
     </div>
   </div>
 );

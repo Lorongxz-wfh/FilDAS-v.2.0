@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { createDocumentWithProgress } from "../services/documents";
 import OfficeDropdown from "../components/OfficeDropdown";
 
-const DocumentsCreatePage: React.FC = () => {
+const CreateDocumentPage: React.FC = () => {
   const [title, setTitle] = useState("");
   const [officeCode, setOfficeCode] = useState<number | null>(null);
   const [doctype, setDoctype] = useState<"internal" | "external" | "forms">(
@@ -224,4 +224,4 @@ const DocumentsCreatePage: React.FC = () => {
   );
 };
 
-export default DocumentsCreatePage;
+export default CreateDocumentPage;

@@ -2,9 +2,9 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 
 const links = [
-  { to: "/documents-approvals", label: "📋 Documents & Approvals" },
+  { to: "/work-queue", label: "📋 Work queue" },
   { to: "/dashboard", label: "🏠 Dashboard" },
-  { to: "/documents", label: "📄 All Documents" },
+  { to: "/documents", label: "📚 Document library" },
   { to: "/documents/create", label: "✨ Create document" },
   { to: "/documents/request", label: "📝 Request document" },
 ];

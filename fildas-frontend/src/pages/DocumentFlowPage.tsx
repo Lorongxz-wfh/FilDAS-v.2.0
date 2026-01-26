@@ -4,17 +4,14 @@ import {
   getDocumentVersions,
   getDocumentVersion,
   createRevision,
-  cancelRevision,
-  downloadDocument,
   type Document,
   type DocumentVersion,
 } from "../services/documents";
 import LoadingSpinner from "../components/ui/loader/LoadingSpinner";
 import DocumentFlow from "../components/documents/DocumentFlow";
 import { useParams, useSearchParams } from "react-router-dom";
-import Button from "../components/ui/Button";
-import { Card, CardHeader } from "../components/ui/Card";
 import Alert from "../components/ui/Alert";
+import Button from "../components/ui/Button";
 
 const DocumentFlowPage: React.FC = () => {
   const params = useParams();
@@ -50,8 +47,9 @@ const DocumentFlowPage: React.FC = () => {
         const qpId = qp ? Number(qp) : NaN;
 
         if (qp && !Number.isNaN(qpId)) {
-          const { version } = await getDocumentVersion(qpId);
+          const { version, document: docRes } = await getDocumentVersion(qpId);
           setSelectedVersion(version);
+          setDocument(docRes);
         } else {
           setSelectedVersion(sorted[0] ?? null);
         }
@@ -89,113 +87,34 @@ const DocumentFlowPage: React.FC = () => {
       {/* LEFT/CENTER: Main content */}
       <div className="flex-1 flex flex-col min-h-0">
         {/* Header WITH REVISION BUTTON */}
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 truncate">
-                  {document.title}
-                </h1>
-                <div className="mt-2 flex items-center gap-4 text-sm text-slate-600">
-                  <span className="font-mono text-xs bg-slate-100 px-2 py-1 rounded">
-                    {document.code}
-                  </span>
-                  <span>
-                    v
-                    {selectedVersion?.version_number ?? document.version_number}{" "}
-                    <span className="ml-1 font-semibold text-slate-900">
-                      ({selectedVersion?.status ?? document.status}){" "}
-                    </span>
-                  </span>
-                </div>
-              </div>
-              <div className="ml-auto flex items-center gap-2 shrink-0">
-                {selectedVersion?.status === "Distributed" &&
-                  selectedVersion.file_path && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          await downloadDocument(selectedVersion);
-                        } catch (e: any) {
-                          alert(e.message || "Download failed");
-                        }
-                      }}
-                    >
-                      Download
-                    </Button>
-                  )}
 
-                {selectedVersion?.status === "Draft" && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        if (!confirm("Cancel this revision draft?")) return;
+        {/* Small toolbar (page-level actions) */}
+        {isRevisable && (
+          <div className="mb-3 flex items-center justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const revised = await createRevision(document.id);
 
-                        await cancelRevision(selectedVersion.id);
-
-                        // refresh everything
-                        const latest = await getDocument(document.id);
-                        setDocument(latest);
-
-                        const versions = await getDocumentVersions(document.id);
-                        const sorted = [...versions].sort(
-                          (a, b) =>
-                            Number(b.version_number) - Number(a.version_number),
-                        );
-                        setAllVersions(sorted);
-
-                        // switch to latest version after cancel
-                        const next = sorted[0] ?? null;
-                        setSelectedVersion(next);
-                        setSearchParams((prev) => {
-                          const p = new URLSearchParams(prev);
-                          if (next) p.set("version", String(next.id));
-                          else p.delete("version");
-                          return p;
-                        });
-                      } catch (e: any) {
-                        alert(e.message || "Cancel failed");
-                      }
-                    }}
-                  >
-                    Cancel revision
-                  </Button>
-                )}
-
-                {isRevisable && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        const revised = await createRevision(document.id);
-
-                        // set selected version in URL and state
-                        setSearchParams((prev) => {
-                          const p = new URLSearchParams(prev);
-                          p.set("version", String(revised.id));
-                          return p;
-                        });
-                        setSelectedVersion(revised);
-                      } catch (e: any) {
-                        alert(`Revision failed: ${e.message}`);
-                      }
-                    }}
-                  >
-                    Revise Document
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
+                  // Switch to the new revision version
+                  setSearchParams((prev) => {
+                    const p = new URLSearchParams(prev);
+                    p.set("version", String(revised.id));
+                    return p;
+                  });
+                  setSelectedVersion(revised);
+                } catch (e: any) {
+                  alert(`Revision failed: ${e.message}`);
+                }
+              }}
+            >
+              Revise Document
+            </Button>
+          </div>
+        )}
 
         {/* Document Flow */}
         <div className="flex-1 overflow-y-auto">
@@ -204,14 +123,46 @@ const DocumentFlowPage: React.FC = () => {
               document={document}
               version={selectedVersion}
               onChanged={async () => {
-                const latest = await getDocument(document.id);
-                setDocument(latest);
+                if (!document) return;
 
+                // 1) Always refresh versions list first
                 const versions = await getDocumentVersions(document.id);
                 const sorted = [...versions].sort(
                   (a, b) => Number(b.version_number) - Number(a.version_number),
                 );
                 setAllVersions(sorted);
+
+                const currentId = selectedVersion?.id;
+                const stillExists = currentId
+                  ? sorted.some((v) => v.id === currentId)
+                  : false;
+
+                // 2) If the selected version still exists, reload it
+                if (currentId && stillExists) {
+                  const { version: freshVersion, document: freshDoc } =
+                    await getDocumentVersion(currentId);
+                  setSelectedVersion(freshVersion);
+                  setDocument(freshDoc);
+                  return;
+                }
+
+                // 3) Otherwise fallback to latest version (or null)
+                const next = sorted[0] ?? null;
+                setSelectedVersion(next);
+
+                setSearchParams((prev) => {
+                  const p = new URLSearchParams(prev);
+                  if (next) p.set("version", String(next.id));
+                  else p.delete("version");
+                  return p;
+                });
+
+                if (next) {
+                  const { document: freshDoc } = await getDocumentVersion(
+                    next.id,
+                  );
+                  setDocument(freshDoc);
+                }
               }}
             />
           ) : (
@@ -233,14 +184,26 @@ const DocumentFlowPage: React.FC = () => {
                   key={v.id}
                   type="button"
                   onClick={async () => {
-                    // Update query param only; keep same document id route
-                    setSearchParams((prev) => {
-                      const p = new URLSearchParams(prev);
-                      p.set("version", String(v.id));
-                      return p;
-                    });
+                    try {
+                      setLoading(true);
 
-                    setSelectedVersion(v);
+                      // Update query param only; keep same document id route
+                      setSearchParams((prev) => {
+                        const p = new URLSearchParams(prev);
+                        p.set("version", String(v.id));
+                        return p;
+                      });
+
+                      // Load the selected version + document from backend (authoritative)
+                      const { version, document: docRes } =
+                        await getDocumentVersion(v.id);
+                      setSelectedVersion(version);
+                      setDocument(docRes);
+                    } catch (e: any) {
+                      alert(e.message || "Failed to load version");
+                    } finally {
+                      setLoading(false);
+                    }
                   }}
                   className={`block w-full rounded-md px-3 py-2 text-left text-xs transition ${
                     v.id === selectedVersion?.id
