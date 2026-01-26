@@ -99,13 +99,27 @@ const DocumentFlowPage: React.FC = () => {
                 try {
                   const revised = await createRevision(document.id);
 
+                  // Update versions panel immediately (no refetch)
+                  setAllVersions((prev) => {
+                    const next = [
+                      revised,
+                      ...prev.filter((v) => v.id !== revised.id),
+                    ];
+                    next.sort(
+                      (a, b) =>
+                        Number(b.version_number) - Number(a.version_number),
+                    );
+
+                    return next;
+                  });
+
                   // Switch to the new revision version
+                  setSelectedVersion(revised);
                   setSearchParams((prev) => {
                     const p = new URLSearchParams(prev);
                     p.set("version", String(revised.id));
                     return p;
                   });
-                  setSelectedVersion(revised);
                 } catch (e: any) {
                   alert(`Revision failed: ${e.message}`);
                 }
@@ -130,6 +144,7 @@ const DocumentFlowPage: React.FC = () => {
                 const sorted = [...versions].sort(
                   (a, b) => Number(b.version_number) - Number(a.version_number),
                 );
+
                 setAllVersions(sorted);
 
                 const currentId = selectedVersion?.id;

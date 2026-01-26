@@ -231,6 +231,33 @@ function toWorkflowAction(toStatus: string): string | null {
   }
 }
 
+function expectedOfficeIdForToStatus(
+  toStatus: string,
+  ownerOfficeId: number | null | undefined,
+): number | null {
+  switch (toStatus) {
+    case "For Department Review":
+    case "For Department Approval":
+      return ownerOfficeId ?? null;
+
+    case "For VPAA Review":
+    case "For VPAA Approval":
+      return 17; // VPAA office id
+
+    case "For President Approval":
+      return 1; // President office id
+
+    case "For QA Final Check":
+    case "For QA Distribution":
+    case "Distributed":
+    case "QA_EDIT":
+      return 44; // QA office id
+
+    default:
+      return null;
+  }
+}
+
 function findCurrentStep(status: string): FlowStep {
   const found = flowSteps.find((s) => s.statusValue === status);
   return found ?? flowSteps[0];
@@ -359,14 +386,13 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       };
     });
 
-    // Keep tasks/messages synced
-    const [t, m] = await Promise.all([
-      listWorkflowTasks(localVersion.id),
-      listDocumentMessages(localVersion.id),
-    ]);
-    setTasks(t);
-    setMessages(m);
-  }, [localVersion.id]);
+    // Keep tasks/messages synced (tasks always, because permissions depend on it)
+    setTasks(await listWorkflowTasks(localVersion.id));
+
+    if (activeSideTab === "comments") {
+      setMessages(await listDocumentMessages(localVersion.id));
+    }
+  }, [localVersion.id, activeSideTab]);
 
   const stopBurstPolling = React.useCallback(() => {
     setIsBurstPolling(false);
@@ -490,6 +516,12 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   React.useEffect(() => {
     let alive = true;
 
+    if (activeSideTab !== "comments") {
+      setMessages([]);
+      setIsLoadingMessages(false);
+      return;
+    }
+
     (async () => {
       setIsLoadingMessages(true);
       try {
@@ -506,7 +538,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     return () => {
       alive = false;
     };
-  }, [localVersion.id]);
+  }, [localVersion.id, activeSideTab]);
 
   async function saveTitleOnly(opts: { title: string }) {
     await updateDocumentTitle(document.id, opts.title);
@@ -580,8 +612,26 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     !!currentTask.assigned_office_id &&
     currentTask.assigned_office_id === userOfficeId;
 
-  const availableActions =
+  const ownerOfficeId =
+    (document as any)?.owner_office_id ??
+    (document as any)?.ownerOffice?.id ??
+    null;
+
+  const availableActionsRaw =
     transitions[localVersion.status as keyof typeof transitions] ?? [];
+
+  // Only show actions that the CURRENT assigned office is allowed to perform
+  const availableActions = availableActionsRaw.filter((a) => {
+    // If we don't have a current task yet, hide actions (prevents “everyone sees everything”)
+    if (!currentTask?.assigned_office_id) return false;
+
+    const expected = expectedOfficeIdForToStatus(a.toStatus, ownerOfficeId);
+
+    // If we can't determine expected office, keep it hidden for safety
+    if (!expected) return false;
+
+    return expected === currentTask.assigned_office_id;
+  });
 
   const assignedOfficeId = currentTask?.assigned_office_id ?? null;
   const myOfficeId = userOfficeId;
@@ -746,31 +796,29 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                   </button>
                 )}
 
-              {localVersion.status === "Draft" && (
-                <button
-                  type="button"
-                  className="rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
-                  onClick={async () => {
-                    try {
-                      const isRevisionDraft =
-                        Number(localVersion.version_number) > 0;
-                      const msg = isRevisionDraft
-                        ? "Delete this draft revision?"
-                        : "Delete this draft? (This will remove the whole document draft)";
-                      if (!confirm(msg)) return;
+              {localVersion.status === "Draft" &&
+                Number(localVersion.version_number) === 0 && (
+                  <button
+                    type="button"
+                    className="rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                    onClick={async () => {
+                      try {
+                        const msg =
+                          "Delete this draft? (This will remove the whole document draft)";
+                        if (!confirm(msg)) return;
 
-                      await deleteDraftVersion(localVersion.id);
+                        await deleteDraftVersion(localVersion.id);
 
-                      // Let the page refresh versions + redirect selection logic
-                      if (onChanged) await onChanged();
-                    } catch (e: any) {
-                      alert(e.message || "Delete failed");
-                    }
-                  }}
-                >
-                  Delete draft
-                </button>
-              )}
+                        // Let the page refresh versions + redirect selection logic
+                        if (onChanged) await onChanged();
+                      } catch (e: any) {
+                        alert(e.message || "Delete failed");
+                      }
+                    }}
+                  >
+                    Delete draft
+                  </button>
+                )}
 
               {localVersion.status === "Draft" &&
                 Number(localVersion.version_number) > 0 && (
@@ -781,10 +829,8 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                       try {
                         if (!confirm("Cancel this revision draft?")) return;
                         await cancelRevision(localVersion.id);
-                        const { version: fresh } = await getDocumentVersion(
-                          localVersion.id,
-                        ).catch(() => ({ version: localVersion }));
-                        setLocalVersion(fresh);
+
+                        // Parent should reload versions + select the correct latest/previous version
                         if (onChanged) await onChanged();
                       } catch (e: any) {
                         alert(e.message || "Cancel failed");
@@ -909,15 +955,18 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                           note ?? undefined,
                         );
 
-                        setLocalVersion(updated);
-                        setTasks(await listWorkflowTasks(updated.id));
-                        setMessages(await listDocumentMessages(updated.id));
+                        // Fast UI update: only version status changes immediately
+                        setLocalVersion((prev) => ({ ...prev, ...updated }));
 
-                        startBurstPolling();
+                        // Lazy refresh: only refresh the active tab, not everything
+                        if (activeSideTab === "logs") {
+                          setTasks(await listWorkflowTasks(updated.id));
+                        }
+                        if (activeSideTab === "comments") {
+                          setMessages(await listDocumentMessages(updated.id));
+                        }
 
-                        if (action.toStatus === "QA_EDIT")
-                          setActiveSideTab("comments");
-
+                        // No burst polling by default (this was multiplying calls)
                         if (onChanged) await onChanged();
                       } catch (e) {
                         alert((e as Error).message);

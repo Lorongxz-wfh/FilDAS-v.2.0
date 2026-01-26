@@ -10,6 +10,8 @@ import Alert from "../components/ui/Alert";
 import { Card, CardBody } from "../components/ui/Card";
 import PageHeading from "../components/ui/PageHeading";
 
+import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
+
 const MyWorkQueuePage: React.FC = () => {
   const navigate = useNavigate();
   const [allDocuments, setAllDocuments] = useState<Document[]>([]);
@@ -56,6 +58,45 @@ const MyWorkQueuePage: React.FC = () => {
         title="Documents & Approvals"
         subtitle="Review pending actions and access official versions."
       />
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            markWorkQueueSession();
+            navigate("/documents", { state: { fromWorkQueue: true } });
+          }}
+          className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Open document library
+        </button>
+
+        {isQA(userRole) && (
+          <button
+            type="button"
+            onClick={() => {
+              markWorkQueueSession();
+              navigate("/documents/create", { state: { fromWorkQueue: true } });
+            }}
+            className="rounded-md bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700"
+          >
+            Create document
+          </button>
+        )}
+
+        {!isQA(userRole) && (
+          <button
+            type="button"
+            onClick={() => {
+              markWorkQueueSession();
+              navigate("/documents/request", { state: { fromWorkQueue: true } });
+            }}
+            className="rounded-md bg-slate-700 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800"
+          >
+            Request document
+          </button>
+        )}
+      </div>
 
       {/* Stats row */}
       <Card>

@@ -1,19 +1,29 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
+import { getUserRole } from "../../lib/roleFilters";
 
-const links = [
-  { to: "/work-queue", label: "📋 Work queue" },
+type LinkItem = { to: string; label: string; roles?: string[] };
+
+const links: LinkItem[] = [
   { to: "/dashboard", label: "🏠 Dashboard" },
-  { to: "/documents", label: "📚 Document library" },
-  { to: "/documents/create", label: "✨ Create document" },
-  { to: "/documents/request", label: "📝 Request document" },
-];
+  { to: "/work-queue", label: "📋 Work queue" },
+  { to: "/archive", label: "🗄️ Archive" },
+
+  // roles must match getUserRole() outputs (uppercase)
+  { to: "/reports", label: "📊 Reports", roles: ["QA"] },
+  { to: "/audit-logs", label: "🧾 Audit logs", roles: ["QA", "SYSADMIN"] },
+  { to: "/user-manager", label: "👥 User manager", roles: ["SYSADMIN"] },
+
+  ];
 
 const Sidebar: React.FC = () => {
+  const role = getUserRole(); // "QA" | "DEPARTMENT" | "VPAA" | "PRESIDENT" | "SYSADMIN"
+  const visibleLinks = links.filter((l) => !l.roles || l.roles.includes(role));
+
   return (
     <aside className="hidden w-56 shrink-0 border-r border-slate-200 bg-white text-sm text-slate-700 md:flex md:flex-col">
       <nav className="flex-1 space-y-0 px-2 py-2">
-        {links.map((link) => (
+        {visibleLinks.map((link) => (
           <NavLink
             key={link.to}
             to={link.to}
