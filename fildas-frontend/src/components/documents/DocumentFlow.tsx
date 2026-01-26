@@ -6,6 +6,7 @@ import type {
   DocumentVersion,
   WorkflowTask,
   DocumentMessage,
+  WorkflowActionCode,
 } from "../../services/documents";
 
 import { getCurrentUserOfficeId } from "../../services/documents";
@@ -24,10 +25,30 @@ import {
   cancelRevision,
 } from "../../services/documents";
 
+export type HeaderActionButton = {
+  key: string;
+  label: string;
+  variant: "primary" | "danger" | "outline";
+  disabled?: boolean;
+  onClick: () => Promise<void> | void;
+};
+
+
+export type DocumentFlowHeaderState = {
+  title: string;
+  code: string;
+  status: string;
+  versionNumber: number;
+  canAct: boolean;
+  headerActions: HeaderActionButton[]; // forward/return actions
+  versionActions: HeaderActionButton[]; // download/delete/cancel
+};
+
 interface DocumentFlowProps {
   document: Document;
   version: DocumentVersion;
   onChanged?: () => Promise<void> | void;
+  onHeaderStateChange?: (s: DocumentFlowHeaderState) => void;
 }
 
 type PhaseId = "review" | "approval" | "registration";
@@ -97,7 +118,13 @@ const flowSteps: FlowStep[] = [
     phase: "approval",
   },
 
-  // Distribution
+  // Registration / Distribution
+  {
+    id: "qa_registration",
+    label: "QA registration",
+    statusValue: "For QA Registration",
+    phase: "registration",
+  },
   {
     id: "qa_distribution",
     label: "QA distribution",
@@ -183,8 +210,19 @@ const transitions: Record<string, TransitionAction[]> = {
   ],
   "For President Approval": [
     {
+      toStatus: "For QA Registration",
+      label: "Forward to QA for registration",
+    },
+    {
+      toStatus: "QA_EDIT",
+      label: "Return to QA (edit)",
+    },
+  ],
+
+  "For QA Registration": [
+    {
       toStatus: "For QA Distribution",
-      label: "Forward to QA for distribution",
+      label: "Proceed to QA distribution",
     },
     {
       toStatus: "QA_EDIT",
@@ -206,7 +244,7 @@ const transitions: Record<string, TransitionAction[]> = {
   Distributed: [],
 };
 
-function toWorkflowAction(toStatus: string): string | null {
+function toWorkflowAction(toStatus: string): WorkflowActionCode | null {
   switch (toStatus) {
     case "For Department Review":
       return "SEND_TO_DEPT_REVIEW";
@@ -220,39 +258,14 @@ function toWorkflowAction(toStatus: string): string | null {
       return "FORWARD_TO_VPAA_APPROVAL";
     case "For President Approval":
       return "FORWARD_TO_PRESIDENT_APPROVAL";
+    case "For QA Registration":
+      return "FORWARD_TO_QA_REGISTRATION";
     case "For QA Distribution":
       return "FORWARD_TO_QA_DISTRIBUTION";
     case "Distributed":
       return "MARK_DISTRIBUTED";
     case "QA_EDIT":
       return "RETURN_TO_QA_EDIT";
-    default:
-      return null;
-  }
-}
-
-function expectedOfficeIdForToStatus(
-  toStatus: string,
-  ownerOfficeId: number | null | undefined,
-): number | null {
-  switch (toStatus) {
-    case "For Department Review":
-    case "For Department Approval":
-      return ownerOfficeId ?? null;
-
-    case "For VPAA Review":
-    case "For VPAA Approval":
-      return 17; // VPAA office id
-
-    case "For President Approval":
-      return 1; // President office id
-
-    case "For QA Final Check":
-    case "For QA Distribution":
-    case "Distributed":
-    case "QA_EDIT":
-      return 44; // QA office id
-
     default:
       return null;
   }
@@ -279,6 +292,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   document,
   version,
   onChanged,
+  onHeaderStateChange,
 }) => {
   const [localVersion, setLocalVersion] = React.useState(version);
   const [localTitle, setLocalTitle] = React.useState(document.title);
@@ -334,9 +348,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
           return;
         }
 
+        if (alive) setIsPreviewLoading(true);
+
         const res = await getDocumentPreviewLink(localVersion.id);
         if (alive) {
-          setIsPreviewLoading(true);
           setSignedPreviewUrl(res.url);
         }
       } catch (e) {
@@ -615,27 +630,169 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const ownerOfficeId =
     (document as any)?.owner_office_id ??
     (document as any)?.ownerOffice?.id ??
+    (document as any)?.office_id ??
+    (document as any)?.office?.id ??
     null;
 
   const availableActionsRaw =
     transitions[localVersion.status as keyof typeof transitions] ?? [];
 
   // Only show actions that the CURRENT assigned office is allowed to perform
-  const availableActions = availableActionsRaw.filter((a) => {
-    // If we don't have a current task yet, hide actions (prevents “everyone sees everything”)
-    if (!currentTask?.assigned_office_id) return false;
-
-    const expected = expectedOfficeIdForToStatus(a.toStatus, ownerOfficeId);
-
-    // If we can't determine expected office, keep it hidden for safety
-    if (!expected) return false;
-
-    return expected === currentTask.assigned_office_id;
-  });
+  // If you own the open task, show all actions for this status.
+  // Backend still validates office_id, so this is safe.
+  const availableActions = currentTask?.assigned_office_id
+    ? availableActionsRaw
+    : [];
 
   const assignedOfficeId = currentTask?.assigned_office_id ?? null;
   const myOfficeId = userOfficeId;
   const fullCode = document.code ?? "CODE-NOT-AVAILABLE";
+
+  const headerActions: HeaderActionButton[] = availableActions.map((action) => {
+    const isDanger = action.toStatus === "QA_EDIT";
+    const isSuccess = action.toStatus === "Distributed";
+
+    return {
+      key: action.toStatus,
+      label: action.label,
+      variant: isDanger ? "danger" : "primary",
+
+      disabled: isChangingStatus || !canAct,
+      onClick: async () => {
+        const code = toWorkflowAction(action.toStatus);
+        if (!code) {
+          alert("Action not mapped yet.");
+          return;
+        }
+
+        let note: string | null = null;
+
+        if (action.toStatus === "QA_EDIT") {
+          note = window.prompt("Return note (required):", "");
+          if (note === null) return;
+          if (note.trim().length === 0) {
+            alert("Return note is required.");
+            return;
+          }
+        }
+
+        const ok = window.confirm(`${action.label}?`);
+        if (!ok) return;
+
+        setIsChangingStatus(true);
+        try {
+          const updated = await submitWorkflowAction(
+            localVersion.id,
+            code,
+            note ?? undefined,
+          );
+
+          setLocalVersion((prev) => ({ ...prev, ...updated }));
+
+          if (activeSideTab === "logs")
+            setTasks(await listWorkflowTasks(updated.id));
+          if (activeSideTab === "comments")
+            setMessages(await listDocumentMessages(updated.id));
+
+          if (onChanged) await onChanged();
+        } catch (e) {
+          alert((e as Error).message);
+        } finally {
+          setIsChangingStatus(false);
+        }
+      },
+    };
+  });
+
+  const versionActions: HeaderActionButton[] = [];
+
+  if (localVersion.status === "Distributed" && localVersion.file_path) {
+    versionActions.push({
+      key: "download",
+      label: "Download",
+      variant: "outline",
+      onClick: async () => {
+        try {
+          await downloadDocument(localVersion);
+        } catch (e: any) {
+          alert(e.message || "Download failed");
+        }
+      },
+    });
+  }
+
+  if (
+    localVersion.status === "Draft" &&
+    Number(localVersion.version_number) === 0
+  ) {
+    versionActions.push({
+      key: "delete_draft",
+      label: "Delete draft",
+      variant: "danger",
+      onClick: async () => {
+        try {
+          const msg =
+            "Delete this draft? (This will remove the whole document draft)";
+          if (!confirm(msg)) return;
+
+          await deleteDraftVersion(localVersion.id);
+
+          if (Number(localVersion.version_number) === 0) {
+            window.location.href = "/documents";
+            return;
+          }
+
+          if (onChanged) await onChanged();
+        } catch (e: any) {
+          alert(e.message || "Delete failed");
+        }
+      },
+    });
+  }
+
+  if (
+    localVersion.status === "Draft" &&
+    Number(localVersion.version_number) > 0
+  ) {
+    versionActions.push({
+      key: "cancel_revision",
+      label: "Cancel revision",
+      variant: "outline",
+      onClick: async () => {
+        try {
+          if (!confirm("Cancel this revision draft?")) return;
+          await cancelRevision(localVersion.id);
+          if (onChanged) await onChanged();
+        } catch (e: any) {
+          alert(e.message || "Cancel failed");
+        }
+      },
+    });
+  }
+
+  React.useEffect(() => {
+    if (!onHeaderStateChange) return;
+
+    onHeaderStateChange({
+      title: localVersion.status === "Draft" ? localTitle : document.title,
+      code: fullCode,
+      status: localVersion.status,
+      versionNumber: Number(localVersion.version_number),
+      canAct,
+      headerActions,
+      versionActions,
+    });
+  }, [
+    onHeaderStateChange,
+    document.title,
+    fullCode,
+    localTitle,
+    localVersion.status,
+    localVersion.version_number,
+    canAct,
+    isChangingStatus,
+    availableActions.length,
+  ]);
 
   // UI
 
@@ -777,71 +934,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               </>
             )}
 
-            {/* Action buttons (version-level) */}
-            <div className="mt-3 flex flex-wrap gap-2">
-              {localVersion.status === "Distributed" &&
-                localVersion.file_path && (
-                  <button
-                    type="button"
-                    className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    onClick={async () => {
-                      try {
-                        await downloadDocument(localVersion);
-                      } catch (e: any) {
-                        alert(e.message || "Download failed");
-                      }
-                    }}
-                  >
-                    Download
-                  </button>
-                )}
-
-              {localVersion.status === "Draft" &&
-                Number(localVersion.version_number) === 0 && (
-                  <button
-                    type="button"
-                    className="rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
-                    onClick={async () => {
-                      try {
-                        const msg =
-                          "Delete this draft? (This will remove the whole document draft)";
-                        if (!confirm(msg)) return;
-
-                        await deleteDraftVersion(localVersion.id);
-
-                        // Let the page refresh versions + redirect selection logic
-                        if (onChanged) await onChanged();
-                      } catch (e: any) {
-                        alert(e.message || "Delete failed");
-                      }
-                    }}
-                  >
-                    Delete draft
-                  </button>
-                )}
-
-              {localVersion.status === "Draft" &&
-                Number(localVersion.version_number) > 0 && (
-                  <button
-                    type="button"
-                    className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    onClick={async () => {
-                      try {
-                        if (!confirm("Cancel this revision draft?")) return;
-                        await cancelRevision(localVersion.id);
-
-                        // Parent should reload versions + select the correct latest/previous version
-                        if (onChanged) await onChanged();
-                      } catch (e: any) {
-                        alert(e.message || "Cancel failed");
-                      }
-                    }}
-                  >
-                    Cancel revision
-                  </button>
-                )}
-            </div>
-
             {/* Metadata row */}
             <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-500">
               <div>
@@ -893,6 +985,19 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               Assigned to office ID: {assignedOfficeId ?? "-"} (You:{" "}
               {myOfficeId || "-"})
             </p>
+            {isTasksReady && !currentTask && (
+              <p className="mt-1 text-11px text-rose-600">
+                No current workflow task found (cannot determine who can act).
+              </p>
+            )}
+
+            {isTasksReady && currentTask && !canAct && (
+              <p className="mt-1 text-11px text-slate-500">
+                Actions hidden: assigned office ({assignedOfficeId}) doesn’t
+                match your office ({myOfficeId}).
+              </p>
+            )}
+
             {!isTasksReady && (
               <p className="mt-1 text-[11px] text-slate-400">
                 Checking permissions…
@@ -909,82 +1014,25 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               </button>
             )}
 
-            {availableActions.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {availableActions.map((action) => (
-                  <button
-                    key={action.toStatus}
-                    type="button"
-                    disabled={isChangingStatus || !canAct}
-                    className={`inline-flex items-center justify-center rounded-md px-3 py-1.5 text-xs font-medium border ${
-                      isChangingStatus || !canAct
-                        ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
-                        : action.toStatus === "QA_EDIT"
-                          ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
-                          : action.toStatus === "Distributed"
-                            ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
-                            : "border-sky-600 bg-sky-600 text-white hover:bg-sky-700"
-                    }`}
-                    onClick={async () => {
-                      const code = toWorkflowAction(action.toStatus);
-                      if (!code) {
-                        alert("Action not mapped yet.");
-                        return;
-                      }
-
-                      let note: string | null = null;
-
-                      if (action.toStatus === "QA_EDIT") {
-                        note = window.prompt("Return note (required):", "");
-
-                        if (note === null) return; // user cancelled
-                        if (note.trim().length === 0) {
-                          alert("Return note is required.");
-                          return;
-                        }
-                      }
-
-                      const ok = window.confirm(`${action.label}?`);
-                      if (!ok) return;
-
-                      setIsChangingStatus(true);
-                      try {
-                        const updated = await submitWorkflowAction(
-                          localVersion.id,
-                          code,
-                          note ?? undefined,
-                        );
-
-                        // Fast UI update: only version status changes immediately
-                        setLocalVersion((prev) => ({ ...prev, ...updated }));
-
-                        // Lazy refresh: only refresh the active tab, not everything
-                        if (activeSideTab === "logs") {
-                          setTasks(await listWorkflowTasks(updated.id));
-                        }
-                        if (activeSideTab === "comments") {
-                          setMessages(await listDocumentMessages(updated.id));
-                        }
-
-                        // No burst polling by default (this was multiplying calls)
-                        if (onChanged) await onChanged();
-                      } catch (e) {
-                        alert((e as Error).message);
-                      } finally {
-                        setIsChangingStatus(false);
-                      }
-                    }}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      {isChangingStatus && (
-                        <InlineSpinner className="h-3 w-3 border-2" />
-                      )}
-                      {action.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="mt-3">
+              {!isTasksReady ? (
+                <p className="text-[11px] text-slate-400">
+                  Checking permissions…
+                </p>
+              ) : availableActions.length === 0 ? (
+                <p className="text-[11px] text-slate-500">
+                  No available actions for this step.
+                </p>
+              ) : !canAct ? (
+                <p className="text-[11px] text-slate-500">
+                  You can view this step, but actions are disabled.
+                </p>
+              ) : (
+                <p className="text-[11px] text-slate-500">
+                  Actions are available in the header.
+                </p>
+              )}
+            </div>
 
             <div className="mt-4">
               <div className="flex border-b border-slate-200">

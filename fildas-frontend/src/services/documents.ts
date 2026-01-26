@@ -560,11 +560,24 @@ export const getCurrentUserOfficeId = (): number => {
   return getAuthUser()?.office?.id ?? 0;
 };
 
+export type WorkflowActionCode =
+  | "SEND_TO_DEPT_REVIEW"
+  | "FORWARD_TO_VPAA_REVIEW"
+  | "VPAA_SEND_BACK_TO_QA_FINAL_CHECK"
+  | "START_DEPT_APPROVAL"
+  | "FORWARD_TO_VPAA_APPROVAL"
+  | "FORWARD_TO_PRESIDENT_APPROVAL"
+  | "FORWARD_TO_QA_REGISTRATION"
+  | "FORWARD_TO_QA_DISTRIBUTION"
+  | "MARK_DISTRIBUTED"
+  | "RETURN_TO_QA_EDIT";
+
 export async function submitWorkflowAction(
   versionId: number,
-  action: string,
+  action: WorkflowActionCode,
   note?: string,
 ): Promise<DocumentVersion> {
+
 const token = getAuthToken();
 
 const res = await fetch(`${API_BASE}/document-versions/${versionId}/actions`, {

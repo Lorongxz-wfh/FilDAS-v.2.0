@@ -21,7 +21,7 @@ export const isSysAdmin = (role: UserRole): boolean => role === "SYSADMIN";
 
 export const isPendingForRole = (status: string, role: UserRole): boolean => {
     const filters: Record<UserRole, string[]> = {
-    QA: ["Draft", "For QA Distribution"],
+    QA: ["Draft", "For QA Final Check", "For QA Distribution"],
     DEPARTMENT: ["For Department Review", "For Department Approval"],
     VPAA: ["For VPAA Review", "For VPAA Approval"],
     PRESIDENT: ["For President Approval"],
