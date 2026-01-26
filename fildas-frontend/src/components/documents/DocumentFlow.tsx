@@ -33,7 +33,6 @@ export type HeaderActionButton = {
   onClick: () => Promise<void> | void;
 };
 
-
 export type DocumentFlowHeaderState = {
   title: string;
   code: string;
@@ -798,53 +797,103 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
   return (
     <section className="space-y-6">
-      {/* 1. Phase bar */}
-      <div className="flex justify-center">
-        <div className="flex items-center gap-8">
+      {/* Workflow progress */}
+      <div className="mx-auto w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Workflow progress
+            </p>
+            <p className="mt-1 text-sm font-medium text-slate-900">
+              {currentPhase.label}
+            </p>
+          </div>
+
+          <div className="text-right">
+            <p className="text-[11px] text-slate-500">Current step</p>
+            <p className="mt-0.5 text-xs font-semibold text-slate-900">
+              {currentStep.label}
+            </p>
+          </div>
+        </div>
+
+        {/* Phase rail */}
+        <div className="mt-4 grid grid-cols-3 gap-3">
           {phases.map((phase, index) => {
             const isCurrent = index === currentPhaseIndex;
             const isCompleted = index < currentPhaseIndex;
 
             return (
-              <React.Fragment key={phase.id}>
-                <div
-                  className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium ${
-                    isCurrent
-                      ? "bg-sky-50 text-sky-700"
-                      : isCompleted
-                        ? "text-slate-500"
-                        : "text-slate-400"
-                  }`}
-                >
-                  <span
-                    className={`h-2 w-2 rounded-full ${
-                      isCurrent
-                        ? "bg-sky-500"
-                        : isCompleted
-                          ? "bg-emerald-400"
-                          : "bg-slate-300"
-                    }`}
-                  />
-                  <span>{phase.label}</span>
-                </div>
+              <div
+                key={phase.id}
+                className={`rounded-xl border px-4 py-3 ${
+                  isCurrent
+                    ? "border-sky-200 bg-sky-50"
+                    : isCompleted
+                      ? "border-emerald-200 bg-emerald-50/40"
+                      : "border-slate-200 bg-white"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        isCurrent
+                          ? "bg-sky-600"
+                          : isCompleted
+                            ? "bg-emerald-500"
+                            : "bg-slate-300"
+                      }`}
+                    />
+                    <span
+                      className={`text-xs font-semibold ${
+                        isCurrent
+                          ? "text-sky-800"
+                          : isCompleted
+                            ? "text-slate-700"
+                            : "text-slate-500"
+                      }`}
+                    >
+                      {phase.label}
+                    </span>
+                  </div>
 
-                {index < phases.length - 1 && (
-                  <div className="h-px w-16 bg-slate-200" />
-                )}
-              </React.Fragment>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      isCurrent
+                        ? "bg-sky-100 text-sky-700"
+                        : isCompleted
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {isCurrent ? "Current" : isCompleted ? "Done" : "Next"}
+                  </span>
+                </div>
+              </div>
             );
           })}
         </div>
-      </div>
 
-      {/* 2. Steps (current phase only, horizontal) */}
-      <div className="flex justify-center">
-        <div className="mt-4 w-full max-w-5xl rounded-xl border border-slate-200 bg-white px-6 py-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {currentPhase.label} phase
-          </p>
+        {/* Steps timeline (current phase only) */}
+        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50/40 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              {currentPhase.label} steps
+            </p>
+            {nextStep ? (
+              <p className="text-[11px] text-slate-500">
+                Next:{" "}
+                <span className="font-medium text-slate-700">
+                  {nextStep.label}
+                </span>
+              </p>
+            ) : (
+              <p className="text-[11px] text-slate-500">No next step</p>
+            )}
+          </div>
 
-          <div className="mt-3 flex items-center gap-4">
+          <div className="mt-4 flex items-center gap-3">
             {flowSteps
               .filter((s) => s.phase === currentPhase.id)
               .map((step, index, arr) => {
@@ -854,41 +903,45 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
                 return (
                   <React.Fragment key={step.id}>
-                    <div className="flex flex-col items-center gap-1">
+                    <div className="min-w-0 flex flex-col items-center">
                       <div
-                        className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-medium ${
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold shadow-sm ${
                           isCurrent
                             ? "bg-sky-600 text-white"
                             : isCompleted
                               ? "bg-emerald-500 text-white"
-                              : "bg-slate-200 text-slate-600"
+                              : "bg-white text-slate-600 border border-slate-200"
                         }`}
                       >
                         {index + 1}
                       </div>
+
                       <span
-                        className={`whitespace-nowrap text-xs ${
+                        className={`mt-2 max-w-[140px] truncate text-center text-[11px] font-medium ${
                           isCurrent
-                            ? "text-sky-700"
+                            ? "text-sky-800"
                             : isCompleted
-                              ? "text-slate-500"
-                              : "text-slate-400"
+                              ? "text-slate-700"
+                              : "text-slate-500"
                         }`}
+                        title={step.label}
                       >
                         {step.label}
                       </span>
                     </div>
 
                     {index < arr.length - 1 && (
-                      <div
-                        className={`h-px flex-1 ${
-                          isCompleted
-                            ? "bg-emerald-400"
-                            : isCurrent
-                              ? "bg-sky-300"
-                              : "bg-slate-200"
-                        }`}
-                      />
+                      <div className="flex-1 px-1">
+                        <div
+                          className={`h-1 rounded-full ${
+                            isCompleted
+                              ? "bg-emerald-400"
+                              : isCurrent
+                                ? "bg-sky-300"
+                                : "bg-slate-200"
+                          }`}
+                        />
+                      </div>
                     )}
                   </React.Fragment>
                 );
