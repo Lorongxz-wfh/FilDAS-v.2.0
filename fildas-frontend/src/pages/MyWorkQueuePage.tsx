@@ -3,12 +3,20 @@ import { useNavigate } from "react-router-dom";
 import { listDocuments } from "../services/documents";
 import type { Document } from "../services/documents";
 import PendingActionsSection from "../components/PendingActionsSection";
-import DocumentsListPage from "./DocumentLibraryPage";
-import { getUserRole, isPendingForRole, isQA } from "../lib/roleFilters";
+import {
+  getUserRole,
+  isPendingForRole,
+  isQA,
+  isDepartment,
+} from "../lib/roleFilters";
 
 import Alert from "../components/ui/Alert";
 import { Card, CardBody } from "../components/ui/Card";
 import PageHeading from "../components/ui/PageHeading";
+
+import Button from "../components/ui/Button";
+import InlineSpinner from "../components/ui/loader/InlineSpinner";
+import SkeletonList from "../components/ui/loader/SkeletonList";
 
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
 
@@ -42,90 +50,103 @@ const MyWorkQueuePage: React.FC = () => {
     navigate(`/documents/${id}`);
   };
 
-  if (loading) {
-    return (
-      <div className="text-sm text-slate-600">Loading your documents...</div>
-    );
-  }
-
-  if (error) {
-    return <Alert variant="danger">{error}</Alert>;
-  }
-
   return (
     <div className="space-y-6">
-      <PageHeading
-        title="Documents & Approvals"
-        subtitle="Review pending actions and access official versions."
-      />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold text-slate-900">
+            Documents & Approvals
+          </h1>
+        </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            markWorkQueueSession();
-            navigate("/documents", { state: { fromWorkQueue: true } });
-          }}
-          className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-        >
-          Open document library
-        </button>
-
-        {isQA(userRole) && (
-          <button
+        <div className="flex flex-wrap gap-2">
+          <Button
             type="button"
-            onClick={() => {
-              markWorkQueueSession();
-              navigate("/documents/create", { state: { fromWorkQueue: true } });
-            }}
-            className="rounded-md bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700"
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/documents")}
           >
-            Create document
-          </button>
-        )}
+            Open document library
+          </Button>
 
-        {!isQA(userRole) && (
-          <button
-            type="button"
-            onClick={() => {
-              markWorkQueueSession();
-              navigate("/documents/request", { state: { fromWorkQueue: true } });
-            }}
-            className="rounded-md bg-slate-700 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800"
-          >
-            Request document
-          </button>
-        )}
+          {isQA(userRole) && (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                markWorkQueueSession();
+                navigate("/documents/create", {
+                  state: { fromWorkQueue: true },
+                });
+              }}
+            >
+              Create document
+            </Button>
+          )}
+
+          {isDepartment(userRole) && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                markWorkQueueSession();
+                navigate("/documents/request", {
+                  state: { fromWorkQueue: true },
+                });
+              }}
+            >
+              Request document
+            </Button>
+          )}
+        </div>
       </div>
 
+      {error && <Alert variant="danger">{error}</Alert>}
+
       {/* Stats row */}
-      <Card>
-        <CardBody className="bg-linear-to-r from-sky-50 to-indigo-50">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-sky-600">
-                {pendingActions.length}
+      <Card className="overflow-hidden">
+        <CardBody className="bg-white p-0">
+          <div className="grid grid-cols-1 divide-y divide-slate-100 md:grid-cols-3 md:divide-y-0 md:divide-x">
+            <div className="text-center py-3">
+              <div className="text-3xl font-semibold text-sky-700 tabular-nums">
+                {loading ? (
+                  <InlineSpinner className="h-5 w-5 border-2" />
+                ) : (
+                  pendingActions.length
+                )}
               </div>
-              <div className="text-xs text-slate-600 uppercase tracking-wider">
-                Pending Actions
+
+              <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                Pending
               </div>
             </div>
 
-            <div className="text-center">
-              <div className="text-2xl font-bold text-slate-900">
-                {allDocuments.length}
+            <div className="text-center py-3">
+              <div className="text-3xl font-semibold text-slate-900 tabular-nums">
+                {loading ? (
+                  <InlineSpinner className="h-5 w-5 border-2" />
+                ) : (
+                  allDocuments.length
+                )}
               </div>
-              <div className="text-xs text-slate-600 uppercase tracking-wider">
-                Total Documents
+              <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                Total documents
               </div>
             </div>
 
-            <div className="text-center">
-              <div className="text-2xl font-bold text-emerald-600">
-                {allDocuments.filter((d) => d.status === "Distributed").length}
+            <div className="text-center py-3">
+              <div className="text-2xl font-semibold text-emerald-700 tabular-nums">
+                {loading ? (
+                  <InlineSpinner className="h-5 w-5 border-2" />
+                ) : (
+                  allDocuments.filter((d) => d.status === "Distributed").length
+                )}
               </div>
-              <div className="text-xs text-slate-600 uppercase tracking-wider">
-                Official Versions
+
+              <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                Official
               </div>
             </div>
           </div>
@@ -135,31 +156,44 @@ const MyWorkQueuePage: React.FC = () => {
       {/* Two-column content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Pending Actions */}
-        <div className="lg:col-span-4">
+        <div className="lg:col-span-12">
           <Card className="h-full">
-            <CardBody>
-              <PendingActionsSection
-                documents={pendingActions}
-                onDocumentClick={handleDocumentSelect}
-              />
+            <CardBody className="h-95 flex flex-col min-h-0">
+              {/* Keep a header row visible (dashboard-like) */}
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">
+                    Pending actions
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    Top items requiring your action.
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/work-queue")}
+                >
+                  View all
+                </Button>
+              </div>
+
+              <div className="mt-3 flex-1">
+                {loading ? (
+                  <div className="space-y-2">
+                    <SkeletonList rows={6} rowClassName="h-10" />
+                  </div>
+                ) : (
+                  <PendingActionsSection
+                    documents={pendingActions}
+                    onDocumentClick={handleDocumentSelect}
+                  />
+                )}
+              </div>
             </CardBody>
           </Card>
-        </div>
-
-        {/* Documents List */}
-        <div className="lg:col-span-8">
-          <DocumentsListPage
-            documents={
-              isQA(userRole)
-                ? allDocuments
-                : allDocuments.filter((doc) =>
-                    [
-                      "Distributed",
-                      ...pendingActions.map((d) => d.status),
-                    ].includes(doc.status),
-                  )
-            }
-          />
         </div>
       </div>
     </div>

@@ -1,4 +1,6 @@
 import React from "react";
+import InlineSpinner from "./loader/InlineSpinner";
+import TableSkeleton from "./loader/TableSkeleton";
 
 type Align = "left" | "center" | "right";
 
@@ -15,6 +17,7 @@ export type TableProps<T> = {
   columns: TableColumn<T>[];
   rows: T[];
   loading?: boolean;
+  loadingStyle?: "spinner" | "skeleton";
   error?: string | null;
   emptyMessage?: string;
   onRowClick?: (row: T) => void;
@@ -32,26 +35,33 @@ export default function Table<T>({
   columns,
   rows,
   loading = false,
+  loadingStyle = "spinner",
   error = null,
   emptyMessage = "No data.",
   onRowClick,
   rowKey,
   className,
 }: TableProps<T>) {
-  const showEmpty = !loading && !error && rows.length === 0;
-
   return (
     <div
-      className={`min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${className ?? ""}`}
+      className={`relative min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${
+        loading && loadingStyle === "skeleton" ? "min-h-130" : ""
+      } ${className ?? ""}`}
     >
       <div className="h-full min-h-0 overflow-auto">
         <table className="min-w-full text-left text-sm text-slate-700">
-          <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            <tr>
-              {columns.map((c) => (
+          <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur supports-backdrop-filter:bg-slate-50/80">
+            <tr className="border-b border-slate-200">
+              {columns.map((c, idx) => (
                 <th
                   key={c.key}
-                  className={`px-4 py-2 ${alignClass(c.align)} ${c.headerClassName ?? ""}`}
+                  className={[
+                    "px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-600",
+                    "shadow-[inset_0_-1px_0_0_rgb(226,232,240)]",
+                    alignClass(c.align),
+                    idx === 0 ? "pl-5" : "",
+                    c.headerClassName ?? "",
+                  ].join(" ")}
                 >
                   {c.header}
                 </th>
@@ -60,15 +70,19 @@ export default function Table<T>({
           </thead>
 
           <tbody>
-            {loading ? (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="px-4 py-4 text-sm text-slate-600"
-                >
-                  Loading…
-                </td>
-              </tr>
+            {loading && loadingStyle === "skeleton" ? (
+              Array.from({ length: 8 }).map((_, r) => (
+                <tr key={`sk-${r}`} className="border-t border-slate-100">
+                  {columns.map((c, idx) => (
+                    <td
+                      key={`sk-${r}-${c.key}`}
+                      className={`px-4 py-3 ${alignClass(c.align)} ${idx === 0 ? "pl-5" : ""}`}
+                    >
+                      <div className="h-3 w-full rounded bg-slate-100 border border-slate-200/70 animate-pulse" />
+                    </td>
+                  ))}
+                </tr>
+              ))
             ) : error ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-4">
@@ -77,7 +91,7 @@ export default function Table<T>({
                   </div>
                 </td>
               </tr>
-            ) : rows.length === 0 ? (
+            ) : !loading && rows.length === 0 ? (
               <tr>
                 <td
                   colSpan={columns.length}
@@ -102,7 +116,7 @@ export default function Table<T>({
                     {columns.map((c) => (
                       <td
                         key={c.key}
-                        className={`px-4 py-2 ${alignClass(c.align)} ${c.className ?? ""}`}
+                        className={`px-4 py-3 ${alignClass(c.align)} ${c.className ?? ""}`}
                       >
                         {c.render(row)}
                       </td>
@@ -113,6 +127,15 @@ export default function Table<T>({
             )}
           </tbody>
         </table>
+
+        {loading && loadingStyle === "spinner" && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center">
+            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 shadow-sm">
+              <InlineSpinner />
+              Loading...
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

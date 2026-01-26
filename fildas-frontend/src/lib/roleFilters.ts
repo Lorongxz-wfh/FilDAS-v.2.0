@@ -33,3 +33,4 @@ export const isPendingForRole = (status: string, role: UserRole): boolean => {
 
 
 export const isQA = (role: UserRole): boolean => role === "QA";
+export const isDepartment = (role: UserRole): boolean => role === "DEPARTMENT";

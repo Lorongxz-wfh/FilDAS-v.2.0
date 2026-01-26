@@ -33,10 +33,11 @@ export default function App() {
         {/* DocumentFlow is ok to open normally */}
         <Route path="/documents/:id" element={<DocumentFlowPage />} />
 
-        {/* These 3 pages must be opened from MyWorkQueue buttons only */}
-        <Route element={<RequireFromWorkQueue />}>
-          <Route path="/documents" element={<DocumentLibraryPage />} />
+        {/* Document library should be reachable from sidebar */}
+        <Route path="/documents" element={<DocumentLibraryPage />} />
 
+        {/* These 2 pages can stay WorkQueue-only if you want */}
+        <Route element={<RequireFromWorkQueue />}>
           {/* QA only */}
           <Route element={<RequireRole allow={["QA"]} />}>
             <Route path="/documents/create" element={<CreateDocumentPage />} />

@@ -7,14 +7,14 @@ type LinkItem = { to: string; label: string; roles?: string[] };
 const links: LinkItem[] = [
   { to: "/dashboard", label: "🏠 Dashboard" },
   { to: "/work-queue", label: "📋 Work queue" },
+  { to: "/documents", label: "📚 Document library" },
   { to: "/archive", label: "🗄️ Archive" },
 
   // roles must match getUserRole() outputs (uppercase)
   { to: "/reports", label: "📊 Reports", roles: ["QA"] },
   { to: "/audit-logs", label: "🧾 Audit logs", roles: ["QA", "SYSADMIN"] },
   { to: "/user-manager", label: "👥 User manager", roles: ["SYSADMIN"] },
-
-  ];
+];
 
 const Sidebar: React.FC = () => {
   const role = getUserRole(); // "QA" | "DEPARTMENT" | "VPAA" | "PRESIDENT" | "SYSADMIN"
