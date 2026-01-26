@@ -72,7 +72,7 @@ const CreateDocumentPage: React.FC = () => {
       <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100">
         <div className="border-b border-slate-200 px-5 py-4">
           <h2 className="text-sm font-semibold tracking-tight text-slate-900">
-            New QA Document
+            New Document
           </h2>
           <p className="mt-1 text-xs text-slate-500">
             Required fields are marked with an asterisk (*).
@@ -217,7 +217,7 @@ const CreateDocumentPage: React.FC = () => {
 
           <div className="flex items-center justify-between pt-3">
             <p className="text-[11px] text-slate-500">
-              Saved documents will appear in your QA documents list.
+              Saved documents will appear in your Document Library.
             </p>
             <button
               type="submit"
