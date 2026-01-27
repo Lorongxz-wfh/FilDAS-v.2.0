@@ -14,6 +14,7 @@ import Alert from "../components/ui/Alert";
 import Button from "../components/ui/Button";
 import InlineSpinner from "../components/ui/loader/InlineSpinner";
 import SplitFrame from "../components/layout/SplitFrame";
+import Skeleton from "../components/ui/loader/Skeleton";
 
 const DocumentFlowPage: React.FC = () => {
   const params = useParams();
@@ -51,65 +52,166 @@ const DocumentFlowPage: React.FC = () => {
   const [selectedVersion, setSelectedVersion] =
     useState<DocumentVersion | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [loading, setLoading] = useState(true);
-  const [isSwitchingVersion, setIsSwitchingVersion] = useState(false);
+  const [loading, setLoading] = useState(true); // first load only
+  const hasData = !!document && !!selectedVersion;
+const selectedVersionParam = searchParams.get("version");
+const [isLoadingSelectedVersion, setIsLoadingSelectedVersion] = useState(false);
+
+
+  // Stores what the user last clicked (for nicer "Loading vX..." text)
+  const [targetVersionId, setTargetVersionId] = useState<number | null>(null);
+  const [targetVersionNumber, setTargetVersionNumber] = useState<
+    number | string | null
+  >(null);
+
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await getDocument(id);
-        setDocument(data);
+    let alive = true;
+    let seq = Date.now(); // simple unique marker for this run
 
-        // Versions for this document family
-        const versions = await getDocumentVersions(id);
+    const load = async () => {
+      // Only show the big loading state if we have nothing to render yet
+      if (!document || !selectedVersion) setLoading(true);
+      setError(null);
+
+      if (selectedVersionParam) setIsLoadingSelectedVersion(true);
+
+      try {
+        const qp = searchParams.get("version");
+        const qpId = qp ? Number(qp) : NaN;
+
+        // Always refresh versions list (right panel) in the background
+        const [docData, versions] = await Promise.all([
+          getDocument(id),
+          getDocumentVersions(id),
+        ]);
+        if (!alive) return;
+
+        setDocument(docData);
+
         const sorted = [...versions].sort(
           (a, b) => Number(b.version_number) - Number(a.version_number),
         );
         setAllVersions(sorted);
 
-        // Choose selected version from query param; fallback to latest version
-        const qp = searchParams.get("version");
-        const qpId = qp ? Number(qp) : NaN;
-
+        // If query param exists, load that version details
         if (qp && !Number.isNaN(qpId)) {
           const { version, document: docRes } = await getDocumentVersion(qpId);
+          if (!alive) return;
           setSelectedVersion(version);
           setDocument(docRes);
-        } else {
-          setSelectedVersion(sorted[0] ?? null);
+          return;
         }
+
+        // No query param: ensure we have a selected version (keep current if possible)
+        setSelectedVersion((prev) => {
+          if (prev && sorted.some((v) => v.id === prev.id)) return prev;
+          return sorted[0] ?? null;
+        });
       } catch (err: any) {
+        if (!alive) return;
         setError(err?.message ?? "Failed to load document");
       } finally {
+        if (!alive) return;
         setLoading(false);
+        setIsLoadingSelectedVersion(false);
+        setTargetVersionId(null);
+        setTargetVersionNumber(null);
       }
     };
 
     load();
-  }, [id, searchParams]);
 
-  const BackButton = (
-    <div className="p-0">
-      <Button type="button" variant="outline" size="sm" onClick={handleBack}>
-        ← Back
-      </Button>
-    </div>
-  );
+    return () => {
+      alive = false;
+      void seq;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, searchParams.toString()]);
 
-  if (loading) {
+  if (loading && !hasData) {
     return (
-      <div>
-        {BackButton}
-        <LoadingSpinner message="Loading document version..." />
-      </div>
+      <SplitFrame
+        title={
+          <div className="flex items-center gap-2 min-w-0">
+            <Skeleton className="h-5 w-56" />
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-400">
+              v…
+            </span>
+            <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-300">
+              Loading…
+            </span>
+          </div>
+        }
+        subtitle={<Skeleton className="h-4 w-40" />}
+        right={
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleBack}
+            >
+              ← Back
+            </Button>
+          </div>
+        }
+        rightTitle="Versions"
+        rightSubtitle="Loading…"
+        rightWidthClassName="w-[340px]"
+        left={
+          <div className="mx-auto w-full max-w-5xl space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <Skeleton className="h-5 w-52" />
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                <Skeleton className="h-14 w-full rounded-xl" />
+                <Skeleton className="h-14 w-full rounded-xl" />
+                <Skeleton className="h-14 w-full rounded-xl" />
+              </div>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
+              <div className="space-y-4">
+                <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+                  <Skeleton className="h-6 w-64" />
+                  <Skeleton className="mt-2 h-4 w-32" />
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+                  <Skeleton className="h-56 w-full rounded-xl" />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-40" />
+                <div className="h-150 w-full rounded-xl border-2 border-slate-200 bg-white" />
+              </div>
+            </div>
+          </div>
+        }
+        rightPanel={
+          <div className="space-y-2">
+            <Skeleton className="h-16 w-full rounded-xl" />
+            <Skeleton className="h-16 w-full rounded-xl" />
+            <Skeleton className="h-16 w-full rounded-xl" />
+          </div>
+        }
+      />
     );
   }
 
   if (error || !document) {
     return (
-      <div>
-        {BackButton}
+      <div className="flex flex-col gap-3">
+        <Button type="button" variant="outline" size="sm" onClick={handleBack}>
+          ← Back
+        </Button>
         <Alert variant="danger">{error ?? "Document not found."}</Alert>
       </div>
     );
@@ -155,7 +257,7 @@ const DocumentFlowPage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={handleBack}
-            disabled={isSwitchingVersion}
+            disabled={isLoadingSelectedVersion}
           >
             ← Back
           </Button>
@@ -165,7 +267,7 @@ const DocumentFlowPage: React.FC = () => {
               type="button"
               variant="secondary"
               size="sm"
-              disabled={isSwitchingVersion}
+              disabled={isLoadingSelectedVersion}
               onClick={async () => {
                 try {
                   const revised = await createRevision(document.id);
@@ -210,7 +312,7 @@ const DocumentFlowPage: React.FC = () => {
                     : "secondary"
               }
               onClick={a.onClick}
-              disabled={isSwitchingVersion}
+              disabled={isLoadingSelectedVersion}
             >
               {a.label}
             </Button>
@@ -222,7 +324,7 @@ const DocumentFlowPage: React.FC = () => {
               type="button"
               size="sm"
               variant={a.variant === "danger" ? "danger" : "primary"}
-              disabled={a.disabled || isSwitchingVersion}
+              disabled={a.disabled || isLoadingSelectedVersion}
               onClick={a.onClick}
             >
               {a.label}
@@ -234,67 +336,80 @@ const DocumentFlowPage: React.FC = () => {
       rightSubtitle={`${allVersions.length} total`}
       rightWidthClassName="w-[340px]"
       left={
-        selectedVersion ? (
-          <DocumentFlow
-            document={document}
-            version={selectedVersion}
-            onHeaderStateChange={setHeaderState}
-            onChanged={async () => {
-              if (!document) return;
+        <div className="relative">
+          {selectedVersion ? (
+            <DocumentFlow
+              document={document}
+              version={selectedVersion}
+              onHeaderStateChange={setHeaderState}
+              onChanged={async () => {
+                if (!document) return;
 
-              let versions: DocumentVersion[] = [];
-              try {
-                versions = await getDocumentVersions(document.id);
-              } catch (e: any) {
-                navigate("/documents");
-                return;
-              }
+                let versions: DocumentVersion[] = [];
+                try {
+                  versions = await getDocumentVersions(document.id);
+                } catch (e: any) {
+                  navigate("/documents");
+                  return;
+                }
 
-              const sorted = [...versions].sort(
-                (a, b) => Number(b.version_number) - Number(a.version_number),
-              );
-
-              setAllVersions(sorted);
-
-              if (sorted.length === 0) {
-                navigate("/documents");
-                return;
-              }
-
-              const currentId = selectedVersion?.id;
-              const stillExists = currentId
-                ? sorted.some((v) => v.id === currentId)
-                : false;
-
-              if (currentId && stillExists) {
-                const { version: freshVersion, document: freshDoc } =
-                  await getDocumentVersion(currentId);
-                setSelectedVersion(freshVersion);
-                setDocument(freshDoc);
-                return;
-              }
-
-              const next = sorted[0] ?? null;
-              setSelectedVersion(next);
-
-              setSearchParams((prev) => {
-                const p = new URLSearchParams(prev);
-                if (next) p.set("version", String(next.id));
-                else p.delete("version");
-                return p;
-              });
-
-              if (next) {
-                const { document: freshDoc } = await getDocumentVersion(
-                  next.id,
+                const sorted = [...versions].sort(
+                  (a, b) => Number(b.version_number) - Number(a.version_number),
                 );
-                setDocument(freshDoc);
-              }
-            }}
-          />
-        ) : (
-          <Alert variant="warning">No version available.</Alert>
-        )
+
+                setAllVersions(sorted);
+
+                if (sorted.length === 0) {
+                  navigate("/documents");
+                  return;
+                }
+
+                const currentId = selectedVersion?.id;
+                const stillExists = currentId
+                  ? sorted.some((v) => v.id === currentId)
+                  : false;
+
+                if (currentId && stillExists) {
+                  const { version: freshVersion, document: freshDoc } =
+                    await getDocumentVersion(currentId);
+                  setSelectedVersion(freshVersion);
+                  setDocument(freshDoc);
+                  return;
+                }
+
+                const next = sorted[0] ?? null;
+                setSelectedVersion(next);
+
+                setSearchParams((prev) => {
+                  const p = new URLSearchParams(prev);
+                  if (next) p.set("version", String(next.id));
+                  else p.delete("version");
+                  return p;
+                });
+
+                if (next) {
+                  const { document: freshDoc } = await getDocumentVersion(
+                    next.id,
+                  );
+                  setDocument(freshDoc);
+                }
+              }}
+            />
+          ) : (
+            <Alert variant="warning">No version available.</Alert>
+          )}
+
+          {(isLoadingSelectedVersion || (loading && hasData)) && (
+            <div className="absolute inset-0 rounded-xl bg-white/50 backdrop-blur-[1px] flex items-start justify-end p-3 pointer-events-none">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white border border-slate-200 px-3 py-1 text-xs text-slate-700 shadow-sm">
+                <InlineSpinner className="h-3 w-3 border-2" />
+                {targetVersionNumber != null
+                  ? `Loading v${targetVersionNumber}…`
+                  : "Loading…"}
+              </div>
+            </div>
+          )}
+        </div>
       }
       rightPanel={
         <div className="space-y-2">
@@ -305,33 +420,25 @@ const DocumentFlowPage: React.FC = () => {
               <button
                 key={v.id}
                 type="button"
-                disabled={isSwitchingVersion}
-                onClick={async () => {
-                  try {
-                    setIsSwitchingVersion(true);
+                disabled={isLoadingSelectedVersion}
+                onClick={() => {
+                  setTargetVersionId(v.id);
+                  setTargetVersionNumber(v.version_number);
 
-                    setSearchParams((prev) => {
-                      const p = new URLSearchParams(prev);
-                      p.set("version", String(v.id));
-                      return p;
-                    });
-
-                    const { version, document: docRes } =
-                      await getDocumentVersion(v.id);
-                    setSelectedVersion(version);
-                    setDocument(docRes);
-                  } catch (e: any) {
-                    alert(e.message || "Failed to load version");
-                  } finally {
-                    setIsSwitchingVersion(false);
-                  }
+                  setSearchParams((prev) => {
+                    const p = new URLSearchParams(prev);
+                    p.set("version", String(v.id));
+                    return p;
+                  });
                 }}
                 className={[
                   "w-full rounded-xl border px-3 py-2 text-left transition relative",
                   isSelected
                     ? "border-sky-300 bg-white shadow-sm"
                     : "border-slate-200 bg-white/70 hover:bg-white",
-                  isSwitchingVersion ? "opacity-70 cursor-not-allowed" : "",
+                  isLoadingSelectedVersion
+                    ? "opacity-70 cursor-not-allowed"
+                    : "",
                 ].join(" ")}
                 aria-current={isSelected ? "true" : undefined}
               >
@@ -344,7 +451,7 @@ const DocumentFlowPage: React.FC = () => {
                     <p className="text-xs font-semibold text-slate-900">
                       v{v.version_number}
                     </p>
-                    {isSwitchingVersion && isSelected && (
+                    {isLoadingSelectedVersion && targetVersionId === v.id && (
                       <InlineSpinner className="h-3 w-3 border-2" />
                     )}
                   </div>

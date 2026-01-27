@@ -1,13 +1,8 @@
 import { getAuthUser } from "../lib/auth";
+import api from "./api";
 
-
-const API_BASE = "http://127.0.0.1:8000/api";
-
-function getAuthToken(): string {
-  const token = localStorage.getItem("auth_token");
-  if (!token) throw new Error("Not authenticated");
-  return token;
-}
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api";
 
 export interface CreateDocumentPayload {
   title: string;
@@ -19,12 +14,12 @@ export interface CreateDocumentPayload {
   file?: File | null;
 }
 
-
 export interface Document {
   id: number;
   title: string;
   office_id: number | null;
-  office: {     // ← ADD
+  office: {
+    // ← ADD
     id: number;
     name: string;
     code: string;
@@ -52,12 +47,14 @@ export async function createDocumentWithProgress(
   formData.append("owner_office_id", payload.owner_office_id.toString());
   formData.append("doctype", payload.doctype);
 
-  if (payload.visibility_scope) formData.append("visibility_scope", payload.visibility_scope);
+  if (payload.visibility_scope)
+    formData.append("visibility_scope", payload.visibility_scope);
   if (payload.school_year) formData.append("school_year", payload.school_year);
   if (payload.semester) formData.append("semester", payload.semester);
   if (payload.file) formData.append("file", payload.file);
 
-  const token = getAuthToken();
+  const token = localStorage.getItem("auth_token");
+  if (!token) throw new Error("Not authenticated");
 
   const url = `${API_BASE}/documents`;
 
@@ -79,9 +76,12 @@ export async function createDocumentWithProgress(
       if (!ok) {
         try {
           const data = JSON.parse(xhr.responseText || "{}");
-          const err: ApiError = new Error(data.message || `Request failed (${xhr.status})`);
+          const err: ApiError = new Error(
+            data.message || `Request failed (${xhr.status})`,
+          );
           err.status = xhr.status;
-          if (data?.errors && typeof data.errors === "object") err.details = data.errors;
+          if (data?.errors && typeof data.errors === "object")
+            err.details = data.errors;
           reject(err);
         } catch {
           reject(new Error(`Request failed (${xhr.status})`));
@@ -156,277 +156,180 @@ export interface DocumentMessage {
   sender?: DocumentMessageSender | null;
 }
 
-export async function listDocumentMessages(versionId: number): Promise<DocumentMessage[]> {
-const token = getAuthToken();
-
-const res = await fetch(
-  `${API_BASE}/document-versions/${versionId}/messages?t=${Date.now()}`,
-
-  {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  },
-);
-
-  if (!res.ok) {
-    let msg = `Failed to load messages (${res.status})`;
-    try {
-      const j = await res.json();
-      if (j?.message) msg = j.message;
-    } catch {}
+export async function listDocumentMessages(
+  versionId: number,
+): Promise<DocumentMessage[]> {
+  try {
+    const res = await api.get(`/document-versions/${versionId}/messages`, {
+      params: { t: Date.now() },
+    });
+    return res.data as DocumentMessage[];
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to load messages (${status})`
+        : "Failed to load messages");
     throw new Error(msg);
   }
-
-  return (await res.json()) as DocumentMessage[];
 }
 
 export async function postDocumentMessage(
   versionId: number,
   payload: { message: string; type?: DocumentMessage["type"] },
 ): Promise<DocumentMessage> {
-const token = getAuthToken();
-
-const res = await fetch(`${API_BASE}/document-versions/${versionId}/messages`, {
-
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    let msg = `Failed to send message (${res.status})`;
-    try {
-      const j = await res.json();
-      if (j?.message) msg = j.message;
-    } catch {}
+  try {
+    const res = await api.post(
+      `/document-versions/${versionId}/messages`,
+      payload,
+    );
+    return res.data as DocumentMessage;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to send message (${status})`
+        : "Failed to send message");
     throw new Error(msg);
   }
-
-  return (await res.json()) as DocumentMessage;
 }
 
 export async function listDocuments(): Promise<Document[]> {
-  const token = getAuthToken();
+  try {
+    const res = await api.get("/documents");
+    const data = res.data;
+    const docs = Array.isArray(data) ? data : data?.data;
 
-  const response = await fetch(`${API_BASE}/documents`, {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
+    if (!Array.isArray(docs)) {
+      throw new Error("Invalid documents response format");
+    }
 
-  if (!response.ok) {
-    throw new Error(`Failed to load documents (${response.status})`);
+    return docs as Document[];
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to load documents (${status})`
+        : "Failed to load documents");
+    throw new Error(msg);
   }
-
-  const json = await response.json();
-  const docs = Array.isArray(json) ? json : json?.data;
-
-  if (!Array.isArray(docs)) {
-    throw new Error("Invalid documents response format");
-  }
-
-  return docs as Document[];
 }
 
 export async function getDocument(id: number): Promise<Document> {
-  const token = getAuthToken();
+  try {
+    const res = await api.get(`/documents/${id}`, {
+      params: { t: Date.now() },
+    });
+    const doc = res.data?.data ?? res.data;
 
-  const response = await fetch(
-    `${API_BASE}/documents/${id}?t=${Date.now()}`,
-    {
-      headers: {
-        Accept: "application/json",
-        "Cache-Control": "no-cache",
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to load document (${response.status})`);
-  }
-
-  const json = await response.json();
-  const doc = (json?.data ?? json);
-
-  if (!doc || typeof doc !== "object") {
-    throw new Error("Invalid document response format");
-  }
-
-  return doc as Document;
-
-}
-
-export async function getDocumentVersions(documentId: number): Promise<DocumentVersion[]> {
-  const token = getAuthToken();
-
-  const response = await fetch(
-    `${API_BASE}/documents/${documentId}/versions?t=${Date.now()}`,
-    {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+    if (!doc || typeof doc !== "object") {
+      throw new Error("Invalid document response format");
     }
-  );
 
-
-  if (!response.ok) {
-    throw new Error(`Failed to load document versions (${response.status})`);
+    return doc as Document;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to load document (${status})`
+        : "Failed to load document");
+    throw new Error(msg);
   }
-
-  const json = await response.json();
-const versions = Array.isArray(json) ? json : json?.data;
-
-if (!Array.isArray(versions)) {
-  throw new Error("Invalid versions response format");
 }
 
-return versions as DocumentVersion[];
+export async function getDocumentVersions(
+  documentId: number,
+): Promise<DocumentVersion[]> {
+  try {
+    const res = await api.get(`/documents/${documentId}/versions`, {
+      params: { t: Date.now() },
+    });
 
+    const data = res.data;
+    const versions = Array.isArray(data) ? data : data?.data;
+
+    if (!Array.isArray(versions)) {
+      throw new Error("Invalid versions response format");
+    }
+
+    return versions as DocumentVersion[];
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to load document versions (${status})`
+        : "Failed to load document versions");
+    throw new Error(msg);
+  }
 }
 
-export async function createRevision(documentId: number): Promise<DocumentVersion> {
-  const token = getAuthToken();
-
-  const res = await fetch(`${API_BASE}/documents/${documentId}/revision`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `Failed (${res.status})`);
+export async function createRevision(
+  documentId: number,
+): Promise<DocumentVersion> {
+  try {
+    const res = await api.post(`/documents/${documentId}/revision`);
+    return res.data as DocumentVersion;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message || (status ? `Failed (${status})` : "Failed");
+    throw new Error(msg);
   }
-
-  return (await res.json()) as DocumentVersion;
 }
 
 export async function cancelRevision(versionId: number): Promise<void> {
-  const token = getAuthToken();
-
-  const res = await fetch(`${API_BASE}/document-versions/${versionId}/cancel`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `Failed (${res.status})`);
+  try {
+    await api.post(`/document-versions/${versionId}/cancel`);
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message || (status ? `Failed (${status})` : "Failed");
+    throw new Error(msg);
   }
 }
 
 export async function deleteDraftVersion(versionId: number): Promise<void> {
-  const token = getAuthToken();
-
-  const res = await fetch(`${API_BASE}/document-versions/${versionId}`, {
-    method: "DELETE",
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `Failed (${res.status})`);
+  try {
+    await api.delete(`/document-versions/${versionId}`);
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message || (status ? `Failed (${status})` : "Failed");
+    throw new Error(msg);
   }
 }
 
-export async function getDocumentVersion(versionId: number): Promise<{ version: DocumentVersion; document: Document }> {
-  const token = getAuthToken();
+export async function getDocumentVersion(
+  versionId: number,
+): Promise<{ version: DocumentVersion; document: Document }> {
+  try {
+    const res = await api.get(`/document-versions/${versionId}`, {
+      params: { t: Date.now() },
+    });
 
-  const response = await fetch(
-    `${API_BASE}/document-versions/${versionId}?t=${Date.now()}`,
-    {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to load document version (${response.status})`);
-  }
-
-  const json = await response.json();
-  if (!json?.version || !json?.document) {
-    throw new Error("Invalid document version response format");
-  }
-
-  return { version: json.version as DocumentVersion, document: (json.document.data ?? json.document) as Document };
-}
-
-export async function createDocument(
-  payload: CreateDocumentPayload,
-): Promise<Document> {
-  const formData = new FormData();
-formData.append("title", payload.title);
-formData.append("owner_office_id", payload.owner_office_id.toString());
-formData.append("doctype", payload.doctype);
-
-if (payload.visibility_scope) formData.append("visibility_scope", payload.visibility_scope);
-if (payload.school_year) formData.append("school_year", payload.school_year);
-if (payload.semester) formData.append("semester", payload.semester);
-
-
-  if (payload.file) {
-    formData.append("file", payload.file);
-  }
-
-const token = getAuthToken();
-
-  const response = await fetch(`${API_BASE}/documents`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      // Do NOT set Content-Type for multipart
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    let message = "Request failed";
-    let details: Record<string, string[]> | undefined;
-
-    try {
-      const data = await response.json();
-      if (data?.message) {
-        message = data.message;
-      }
-      if (data?.errors && typeof data.errors === "object") {
-        details = data.errors;
-      }
-    } catch {
-      message = `Request failed with status ${response.status}`;
+    const json = res.data;
+    if (!json?.version || !json?.document) {
+      throw new Error("Invalid document version response format");
     }
 
-    const error: ApiError = new Error(message);
-    error.status = response.status;
-    if (details) {
-      error.details = details;
-    }
-    throw error;
+    return {
+      version: json.version as DocumentVersion,
+      document: (json.document.data ?? json.document) as Document,
+    };
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to load document version (${status})`
+        : "Failed to load document version");
+    throw new Error(msg);
   }
-
-  const json = await response.json();
-  const doc = (json?.data ?? json);
-  return doc as Document;
 }
 
 export function getDocumentPreviewUrl(versionId: number): string {
@@ -438,7 +341,8 @@ export async function replaceDocumentVersionFileWithProgress(
   file: File,
   onProgress?: (pct: number) => void,
 ): Promise<void> {
-  const token = getAuthToken();
+  const token = localStorage.getItem("auth_token");
+  if (!token) throw new Error("Not authenticated");
 
   const formData = new FormData();
   formData.append("file", file);
@@ -479,58 +383,45 @@ export async function updateDocumentTitle(
   documentId: number,
   title: string,
 ): Promise<void> {
-  const token = getAuthToken();
-
-  const res = await fetch(`${API_BASE}/documents/${documentId}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ title }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `Failed (${res.status})`);
+  try {
+    await api.patch(`/documents/${documentId}`, { title });
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message || (status ? `Failed (${status})` : "Failed");
+    throw new Error(msg);
   }
 }
 
+export async function downloadDocument(
+  version: DocumentVersion,
+): Promise<void> {
+  try {
+    const res = await api.get(`/document-versions/${version.id}/download`, {
+      responseType: "blob",
+      headers: {
+        Accept: "application/octet-stream",
+      },
+    });
 
-export async function downloadDocument(version: DocumentVersion): Promise<void> {
-const token = getAuthToken();
-const url = `${API_BASE}/document-versions/${version.id}/download`;
+    const blob = res.data as Blob;
+    const objectUrl = window.URL.createObjectURL(blob);
 
+    const a = window.document.createElement("a");
+    a.href = objectUrl;
+    a.download = version.original_filename || `document-version-${version.id}`;
+    window.document.body.appendChild(a);
+    a.click();
+    a.remove();
 
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      Accept: "application/octet-stream",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!res.ok) {
-    let msg = `Download failed (${res.status})`;
-    try {
-      const j = await res.json();
-      if (j?.message) msg = j.message;
-    } catch {}
+    window.URL.revokeObjectURL(objectUrl);
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status ? `Download failed (${status})` : "Download failed");
     throw new Error(msg);
   }
-
-  const blob = await res.blob();
-  const objectUrl = window.URL.createObjectURL(blob);
-
-  const a = window.document.createElement("a");
-  a.href = objectUrl;
-  a.download = version.original_filename || `document-version-${version.id}`;
-  window.document.body.appendChild(a);
-  a.click();
-  a.remove();
-
-  window.URL.revokeObjectURL(objectUrl);
 }
 
 export interface Office {
@@ -542,18 +433,18 @@ export interface Office {
 }
 
 export async function listOffices(): Promise<Office[]> {
-  const response = await fetch(`${API_BASE}/offices`, {
-    headers: {
-      Accept: "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to load offices (${response.status})`);
+  try {
+    const res = await api.get("/offices");
+    return res.data as Office[];
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to load offices (${status})`
+        : "Failed to load offices");
+    throw new Error(msg);
   }
-
-  const json = await response.json();
-  return json as Office[];
 }
 
 export const getCurrentUserOfficeId = (): number => {
@@ -577,74 +468,55 @@ export async function submitWorkflowAction(
   action: WorkflowActionCode,
   note?: string,
 ): Promise<DocumentVersion> {
-
-const token = getAuthToken();
-
-const res = await fetch(`${API_BASE}/document-versions/${versionId}/actions`, {
-
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ action, note }),
-  });
-
-  if (!res.ok) {
-    let msg = `Request failed (${res.status})`;
-    try {
-      const j = await res.json();
-      if (j?.message) msg = j.message;
-    } catch {}
+  try {
+    const res = await api.post(`/document-versions/${versionId}/actions`, {
+      action,
+      note,
+    });
+    return (res.data?.version ?? res.data) as DocumentVersion;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status ? `Request failed (${status})` : "Request failed");
     throw new Error(msg);
   }
-
-  const json = await res.json();
-  return json.version as DocumentVersion;
 }
 
-export async function listWorkflowTasks(versionId: number): Promise<WorkflowTask[]> {
-  const token = getAuthToken();
-
-  const url = `${API_BASE}/document-versions/${versionId}/tasks?t=${Date.now()}`;
-  console.log("[Workflow] GET", url);
-
-  const res = await fetch(url, {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-
-  if (!res.ok) {
-    let msg = `Failed to load workflow tasks (${res.status})`;
-    try {
-      const j = await res.json();
-      if (j?.message) msg = j.message;
-    } catch {}
+export async function listWorkflowTasks(
+  versionId: number,
+): Promise<WorkflowTask[]> {
+  try {
+    const res = await api.get(`/document-versions/${versionId}/tasks`, {
+      params: { t: Date.now() },
+    });
+    return res.data as WorkflowTask[];
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to load workflow tasks (${status})`
+        : "Failed to load workflow tasks");
     throw new Error(msg);
   }
-
-  return (await res.json()) as WorkflowTask[];
 }
 
-export async function getDocumentPreviewLink(versionId: number): Promise<{ url: string; expires_in_minutes: number }> {
-  const token = getAuthToken();
-
-  const res = await fetch(`${API_BASE}/document-versions/${versionId}/preview-link?t=${Date.now()}`, {
-    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
-  });
-
-  if (!res.ok) {
-    let msg = `Failed to get preview link (${res.status})`;
-    try {
-      const j = await res.json();
-      if (j?.message) msg = j.message;
-    } catch {}
+export async function getDocumentPreviewLink(
+  versionId: number,
+): Promise<{ url: string; expires_in_minutes: number }> {
+  try {
+    const res = await api.get(`/document-versions/${versionId}/preview-link`, {
+      params: { t: Date.now() },
+    });
+    return res.data as { url: string; expires_in_minutes: number };
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to get preview link (${status})`
+        : "Failed to get preview link");
     throw new Error(msg);
   }
-
-  return (await res.json()) as { url: string; expires_in_minutes: number };
 }

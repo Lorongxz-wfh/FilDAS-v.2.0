@@ -2,6 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { getAuthUser } from "../lib/auth";
 import { createDocumentWithProgress } from "../services/documents";
+import {
+  createTempPreview,
+  deleteTempPreview,
+  type TempPreview,
+} from "../services/previews";
 import OfficeDropdown from "../components/OfficeDropdown";
 import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
@@ -30,6 +35,17 @@ const CreateDocumentPage: React.FC = () => {
   const [effectiveDate, setEffectiveDate] = useState<string>("");
 
   const [file, setFile] = useState<File | null>(null);
+  const [tempPreview, setTempPreview] = useState<TempPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const previewSeqRef = React.useRef(0);
+
+  const cleanupTempPreview = (p: TempPreview | null) => {
+    if (!p) return;
+    deleteTempPreview(p.year, p.id).catch(() => {
+      // fire-and-forget
+    });
+  };
 
   const previewUrl = useMemo(() => {
     if (!file) return "";
@@ -41,6 +57,46 @@ const CreateDocumentPage: React.FC = () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewLoading(false);
+      setPreviewError(null);
+      setTempPreview((prev) => {
+        if (prev) cleanupTempPreview(prev);
+        return null;
+      });
+      return;
+    }
+
+    // bump sequence (so old requests can't overwrite state)
+    previewSeqRef.current += 1;
+    const seq = previewSeqRef.current;
+
+    // cleanup any previous preview immediately
+    setTempPreview((prev) => {
+      if (prev) cleanupTempPreview(prev);
+      return null;
+    });
+
+    setPreviewLoading(true);
+    setPreviewError(null);
+
+    (async () => {
+      try {
+        const result = await createTempPreview(file);
+        if (seq !== previewSeqRef.current) return;
+        setTempPreview(result);
+      } catch (e: any) {
+        if (seq !== previewSeqRef.current) return;
+        setPreviewError(e?.message ?? "Failed to generate preview");
+      } finally {
+        if (seq !== previewSeqRef.current) return;
+        setPreviewLoading(false);
+      }
+    })();
+  }, [file]);
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +127,7 @@ const CreateDocumentPage: React.FC = () => {
       );
 
       setMessage("Document created successfully.");
+      cleanupTempPreview(tempPreview);
       // After create, redirect to the document flow page so workflow + comments are available.
       navigate(`/documents/${result.id}`);
     } catch (err: any) {
@@ -94,7 +151,10 @@ const CreateDocumentPage: React.FC = () => {
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            cleanupTempPreview(tempPreview);
+            navigate(-1);
+          }}
           disabled={loading}
         >
           ← Back
@@ -340,36 +400,41 @@ const CreateDocumentPage: React.FC = () => {
                 Preview
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                Preview will be available after saving (server converts to PDF).
+                Preview is generated on upload (PDF is quick; Office converts to
+                PDF).
               </div>
             </div>
 
             <div className="p-5">
               {!file ? (
                 <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-sm text-slate-600 text-center">
-                  Choose a file to see preview details.
+                  Choose a file to generate a preview.
+                </div>
+              ) : previewLoading ? (
+                <div className="rounded-md border border-slate-200 bg-white px-4 py-4 text-sm text-slate-700">
+                  Generating preview…
+                  <div className="mt-2 text-xs text-slate-500">
+                    Office files may take a few seconds to convert.
+                  </div>
+                </div>
+              ) : previewError ? (
+                <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-800">
+                  {previewError}
+                  <div className="mt-2 text-xs text-rose-700">
+                    You can still save the document even if preview fails.
+                  </div>
+                </div>
+              ) : tempPreview?.url ? (
+                <div className="h-[70vh] min-h-105 w-full overflow-hidden rounded-md border border-slate-200 bg-white">
+                  <iframe
+                    title="Document preview"
+                    src={tempPreview.url}
+                    className="h-full w-full"
+                  />
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <div>
-                    <div className="text-sm font-medium text-slate-900">
-                      Selected file
-                    </div>
-                    <div className="mt-1 text-xs text-slate-600 break-all">
-                      {file.name}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      Type: {file.type || "unknown"}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      Size: {(file.size / 1024 / 1024).toFixed(2)} MB
-                    </div>
-                  </div>
-
-                  <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
-                    Once you click “Save document”, you’ll be redirected to
-                    DocumentFlow where the PDF preview is shown.
-                  </div>
+                <div className="rounded-md border border-slate-200 bg-white px-4 py-4 text-sm text-slate-700">
+                  Preview not available yet.
                 </div>
               )}
             </div>

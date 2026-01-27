@@ -3,16 +3,16 @@ import api from "./api";
 export type TempPreview = {
   id: string;
   year: number;
-  url: string; // signed URL to iframe
+  url: string;
 };
 
 export async function createTempPreview(file: File): Promise<TempPreview> {
   const form = new FormData();
   form.append("file", file);
 
-  const res = await api.post("/previews", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  // IMPORTANT: do NOT manually set Content-Type for FormData;
+  // axios will set multipart boundary correctly.
+  const res = await api.post("/previews", form);
 
   return res.data as TempPreview;
 }
