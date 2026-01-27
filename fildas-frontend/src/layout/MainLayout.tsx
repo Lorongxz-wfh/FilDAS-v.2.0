@@ -30,7 +30,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         <main
           className={[
             "flex-1 min-w-0 min-h-0 bg-slate-50 flex flex-col overflow-hidden",
-            "pt-5",
+            noMainPadding ? "pt-0" : "pt-5",
           ].join(" ")}
         >
           {children}

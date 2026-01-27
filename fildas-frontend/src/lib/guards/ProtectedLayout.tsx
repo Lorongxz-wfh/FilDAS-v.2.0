@@ -19,8 +19,11 @@ export default function ProtectedLayout() {
   };
 
   // Pages that manage their own padding/scroll containers
-  const selfManagedLayoutPaths = ["/dashboard", "/work-queue", "/documents"];
-  const isSelfManaged = selfManagedLayoutPaths.includes(location.pathname);
+  const isSelfManaged =
+    location.pathname === "/dashboard" ||
+    location.pathname === "/work-queue" ||
+    location.pathname.startsWith("/documents");
+
 
   return (
     <MainLayout

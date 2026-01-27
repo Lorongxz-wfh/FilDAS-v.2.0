@@ -13,6 +13,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Alert from "../components/ui/Alert";
 import Button from "../components/ui/Button";
 import InlineSpinner from "../components/ui/loader/InlineSpinner";
+import SplitFrame from "../components/layout/SplitFrame";
 
 const DocumentFlowPage: React.FC = () => {
   const params = useParams();
@@ -127,273 +128,247 @@ const DocumentFlowPage: React.FC = () => {
 
   // UI
 
-return (
-  // Make this page responsible for its own vertical layout
-  // Cancel MainLayout <main> padding (py-8 and px-6/lg:px-8) so browser won't scroll
-  <div className="-mx-6 -my-8 lg:-mx-8 flex min-h-0 flex-col overflow-hidden h-[calc(100vh-64px)]">
-    {/* 2-column area INSIDE main: middle + right */}
-    <div className="flex min-h-0 flex-1 overflow-hidden">
-      {/* Middle column: toolbar + scrollable content */}
-      <div className="min-w-0 min-h-0 flex-1 flex flex-col overflow-hidden">
-        {/* Toolbar constrained to middle column only */}
-        <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
-          <div className="flex items-center gap-3 px-4 py-3">
+  return (
+    <SplitFrame
+      title={
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="truncate">
+            {headerState?.title ?? document.title}
+          </span>
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+            v{headerState?.versionNumber ?? current?.version_number ?? "-"}
+          </span>
+          <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+            {headerState?.status ?? current?.status ?? "-"}
+          </span>
+        </div>
+      }
+      subtitle={
+        <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          {headerState?.code ?? document.code ?? "CODE-NOT-AVAILABLE"}
+        </span>
+      }
+      right={
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleBack}
+            disabled={isSwitchingVersion}
+          >
+            ← Back
+          </Button>
+
+          {isRevisable && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
-              onClick={handleBack}
               disabled={isSwitchingVersion}
-            >
-              ← Back
-            </Button>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h1 className="truncate text-sm font-semibold text-slate-900">
-                  {headerState?.title ?? document.title}
-                </h1>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
-                  v
-                  {headerState?.versionNumber ?? current?.version_number ?? "-"}
-                </span>
-                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
-                  {headerState?.status ?? current?.status ?? "-"}
-                </span>
-              </div>
-              <p className="truncate text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                {headerState?.code ?? document.code ?? "CODE-NOT-AVAILABLE"}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap justify-end gap-2">
-              {isRevisable && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={isSwitchingVersion}
-                  onClick={async () => {
-                    try {
-                      const revised = await createRevision(document.id);
-
-                      setAllVersions((prev) => {
-                        const next = [
-                          revised,
-                          ...prev.filter((v) => v.id !== revised.id),
-                        ];
-                        next.sort(
-                          (a, b) =>
-                            Number(b.version_number) - Number(a.version_number),
-                        );
-                        return next;
-                      });
-
-                      setSelectedVersion(revised);
-                      setSearchParams((prev) => {
-                        const p = new URLSearchParams(prev);
-                        p.set("version", String(revised.id));
-                        return p;
-                      });
-                    } catch (e: any) {
-                      alert(`Revision failed: ${e.message}`);
-                    }
-                  }}
-                >
-                  Revise
-                </Button>
-              )}
-
-              {(headerState?.versionActions ?? []).map((a: any) => (
-                <Button
-                  key={a.key}
-                  type="button"
-                  size="sm"
-                  variant={
-                    a.variant === "danger"
-                      ? "danger"
-                      : a.variant === "outline"
-                        ? "outline"
-                        : "secondary"
-                  }
-                  onClick={a.onClick}
-                  disabled={isSwitchingVersion}
-                >
-                  {a.label}
-                </Button>
-              ))}
-
-              {(headerState?.headerActions ?? []).map((a: any) => (
-                <Button
-                  key={a.key}
-                  type="button"
-                  size="sm"
-                  variant={a.variant === "danger" ? "danger" : "primary"}
-                  disabled={a.disabled || isSwitchingVersion}
-                  onClick={a.onClick}
-                >
-                  {a.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Middle scroll area */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          {selectedVersion ? (
-            <DocumentFlow
-              document={document}
-              version={selectedVersion}
-              onHeaderStateChange={setHeaderState}
-              onChanged={async () => {
-                if (!document) return;
-
-                let versions: DocumentVersion[] = [];
+              onClick={async () => {
                 try {
-                  versions = await getDocumentVersions(document.id);
+                  const revised = await createRevision(document.id);
+
+                  setAllVersions((prev) => {
+                    const next = [
+                      revised,
+                      ...prev.filter((v) => v.id !== revised.id),
+                    ];
+                    next.sort(
+                      (a, b) =>
+                        Number(b.version_number) - Number(a.version_number),
+                    );
+                    return next;
+                  });
+
+                  setSelectedVersion(revised);
+                  setSearchParams((prev) => {
+                    const p = new URLSearchParams(prev);
+                    p.set("version", String(revised.id));
+                    return p;
+                  });
                 } catch (e: any) {
-                  navigate("/documents");
-                  return;
-                }
-
-                const sorted = [...versions].sort(
-                  (a, b) => Number(b.version_number) - Number(a.version_number),
-                );
-
-                setAllVersions(sorted);
-
-                if (sorted.length === 0) {
-                  navigate("/documents");
-                  return;
-                }
-
-                const currentId = selectedVersion?.id;
-                const stillExists = currentId
-                  ? sorted.some((v) => v.id === currentId)
-                  : false;
-
-                if (currentId && stillExists) {
-                  const { version: freshVersion, document: freshDoc } =
-                    await getDocumentVersion(currentId);
-                  setSelectedVersion(freshVersion);
-                  setDocument(freshDoc);
-                  return;
-                }
-
-                const next = sorted[0] ?? null;
-                setSelectedVersion(next);
-
-                setSearchParams((prev) => {
-                  const p = new URLSearchParams(prev);
-                  if (next) p.set("version", String(next.id));
-                  else p.delete("version");
-                  return p;
-                });
-
-                if (next) {
-                  const { document: freshDoc } = await getDocumentVersion(
-                    next.id,
-                  );
-                  setDocument(freshDoc);
+                  alert(`Revision failed: ${e.message}`);
                 }
               }}
-            />
-          ) : (
-            <Alert variant="warning">No version available.</Alert>
+            >
+              Revise
+            </Button>
           )}
+
+          {(headerState?.versionActions ?? []).map((a: any) => (
+            <Button
+              key={a.key}
+              type="button"
+              size="sm"
+              variant={
+                a.variant === "danger"
+                  ? "danger"
+                  : a.variant === "outline"
+                    ? "outline"
+                    : "secondary"
+              }
+              onClick={a.onClick}
+              disabled={isSwitchingVersion}
+            >
+              {a.label}
+            </Button>
+          ))}
+
+          {(headerState?.headerActions ?? []).map((a: any) => (
+            <Button
+              key={a.key}
+              type="button"
+              size="sm"
+              variant={a.variant === "danger" ? "danger" : "primary"}
+              disabled={a.disabled || isSwitchingVersion}
+              onClick={a.onClick}
+            >
+              {a.label}
+            </Button>
+          ))}
         </div>
-      </div>
+      }
+      rightTitle="Versions"
+      rightSubtitle={`${allVersions.length} total`}
+      rightWidthClassName="w-[340px]"
+      left={
+        selectedVersion ? (
+          <DocumentFlow
+            document={document}
+            version={selectedVersion}
+            onHeaderStateChange={setHeaderState}
+            onChanged={async () => {
+              if (!document) return;
 
-      {/* Right column: versions (scrollable) */}
-      <div className="w-72 shrink-0 min-h-0 border-l border-slate-200 bg-slate-50/40 overflow-hidden">
-        <div className="flex h-full min-h-0 flex-col">
-          <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-              Versions
-            </h3>
-            <p className="mt-1 text-[11px] text-slate-500">
-              {allVersions.length} total
-            </p>
-          </div>
+              let versions: DocumentVersion[] = [];
+              try {
+                versions = await getDocumentVersions(document.id);
+              } catch (e: any) {
+                navigate("/documents");
+                return;
+              }
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-3">
-            <div className="space-y-2">
-              {allVersions.map((v) => {
-                const isSelected = v.id === selectedVersion?.id;
+              const sorted = [...versions].sort(
+                (a, b) => Number(b.version_number) - Number(a.version_number),
+              );
 
-                return (
-                  <button
-                    key={v.id}
-                    type="button"
-                    disabled={isSwitchingVersion}
-                    onClick={async () => {
-                      try {
-                        setIsSwitchingVersion(true);
+              setAllVersions(sorted);
 
-                        setSearchParams((prev) => {
-                          const p = new URLSearchParams(prev);
-                          p.set("version", String(v.id));
-                          return p;
-                        });
+              if (sorted.length === 0) {
+                navigate("/documents");
+                return;
+              }
 
-                        const { version, document: docRes } =
-                          await getDocumentVersion(v.id);
-                        setSelectedVersion(version);
-                        setDocument(docRes);
-                      } catch (e: any) {
-                        alert(e.message || "Failed to load version");
-                      } finally {
-                        setIsSwitchingVersion(false);
-                      }
-                    }}
-                    className={[
-                      "w-full rounded-xl border px-3 py-2 text-left transition relative",
-                      isSelected
-                        ? "border-sky-300 bg-white shadow-sm"
-                        : "border-slate-200 bg-white/70 hover:bg-white",
-                      isSwitchingVersion ? "opacity-70 cursor-not-allowed" : "",
-                    ].join(" ")}
-                    aria-current={isSelected ? "true" : undefined}
-                  >
-                    {/* left accent for selected */}
-                    {isSelected && (
-                      <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-sky-500" />
-                    )}
+              const currentId = selectedVersion?.id;
+              const stillExists = currentId
+                ? sorted.some((v) => v.id === currentId)
+                : false;
 
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <p className="text-xs font-semibold text-slate-900">
-                          v{v.version_number}
-                        </p>
-                        {isSwitchingVersion && isSelected && (
-                          <InlineSpinner className="h-3 w-3 border-2" />
-                        )}
-                      </div>
+              if (currentId && stillExists) {
+                const { version: freshVersion, document: freshDoc } =
+                  await getDocumentVersion(currentId);
+                setSelectedVersion(freshVersion);
+                setDocument(freshDoc);
+                return;
+              }
 
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-                        {v.status}
-                      </span>
-                    </div>
+              const next = sorted[0] ?? null;
+              setSelectedVersion(next);
 
-                    <div className="mt-1 grid grid-cols-2 gap-2 text-[10px] text-slate-500">
-                      <div>
-                        Created: {new Date(v.created_at).toLocaleDateString()}
-                      </div>
-                      <div>
-                        Updated: {new Date(v.updated_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </button>
+              setSearchParams((prev) => {
+                const p = new URLSearchParams(prev);
+                if (next) p.set("version", String(next.id));
+                else p.delete("version");
+                return p;
+              });
+
+              if (next) {
+                const { document: freshDoc } = await getDocumentVersion(
+                  next.id,
                 );
-              })}
-            </div>
-          </div>
+                setDocument(freshDoc);
+              }
+            }}
+          />
+        ) : (
+          <Alert variant="warning">No version available.</Alert>
+        )
+      }
+      rightPanel={
+        <div className="space-y-2">
+          {allVersions.map((v) => {
+            const isSelected = v.id === selectedVersion?.id;
+
+            return (
+              <button
+                key={v.id}
+                type="button"
+                disabled={isSwitchingVersion}
+                onClick={async () => {
+                  try {
+                    setIsSwitchingVersion(true);
+
+                    setSearchParams((prev) => {
+                      const p = new URLSearchParams(prev);
+                      p.set("version", String(v.id));
+                      return p;
+                    });
+
+                    const { version, document: docRes } =
+                      await getDocumentVersion(v.id);
+                    setSelectedVersion(version);
+                    setDocument(docRes);
+                  } catch (e: any) {
+                    alert(e.message || "Failed to load version");
+                  } finally {
+                    setIsSwitchingVersion(false);
+                  }
+                }}
+                className={[
+                  "w-full rounded-xl border px-3 py-2 text-left transition relative",
+                  isSelected
+                    ? "border-sky-300 bg-white shadow-sm"
+                    : "border-slate-200 bg-white/70 hover:bg-white",
+                  isSwitchingVersion ? "opacity-70 cursor-not-allowed" : "",
+                ].join(" ")}
+                aria-current={isSelected ? "true" : undefined}
+              >
+                {isSelected && (
+                  <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-sky-500" />
+                )}
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="text-xs font-semibold text-slate-900">
+                      v{v.version_number}
+                    </p>
+                    {isSwitchingVersion && isSelected && (
+                      <InlineSpinner className="h-3 w-3 border-2" />
+                    )}
+                  </div>
+
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                    {v.status}
+                  </span>
+                </div>
+
+                <div className="mt-1 grid grid-cols-2 gap-2 text-[10px] text-slate-500">
+                  <div>
+                    Created: {new Date(v.created_at).toLocaleDateString()}
+                  </div>
+                  <div>
+                    Updated: {new Date(v.updated_at).toLocaleDateString()}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
         </div>
-      </div>
-    </div>
-  </div>
-);
+      }
+    />
+  );
 };
 
 export default DocumentFlowPage;
