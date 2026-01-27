@@ -48,7 +48,7 @@ export default function Table<T>({
         loading && loadingStyle === "skeleton" ? "min-h-130" : ""
       } ${className ?? ""}`}
     >
-      <div className="h-full min-h-0 overflow-auto">
+      <div className="h-full min-h-0 overflow-y-auto overflow-x-auto">
         <table className="min-w-full text-left text-sm text-slate-700">
           <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur supports-backdrop-filter:bg-slate-50/80">
             <tr className="border-b border-slate-200">

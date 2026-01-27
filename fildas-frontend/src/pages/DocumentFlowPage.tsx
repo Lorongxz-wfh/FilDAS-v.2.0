@@ -129,7 +129,8 @@ const DocumentFlowPage: React.FC = () => {
 
 return (
   // Make this page responsible for its own vertical layout
-  <div className="flex h-full min-h-0 flex-col">
+  // Cancel MainLayout <main> padding (py-8 and px-6/lg:px-8) so browser won't scroll
+  <div className="-mx-6 -my-8 lg:-mx-8 flex min-h-0 flex-col overflow-hidden h-[calc(100vh-64px)]">
     {/* 2-column area INSIDE main: middle + right */}
     <div className="flex min-h-0 flex-1 overflow-hidden">
       {/* Middle column: toolbar + scrollable content */}

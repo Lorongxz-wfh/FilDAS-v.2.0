@@ -5,15 +5,34 @@ import Sidebar from "../components/sidebar/SideBar";
 interface MainLayoutProps {
   children: React.ReactNode;
   onLogout?: () => void;
+  noBodyScroll?: boolean;
+  noMainPadding?: boolean;
 }
 
-const MainLayout: React.FC<MainLayoutProps> = ({ children, onLogout }) => {
+const MainLayout: React.FC<MainLayoutProps> = ({
+  children,
+  onLogout,
+  noBodyScroll = false,
+  noMainPadding = false,
+}) => {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div
+      className={[
+        "h-screen bg-slate-50 flex flex-col font-sans",
+        noBodyScroll ? "overflow-hidden" : "min-h-screen",
+      ].join(" ")}
+    >
       <Navbar onLogout={onLogout} />
-      <div className="flex flex-1 min-h-0">
+
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 min-w-0 min-h-0 bg-slate-50 px-6 py-8 lg:px-8 flex flex-col">
+
+        <main
+          className={[
+            "flex-1 min-w-0 min-h-0 bg-slate-50 flex flex-col overflow-hidden",
+            "pt-5",
+          ].join(" ")}
+        >
           {children}
         </main>
       </div>
