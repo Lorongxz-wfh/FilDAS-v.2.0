@@ -13,7 +13,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, onLogout }) => {
       <Navbar onLogout={onLogout} />
       <div className="flex flex-1 min-h-0">
         <Sidebar />
-        <main className="flex-1 min-w-0 bg-slate-50 px-6 py-8 lg:px-8">
+        <main className="flex-1 min-w-0 min-h-0 bg-slate-50 px-6 py-8 lg:px-8 flex flex-col">
           {children}
         </main>
       </div>

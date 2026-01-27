@@ -1,6 +1,7 @@
 import React from "react";
 import UploadProgress from "../ui/loader/UploadProgress";
 import InlineSpinner from "../ui/loader/InlineSpinner";
+import Skeleton from "../ui/loader/Skeleton";
 import type {
   Document,
   DocumentVersion,
@@ -42,6 +43,7 @@ export type DocumentFlowHeaderState = {
   headerActions: HeaderActionButton[]; // forward/return actions
   versionActions: HeaderActionButton[]; // download/delete/cancel
 };
+
 
 interface DocumentFlowProps {
   document: Document;
@@ -352,6 +354,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         const res = await getDocumentPreviewLink(localVersion.id);
         if (alive) {
           setSignedPreviewUrl(res.url);
+          setIsPreviewLoading(false);
         }
       } catch (e) {
         console.error("Failed to load signed preview url", e);
@@ -804,16 +807,24 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Workflow progress
             </p>
-            <p className="mt-1 text-sm font-medium text-slate-900">
-              {currentPhase.label}
-            </p>
+            {!isTasksReady ? (
+              <Skeleton className="mt-1 h-5 w-52" />
+            ) : (
+              <p className="mt-1 text-sm font-medium text-slate-900">
+                {currentPhase.label}
+              </p>
+            )}
           </div>
 
           <div className="text-right">
             <p className="text-[11px] text-slate-500">Current step</p>
-            <p className="mt-0.5 text-xs font-semibold text-slate-900">
-              {currentStep.label}
-            </p>
+            {!isTasksReady ? (
+              <Skeleton className="mt-1 h-4 w-28 ml-auto" />
+            ) : (
+              <p className="mt-0.5 text-xs font-semibold text-slate-900">
+                {currentStep.label}
+              </p>
+            )}
           </div>
         </div>
 
@@ -1034,10 +1045,18 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               </p>
             )}
 
-            <p className="mt-2 text-xs text-slate-500">
-              Assigned to office ID: {assignedOfficeId ?? "-"} (You:{" "}
-              {myOfficeId || "-"})
-            </p>
+            {!isTasksReady ? (
+              <div className="mt-2 space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-slate-500">
+                Assigned to office ID: {assignedOfficeId ?? "-"} (You:{" "}
+                {myOfficeId || "-"})
+              </p>
+            )}
+
             {isTasksReady && !currentTask && (
               <p className="mt-1 text-11px text-rose-600">
                 No current workflow task found (cannot determine who can act).
@@ -1117,9 +1136,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               {activeSideTab === "logs" ? (
                 <div className="mt-3">
                   {isLoadingTasks ? (
-                    <p className="mt-1 text-xs text-slate-500">
-                      Loading workflow tasks…
-                    </p>
+                    <div className="h-56 space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
+                      <Skeleton className="h-14 w-full" />
+                      <Skeleton className="h-14 w-full" />
+                      <Skeleton className="h-14 w-full" />
+                    </div>
                   ) : tasks.length === 0 ? (
                     <p className="mt-1 text-xs text-slate-500">
                       No workflow tasks yet.
@@ -1150,7 +1171,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               ) : (
                 <div className="mt-3 space-y-2">
                   {isLoadingMessages ? (
-                    <p className="text-xs text-slate-500">Loading messages…</p>
+                    <div className="h-56 space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                    </div>
                   ) : messages.length === 0 ? (
                     <p className="text-xs text-slate-500">No messages yet.</p>
                   ) : (
@@ -1263,6 +1288,14 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
           >
+            {localVersion.file_path &&
+              localVersion.preview_path &&
+              !signedPreviewUrl && (
+                <div className="absolute inset-0 p-4">
+                  <Skeleton className="h-full w-full rounded-lg" />
+                </div>
+              )}
+
             {localVersion.file_path && localVersion.preview_path ? (
               <iframe
                 key={`${localVersion.id}-${previewNonce}`}
