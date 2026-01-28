@@ -12,6 +12,19 @@ export type AuthUser = {
 };
 
 export const AUTH_USER_KEY = "auth_user";
+export const AUTH_TOKEN_KEY = "auth_token";
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+// Back-compat cleanup (you have some old code using "authtoken")
+export function clearAuth(): void {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem("authtoken");
+  clearAuthUser();
+  sessionStorage.removeItem("from_workqueue_session");
+}
 
 export function getAuthUser(): AuthUser | null {
   try {
@@ -29,4 +42,13 @@ export function setAuthUser(user: AuthUser): void {
 
 export function clearAuthUser(): void {
   localStorage.removeItem(AUTH_USER_KEY);
+}
+
+
+export function clearAuthAndRedirect(): void {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem("authtoken"); // back-compat cleanup
+  clearAuthUser();
+  sessionStorage.removeItem("from_workqueue_session");
+  window.location.href = "/login";
 }

@@ -1,4 +1,4 @@
-import { getAuthUser } from "../lib/auth";
+import { getAuthUser, clearAuthAndRedirect } from "../lib/auth";
 import api from "./api";
 
 const API_BASE =
@@ -74,6 +74,11 @@ export async function createDocumentWithProgress(
     };
 
     xhr.onload = () => {
+      if (xhr.status === 401) {
+        clearAuthAndRedirect();
+        return;
+      }
+
       const ok = xhr.status >= 200 && xhr.status < 300;
       if (!ok) {
         try {
@@ -371,6 +376,10 @@ export async function replaceDocumentVersionFileWithProgress(
     xhr.onload = () => {
       const ok = xhr.status >= 200 && xhr.status < 300;
       if (ok) return resolve();
+      if (xhr.status === 401) {
+        clearAuthAndRedirect();
+        return;
+      }
 
       try {
         const data = JSON.parse(xhr.responseText || "{}");
@@ -416,7 +425,6 @@ export async function updateDocumentVersionDescription(
     throw new Error(msg);
   }
 }
-
 
 export async function downloadDocument(
   version: DocumentVersion,
