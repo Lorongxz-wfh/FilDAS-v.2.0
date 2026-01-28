@@ -121,6 +121,7 @@ const CreateDocumentPage: React.FC = () => {
           title,
           owner_office_id: officeCode!,
           doctype,
+          description,
           file,
         },
         (pct) => setUploadPct(pct),

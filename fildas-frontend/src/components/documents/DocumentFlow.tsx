@@ -8,11 +8,15 @@ import type {
   WorkflowTask,
   DocumentMessage,
   WorkflowActionCode,
+  Office,
 } from "../../services/documents";
 
 import { getCurrentUserOfficeId } from "../../services/documents";
 
+import { useToast } from "../ui/toast/ToastContext";
+
 import {
+  listOffices,
   getDocumentPreviewLink,
   getDocumentVersion,
   submitWorkflowAction,
@@ -21,6 +25,7 @@ import {
   postDocumentMessage,
   replaceDocumentVersionFileWithProgress,
   updateDocumentTitle,
+  updateDocumentVersionDescription,
   downloadDocument,
   deleteDraftVersion,
   cancelRevision,
@@ -43,7 +48,6 @@ export type DocumentFlowHeaderState = {
   headerActions: HeaderActionButton[]; // forward/return actions
   versionActions: HeaderActionButton[]; // download/delete/cancel
 };
-
 
 interface DocumentFlowProps {
   document: Document;
@@ -152,13 +156,6 @@ const transitions: Record<string, TransitionAction[]> = {
     {
       toStatus: "For Department Review",
       label: "Send to Department for review",
-    },
-  ],
-  "Revision-Draft": [
-    // ✅ Explicit Revision-Draft
-    {
-      toStatus: "For Department Review",
-      label: "Send to Department for review (revision)",
     },
   ],
 
@@ -272,6 +269,103 @@ function toWorkflowAction(toStatus: string): WorkflowActionCode | null {
   }
 }
 
+type OfficeMini = { id: number; code: string };
+
+function officeIdByCode(
+  offices: OfficeMini[] | null | undefined,
+  code: string,
+): number | null {
+  if (!offices?.length) return null;
+  return offices.find((o) => o.code === code)?.id ?? null;
+}
+
+function resolveVpCodeForOfficeCode(
+  ownerCode: string | null | undefined,
+): string | null {
+  if (!ownerCode) return null;
+
+  // President cluster (temporary): route straight to President
+  const presidentCodes = new Set(["PO", "HR", "SA", "CH", "AA"]);
+  if (presidentCodes.has(ownerCode)) return "PO";
+
+  const vpadCodes = new Set([
+    "VAd",
+    "PC",
+    "MD",
+    "SO",
+    "SP",
+    "SC",
+    "SH",
+    "BG",
+    "M",
+    "WP",
+    "IT",
+  ]);
+  if (vpadCodes.has(ownerCode)) return "VAd";
+
+  const vpfCodes = new Set(["VF", "AO", "BO", "BM", "CO", "PR", "UE"]);
+  if (vpfCodes.has(ownerCode)) return "VF";
+
+  const vprCodes = new Set(["VR", "RC", "CX", "QA", "IP"]);
+  if (vprCodes.has(ownerCode)) return "VR";
+
+  const vpaaCodes = new Set([
+    "VA",
+    "CN",
+    "CB",
+    "CT",
+    "HS",
+    "ES",
+    "PS",
+    "GS",
+    "AS",
+    "TM",
+    "CS",
+    "JE",
+    "CE",
+    "AR",
+    "GC",
+    "UL",
+    "NS",
+  ]);
+  if (vpaaCodes.has(ownerCode)) return "VA";
+
+  // fallback
+  return "VA";
+}
+
+function expectedOfficeIdForToStatus(
+  toStatus: string,
+  ownerOfficeId: number | null | undefined,
+  ownerOfficeCode: string | null | undefined,
+  offices: OfficeMini[] | null | undefined,
+): number | null {
+  switch (toStatus) {
+    case "For Department Review":
+    case "For Department Approval":
+      return ownerOfficeId ?? null;
+
+    case "For VPAA Review":
+    case "For VPAA Approval": {
+      const vpCode = resolveVpCodeForOfficeCode(ownerOfficeCode);
+      return vpCode ? officeIdByCode(offices, vpCode) : null;
+    }
+
+    case "For President Approval":
+      return officeIdByCode(offices, "PO");
+
+    case "For QA Final Check":
+    case "For QA Registration":
+    case "For QA Distribution":
+    case "Distributed":
+    case "QA_EDIT":
+      return officeIdByCode(offices, "QA");
+
+    default:
+      return null;
+  }
+}
+
 function findCurrentStep(status: string): FlowStep {
   const found = flowSteps.find((s) => s.statusValue === status);
   return found ?? flowSteps[0];
@@ -298,12 +392,22 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const [localVersion, setLocalVersion] = React.useState(version);
   const [localTitle, setLocalTitle] = React.useState(document.title);
   const [initialTitle, setInitialTitle] = React.useState(document.title);
+  const [localDesc, setLocalDesc] = React.useState(version.description ?? "");
+  const [initialDesc, setInitialDesc] = React.useState(
+    version.description ?? "",
+  );
+  const [isSavingDesc, setIsSavingDesc] = React.useState(false);
 
   React.useEffect(() => {
     setLocalVersion(version);
     setInitialTitle(document.title);
     setLocalTitle(document.title);
+
+    setInitialDesc(version.description ?? "");
+    setLocalDesc(version.description ?? "");
   }, [document.id, version.id]);
+
+  const { push } = useToast();
 
   const [isUploading, setIsUploading] = React.useState(false);
   const [isSavingTitle, setIsSavingTitle] = React.useState(false);
@@ -336,6 +440,27 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
   const [isPreviewLoading, setIsPreviewLoading] = React.useState(false);
 
+  const [offices, setOffices] = React.useState<Office[]>([]);
+
+  React.useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        const data = await listOffices();
+        if (alive) setOffices(data);
+      } catch (e) {
+        // Don’t break the page if this fails; routing buttons will simply not appear
+        console.error("Failed to load offices for routing", e);
+        if (alive) setOffices([]);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   React.useEffect(() => {
     let alive = true;
 
@@ -346,6 +471,8 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             setIsPreviewLoading(false);
             setSignedPreviewUrl("");
           }
+          setPreviewNonce((n) => n + 1);
+
           return;
         }
 
@@ -490,10 +617,18 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       );
 
       await refreshForPreview();
-      alert("File replaced successfully! Preview updating...");
+      push({
+        type: "success",
+        title: "Upload complete",
+        message: "File replaced successfully. Preview updating…",
+      });
     } catch (error) {
       console.error("Upload error:", error);
-      alert(`File upload failed: ${(error as Error).message}`);
+      push({
+        type: "error",
+        title: "Upload failed",
+        message: (error as Error).message,
+      });
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -562,6 +697,41 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   }
 
   const titleSaveTimerRef = React.useRef<number | null>(null);
+
+  const descSaveTimerRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    const editable = localVersion.status === "Draft";
+
+    if (!editable) return;
+    if (localDesc === initialDesc) return;
+
+    if (descSaveTimerRef.current) window.clearTimeout(descSaveTimerRef.current);
+
+    descSaveTimerRef.current = window.setTimeout(async () => {
+      setIsSavingDesc(true);
+      try {
+        const updated = await updateDocumentVersionDescription(
+          localVersion.id,
+          localDesc,
+        );
+
+        setLocalVersion((prev) => ({ ...prev, ...updated }));
+        setInitialDesc(localDesc);
+
+        if (onChanged) await onChanged();
+      } catch (e) {
+        console.error("Auto-save description failed", e);
+      } finally {
+        setIsSavingDesc(false);
+      }
+    }, 600);
+
+    return () => {
+      if (descSaveTimerRef.current)
+        window.clearTimeout(descSaveTimerRef.current);
+    };
+  }, [localDesc, initialDesc, localVersion.id, localVersion.status]);
 
   React.useEffect(() => {
     // Auto-save title only while Draft version exists
@@ -636,15 +806,30 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     (document as any)?.office?.id ??
     null;
 
+  const ownerOfficeCode =
+    (document as any)?.ownerOffice?.code ??
+    (document as any)?.office?.code ??
+    null;
+
   const availableActionsRaw =
     transitions[localVersion.status as keyof typeof transitions] ?? [];
 
   // Only show actions that the CURRENT assigned office is allowed to perform
   // If you own the open task, show all actions for this status.
   // Backend still validates office_id, so this is safe.
-  const availableActions = currentTask?.assigned_office_id
-    ? availableActionsRaw
-    : [];
+  const availableActions = availableActionsRaw.filter((a) => {
+    if (!currentTask?.assigned_office_id) return false;
+
+    const expected = expectedOfficeIdForToStatus(
+      a.toStatus,
+      ownerOfficeId,
+      ownerOfficeCode,
+      offices,
+    );
+
+    if (!expected) return false;
+    return expected === currentTask.assigned_office_id;
+  });
 
   const assignedOfficeId = currentTask?.assigned_office_id ?? null;
   const myOfficeId = userOfficeId;
@@ -663,7 +848,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       onClick: async () => {
         const code = toWorkflowAction(action.toStatus);
         if (!code) {
-          alert("Action not mapped yet.");
+          push({
+            type: "error",
+            title: "Action unavailable",
+            message: "Action not mapped yet.",
+          });
           return;
         }
 
@@ -673,7 +862,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
           note = window.prompt("Return note (required):", "");
           if (note === null) return;
           if (note.trim().length === 0) {
-            alert("Return note is required.");
+            push({
+              type: "warning",
+              title: "Missing note",
+              message: "Return note is required.",
+            });
             return;
           }
         }
@@ -683,22 +876,34 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
         setIsChangingStatus(true);
         try {
-          const updated = await submitWorkflowAction(
+          const res = await submitWorkflowAction(
             localVersion.id,
             code,
             note ?? undefined,
           );
 
-          setLocalVersion((prev) => ({ ...prev, ...updated }));
+          setLocalVersion((prev) => ({ ...prev, ...res.version }));
 
-          if (activeSideTab === "logs")
-            setTasks(await listWorkflowTasks(updated.id));
-          if (activeSideTab === "comments")
-            setMessages(await listDocumentMessages(updated.id));
+          push({
+            type: "success",
+            title: "Workflow updated",
+            message: res.action_message || "Action completed.",
+          });
+
+         setTasks(await listWorkflowTasks(res.version.id));
+         setMessages(await listDocumentMessages(res.version.id));
+
+         if (action.toStatus === "QA_EDIT") {
+           setActiveSideTab("comments");
+         }
 
           if (onChanged) await onChanged();
         } catch (e) {
-          alert((e as Error).message);
+          push({
+            type: "error",
+            title: "Action failed",
+            message: (e as Error).message,
+          });
         } finally {
           setIsChangingStatus(false);
         }
@@ -717,7 +922,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         try {
           await downloadDocument(localVersion);
         } catch (e: any) {
-          alert(e.message || "Download failed");
+          push({
+            type: "error",
+            title: "Download failed",
+            message: e?.message || "Download failed",
+          });
         }
       },
     });
@@ -746,7 +955,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
           if (onChanged) await onChanged();
         } catch (e: any) {
-          alert(e.message || "Delete failed");
+          push({
+            type: "error",
+            title: "Delete failed",
+            message: e?.message || "Delete failed",
+          });
         }
       },
     });
@@ -766,7 +979,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
           await cancelRevision(localVersion.id);
           if (onChanged) await onChanged();
         } catch (e: any) {
-          alert(e.message || "Cancel failed");
+          push({
+            type: "error",
+            title: "Cancel failed",
+            message: e?.message || "Cancel failed",
+          });
         }
       },
     });
@@ -986,6 +1203,27 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                   {fullCode}
                 </p>
+
+                <div className="mt-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Description (locked after Draft)
+                    </p>
+                    {isSavingDesc && (
+                      <span className="text-slate-400">
+                        <InlineSpinner />
+                      </span>
+                    )}
+                  </div>
+
+                  <textarea
+                    className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-800 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    rows={3}
+                    value={localDesc}
+                    onChange={(e) => setLocalDesc(e.target.value)}
+                    placeholder="Enter description…"
+                  />
+                </div>
               </>
             ) : (
               <>
@@ -995,6 +1233,17 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                 <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">
                   {fullCode}
                 </p>
+
+                <div className="mt-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Description
+                  </p>
+                  <p className="mt-1 text-sm text-slate-800 whitespace-pre-wrap">
+                    {localVersion.description?.trim()
+                      ? localVersion.description
+                      : "—"}
+                  </p>
+                </div>
               </>
             )}
 
@@ -1261,6 +1510,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
           <button
             type="button"
+            disabled={!localVersion.preview_path}
             onClick={async () => {
               try {
                 const res = await getDocumentPreviewLink(localVersion.id);
@@ -1269,7 +1519,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                 alert(e.message || "Failed to open preview");
               }
             }}
-            className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200 transition-colors ml-2"
+            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ml-2 ${
+              !localVersion.preview_path
+                ? "bg-slate-50 text-slate-400 cursor-not-allowed"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            }`}
           >
             Open preview
           </button>
@@ -1282,6 +1536,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             }`}
             onClick={() => {
               if (isUploading) return;
+              if (localVersion.status !== "Draft") return;
               fileInputRef.current?.click();
             }}
             onDrop={handleDrop}

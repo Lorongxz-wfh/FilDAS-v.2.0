@@ -54,9 +54,9 @@ const DocumentFlowPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true); // first load only
   const hasData = !!document && !!selectedVersion;
-const selectedVersionParam = searchParams.get("version");
-const [isLoadingSelectedVersion, setIsLoadingSelectedVersion] = useState(false);
-
+  const selectedVersionParam = searchParams.get("version");
+  const [isLoadingSelectedVersion, setIsLoadingSelectedVersion] =
+    useState(false);
 
   // Stores what the user last clicked (for nicer "Loading vX..." text)
   const [targetVersionId, setTargetVersionId] = useState<number | null>(null);
@@ -68,18 +68,20 @@ const [isLoadingSelectedVersion, setIsLoadingSelectedVersion] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    let seq = Date.now(); // simple unique marker for this run
-
+    
     const load = async () => {
       // Only show the big loading state if we have nothing to render yet
       if (!document || !selectedVersion) setLoading(true);
       setError(null);
 
-      if (selectedVersionParam) setIsLoadingSelectedVersion(true);
-
       try {
-        const qp = searchParams.get("version");
+        const qp = selectedVersionParam;
         const qpId = qp ? Number(qp) : NaN;
+
+        const switching =
+          qpId && !Number.isNaN(qpId) && qpId !== selectedVersion?.id;
+
+        if (switching) setIsLoadingSelectedVersion(true);
 
         // Always refresh versions list (right panel) in the background
         const [docData, versions] = await Promise.all([
@@ -125,7 +127,6 @@ const [isLoadingSelectedVersion, setIsLoadingSelectedVersion] = useState(false);
 
     return () => {
       alive = false;
-      void seq;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, searchParams.toString()]);

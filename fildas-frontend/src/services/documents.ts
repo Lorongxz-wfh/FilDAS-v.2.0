@@ -8,6 +8,7 @@ export interface CreateDocumentPayload {
   title: string;
   owner_office_id: number;
   doctype: "internal" | "external" | "forms";
+  description?: string;
   visibility_scope?: "office" | "global";
   school_year?: string;
   semester?: string;
@@ -51,6 +52,7 @@ export async function createDocumentWithProgress(
     formData.append("visibility_scope", payload.visibility_scope);
   if (payload.school_year) formData.append("school_year", payload.school_year);
   if (payload.semester) formData.append("semester", payload.semester);
+  if (payload.description) formData.append("description", payload.description);
   if (payload.file) formData.append("file", payload.file);
 
   const token = localStorage.getItem("auth_token");
@@ -111,6 +113,7 @@ export interface DocumentVersion {
   file_path: string | null;
   preview_path: string | null;
   original_filename: string | null;
+  description?: string | null;
   distributed_at: string | null;
   superseded_at: string | null;
   cancelled_at: string | null;
@@ -332,8 +335,11 @@ export async function getDocumentVersion(
   }
 }
 
-export function getDocumentPreviewUrl(versionId: number): string {
-  return `${API_BASE}/document-versions/${versionId}/preview`;
+export async function getDocumentPreviewUrl(
+  versionId: number,
+): Promise<string> {
+  const { url } = await getDocumentPreviewLink(versionId);
+  return url;
 }
 
 export async function replaceDocumentVersionFileWithProgress(
@@ -392,6 +398,25 @@ export async function updateDocumentTitle(
     throw new Error(msg);
   }
 }
+
+export async function updateDocumentVersionDescription(
+  versionId: number,
+  description: string,
+): Promise<DocumentVersion> {
+  try {
+    const res = await api.patch(`/document-versions/${versionId}`, {
+      description,
+    });
+    const v = res.data?.version ?? res.data;
+    return v as DocumentVersion;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message || (status ? `Failed (${status})` : "Failed");
+    throw new Error(msg);
+  }
+}
+
 
 export async function downloadDocument(
   version: DocumentVersion,
@@ -463,17 +488,25 @@ export type WorkflowActionCode =
   | "MARK_DISTRIBUTED"
   | "RETURN_TO_QA_EDIT";
 
+export type WorkflowActionResult = {
+  version: DocumentVersion;
+  action_message?: string;
+  target_office?: { id: number; name: string; code: string } | null;
+};
+
 export async function submitWorkflowAction(
   versionId: number,
   action: WorkflowActionCode,
   note?: string,
-): Promise<DocumentVersion> {
+): Promise<WorkflowActionResult> {
   try {
     const res = await api.post(`/document-versions/${versionId}/actions`, {
       action,
       note,
     });
-    return (res.data?.version ?? res.data) as DocumentVersion;
+    const data = res.data;
+    if (data?.version) return data as WorkflowActionResult;
+    return { version: data as DocumentVersion };
   } catch (e: any) {
     const status = e?.response?.status;
     const msg =
