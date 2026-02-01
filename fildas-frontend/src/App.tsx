@@ -7,11 +7,12 @@ import MyWorkQueuePage from "./pages/MyWorkQueuePage";
 import DocumentLibraryPage from "./pages/DocumentLibraryPage";
 import CreateDocumentPage from "./pages/CreateDocumentPage";
 import RequestDocumentPage from "./pages/RequestDocumentPage";
-import NotificationsPage from "./pages/NotificationsPage";
+import InboxPage from "./pages/InboxPage";
 import ArchivePage from "./pages/ArchivePage";
 import ReportsPage from "./pages/ReportsPage";
-import AuditLogsPage from "./pages/AuditLogsPage";
+import MyActivityPage from "./pages/MyActivityPage";
 import UserManagerPage from "./pages/UserManagerPage";
+import ActivityLogsPage from "./pages/ActivityLogsPage";
 
 import DocumentFlowPage from "./pages/DocumentFlowPage";
 
@@ -28,7 +29,8 @@ export default function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/work-queue" element={<MyWorkQueuePage />} />
-        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/my-activity" element={<MyActivityPage />} />
+        <Route path="/inbox" element={<InboxPage />} />
 
         {/* DocumentFlow is ok to open normally */}
         <Route path="/documents/:id" element={<DocumentFlowPage />} />
@@ -36,32 +38,31 @@ export default function App() {
         {/* Document library should be reachable from sidebar */}
         <Route path="/documents" element={<DocumentLibraryPage />} />
 
-        {/* These 2 pages can stay WorkQueue-only if you want */}
-        <Route element={<RequireFromWorkQueue />}>
-          {/* QA only */}
-          <Route element={<RequireRole allow={["QA"]} />}>
-            <Route path="/documents/create" element={<CreateDocumentPage />} />
-          </Route>
+        {/* Create can be opened from anywhere, but still role-protected */}
+        <Route element={<RequireRole allow={["QA"]} />}>
+          <Route path="/documents/create" element={<CreateDocumentPage />} />
+        </Route>
 
-          {/* Department only */}
-          <Route element={<RequireRole allow={["DEPARTMENT"]} />}>
-            <Route
-              path="/documents/request"
-              element={<RequestDocumentPage />}
-            />
-          </Route>
+        <Route element={<RequireRole allow={["DEPARTMENT"]} />}>
+          <Route path="/documents/request" element={<RequestDocumentPage />} />
         </Route>
 
         {/* Role-limited pages */}
-        <Route element={<RequireRole allow={["QA"]} />}>
+        <Route
+          element={
+            <RequireRole
+              allow={["PRESIDENT", "VPAA", "QA", "SYSADMIN", "ADMIN"]}
+            />
+          }
+        >
           <Route path="/reports" element={<ReportsPage />} />
         </Route>
 
-        <Route element={<RequireRole allow={["QA", "SYSADMIN"]} />}>
-          <Route path="/audit-logs" element={<AuditLogsPage />} />
+        <Route element={<RequireRole allow={["QA", "SYSADMIN", "ADMIN"]} />}>
+          <Route path="/activity-logs" element={<ActivityLogsPage />} />
         </Route>
 
-        <Route element={<RequireRole allow={["SYSADMIN"]} />}>
+        <Route element={<RequireRole allow={["SYSADMIN", "ADMIN"]} />}>
           <Route path="/user-manager" element={<UserManagerPage />} />
         </Route>
 

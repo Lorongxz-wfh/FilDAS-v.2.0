@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { getAuthUser } from "../lib/auth";
-import { createDocumentWithProgress } from "../services/documents";
+import {
+  createDocumentWithProgress,
+  setDocumentTags,
+} from "../services/documents";
 import {
   createTempPreview,
   deleteTempPreview,
@@ -22,7 +25,8 @@ const CreateDocumentPage: React.FC = () => {
   if (role !== "QA") return <Navigate to="/work-queue" replace />;
 
   const [title, setTitle] = useState("");
-  const [officeCode, setOfficeCode] = useState<number | null>(null);
+  const [reviewOfficeId, setReviewOfficeId] = useState<number | null>(null);
+
   const [doctype, setDoctype] = useState<"internal" | "external" | "forms">(
     "internal",
   );
@@ -116,10 +120,20 @@ const CreateDocumentPage: React.FC = () => {
     try {
       setUploadPct(0);
 
+      if (!reviewOfficeId) {
+        setError("Please select a reviewer office.");
+        return;
+      }
+
+      if (!file) {
+        setError("Please attach a file.");
+        return;
+      }
+
       const result = await createDocumentWithProgress(
         {
           title,
-          owner_office_id: officeCode!,
+          review_office_id: reviewOfficeId as number,
           doctype,
           description,
           file,
@@ -127,7 +141,25 @@ const CreateDocumentPage: React.FC = () => {
         (pct) => setUploadPct(pct),
       );
 
-      setMessage("Document created successfully.");
+      // Best-effort: save tags (do not block document creation)
+      if (tags.length > 0) {
+        try {
+          await setDocumentTags(result.id, tags);
+        } catch (e) {
+          // keep UX smooth: document is created, tags can be edited later
+          setMessage(
+            "Document created, but tags failed to save (you can try again later).",
+          );
+        }
+      }
+
+      if (!tags.length) {
+        setMessage("Document created successfully.");
+      } else {
+        // if tags saved successfully, keep the success message consistent
+        setMessage((prev) => prev ?? "Document created successfully.");
+      }
+
       cleanupTempPreview(tempPreview);
       // After create, redirect to the document flow page so workflow + comments are available.
       navigate(`/documents/${result.id}`);
@@ -146,7 +178,7 @@ const CreateDocumentPage: React.FC = () => {
 
   return (
     <PageFrame
-      title="New Document"
+      title="Draft Document"
       right={
         <Button
           type="button"
@@ -183,9 +215,9 @@ const CreateDocumentPage: React.FC = () => {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <OfficeDropdown
-                  value={officeCode}
-                  onChange={setOfficeCode}
-                  error={fieldErrors?.owner_office_id?.[0]}
+                  value={reviewOfficeId}
+                  onChange={setReviewOfficeId}
+                  error={fieldErrors?.review_office_id?.[0]}
                 />
 
                 <div>
@@ -383,7 +415,7 @@ const CreateDocumentPage: React.FC = () => {
                 </p>
                 <button
                   type="submit"
-                  disabled={loading || !officeCode}
+                  disabled={loading || !reviewOfficeId}
                   className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-4 py-2 text-xs font-medium text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700 disabled:opacity-60"
                 >
                   {loading ? "Saving…" : "Save document"}

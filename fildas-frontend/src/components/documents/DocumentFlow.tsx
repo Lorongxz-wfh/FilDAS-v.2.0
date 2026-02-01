@@ -21,15 +21,19 @@ import {
   getDocumentVersion,
   submitWorkflowAction,
   listWorkflowTasks,
+  listActivityLogs,
   listDocumentMessages,
   postDocumentMessage,
   replaceDocumentVersionFileWithProgress,
   updateDocumentTitle,
   updateDocumentVersionDescription,
+  updateDocumentVersionEffectiveDate,
   downloadDocument,
   deleteDraftVersion,
-  cancelRevision,
+  type ActivityLogItem,
 } from "../../services/documents";
+
+import { getAuthUser } from "../../lib/auth"; // adjust path if needed
 
 export type HeaderActionButton = {
   key: string;
@@ -54,6 +58,7 @@ interface DocumentFlowProps {
   version: DocumentVersion;
   onChanged?: () => Promise<void> | void;
   onHeaderStateChange?: (s: DocumentFlowHeaderState) => void;
+  onAfterActionClose?: () => void; // NEW
 }
 
 type PhaseId = "review" | "approval" | "registration";
@@ -85,15 +90,15 @@ const flowSteps: FlowStep[] = [
     phase: "review",
   },
   {
-    id: "dept_review",
-    label: "Department review",
-    statusValue: "For Department Review",
+    id: "office_review",
+    label: "Office review",
+    statusValue: "For Office Review",
     phase: "review",
   },
   {
-    id: "vpaareview",
-    label: "VPAA review",
-    statusValue: "For VPAA Review",
+    id: "vp_review",
+    label: "VP review",
+    statusValue: "For VP Review",
     phase: "review",
   },
   {
@@ -105,15 +110,15 @@ const flowSteps: FlowStep[] = [
 
   // Approval
   {
-    id: "dept_approval",
-    label: "Department approval",
-    statusValue: "For Department Approval",
+    id: "office_approval",
+    label: "Office approval",
+    statusValue: "For Office Approval",
     phase: "approval",
   },
   {
-    id: "vpaa_approval",
-    label: "VPAA approval",
-    statusValue: "For VPAA Approval",
+    id: "vp_approval",
+    label: "VP approval",
+    statusValue: "For VP Approval",
     phase: "approval",
   },
   {
@@ -154,22 +159,22 @@ const transitions: Record<string, TransitionAction[]> = {
   Draft: [
     // ✅ Explicit Draft
     {
-      toStatus: "For Department Review",
-      label: "Send to Department for review",
+      toStatus: "For Office Review",
+      label: "Send to Office for review",
     },
   ],
 
-  "For Department Review": [
+  "For Office Review": [
     {
-      toStatus: "For VPAA Review",
-      label: "Forward to VPAA for review",
+      toStatus: "For VP Review",
+      label: "Forward to VP for review",
     },
     {
       toStatus: "QA_EDIT",
       label: "Return to QA (edit)",
     },
   ],
-  "For VPAA Review": [
+  "For VP Review": [
     {
       toStatus: "For QA Final Check",
       label: "Send back to QA for final check",
@@ -179,24 +184,24 @@ const transitions: Record<string, TransitionAction[]> = {
 
   "For QA Final Check": [
     {
-      toStatus: "For Department Approval",
-      label: "Start approval phase (Department approval)",
+      toStatus: "For Office Approval",
+      label: "Start approval phase (Office approval)",
     },
     { toStatus: "QA_EDIT", label: "Return to QA edit" },
   ],
 
   // Approval phase
-  "For Department Approval": [
+  "For Office Approval": [
     {
-      toStatus: "For VPAA Approval",
-      label: "Forward to VPAA for approval",
+      toStatus: "For VP Approval",
+      label: "Forward to VP for approval",
     },
     {
       toStatus: "QA_EDIT",
       label: "Return to QA (edit)",
     },
   ],
-  "For VPAA Approval": [
+  "For VP Approval": [
     {
       toStatus: "For President Approval",
       label: "Forward to President for approval",
@@ -244,16 +249,16 @@ const transitions: Record<string, TransitionAction[]> = {
 
 function toWorkflowAction(toStatus: string): WorkflowActionCode | null {
   switch (toStatus) {
-    case "For Department Review":
-      return "SEND_TO_DEPT_REVIEW";
-    case "For VPAA Review":
-      return "FORWARD_TO_VPAA_REVIEW";
+    case "For Office Review":
+      return "SEND_TO_OFFICE_REVIEW";
+    case "For VP Review":
+      return "FORWARD_TO_VP_REVIEW";
     case "For QA Final Check":
-      return "VPAA_SEND_BACK_TO_QA_FINAL_CHECK";
-    case "For Department Approval":
-      return "START_DEPT_APPROVAL";
-    case "For VPAA Approval":
-      return "FORWARD_TO_VPAA_APPROVAL";
+      return "VP_SEND_BACK_TO_QA_FINAL_CHECK";
+    case "For Office Approval":
+      return "START_OFFICE_APPROVAL";
+    case "For VP Approval":
+      return "FORWARD_TO_VP_APPROVAL";
     case "For President Approval":
       return "FORWARD_TO_PRESIDENT_APPROVAL";
     case "For QA Registration":
@@ -309,7 +314,7 @@ function resolveVpCodeForOfficeCode(
   const vprCodes = new Set(["VR", "RC", "CX", "QA", "IP"]);
   if (vprCodes.has(ownerCode)) return "VR";
 
-  const vpaaCodes = new Set([
+  const vpCodes = new Set([
     "VA",
     "CN",
     "CB",
@@ -328,38 +333,42 @@ function resolveVpCodeForOfficeCode(
     "UL",
     "NS",
   ]);
-  if (vpaaCodes.has(ownerCode)) return "VA";
+  if (vpCodes.has(ownerCode)) return "VA";
 
   // fallback
   return "VA";
 }
 
-function expectedOfficeIdForToStatus(
-  toStatus: string,
+function expectedActorOfficeId(
+  fromStatus: string,
   ownerOfficeId: number | null | undefined,
+  reviewOfficeId: number | null | undefined,
   ownerOfficeCode: string | null | undefined,
   offices: OfficeMini[] | null | undefined,
 ): number | null {
-  switch (toStatus) {
-    case "For Department Review":
-    case "For Department Approval":
-      return ownerOfficeId ?? null;
+  switch (fromStatus) {
+    // QA acts
+    case "Draft":
+    case "For QA Final Check":
+    case "For QA Registration":
+    case "For QA Distribution":
+      return officeIdByCode(offices, "QA");
 
-    case "For VPAA Review":
-    case "For VPAA Approval": {
+    // Office acts: use QA-selected review office if present, else fallback to owner office
+    case "For Office Review":
+    case "For Office Approval":
+      return reviewOfficeId ?? ownerOfficeId ?? null;
+
+    // VP acts (VP for that owner office)
+    case "For VP Review":
+    case "For VP Approval": {
       const vpCode = resolveVpCodeForOfficeCode(ownerOfficeCode);
       return vpCode ? officeIdByCode(offices, vpCode) : null;
     }
 
+    // President acts
     case "For President Approval":
       return officeIdByCode(offices, "PO");
-
-    case "For QA Final Check":
-    case "For QA Registration":
-    case "For QA Distribution":
-    case "Distributed":
-    case "QA_EDIT":
-      return officeIdByCode(offices, "QA");
 
     default:
       return null;
@@ -388,6 +397,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   version,
   onChanged,
   onHeaderStateChange,
+  onAfterActionClose,
 }) => {
   const [localVersion, setLocalVersion] = React.useState(version);
   const [localTitle, setLocalTitle] = React.useState(document.title);
@@ -398,6 +408,19 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   );
   const [isSavingDesc, setIsSavingDesc] = React.useState(false);
 
+  // Effective date (stored as YYYY-MM-DD)
+  const [localEffectiveDate, setLocalEffectiveDate] = React.useState<string>(
+    String((version as any)?.effective_date ?? "").slice(0, 10),
+  );
+  const [initialEffectiveDate, setInitialEffectiveDate] =
+    React.useState<string>(
+      String((version as any)?.effective_date ?? "").slice(0, 10),
+    );
+  const [isSavingEffectiveDate, setIsSavingEffectiveDate] =
+    React.useState(false);
+
+  const [offices, setOffices] = React.useState<Office[]>([]);
+
   React.useEffect(() => {
     setLocalVersion(version);
     setInitialTitle(document.title);
@@ -405,9 +428,45 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
     setInitialDesc(version.description ?? "");
     setLocalDesc(version.description ?? "");
+
+    setInitialEffectiveDate(
+      String((version as any)?.effective_date ?? "").slice(0, 10),
+    );
+    setLocalEffectiveDate(
+      String((version as any)?.effective_date ?? "").slice(0, 10),
+    );
   }, [document.id, version.id]);
 
   const { push } = useToast();
+  const userOfficeId = getCurrentUserOfficeId();
+  const myOfficeId = userOfficeId;
+
+  const qaOfficeId = officeIdByCode(offices, "QA");
+
+  const isQAOfficeUser = !!qaOfficeId && myOfficeId === qaOfficeId;
+
+  const isQAStep = [
+    "Draft",
+    "For QA Final Check",
+    "For QA Registration",
+    "For QA Distribution",
+    "QA_EDIT",
+  ].includes(localVersion.status);
+
+  const canEditEffectiveDate = isQAOfficeUser && isQAStep;
+
+  function isQAUser(): boolean {
+    const u: any = getAuthUser?.();
+    const roleName = String(u?.role?.name ?? "").toLowerCase();
+    const officeCode = String(u?.office?.code ?? "").toUpperCase();
+    return roleName === "qa" || officeCode === "QA";
+  }
+
+  const onHeaderStateChangeRef = React.useRef(onHeaderStateChange);
+
+  React.useEffect(() => {
+    onHeaderStateChangeRef.current = onHeaderStateChange;
+  }, [onHeaderStateChange]);
 
   const [isUploading, setIsUploading] = React.useState(false);
   const [isSavingTitle, setIsSavingTitle] = React.useState(false);
@@ -415,6 +474,9 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const [isTasksReady, setIsTasksReady] = React.useState(false);
   const [messages, setMessages] = React.useState<DocumentMessage[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = React.useState(false);
+  const [activityLogs, setActivityLogs] = React.useState<ActivityLogItem[]>([]);
+  const [isLoadingActivityLogs, setIsLoadingActivityLogs] =
+    React.useState(false);
 
   const [draftMessage, setDraftMessage] = React.useState("");
   const [isSendingMessage, setIsSendingMessage] = React.useState(false);
@@ -439,8 +501,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const [signedPreviewUrl, setSignedPreviewUrl] = React.useState<string>("");
 
   const [isPreviewLoading, setIsPreviewLoading] = React.useState(false);
-
-  const [offices, setOffices] = React.useState<Office[]>([]);
 
   React.useEffect(() => {
     let alive = true;
@@ -495,7 +555,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     return () => {
       alive = false;
     };
-  }, [localVersion.id, localVersion.preview_path, previewNonce]);
+  }, [localVersion.id, localVersion.preview_path]);
 
   const refreshForPreview = async () => {
     const { version: fresh } = await getDocumentVersion(localVersion.id);
@@ -512,31 +572,33 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const refreshAll = React.useCallback(async () => {
     const { version: freshVersion } = await getDocumentVersion(localVersion.id);
 
-    setLocalVersion((prev) => {
-      const statusChanged = prev.status !== freshVersion.status;
-      const previewChanged =
-        prev.preview_path !== freshVersion.preview_path ||
-        prev.file_path !== freshVersion.file_path;
+    // Compute previewChanged using the *current* localVersion values (from closure)
+    const previewChanged =
+      localVersion.preview_path !== freshVersion.preview_path ||
+      localVersion.file_path !== freshVersion.file_path;
 
-      // If preview changed, bump nonce so iframe reloads
-      if (previewChanged) setPreviewNonce((n) => n + 1);
+    setLocalVersion((prev) => ({
+      ...prev,
+      ...freshVersion,
+    }));
 
-      // Optional: if status changed, you can auto-switch to logs
-      // if (statusChanged) setActiveSideTab("logs");
+    if (previewChanged) {
+      setPreviewNonce((n) => n + 1);
+    }
 
-      return {
-        ...prev,
-        ...freshVersion,
-      };
-    });
-
-    // Keep tasks/messages synced (tasks always, because permissions depend on it)
-    setTasks(await listWorkflowTasks(localVersion.id));
+    const nextTasks = await listWorkflowTasks(localVersion.id);
+    setTasks(nextTasks);
 
     if (activeSideTab === "comments") {
-      setMessages(await listDocumentMessages(localVersion.id));
+      const nextMsgs = await listDocumentMessages(localVersion.id);
+      setMessages(nextMsgs);
     }
-  }, [localVersion.id, activeSideTab]);
+  }, [
+    localVersion.id,
+    localVersion.preview_path,
+    localVersion.file_path,
+    activeSideTab,
+  ]);
 
   const stopBurstPolling = React.useCallback(() => {
     setIsBurstPolling(false);
@@ -692,6 +754,37 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     };
   }, [localVersion.id, activeSideTab]);
 
+  React.useEffect(() => {
+    let alive = true;
+
+    if (activeSideTab !== "logs") {
+      setActivityLogs([]);
+      setIsLoadingActivityLogs(false);
+      return;
+    }
+
+    (async () => {
+      setIsLoadingActivityLogs(true);
+      try {
+        const page = await listActivityLogs({
+          scope: "document",
+          document_version_id: localVersion.id,
+          per_page: 50,
+        });
+        if (alive) setActivityLogs(page.data);
+      } catch (e) {
+        console.error("Failed to load activity logs", e);
+        if (alive) setActivityLogs([]);
+      } finally {
+        if (alive) setIsLoadingActivityLogs(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [localVersion.id, activeSideTab]);
+
   async function saveTitleOnly(opts: { title: string }) {
     await updateDocumentTitle(document.id, opts.title);
   }
@@ -699,6 +792,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const titleSaveTimerRef = React.useRef<number | null>(null);
 
   const descSaveTimerRef = React.useRef<number | null>(null);
+  const effectiveDateSaveTimerRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     const editable = localVersion.status === "Draft";
@@ -731,7 +825,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       if (descSaveTimerRef.current)
         window.clearTimeout(descSaveTimerRef.current);
     };
-  }, [localDesc, initialDesc, localVersion.id, localVersion.status]);
+  }, [localDesc, initialDesc, localVersion.id, localVersion.status, onChanged]);
 
   React.useEffect(() => {
     // Auto-save title only while Draft version exists
@@ -760,6 +854,45 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         window.clearTimeout(titleSaveTimerRef.current);
     };
   }, [localTitle, localVersion.status, document.id, initialTitle]);
+
+  React.useEffect(() => {
+    if (!canEditEffectiveDate) return;
+
+    if (localEffectiveDate === initialEffectiveDate) return;
+
+    if (effectiveDateSaveTimerRef.current)
+      window.clearTimeout(effectiveDateSaveTimerRef.current);
+
+    effectiveDateSaveTimerRef.current = window.setTimeout(async () => {
+      try {
+        setIsSavingEffectiveDate(true);
+
+        const updated = await updateDocumentVersionEffectiveDate(
+          localVersion.id,
+          localEffectiveDate.trim() ? localEffectiveDate.trim() : null,
+        );
+
+        setLocalVersion((prev) => ({ ...prev, ...updated }));
+        setInitialEffectiveDate(localEffectiveDate);
+        if (onChanged) await onChanged();
+      } catch (e) {
+        console.error("Auto-save effective date failed", e);
+      } finally {
+        setIsSavingEffectiveDate(false);
+      }
+    }, 600);
+
+    return () => {
+      if (effectiveDateSaveTimerRef.current)
+        window.clearTimeout(effectiveDateSaveTimerRef.current);
+    };
+  }, [
+    canEditEffectiveDate,
+    localEffectiveDate,
+    initialEffectiveDate,
+    localVersion.id,
+    onChanged,
+  ]);
 
   // Update fileSelect to set pending file for revisions
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -791,53 +924,39 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     setCurrentTask(open);
   }, [tasks]);
 
-  const userOfficeId = getCurrentUserOfficeId(); // if you already expose this on frontend
+  // userOfficeId / myOfficeId / canEditEffectiveDate are already computed above
 
-  const canAct =
-    isTasksReady &&
-    !!currentTask &&
-    !!currentTask.assigned_office_id &&
-    currentTask.assigned_office_id === userOfficeId;
+  const assignedOfficeId = currentTask?.assigned_office_id ?? null;
 
+  // These come from backend fields; keep them tolerant to naming differences.
   const ownerOfficeId =
     (document as any)?.owner_office_id ??
-    (document as any)?.ownerOffice?.id ??
     (document as any)?.office_id ??
-    (document as any)?.office?.id ??
+    (version as any)?.owner_office_id ??
+    (localVersion as any)?.owner_office_id ??
+    null;
+
+  const reviewOfficeId =
+    (document as any)?.review_office_id ??
+    (version as any)?.review_office_id ??
+    (localVersion as any)?.review_office_id ??
     null;
 
   const ownerOfficeCode =
-    (document as any)?.ownerOffice?.code ??
+    (document as any)?.owner_office?.code ??
     (document as any)?.office?.code ??
     null;
 
-  const availableActionsRaw =
-    transitions[localVersion.status as keyof typeof transitions] ?? [];
+  // Can I act? Only if my office is the one assigned on the open task.
+  const canAct = !!assignedOfficeId && myOfficeId === assignedOfficeId;
 
-  // Only show actions that the CURRENT assigned office is allowed to perform
-  // If you own the open task, show all actions for this status.
-  // Backend still validates office_id, so this is safe.
-  const availableActions = availableActionsRaw.filter((a) => {
-    if (!currentTask?.assigned_office_id) return false;
+  // Build actions for the current status.
+  const availableActions = transitions[localVersion.status] ?? [];
 
-    const expected = expectedOfficeIdForToStatus(
-      a.toStatus,
-      ownerOfficeId,
-      ownerOfficeCode,
-      offices,
-    );
-
-    if (!expected) return false;
-    return expected === currentTask.assigned_office_id;
-  });
-
-  const assignedOfficeId = currentTask?.assigned_office_id ?? null;
-  const myOfficeId = userOfficeId;
   const fullCode = document.code ?? "CODE-NOT-AVAILABLE";
 
   const headerActions: HeaderActionButton[] = availableActions.map((action) => {
     const isDanger = action.toStatus === "QA_EDIT";
-    const isSuccess = action.toStatus === "Distributed";
 
     return {
       key: action.toStatus,
@@ -876,10 +995,31 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
         setIsChangingStatus(true);
         try {
+          let extra: { review_office_id?: number | null } | undefined =
+            undefined;
+
+          // When QA sends to Office Review: use office selected during Create page.
+          // Prefer review_office_id if backend already set it; otherwise fallback to owner office.
+          if (code === "SEND_TO_OFFICE_REVIEW") {
+            const targetOfficeId = reviewOfficeId ?? ownerOfficeId ?? null;
+
+            if (!targetOfficeId) {
+              push({
+                type: "error",
+                title: "Missing office",
+                message: "No reviewer office is set for this document.",
+              });
+              return;
+            }
+
+            extra = { review_office_id: targetOfficeId };
+          }
+
           const res = await submitWorkflowAction(
             localVersion.id,
             code,
             note ?? undefined,
+            extra,
           );
 
           setLocalVersion((prev) => ({ ...prev, ...res.version }));
@@ -890,14 +1030,43 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             message: res.action_message || "Action completed.",
           });
 
-         setTasks(await listWorkflowTasks(res.version.id));
-         setMessages(await listDocumentMessages(res.version.id));
+          // Refresh notifications badge/list in this tab (receivers will see via polling in their own session)
+          window.dispatchEvent(new Event("notifications:refresh"));
 
-         if (action.toStatus === "QA_EDIT") {
-           setActiveSideTab("comments");
-         }
+          setTasks(await listWorkflowTasks(res.version.id));
+          setMessages(await listDocumentMessages(res.version.id));
+          setActivityLogs(
+            (
+              await listActivityLogs({
+                scope: "document",
+                document_version_id: res.version.id,
+                per_page: 50,
+              })
+            ).data,
+          );
+
+          if (activeSideTab === "logs")
+            setActivityLogs(
+              (
+                await listActivityLogs({
+                  scope: "document",
+                  document_version_id: res.version.id,
+                  per_page: 50,
+                })
+              ).data,
+            );
+
+          if (action.toStatus === "QA_EDIT") {
+            setActiveSideTab("comments");
+          }
 
           if (onChanged) await onChanged();
+
+          // Auto-close after acting for Office/VP/President (QA stays on the doc)
+          const qaOfficeId = officeIdByCode(offices, "QA");
+          if (qaOfficeId && myOfficeId !== qaOfficeId) {
+            onAfterActionClose?.();
+          }
         } catch (e) {
           push({
             type: "error",
@@ -911,106 +1080,150 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     };
   });
 
-  const versionActions: HeaderActionButton[] = [];
+  const headerActionsSorted = React.useMemo(() => {
+    const priority: Record<string, number> = {
+      "For Office Review": 10,
+      "For VP Review": 20,
+      "For QA Final Check": 30,
+      "For Office Approval": 40,
+      "For VP Approval": 50,
+      "For President Approval": 60,
+      "For QA Registration": 70,
+      "For QA Distribution": 80,
+      Distributed: 90,
+      QA_EDIT: 999,
+    };
 
-  if (localVersion.status === "Distributed" && localVersion.file_path) {
-    versionActions.push({
-      key: "download",
-      label: "Download",
-      variant: "outline",
-      onClick: async () => {
-        try {
-          await downloadDocument(localVersion);
-        } catch (e: any) {
-          push({
-            type: "error",
-            title: "Download failed",
-            message: e?.message || "Download failed",
-          });
-        }
-      },
+    return [...headerActions].sort((a, b) => {
+      const pa = priority[a.key] ?? 500;
+      const pb = priority[b.key] ?? 500;
+      return pa - pb;
     });
-  }
+  }, [headerActions]);
 
-  if (
-    localVersion.status === "Draft" &&
-    Number(localVersion.version_number) === 0
-  ) {
-    versionActions.push({
-      key: "delete_draft",
-      label: "Delete draft",
-      variant: "danger",
-      onClick: async () => {
-        try {
-          const msg =
-            "Delete this draft? (This will remove the whole document draft)";
-          if (!confirm(msg)) return;
+  const headerActionsSig = headerActionsSorted
+    .map((a) => `${a.key}:${a.disabled ? 1 : 0}`)
+    .join("|");
 
-          await deleteDraftVersion(localVersion.id);
+  const versionActions: HeaderActionButton[] = React.useMemo(() => {
+    const actions: HeaderActionButton[] = [];
 
-          if (Number(localVersion.version_number) === 0) {
-            window.location.href = "/documents";
-            return;
+    if (localVersion.status === "Distributed" && localVersion.file_path) {
+      actions.push({
+        key: "download",
+        label: "Download",
+        variant: "outline",
+        onClick: async () => {
+          try {
+            await downloadDocument(localVersion);
+          } catch (e: any) {
+            push({
+              type: "error",
+              title: "Download failed",
+              message: e?.message || "Download failed",
+            });
           }
+        },
+      });
+    }
 
-          if (onChanged) await onChanged();
-        } catch (e: any) {
-          push({
-            type: "error",
-            title: "Delete failed",
-            message: e?.message || "Delete failed",
-          });
-        }
-      },
-    });
-  }
+    if (
+      localVersion.status === "Draft" &&
+      Number(localVersion.version_number) === 0
+    ) {
+      actions.push({
+        key: "delete_draft",
+        label: "Delete draft",
+        variant: "danger",
+        onClick: async () => {
+          try {
+            const msg =
+              "Delete this draft? (This will remove the whole document draft)";
+            if (!confirm(msg)) return;
 
-  if (
-    localVersion.status === "Draft" &&
-    Number(localVersion.version_number) > 0
-  ) {
-    versionActions.push({
-      key: "cancel_revision",
-      label: "Cancel revision",
-      variant: "outline",
-      onClick: async () => {
-        try {
-          if (!confirm("Cancel this revision draft?")) return;
-          await cancelRevision(localVersion.id);
-          if (onChanged) await onChanged();
-        } catch (e: any) {
-          push({
-            type: "error",
-            title: "Cancel failed",
-            message: e?.message || "Cancel failed",
-          });
-        }
-      },
-    });
-  }
+            await deleteDraftVersion(localVersion.id);
+            onAfterActionClose?.();
+          } catch (e: any) {
+            push({
+              type: "error",
+              title: "Delete failed",
+              message: e?.message || "Delete failed",
+            });
+          }
+        },
+      });
+    }
+
+    if (
+      localVersion.status === "Draft" &&
+      Number(localVersion.version_number) > 0
+    ) {
+      actions.push({
+        key: "cancel_revision",
+        label: "Cancel revision",
+        variant: "danger",
+        onClick: async () => {
+          try {
+            const msg =
+              "Cancel this revision draft? (This will delete the draft revision and return to the last official version.)";
+            if (!confirm(msg)) return;
+
+            await deleteDraftVersion(localVersion.id);
+
+            // Tell parent to reload versions + switch selection away from this deleted version
+            if (onChanged) await onChanged();
+
+            // Close the view (so you naturally go back to the list / previous version)
+            onAfterActionClose?.();
+          } catch (e: any) {
+            push({
+              type: "error",
+              title: "Cancel failed",
+              message: e?.message || "Cancel failed",
+            });
+          }
+        },
+      });
+    }
+
+    return actions;
+  }, [
+    localVersion.status,
+    localVersion.file_path,
+    localVersion.id,
+    localVersion.version_number,
+    localVersion.original_filename, // optional, only if your download name depends on it
+    push,
+    onChanged,
+    onAfterActionClose,
+  ]);
+
+  const versionActionsSig = versionActions
+    .map((a) => `${a.key}:${a.disabled ? 1 : 0}`)
+    .join("|");
 
   React.useEffect(() => {
-    if (!onHeaderStateChange) return;
+    const fn = onHeaderStateChangeRef.current;
+    if (!fn) return;
 
-    onHeaderStateChange({
+    fn({
       title: localVersion.status === "Draft" ? localTitle : document.title,
       code: fullCode,
       status: localVersion.status,
       versionNumber: Number(localVersion.version_number),
       canAct,
-      headerActions,
+      headerActions: headerActionsSorted,
       versionActions,
     });
   }, [
-    onHeaderStateChange,
     document.title,
     fullCode,
     localTitle,
     localVersion.status,
     localVersion.version_number,
     canAct,
-    isChangingStatus,
-    availableActions.length,
+    headerActionsSig,
+    versionActionsSig,
   ]);
 
   // UI
@@ -1253,14 +1466,53 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                 <span className="font-medium text-slate-600">Version:</span> v
                 {localVersion.version_number}
               </div>
+
+              <div>
+                <span className="font-medium text-slate-600">
+                  Effective date:
+                </span>{" "}
+                {canEditEffectiveDate ? (
+                  <span className="inline-flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={localEffectiveDate}
+                      onChange={(e) => setLocalEffectiveDate(e.target.value)}
+                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-800"
+                    />
+                    {isSavingEffectiveDate && (
+                      <span className="text-slate-400">
+                        <InlineSpinner />
+                      </span>
+                    )}
+                  </span>
+                ) : (
+                  <span>
+                    {(localVersion as any)?.effective_date
+                      ? formatWhen((localVersion as any).effective_date)
+                      : "—"}
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <span className="font-medium text-slate-600">
+                  Effective date:
+                </span>{" "}
+                {(localVersion as any)?.effective_date
+                  ? formatWhen((localVersion as any).effective_date)
+                  : "—"}
+              </div>
+
               <div>
                 <span className="font-medium text-slate-600">Updated:</span>{" "}
                 {formatWhen(localVersion.updated_at)}
               </div>
+
               <div>
                 <span className="font-medium text-slate-600">Created:</span>{" "}
                 {formatWhen(localVersion.created_at)}
               </div>
+
               <div>
                 <span className="font-medium text-slate-600">Distributed:</span>{" "}
                 {localVersion.distributed_at
@@ -1283,75 +1535,83 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             </p>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Current step
-            </h2>
-            <p className="mt-1 text-sm text-slate-800">{currentStep.label}</p>
-            {nextStep && (
-              <p className="mt-0.5 text-xs text-slate-500">
-                Next: {nextStep.label}
-              </p>
-            )}
+          <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Workflow inbox
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-900">
+                  {isTasksReady ? currentStep.label : "Loading step…"}
+                </p>
 
-            {!isTasksReady ? (
-              <div className="mt-2 space-y-2">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-2/3" />
+                <p className="mt-1 text-[11px] text-slate-500">
+                  {nextStep ? `Next: ${nextStep.label}` : "No next step"}
+                </p>
               </div>
-            ) : (
-              <p className="mt-2 text-xs text-slate-500">
-                Assigned to office ID: {assignedOfficeId ?? "-"} (You:{" "}
-                {myOfficeId || "-"})
-              </p>
-            )}
 
-            {isTasksReady && !currentTask && (
-              <p className="mt-1 text-11px text-rose-600">
-                No current workflow task found (cannot determine who can act).
-              </p>
-            )}
+              <div className="flex flex-col items-end gap-2">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                    !isTasksReady
+                      ? "bg-slate-100 text-slate-500"
+                      : canAct
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {!isTasksReady
+                    ? "Checking…"
+                    : canAct
+                      ? "Action enabled"
+                      : "View only"}
+                </span>
 
-            {isTasksReady && currentTask && !canAct && (
-              <p className="mt-1 text-11px text-slate-500">
-                Actions hidden: assigned office ({assignedOfficeId}) doesn’t
-                match your office ({myOfficeId}).
-              </p>
-            )}
+                {isBurstPolling && (
+                  <button
+                    type="button"
+                    onClick={stopBurstPolling}
+                    className="text-[11px] font-medium text-slate-500 hover:text-slate-800"
+                  >
+                    Stop live updates
+                  </button>
+                )}
+              </div>
+            </div>
 
-            {!isTasksReady && (
-              <p className="mt-1 text-[11px] text-slate-400">
-                Checking permissions…
-              </p>
-            )}
-
-            {isBurstPolling && (
-              <button
-                type="button"
-                onClick={stopBurstPolling}
-                className="mt-2 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-              >
-                Stop live updates
-              </button>
-            )}
-
-            <div className="mt-3">
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2">
               {!isTasksReady ? (
-                <p className="text-[11px] text-slate-400">
-                  Checking permissions…
-                </p>
-              ) : availableActions.length === 0 ? (
-                <p className="text-[11px] text-slate-500">
-                  No available actions for this step.
-                </p>
-              ) : !canAct ? (
-                <p className="text-[11px] text-slate-500">
-                  You can view this step, but actions are disabled.
-                </p>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
               ) : (
-                <p className="text-[11px] text-slate-500">
-                  Actions are available in the header.
-                </p>
+                <>
+                  <p className="text-[11px] text-slate-600">
+                    Assigned:{" "}
+                    <span className="font-medium text-slate-800">
+                      {assignedOfficeId ?? "-"}
+                    </span>
+                    {"  "}•{"  "}
+                    You:{" "}
+                    <span className="font-medium text-slate-800">
+                      {myOfficeId ?? "-"}
+                    </span>
+                  </p>
+
+                  {!currentTask && (
+                    <p className="mt-1 text-[11px] text-rose-600">
+                      No open workflow task found for this version.
+                    </p>
+                  )}
+
+                  {currentTask && !canAct && (
+                    <p className="mt-1 text-[11px] text-slate-600">
+                      You can view this document, but only the assigned office
+                      can perform workflow actions.
+                    </p>
+                  )}
+                </>
               )}
             </div>
 
@@ -1378,38 +1638,34 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                       : "border-transparent bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                 >
-                  Workflow logs
+                  Activity
                 </button>
               </div>
 
               {activeSideTab === "logs" ? (
-                <div className="mt-3">
-                  {isLoadingTasks ? (
-                    <div className="h-56 space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
-                      <Skeleton className="h-14 w-full" />
-                      <Skeleton className="h-14 w-full" />
-                      <Skeleton className="h-14 w-full" />
+                <div className="mt-3 space-y-2">
+                  {isLoadingActivityLogs ? (
+                    <div className="h-44 space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
+                      <Skeleton className="h-12 w-full" />
                     </div>
-                  ) : tasks.length === 0 ? (
-                    <p className="mt-1 text-xs text-slate-500">
-                      No workflow tasks yet.
-                    </p>
+                  ) : activityLogs.length === 0 ? (
+                    <p className="text-xs text-slate-500">No activity yet.</p>
                   ) : (
-                    <div className="h-56 overflow-y-auto space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
-                      {tasks.map((t) => (
+                    <div className="h-44 overflow-y-auto space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
+                      {activityLogs.map((l) => (
                         <div
-                          key={t.id}
+                          key={l.id}
                           className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm"
                         >
                           <p className="text-xs text-slate-700">
-                            <span className="font-semibold">{t.phase}</span> /{" "}
-                            {t.step} — {t.status}
+                            <span className="font-semibold">{l.event}</span>
+                            {l.label ? ` — ${l.label}` : ""}
                           </p>
                           <p className="text-[11px] text-slate-500">
-                            Opened:{" "}
-                            {t.opened_at ? formatWhen(t.opened_at) : "-"}
-                            {t.completed_at
-                              ? ` • Completed: ${formatWhen(t.completed_at)}`
+                            {l.created_at
+                              ? `When: ${formatWhen(l.created_at)}`
                               : ""}
                           </p>
                         </div>
@@ -1420,15 +1676,15 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               ) : (
                 <div className="mt-3 space-y-2">
                   {isLoadingMessages ? (
-                    <div className="h-56 space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
-                      <Skeleton className="h-16 w-full" />
-                      <Skeleton className="h-16 w-full" />
-                      <Skeleton className="h-16 w-full" />
+                    <div className="h-44 space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
+                      <Skeleton className="h-14 w-full" />
+                      <Skeleton className="h-14 w-full" />
+                      <Skeleton className="h-14 w-full" />
                     </div>
                   ) : messages.length === 0 ? (
-                    <p className="text-xs text-slate-500">No messages yet.</p>
+                    <p className="text-xs text-slate-500">No comments yet.</p>
                   ) : (
-                    <div className="h-56 overflow-y-auto space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
+                    <div className="h-44 overflow-y-auto space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
                       {messages.map((m) => (
                         <div
                           key={m.id}
@@ -1440,7 +1696,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                               {m.sender?.role?.name ?? "-"} —{" "}
                               {formatWhen(m.created_at)}
                             </p>
-
                             <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
                               {m.type}
                             </span>
@@ -1529,7 +1784,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
           </button>
 
           <div
-            className={`relative h-150 w-full overflow-hidden rounded-xl border-2 transition-all ${
+            className={`relative h-[600px] w-full overflow-hidden rounded-xl border-2 transition-all ${
               localVersion.file_path
                 ? "border-slate-200 bg-white cursor-pointer hover:border-sky-300 hover:shadow-md"
                 : "border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-sky-400 hover:bg-sky-50"
@@ -1558,6 +1813,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                 title="Document preview"
                 className="h-full w-full"
                 onLoad={() => setIsPreviewLoading(false)}
+                onError={() => setIsPreviewLoading(false)}
               />
             ) : (
               <div className="flex h-full flex-col items-center justify-center p-8 text-center text-sm">

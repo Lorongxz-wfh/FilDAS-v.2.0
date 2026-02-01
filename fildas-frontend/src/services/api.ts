@@ -20,11 +20,11 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
-
-   if (status === 401 || status === 419) {
-     clearAuthAndRedirect();
-     return; // stop the promise chain
-   }
+    
+    if (status === 401 || status === 419) {
+      clearAuthAndRedirect();
+      return Promise.reject(error);
+    }
 
     return Promise.reject(error);
   },

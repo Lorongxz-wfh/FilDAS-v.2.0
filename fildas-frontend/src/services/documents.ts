@@ -6,7 +6,7 @@ const API_BASE =
 
 export interface CreateDocumentPayload {
   title: string;
-  owner_office_id: number;
+  review_office_id: number; // reviewer office selected by QA
   doctype: "internal" | "external" | "forms";
   description?: string;
   visibility_scope?: "office" | "global";
@@ -18,13 +18,21 @@ export interface CreateDocumentPayload {
 export interface Document {
   id: number;
   title: string;
-  office_id: number | null;
-  office: {
-    // ← ADD
+  owner_office_id: number | null;
+  review_office_id: number | null;
+
+  ownerOffice: {
     id: number;
     name: string;
     code: string;
   } | null;
+
+  reviewOffice: {
+    id: number;
+    name: string;
+    code: string;
+  } | null;
+
   parent_document_id?: number | null;
   doctype: "internal" | "external" | "forms";
   code: string | null;
@@ -37,7 +45,64 @@ export interface Document {
   created_by: number | null;
   created_at: string;
   updated_at: string;
+
+  tags?: string[];
 }
+
+export type Paginated<T> = {
+  data: T[];
+  meta?: any;
+  links?: any;
+};
+
+function normalizePaginated<T>(payload: any): Paginated<T> {
+  // Laravel paginated ResourceCollection shape: { data, links, meta }
+  if (payload && Array.isArray(payload.data)) {
+    return {
+      data: payload.data as T[],
+      meta: payload.meta,
+      links: payload.links,
+    };
+  }
+
+  // Legacy / non-paginated: plain array
+  if (Array.isArray(payload)) {
+    return { data: payload as T[] };
+  }
+
+  throw new Error("Invalid response format");
+}
+
+type NotifCacheEntry = {
+  etag: string | null;
+  payload: Paginated<NotificationItem>;
+};
+
+const notifCache = new Map<string, NotifCacheEntry>();
+
+function clearNotifCache() {
+  notifCache.clear();
+}
+
+function notifCacheKey(page: number, perPage: number) {
+  return `notifications:p${page}:pp${perPage}`;
+}
+
+export interface NotificationItem {
+  id: number;
+  user_id: number;
+  document_id: number | null;
+  document_version_id: number | null;
+  event: string;
+  title: string;
+  body: string | null;
+  meta: any | null;
+  read_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type UnreadCountResponse = { unread: number };
 
 export async function createDocumentWithProgress(
   payload: CreateDocumentPayload,
@@ -45,7 +110,7 @@ export async function createDocumentWithProgress(
 ): Promise<Document> {
   const formData = new FormData();
   formData.append("title", payload.title);
-  formData.append("owner_office_id", payload.owner_office_id.toString());
+  formData.append("review_office_id", String(payload.review_office_id));
   formData.append("doctype", payload.doctype);
 
   if (payload.visibility_scope)
@@ -119,6 +184,9 @@ export interface DocumentVersion {
   preview_path: string | null;
   original_filename: string | null;
   description?: string | null;
+
+  effective_date?: string | null; // YYYY-MM-DD
+
   distributed_at: string | null;
   superseded_at: string | null;
   cancelled_at: string | null;
@@ -144,6 +212,33 @@ export interface WorkflowTask {
   assigned_office_id?: number | null;
   assigned_role_id?: number | null;
   assigned_user_id?: number | null;
+}
+
+export type WorkQueueItem = {
+  task: WorkflowTask | null;
+  version: DocumentVersion;
+  document: Document;
+  can_act: boolean;
+};
+
+export type WorkQueueResponse = {
+  assigned: WorkQueueItem[];
+  monitoring: WorkQueueItem[];
+};
+
+export async function getWorkQueue(): Promise<WorkQueueResponse> {
+  try {
+    const res = await api.get("/work-queue", { params: { t: Date.now() } });
+    return res.data as WorkQueueResponse;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to load work queue (${status})`
+        : "Failed to load work queue");
+    throw new Error(msg);
+  }
 }
 
 export interface DocumentMessageSender {
@@ -204,17 +299,30 @@ export async function postDocumentMessage(
   }
 }
 
-export async function listDocuments(): Promise<Document[]> {
+export async function listDocumentsPage(params?: {
+  page?: number;
+  perPage?: number;
+
+  // server-side search/filters
+  q?: string;
+  status?: string;
+  doctype?: string;
+  owner_office_id?: number;
+}): Promise<Paginated<Document>> {
   try {
-    const res = await api.get("/documents");
-    const data = res.data;
-    const docs = Array.isArray(data) ? data : data?.data;
+    const res = await api.get("/documents", {
+      params: {
+        page: params?.page ?? 1,
+        per_page: params?.perPage ?? 25,
 
-    if (!Array.isArray(docs)) {
-      throw new Error("Invalid documents response format");
-    }
+        q: params?.q,
+        status: params?.status,
+        doctype: params?.doctype,
+        owner_office_id: params?.owner_office_id,
+      },
+    });
 
-    return docs as Document[];
+    return normalizePaginated<Document>(res.data);
   } catch (e: any) {
     const status = e?.response?.status;
     const msg =
@@ -224,6 +332,12 @@ export async function listDocuments(): Promise<Document[]> {
         : "Failed to load documents");
     throw new Error(msg);
   }
+}
+
+// Backwards compatible: existing pages still get Document[]
+export async function listDocuments(): Promise<Document[]> {
+  const { data } = await listDocumentsPage({ page: 1, perPage: 25 });
+  return data;
 }
 
 export async function getDocument(id: number): Promise<Document> {
@@ -264,7 +378,14 @@ export async function getDocumentVersions(
       throw new Error("Invalid versions response format");
     }
 
-    return versions as DocumentVersion[];
+    const cleaned = (versions as DocumentVersion[]).filter(
+      (v) => v.status !== "Cancelled",
+    );
+
+    // Keep newest first (safety) if backend ever changes ordering
+    cleaned.sort((a, b) => Number(b.version_number) - Number(a.version_number));
+
+    return cleaned;
   } catch (e: any) {
     const status = e?.response?.status;
     const msg =
@@ -426,6 +547,25 @@ export async function updateDocumentVersionDescription(
   }
 }
 
+export async function updateDocumentVersionEffectiveDate(
+  versionId: number,
+  effective_date: string | null,
+): Promise<DocumentVersion> {
+  try {
+    const res = await api.patch(`/document-versions/${versionId}`, {
+      effective_date,
+    });
+    const v = res.data?.version ?? res.data;
+    return v as DocumentVersion;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message || (status ? `Failed (${status})` : "Failed");
+    throw new Error(msg);
+  }
+}
+
+
 export async function downloadDocument(
   version: DocumentVersion,
 ): Promise<void> {
@@ -465,6 +605,11 @@ export interface Office {
   is_academic: boolean;
 }
 
+export type DocumentShares = {
+  document_id: number;
+  office_ids: number[];
+};
+
 export async function listOffices(): Promise<Office[]> {
   try {
     const res = await api.get("/offices");
@@ -485,11 +630,11 @@ export const getCurrentUserOfficeId = (): number => {
 };
 
 export type WorkflowActionCode =
-  | "SEND_TO_DEPT_REVIEW"
-  | "FORWARD_TO_VPAA_REVIEW"
-  | "VPAA_SEND_BACK_TO_QA_FINAL_CHECK"
-  | "START_DEPT_APPROVAL"
-  | "FORWARD_TO_VPAA_APPROVAL"
+  | "SEND_TO_OFFICE_REVIEW"
+  | "FORWARD_TO_VP_REVIEW"
+  | "VP_SEND_BACK_TO_QA_FINAL_CHECK"
+  | "START_OFFICE_APPROVAL"
+  | "FORWARD_TO_VP_APPROVAL"
   | "FORWARD_TO_PRESIDENT_APPROVAL"
   | "FORWARD_TO_QA_REGISTRATION"
   | "FORWARD_TO_QA_DISTRIBUTION"
@@ -502,15 +647,30 @@ export type WorkflowActionResult = {
   target_office?: { id: number; name: string; code: string } | null;
 };
 
+const WORKFLOW_ACTION_MAP: Record<WorkflowActionCode, string> = {
+  SEND_TO_OFFICE_REVIEW: "SEND_TO_OFFICE_REVIEW",
+  FORWARD_TO_VP_REVIEW: "FORWARD_TO_VP_REVIEW",
+  VP_SEND_BACK_TO_QA_FINAL_CHECK: "VP_SEND_BACK_TO_QA_FINAL_CHECK",
+  START_OFFICE_APPROVAL: "START_OFFICE_APPROVAL",
+  FORWARD_TO_VP_APPROVAL: "FORWARD_TO_VP_APPROVAL",
+  FORWARD_TO_PRESIDENT_APPROVAL: "FORWARD_TO_PRESIDENT_APPROVAL",
+  FORWARD_TO_QA_REGISTRATION: "FORWARD_TO_QA_REGISTRATION",
+  FORWARD_TO_QA_DISTRIBUTION: "FORWARD_TO_QA_DISTRIBUTION",
+  MARK_DISTRIBUTED: "MARK_DISTRIBUTED",
+  RETURN_TO_QA_EDIT: "RETURN_TO_QA_EDIT",
+};
+
 export async function submitWorkflowAction(
   versionId: number,
   action: WorkflowActionCode,
   note?: string,
+  extra?: { review_office_id?: number | null },
 ): Promise<WorkflowActionResult> {
   try {
     const res = await api.post(`/document-versions/${versionId}/actions`, {
-      action,
+      action: WORKFLOW_ACTION_MAP[action],
       note,
+      ...(extra ?? {}),
     });
     const data = res.data;
     if (data?.version) return data as WorkflowActionResult;
@@ -524,13 +684,84 @@ export async function submitWorkflowAction(
   }
 }
 
+export async function logOpenedVersion(
+  versionId: number,
+  source?: string,
+): Promise<void> {
+  try {
+    await api.post("/activity/opened-version", {
+      document_version_id: versionId,
+      source: source ?? "versions_panel",
+    });
+  } catch {
+    // Never break UX for logging
+  }
+}
+
+export interface ActivityLogItem {
+  id: number;
+  document_id: number | null;
+  document_version_id: number | null;
+  actor_user_id: number | null;
+  actor_office_id: number | null;
+  target_office_id: number | null;
+  event: string;
+  label: string | null;
+  meta: any | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function listActivityLogs(params: {
+  scope?: "office" | "mine" | "document" | "all";
+  document_id?: number;
+  document_version_id?: number;
+  per_page?: number;
+  page?: number;
+
+  // filters
+  q?: string;
+  event?: string;
+  office_id?: number;
+  date_from?: string; // YYYY-MM-DD
+  date_to?: string; // YYYY-MM-DD
+}): Promise<Paginated<ActivityLogItem>> {
+  try {
+    const res = await api.get("/activity", {
+      params: {
+        scope: params.scope ?? "office",
+        document_id: params.document_id,
+        document_version_id: params.document_version_id,
+        per_page: params.per_page ?? 25,
+        page: params.page ?? 1,
+
+        q: params.q,
+        event: params.event,
+        office_id: params.office_id,
+        date_from: params.date_from,
+        date_to: params.date_to,
+
+        t: Date.now(),
+      },
+    });
+
+    return normalizePaginated<ActivityLogItem>(res.data);
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to load activity logs (${status})`
+        : "Failed to load activity logs");
+    throw new Error(msg);
+  }
+}
+
 export async function listWorkflowTasks(
   versionId: number,
 ): Promise<WorkflowTask[]> {
   try {
-    const res = await api.get(`/document-versions/${versionId}/tasks`, {
-      params: { t: Date.now() },
-    });
+    const res = await api.get(`/document-versions/${versionId}/tasks`);
     return res.data as WorkflowTask[];
   } catch (e: any) {
     const status = e?.response?.status;
@@ -560,4 +791,148 @@ export async function getDocumentPreviewLink(
         : "Failed to get preview link");
     throw new Error(msg);
   }
+}
+
+export type DocumentStats = {
+  total: number;
+  pending: number;
+  distributed: number;
+};
+
+export async function getDocumentStats(): Promise<DocumentStats> {
+  try {
+    const res = await api.get("/documents/stats");
+    return res.data as DocumentStats;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status ? `Failed to load stats (${status})` : "Failed to load stats");
+    throw new Error(msg);
+  }
+}
+
+export async function getDocumentShares(
+  documentId: number,
+): Promise<DocumentShares> {
+  try {
+    const res = await api.get(`/documents/${documentId}/shares`, {
+      params: { t: Date.now() },
+    });
+    return res.data as DocumentShares;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status ? `Failed to load shares (${status})` : "Failed to load shares");
+    throw new Error(msg);
+  }
+}
+
+export async function setDocumentShares(
+  documentId: number,
+  officeIds: number[],
+): Promise<DocumentShares> {
+  try {
+    const res = await api.post(`/documents/${documentId}/shares`, {
+      office_ids: officeIds,
+    });
+    return res.data as DocumentShares;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to update shares (${status})`
+        : "Failed to update shares");
+    throw new Error(msg);
+  }
+}
+
+export async function getDocumentTags(documentId: number): Promise<string[]> {
+  const res = await api.get(`/documents/${documentId}/tags`);
+  const tags = res.data?.tags;
+  return Array.isArray(tags) ? (tags as string[]) : [];
+}
+
+export async function setDocumentTags(
+  documentId: number,
+  tags: string[],
+): Promise<string[]> {
+  const res = await api.put(`/documents/${documentId}/tags`, { tags });
+  const out = res.data?.tags;
+  return Array.isArray(out) ? (out as string[]) : [];
+}
+
+
+export async function listNotifications(params?: {
+  page?: number;
+  perPage?: number;
+}): Promise<Paginated<NotificationItem>> {
+  const page = params?.page ?? 1;
+  const perPage = params?.perPage ?? 25;
+
+  const key = notifCacheKey(page, perPage);
+  const cached = notifCache.get(key);
+
+  try {
+    const res = await api.get("/notifications", {
+      params: {
+        page,
+        per_page: perPage,
+        // IMPORTANT: no `t: Date.now()` here; it defeats conditional caching
+      },
+      headers: cached?.etag ? { "If-None-Match": cached.etag } : undefined,
+      validateStatus: (status) =>
+        (status >= 200 && status < 300) || status === 304,
+    });
+
+    // 304: not modified, return cached payload (must exist)
+    if (res.status === 304) {
+      if (cached) return cached.payload;
+      // Fallback: if no cache exists, treat as empty (should be rare)
+      return { data: [], meta: undefined, links: undefined };
+    }
+
+    const normalized = normalizePaginated<NotificationItem>(res.data);
+    const etag =
+      (res.headers?.etag as string | undefined) ??
+      (res.headers?.ETag as string | undefined) ??
+      null;
+
+    notifCache.set(key, { etag, payload: normalized });
+    return normalized;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to load notifications (${status})`
+        : "Failed to load notifications");
+    throw new Error(msg);
+  }
+}
+
+export async function getUnreadNotificationCount(): Promise<number> {
+  try {
+    const res = await api.get("/notifications/unread-count", {
+      params: { t: Date.now() },
+    });
+    const data = res.data as UnreadCountResponse;
+    return Number(data?.unread ?? 0);
+  } catch {
+    return 0; // don’t break UX
+  }
+}
+
+export async function markNotificationRead(
+  notificationId: number,
+): Promise<void> {
+  await api.post(`/notifications/${notificationId}/read`);
+  clearNotifCache();
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  await api.post("/notifications/read-all");
+  clearNotifCache();
 }

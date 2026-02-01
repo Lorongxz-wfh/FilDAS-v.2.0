@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { listDocuments, getCurrentUserOfficeId } from "../services/documents";
+import {
+  listDocuments,
+  getCurrentUserOfficeId,
+  getWorkQueue,
+  type WorkQueueItem,
+} from "../services/documents";
 import type { Document } from "../services/documents";
 import Alert from "../components/ui/Alert";
 import Button from "../components/ui/Button";
@@ -11,9 +16,9 @@ import PageFrame from "../components/layout/PageFrame";
 
 import {
   getUserRole,
-  isPendingForRole,
   isQA,
-  isDepartment,
+  isOfficeStaff,
+  isOfficeHead,
 } from "../lib/roleFilters";
 
 const DashboardPage: React.FC = () => {
@@ -22,14 +27,19 @@ const DashboardPage: React.FC = () => {
   const myOfficeId = getCurrentUserOfficeId();
 
   const [docs, setDocs] = useState<Document[]>([]);
+  const [assigned, setAssigned] = useState<WorkQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await listDocuments();
-        setDocs(data);
+        const [docsData, wq] = await Promise.all([
+          listDocuments(),
+          getWorkQueue(),
+        ]);
+        setDocs(docsData);
+        setAssigned(wq.assigned ?? []);
       } catch (e: any) {
         setError(e?.message ?? "Failed to load dashboard");
       } finally {
@@ -39,10 +49,10 @@ const DashboardPage: React.FC = () => {
     load();
   }, []);
 
-  const pending = useMemo(
-    () => docs.filter((d) => isPendingForRole(d.status, role)),
-    [docs, role],
-  );
+  const pending = useMemo<WorkQueueItem[]>(() => {
+    // Only items the user can act on (assigned to their office)
+    return (assigned ?? []).filter((x) => x?.can_act);
+  }, [assigned]);
 
   const officialCount = useMemo(
     () => docs.filter((d) => d.status === "Distributed").length,
@@ -50,9 +60,10 @@ const DashboardPage: React.FC = () => {
   );
 
   const myOfficeDocsCount = useMemo(() => {
-    if (!isDepartment(role)) return null;
-    return docs.filter((d) => Number(d.office_id) === Number(myOfficeId))
-      .length;
+    if (!(isOfficeStaff(role) || isOfficeHead(role))) return null;
+    return docs.filter(
+      (d) => Number((d as any).owner_office_id) === Number(myOfficeId),
+    ).length;
   }, [docs, role, myOfficeId]);
 
   const recentOfficial = useMemo(() => {
@@ -102,7 +113,7 @@ const DashboardPage: React.FC = () => {
             >
               Create document
             </Button>
-          ) : isDepartment(role) ? (
+          ) : isOfficeStaff(role) || isOfficeHead(role) ? (
             <Button
               type="button"
               variant="secondary"
@@ -125,7 +136,9 @@ const DashboardPage: React.FC = () => {
             className={[
               "grid grid-cols-1 divide-y divide-slate-100",
               "md:divide-y-0 md:divide-x",
-              isDepartment(role) ? "md:grid-cols-4" : "md:grid-cols-3",
+              isOfficeStaff(role) || isOfficeHead(role)
+                ? "md:grid-cols-4"
+                : "md:grid-cols-3",
             ].join(" ")}
           >
             <div className="text-center py-3">
@@ -154,7 +167,7 @@ const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            {isDepartment(role) && (
+            {(isOfficeStaff(role) || isOfficeHead(role)) && (
               <button
                 type="button"
                 onClick={() => navigate("/documents")}
@@ -218,15 +231,21 @@ const DashboardPage: React.FC = () => {
               <SkeletonList rows={5} rowClassName="h-10" />
             ) : (
               <>
-                {pending.slice(0, 5).map((d) => (
+                {pending.slice(0, 5).map((x) => (
                   <button
-                    key={d.id}
+                    key={x.version.id}
                     type="button"
-                    onClick={() => navigate(`/documents/${d.id}`)}
+                    onClick={() =>
+                      navigate(
+                        `/documents/${x.document.id}?version_id=${x.version.id}`,
+                      )
+                    }
                     className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-50"
                   >
-                    <div className="font-medium">{d.title}</div>
-                    <div className="text-xs text-slate-500">{d.status}</div>
+                    <div className="font-medium">{x.document.title}</div>
+                    <div className="text-xs text-slate-500">
+                      {x.version.status}
+                    </div>
                   </button>
                 ))}
 

@@ -4,7 +4,7 @@ import { getUserRole } from "../../lib/roleFilters";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
-  Inbox,
+  Mailbox,
   FolderOpen,
   Archive,
   BarChart3,
@@ -22,23 +22,38 @@ type LinkItem = {
 
 const links: LinkItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/work-queue", label: "Work queue", icon: Inbox },
+  { to: "/work-queue", label: "Work queue", icon: ClipboardList },
   { to: "/documents", label: "Library", icon: FolderOpen },
   { to: "/archive", label: "Archive", icon: Archive },
 
   // roles must match getUserRole() outputs (uppercase)
-  { to: "/reports", label: "Reports", icon: BarChart3, roles: ["QA"] },
   {
-    to: "/audit-logs",
-    label: "Audit logs",
-    icon: ScrollText,
-    roles: ["QA", "SYSADMIN"],
+    to: "/reports",
+    label: "Reports",
+    icon: BarChart3,
+    roles: [
+      "QA",
+      "SYSADMIN",
+      "ADMIN",
+      "PRESIDENT",
+      "VPAA",
+      "VPAD",
+      "VPF",
+      "VPR",
+    ],
   },
+  {
+    to: "/activity-logs",
+    label: "Activity logs",
+    icon: ScrollText,
+    roles: ["QA", "SYSADMIN", "ADMIN"],
+  },
+
   {
     to: "/user-manager",
     label: "User manager",
     icon: Users,
-    roles: ["SYSADMIN"],
+    roles: ["SYSADMIN", "ADMIN"],
   },
 ];
 
@@ -47,7 +62,7 @@ const Sidebar: React.FC = () => {
   const visibleLinks = links.filter((l) => !l.roles || l.roles.includes(role));
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
+    <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col relative z-50">
       <nav className="flex-1 space-y-1 px-2 py-3">
         {visibleLinks.map((link) => {
           const Icon = link.icon;
