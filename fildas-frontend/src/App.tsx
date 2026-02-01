@@ -6,7 +6,6 @@ import DashboardPage from "./pages/DashboardPage";
 import MyWorkQueuePage from "./pages/MyWorkQueuePage";
 import DocumentLibraryPage from "./pages/DocumentLibraryPage";
 import CreateDocumentPage from "./pages/CreateDocumentPage";
-import RequestDocumentPage from "./pages/RequestDocumentPage";
 import InboxPage from "./pages/InboxPage";
 import ArchivePage from "./pages/ArchivePage";
 import ReportsPage from "./pages/ReportsPage";
@@ -39,13 +38,19 @@ export default function App() {
         <Route path="/documents" element={<DocumentLibraryPage />} />
 
         {/* Create can be opened from anywhere, but still role-protected */}
-        <Route element={<RequireRole allow={["QA"]} />}>
+        <Route
+          element={
+            <RequireRole allow={["QA", "OFFICE_STAFF", "OFFICE_HEAD"]} />
+          }
+        >
           <Route path="/documents/create" element={<CreateDocumentPage />} />
         </Route>
 
-        <Route element={<RequireRole allow={["DEPARTMENT"]} />}>
-          <Route path="/documents/request" element={<RequestDocumentPage />} />
-        </Route>
+        {/* Remove RequestDocumentPage for now (old flow). */}
+        <Route
+          path="/documents/request"
+          element={<Navigate to="/documents/create" replace />}
+        />
 
         {/* Role-limited pages */}
         <Route

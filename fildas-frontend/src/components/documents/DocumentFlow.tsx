@@ -81,7 +81,7 @@ const phases: Phase[] = [
   { id: "registration", label: "Registration / Distribution" },
 ];
 
-const flowSteps: FlowStep[] = [
+const flowStepsQa: FlowStep[] = [
   // Review
   {
     id: "draft",
@@ -149,12 +149,132 @@ const flowSteps: FlowStep[] = [
   },
 ];
 
+const flowStepsOffice: FlowStep[] = [
+  // Review (Office-start)
+  {
+    id: "office_draft",
+    label: "Office draft",
+    statusValue: "Office Draft",
+    phase: "review",
+  },
+  {
+    id: "office_head_review",
+    label: "Office head review",
+    statusValue: "For Office Head Review",
+    phase: "review",
+  },
+  {
+    id: "vp_review_office",
+    label: "VP review",
+    statusValue: "For VP Review (Office)",
+    phase: "review",
+  },
+  {
+    id: "qa_approval_office",
+    label: "QA approval",
+    statusValue: "For QA Approval (Office)",
+    phase: "review",
+  },
+
+  // Approval (Office-start, optional but you already created backend statuses)
+  {
+    id: "office_approval_office",
+    label: "Office approval",
+    statusValue: "For Office Approval (Office)",
+    phase: "approval",
+  },
+  {
+    id: "vp_approval_office",
+    label: "VP approval",
+    statusValue: "For VP Approval (Office)",
+    phase: "approval",
+  },
+  {
+    id: "pres_approval_office",
+    label: "President approval",
+    statusValue: "For President Approval (Office)",
+    phase: "approval",
+  },
+
+  // Registration / Distribution
+  {
+    id: "qa_registration_office",
+    label: "QA registration",
+    statusValue: "For QA Registration (Office)",
+    phase: "registration",
+  },
+  {
+    id: "qa_distribution_office",
+    label: "QA distribution",
+    statusValue: "For QA Distribution (Office)",
+    phase: "registration",
+  },
+  {
+    id: "distributed",
+    label: "Distributed",
+    statusValue: "Distributed",
+    phase: "registration",
+  },
+];
+
 type TransitionAction = {
   toStatus: string;
   label: string;
 };
 
-const transitions: Record<string, TransitionAction[]> = {
+function toWorkflowAction(toStatus: string): WorkflowActionCode | null {
+  switch (toStatus) {
+    case "For Office Review":
+      return "SEND_TO_OFFICE_REVIEW";
+
+    case "For Office Head Review":
+      return "FORWARD_TO_OFFICE_HEAD_REVIEW";
+
+    case "For VP Review":
+    case "For VP Review (Office)":
+      return "FORWARD_TO_VP_REVIEW";
+
+    case "For QA Final Check":
+      return "VP_SEND_BACK_TO_QA_FINAL_CHECK";
+
+    case "For QA Approval (Office)":
+      return "VP_FORWARD_TO_QA_APPROVAL";
+
+    case "For Office Approval":
+    case "For Office Approval (Office)":
+      return "START_OFFICE_APPROVAL";
+
+    case "For VP Approval":
+    case "For VP Approval (Office)":
+      return "FORWARD_TO_VP_APPROVAL";
+
+    case "For President Approval":
+    case "For President Approval (Office)":
+      return "FORWARD_TO_PRESIDENT_APPROVAL";
+
+    case "For QA Registration":
+    case "For QA Registration (Office)":
+      return "FORWARD_TO_QA_REGISTRATION";
+
+    case "For QA Distribution":
+    case "For QA Distribution (Office)":
+      return "FORWARD_TO_QA_DISTRIBUTION";
+
+    case "Distributed":
+      return "MARK_DISTRIBUTED";
+
+    case "QA_EDIT":
+      return "RETURN_TO_QA_EDIT";
+
+    case "OFFICE_EDIT":
+      return "RETURN_TO_OFFICE_EDIT";
+
+    default:
+      return null;
+  }
+}
+
+const transitionsQa: Record<string, TransitionAction[]> = {
   // Review phase
   Draft: [
     // ✅ Explicit Draft
@@ -247,41 +367,85 @@ const transitions: Record<string, TransitionAction[]> = {
   Distributed: [],
 };
 
-function toWorkflowAction(toStatus: string): WorkflowActionCode | null {
-  switch (toStatus) {
-    case "For Office Review":
-      return "SEND_TO_OFFICE_REVIEW";
-    case "For VP Review":
-      return "FORWARD_TO_VP_REVIEW";
-    case "For QA Final Check":
-      return "VP_SEND_BACK_TO_QA_FINAL_CHECK";
-    case "For Office Approval":
-      return "START_OFFICE_APPROVAL";
-    case "For VP Approval":
-      return "FORWARD_TO_VP_APPROVAL";
-    case "For President Approval":
-      return "FORWARD_TO_PRESIDENT_APPROVAL";
-    case "For QA Registration":
-      return "FORWARD_TO_QA_REGISTRATION";
-    case "For QA Distribution":
-      return "FORWARD_TO_QA_DISTRIBUTION";
-    case "Distributed":
-      return "MARK_DISTRIBUTED";
-    case "QA_EDIT":
-      return "RETURN_TO_QA_EDIT";
-    default:
-      return null;
-  }
-}
+const transitionsOffice: Record<string, TransitionAction[]> = {
+  "Office Draft": [
+    {
+      toStatus: "For Office Head Review",
+      label: "Send to Office head for review",
+    },
+  ],
 
-type OfficeMini = { id: number; code: string };
+  "For Office Head Review": [
+    { toStatus: "For VP Review (Office)", label: "Forward to VP for review" },
+    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
+  ],
+
+  "For VP Review (Office)": [
+    {
+      toStatus: "For QA Approval (Office)",
+      label: "Forward to QA for approval",
+    },
+    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
+  ],
+
+  "For QA Approval (Office)": [
+    {
+      toStatus: "Distributed",
+      label: "Approve and distribute (finish)",
+    },
+    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
+  ],
+
+  "For Office Approval (Office)": [
+    {
+      toStatus: "For VP Approval (Office)",
+      label: "Forward to VP for approval",
+    },
+    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
+  ],
+
+  "For VP Approval (Office)": [
+    {
+      toStatus: "For President Approval (Office)",
+      label: "Forward to President for approval",
+    },
+    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
+  ],
+
+  "For President Approval (Office)": [
+    {
+      toStatus: "For QA Registration (Office)",
+      label: "Forward to QA for registration",
+    },
+    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
+  ],
+
+  "For QA Registration (Office)": [
+    {
+      toStatus: "For QA Distribution (Office)",
+      label: "Proceed to QA distribution",
+    },
+    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
+  ],
+
+  "For QA Distribution (Office)": [
+    { toStatus: "Distributed", label: "Mark as distributed" },
+    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
+  ],
+
+  Distributed: [],
+};
 
 function officeIdByCode(
-  offices: OfficeMini[] | null | undefined,
+  offices: Office[] | null | undefined,
   code: string,
 ): number | null {
   if (!offices?.length) return null;
-  return offices.find((o) => o.code === code)?.id ?? null;
+  const target = String(code || "").toUpperCase();
+  return (
+    offices.find((o) => String(o.code || "").toUpperCase() === target)?.id ??
+    null
+  );
 }
 
 function resolveVpCodeForOfficeCode(
@@ -344,7 +508,7 @@ function expectedActorOfficeId(
   ownerOfficeId: number | null | undefined,
   reviewOfficeId: number | null | undefined,
   ownerOfficeCode: string | null | undefined,
-  offices: OfficeMini[] | null | undefined,
+  offices: Office[] | null | undefined,
 ): number | null {
   switch (fromStatus) {
     // QA acts
@@ -375,9 +539,9 @@ function expectedActorOfficeId(
   }
 }
 
-function findCurrentStep(status: string): FlowStep {
-  const found = flowSteps.find((s) => s.statusValue === status);
-  return found ?? flowSteps[0];
+function findCurrentStep(status: string, steps: FlowStep[]): FlowStep {
+  const found = steps.find((s) => s.statusValue === status);
+  return found ?? steps[0];
 }
 
 function phaseOrder(phaseId: PhaseId): number {
@@ -441,8 +605,8 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const userOfficeId = getCurrentUserOfficeId();
   const myOfficeId = userOfficeId;
 
-  const qaOfficeId = officeIdByCode(offices, "QA");
-
+  // offices loads async; don't compute qaOfficeId until offices exists
+  const qaOfficeId = offices?.length ? officeIdByCode(offices, "QA") : null;
   const isQAOfficeUser = !!qaOfficeId && myOfficeId === qaOfficeId;
 
   const isQAStep = [
@@ -902,14 +1066,42 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     }
   };
 
-  const currentStep = findCurrentStep(localVersion.status);
-  const currentPhase = phases.find((p) => p.id === currentStep.phase)!;
-  const currentPhaseIndex = phaseOrder(currentPhase.id);
+  const workflowType = String(
+    (localVersion as any)?.workflow_type ??
+      (localVersion as any)?.workflowType ??
+      (localVersion as any)?.workflowtype ??
+      "",
+  ).toLowerCase();
 
-  const currentGlobalIndex = flowSteps.findIndex(
+  const officeStatuses = new Set([
+    "Office Draft",
+    "For Office Head Review",
+    "For VP Review (Office)",
+    "For QA Approval (Office)",
+    "For Office Approval (Office)",
+    "For VP Approval (Office)",
+    "For President Approval (Office)",
+    "For QA Registration (Office)",
+    "For QA Distribution (Office)",
+  ]);
+
+  const isOfficeFlow =
+    workflowType === "office" || officeStatuses.has(localVersion.status);
+
+  const activeFlowSteps = isOfficeFlow ? flowStepsOffice : flowStepsQa;
+  const activeTransitions = isOfficeFlow ? transitionsOffice : transitionsQa;
+
+  const currentStep = findCurrentStep(localVersion.status, activeFlowSteps);
+  const currentPhase =
+    phases.find((p) => p.id === currentStep.phase) ?? phases[0];
+  const currentPhaseIndex = phaseOrder(currentPhase.id);
+  const currentGlobalIndex = activeFlowSteps.findIndex(
     (s) => s.id === currentStep.id,
   );
-  const nextStep = flowSteps[currentGlobalIndex + 1] ?? null;
+  const nextStep =
+    currentGlobalIndex >= 0
+      ? (activeFlowSteps[currentGlobalIndex + 1] ?? null)
+      : null;
 
   const [currentTask, setCurrentTask] = React.useState<WorkflowTask | null>(
     null,
@@ -951,12 +1143,13 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const canAct = !!assignedOfficeId && myOfficeId === assignedOfficeId;
 
   // Build actions for the current status.
-  const availableActions = transitions[localVersion.status] ?? [];
+  const availableActions = activeTransitions[localVersion.status] ?? [];
 
   const fullCode = document.code ?? "CODE-NOT-AVAILABLE";
 
   const headerActions: HeaderActionButton[] = availableActions.map((action) => {
-    const isDanger = action.toStatus === "QA_EDIT";
+    const isDanger =
+      action.toStatus === "QA_EDIT" || action.toStatus === "OFFICE_EDIT";
 
     return {
       key: action.toStatus,
@@ -977,7 +1170,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
         let note: string | null = null;
 
-        if (action.toStatus === "QA_EDIT") {
+        if (
+          action.toStatus === "QA_EDIT" ||
+          action.toStatus === "OFFICE_EDIT"
+        ) {
           note = window.prompt("Return note (required):", "");
           if (note === null) return;
           if (note.trim().length === 0) {
@@ -1082,6 +1278,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
   const headerActionsSorted = React.useMemo(() => {
     const priority: Record<string, number> = {
+      // QA flow
       "For Office Review": 10,
       "For VP Review": 20,
       "For QA Final Check": 30,
@@ -1090,8 +1287,20 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       "For President Approval": 60,
       "For QA Registration": 70,
       "For QA Distribution": 80,
+
+      // Office-start flow
+      "For Office Head Review": 12,
+      "For VP Review (Office)": 22,
+      "For QA Approval (Office)": 28,
+      "For Office Approval (Office)": 42,
+      "For VP Approval (Office)": 52,
+      "For President Approval (Office)": 62,
+      "For QA Registration (Office)": 72,
+      "For QA Distribution (Office)": 82,
+
       Distributed: 90,
       QA_EDIT: 999,
+      OFFICE_EDIT: 999,
     };
 
     return [...headerActions].sort((a, b) => {
@@ -1335,12 +1544,17 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
           </div>
 
           <div className="mt-4 flex items-center gap-3">
-            {flowSteps
+            {activeFlowSteps
               .filter((s) => s.phase === currentPhase.id)
               .map((step, index, arr) => {
-                const stepIndex = flowSteps.findIndex((s) => s.id === step.id);
+                const stepIndex = activeFlowSteps.findIndex(
+                  (s) => s.id === step.id,
+                );
                 const isCurrent = step.id === currentStep.id;
-                const isCompleted = stepIndex < currentGlobalIndex;
+                const isCompleted =
+                  currentGlobalIndex >= 0 &&
+                  stepIndex >= 0 &&
+                  stepIndex < currentGlobalIndex;
 
                 return (
                   <React.Fragment key={step.id}>
@@ -1492,15 +1706,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                       : "—"}
                   </span>
                 )}
-              </div>
-
-              <div>
-                <span className="font-medium text-slate-600">
-                  Effective date:
-                </span>{" "}
-                {(localVersion as any)?.effective_date
-                  ? formatWhen((localVersion as any).effective_date)
-                  : "—"}
               </div>
 
               <div>

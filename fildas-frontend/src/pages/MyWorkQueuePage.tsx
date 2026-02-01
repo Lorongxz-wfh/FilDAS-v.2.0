@@ -61,26 +61,25 @@ const MyWorkQueuePage: React.FC = () => {
         setLoading(true);
         setError(null);
 
-       const roleNow = getUserRole();
+        const roleNow = getUserRole();
 
-       const [s, a] = await Promise.all([
-         getDocumentStats(),
-         listActivityLogs({ scope: "mine", per_page: 10 }),
-       ]);
+        const [s, a] = await Promise.all([
+          getDocumentStats(),
+          listActivityLogs({ scope: "mine", per_page: 10 }),
+        ]);
 
-       setStats(s);
-       setRecentActivity((a as any)?.data ?? []);
+        setStats(s);
+        setRecentActivity((a as any)?.data ?? []);
 
-       if (roleNow === "ADMIN") {
-         // Admin has no office tasks; avoid /work-queue which 422s when office is null.
-         setAssignedItems([]);
-         setMonitoringItems([]);
-       } else {
-         const q = await getWorkQueue();
-         setAssignedItems(q.assigned ?? []);
-         setMonitoringItems(q.monitoring ?? []);
-       }  
-
+        if (roleNow === "ADMIN") {
+          // Admin has no office tasks; avoid /work-queue which 422s when office is null.
+          setAssignedItems([]);
+          setMonitoringItems([]);
+        } else {
+          const q = await getWorkQueue();
+          setAssignedItems(q.assigned ?? []);
+          setMonitoringItems(q.monitoring ?? []);
+        }
       } catch (err: any) {
         if (!alive) return;
         setError(err?.message ?? "Failed to load work queue");
@@ -151,16 +150,16 @@ const MyWorkQueuePage: React.FC = () => {
           {(isOfficeStaff(userRole) || isOfficeHead(userRole)) && (
             <Button
               type="button"
-              variant="secondary"
+              variant="primary"
               size="sm"
               onClick={() => {
                 markWorkQueueSession();
-                navigate("/documents/request", {
+                navigate("/documents/create", {
                   state: { fromWorkQueue: true },
                 });
               }}
             >
-              Request document
+              Create document
             </Button>
           )}
         </div>

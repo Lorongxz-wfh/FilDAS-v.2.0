@@ -13,6 +13,9 @@ import { Card, CardBody } from "../components/ui/Card";
 import InlineSpinner from "../components/ui/loader/InlineSpinner";
 import SkeletonList from "../components/ui/loader/SkeletonList";
 import PageFrame from "../components/layout/PageFrame";
+import ComplianceClusterBarChart, {
+  type ComplianceClusterDatum,
+} from "../components/charts/ComplianceClusterBarChart";
 
 import {
   getUserRole,
@@ -104,6 +107,17 @@ const DashboardPage: React.FC = () => {
             Open document library
           </Button>
 
+          {isQA(role) && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/reports")}
+            >
+              Open reports
+            </Button>
+          )}
+
           {isQA(role) ? (
             <Button
               type="button"
@@ -116,11 +130,11 @@ const DashboardPage: React.FC = () => {
           ) : isOfficeStaff(role) || isOfficeHead(role) ? (
             <Button
               type="button"
-              variant="secondary"
+              variant="primary"
               size="sm"
-              onClick={() => navigate("/documents/request")}
+              onClick={() => navigate("/documents/create")}
             >
-              Request document
+              Create document
             </Button>
           ) : null}
         </div>
@@ -129,79 +143,46 @@ const DashboardPage: React.FC = () => {
     >
       {error && <Alert variant="danger">{error}</Alert>}
 
-      {/* Stats */}
-      <Card className="overflow-hidden">
-        <CardBody className="bg-white p-0">
-          <div
-            className={[
-              "grid grid-cols-1 divide-y divide-slate-100",
-              "md:divide-y-0 md:divide-x",
-              isOfficeStaff(role) || isOfficeHead(role)
-                ? "md:grid-cols-4"
-                : "md:grid-cols-3",
-            ].join(" ")}
-          >
-            <div className="text-center py-3">
-              <div className="text-3xl font-semibold text-sky-700 tabular-nums">
-                {loading ? (
-                  <InlineSpinner className="h-5 w-5 border-2" />
-                ) : (
-                  pending.length
-                )}
+      {isQA(role) && (
+        <Card>
+          <CardBody>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">
+                  Compliance snapshot
+                </div>
+                <div className="text-xs text-slate-600">
+                  VP clusters + President (placeholder data for now).
+                </div>
               </div>
-              <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
-                Pending
-              </div>
-            </div>
 
-            <div className="text-center py-3">
-              <div className="text-3xl font-semibold text-slate-900 tabular-nums">
-                {loading ? (
-                  <InlineSpinner className="h-5 w-5 border-2" />
-                ) : (
-                  docs.length
-                )}
-              </div>
-              <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
-                Total documents
-              </div>
-            </div>
-
-            {(isOfficeStaff(role) || isOfficeHead(role)) && (
-              <button
+              <Button
                 type="button"
-                onClick={() => navigate("/documents")}
-                className="text-center rounded-lg p-2 transition hover:bg-white/60 focus:outline-none focus:ring-2 focus:ring-sky-300"
-                title="Open your office documents"
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/reports")}
               >
-                <div className="text-2xl font-bold text-indigo-600 tabular-nums">
-                  {loading ? (
-                    <InlineSpinner className="h-5 w-5 border-2" />
-                  ) : (
-                    (myOfficeDocsCount ?? 0)
-                  )}
-                </div>
-                <div className="text-xs text-slate-600 uppercase tracking-wider">
-                  My office documents
-                </div>
-              </button>
-            )}
-
-            <div className="text-center py-3">
-              <div className="text-2xl font-semibold text-emerald-700 tabular-nums">
-                {loading ? (
-                  <InlineSpinner className="h-5 w-5 border-2" />
-                ) : (
-                  officialCount
-                )}
-              </div>
-              <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
-                Official
-              </div>
+                View reports
+              </Button>
             </div>
-          </div>
-        </CardBody>
-      </Card>
+
+            <div className="mt-4">
+              <ComplianceClusterBarChart
+                height={220}
+                data={
+                  [
+                    { cluster: "VAd", assigned: 12, approved: 8, returned: 2 },
+                    { cluster: "VA", assigned: 20, approved: 14, returned: 4 },
+                    { cluster: "VF", assigned: 9, approved: 6, returned: 1 },
+                    { cluster: "VR", assigned: 7, approved: 5, returned: 2 },
+                    { cluster: "PO", assigned: 6, approved: 4, returned: 1 },
+                  ] as ComplianceClusterDatum[]
+                }
+              />
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Pending actions */}
       <Card>

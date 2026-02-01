@@ -20,9 +20,17 @@ const CreateDocumentPage: React.FC = () => {
   const me = getAuthUser();
   if (!me) return <Navigate to="/login" replace />;
 
-  // QA drafts the document in your workflow, so only QA can access this page.
-  const role = String(me.role ?? "").toUpperCase();
-  if (role !== "QA") return <Navigate to="/work-queue" replace />;
+  // Flow #1: QA creates drafts. Flow #2: Office creates drafts.
+  const rawRole =
+    typeof (me as any).role === "string"
+      ? (me as any).role
+      : (me as any).role?.name;
+
+  const roleName = String(rawRole ?? "").toLowerCase();
+  const allowed = new Set(["qa", "office_staff", "office_head"]);
+  if (!allowed.has(roleName)) return <Navigate to="/work-queue" replace />;
+
+  const isQA = roleName === "qa";
 
   const [title, setTitle] = useState("");
   const [reviewOfficeId, setReviewOfficeId] = useState<number | null>(null);
@@ -120,7 +128,8 @@ const CreateDocumentPage: React.FC = () => {
     try {
       setUploadPct(0);
 
-      if (!reviewOfficeId) {
+      // For Flow #1 (QA), require reviewer office. For Flow #2 (Office), backend will route.
+      if (isQA && !reviewOfficeId) {
         setError("Please select a reviewer office.");
         return;
       }
@@ -133,7 +142,9 @@ const CreateDocumentPage: React.FC = () => {
       const result = await createDocumentWithProgress(
         {
           title,
-          review_office_id: reviewOfficeId as number,
+          workflow_type: isQA ? "qa" : "office",
+          // For office flow, allow null and let backend set routing.
+          review_office_id: isQA ? (reviewOfficeId as number) : null,
           doctype,
           description,
           file,
@@ -214,11 +225,18 @@ const CreateDocumentPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <OfficeDropdown
-                  value={reviewOfficeId}
-                  onChange={setReviewOfficeId}
-                  error={fieldErrors?.review_office_id?.[0]}
-                />
+                {isQA ? (
+                  <OfficeDropdown
+                    value={reviewOfficeId}
+                    onChange={setReviewOfficeId}
+                    error={fieldErrors?.review_office_id?.[0]}
+                  />
+                ) : (
+                  <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    Reviewer office is not needed for Office-created drafts (it
+                    will route to Office Head → VP → QA).
+                  </div>
+                )}
 
                 <div>
                   <label className="block mb-4.5 text-xs font-medium text-slate-700">
@@ -415,7 +433,7 @@ const CreateDocumentPage: React.FC = () => {
                 </p>
                 <button
                   type="submit"
-                  disabled={loading || !reviewOfficeId}
+                  disabled={loading || (isQA && !reviewOfficeId)}
                   className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-4 py-2 text-xs font-medium text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700 disabled:opacity-60"
                 >
                   {loading ? "Saving…" : "Save document"}

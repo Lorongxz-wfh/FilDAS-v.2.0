@@ -42,9 +42,9 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [page, setPage] = useState(1);
 
-useEffect(() => {
-  setPage(1);
-}, [qDebounced, statusFilter, typeFilter]);
+  useEffect(() => {
+    setPage(1);
+  }, [qDebounced, statusFilter, typeFilter]);
 
   const [hasMore, setHasMore] = useState(false);
   const PER_PAGE = 25;
@@ -183,11 +183,11 @@ useEffect(() => {
         ) : isOfficeStaff(role) || isOfficeHead(role) ? (
           <Button
             type="button"
-            variant="secondary"
+            variant="primary"
             size="sm"
-            onClick={() => navigate("/documents/request")}
+            onClick={() => navigate("/documents/create")}
           >
-            Request document
+            Create document
           </Button>
         ) : null
       }

@@ -6,7 +6,13 @@ const API_BASE =
 
 export interface CreateDocumentPayload {
   title: string;
-  review_office_id: number; // reviewer office selected by QA
+
+  // IMPORTANT: tells backend which workflow to start
+  workflow_type?: "qa" | "office";
+
+  // QA flow: required. Office flow: omitted (backend will route to office head).
+  review_office_id?: number | null;
+
   doctype: "internal" | "external" | "forms";
   description?: string;
   visibility_scope?: "office" | "global";
@@ -110,8 +116,16 @@ export async function createDocumentWithProgress(
 ): Promise<Document> {
   const formData = new FormData();
   formData.append("title", payload.title);
-  formData.append("review_office_id", String(payload.review_office_id));
   formData.append("doctype", payload.doctype);
+
+  if (payload.workflow_type) {
+    formData.append("workflow_type", payload.workflow_type);
+  }
+
+  // Only send review_office_id if present (QA flow).
+  if (payload.review_office_id != null) {
+    formData.append("review_office_id", String(payload.review_office_id));
+  }
 
   if (payload.visibility_scope)
     formData.append("visibility_scope", payload.visibility_scope);
@@ -565,7 +579,6 @@ export async function updateDocumentVersionEffectiveDate(
   }
 }
 
-
 export async function downloadDocument(
   version: DocumentVersion,
 ): Promise<void> {
@@ -631,15 +644,18 @@ export const getCurrentUserOfficeId = (): number => {
 
 export type WorkflowActionCode =
   | "SEND_TO_OFFICE_REVIEW"
+  | "FORWARD_TO_OFFICE_HEAD_REVIEW"
   | "FORWARD_TO_VP_REVIEW"
   | "VP_SEND_BACK_TO_QA_FINAL_CHECK"
+  | "VP_FORWARD_TO_QA_APPROVAL"
   | "START_OFFICE_APPROVAL"
   | "FORWARD_TO_VP_APPROVAL"
   | "FORWARD_TO_PRESIDENT_APPROVAL"
   | "FORWARD_TO_QA_REGISTRATION"
   | "FORWARD_TO_QA_DISTRIBUTION"
   | "MARK_DISTRIBUTED"
-  | "RETURN_TO_QA_EDIT";
+  | "RETURN_TO_QA_EDIT"
+  | "RETURN_TO_OFFICE_EDIT";
 
 export type WorkflowActionResult = {
   version: DocumentVersion;
@@ -649,8 +665,10 @@ export type WorkflowActionResult = {
 
 const WORKFLOW_ACTION_MAP: Record<WorkflowActionCode, string> = {
   SEND_TO_OFFICE_REVIEW: "SEND_TO_OFFICE_REVIEW",
+  FORWARD_TO_OFFICE_HEAD_REVIEW: "FORWARD_TO_OFFICE_HEAD_REVIEW",
   FORWARD_TO_VP_REVIEW: "FORWARD_TO_VP_REVIEW",
   VP_SEND_BACK_TO_QA_FINAL_CHECK: "VP_SEND_BACK_TO_QA_FINAL_CHECK",
+  VP_FORWARD_TO_QA_APPROVAL: "VP_FORWARD_TO_QA_APPROVAL",
   START_OFFICE_APPROVAL: "START_OFFICE_APPROVAL",
   FORWARD_TO_VP_APPROVAL: "FORWARD_TO_VP_APPROVAL",
   FORWARD_TO_PRESIDENT_APPROVAL: "FORWARD_TO_PRESIDENT_APPROVAL",
@@ -658,6 +676,7 @@ const WORKFLOW_ACTION_MAP: Record<WorkflowActionCode, string> = {
   FORWARD_TO_QA_DISTRIBUTION: "FORWARD_TO_QA_DISTRIBUTION",
   MARK_DISTRIBUTED: "MARK_DISTRIBUTED",
   RETURN_TO_QA_EDIT: "RETURN_TO_QA_EDIT",
+  RETURN_TO_OFFICE_EDIT: "RETURN_TO_OFFICE_EDIT",
 };
 
 export async function submitWorkflowAction(
@@ -863,7 +882,6 @@ export async function setDocumentTags(
   const out = res.data?.tags;
   return Array.isArray(out) ? (out as string[]) : [];
 }
-
 
 export async function listNotifications(params?: {
   page?: number;
