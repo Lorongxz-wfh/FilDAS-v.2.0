@@ -7,12 +7,14 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("auth_token");
-  if (token) {
-    config.headers = config.headers ?? {};
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+
   config.headers = config.headers ?? {};
   config.headers.Accept = "application/json";
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
   return config;
 });
 
@@ -20,7 +22,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
-    
+
     if (status === 401 || status === 419) {
       clearAuthAndRedirect();
       return Promise.reject(error);
@@ -29,5 +31,10 @@ api.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
+export async function ensureCsrfCookie() {
+  // Sanctum requires this before login when using cookie-based SPA auth
+  await axios.get("/sanctum/csrf-cookie", { withCredentials: true });
+}
 
 export default api;

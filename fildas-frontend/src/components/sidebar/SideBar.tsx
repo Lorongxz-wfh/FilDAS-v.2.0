@@ -24,7 +24,7 @@ const links: LinkItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/work-queue", label: "Work queue", icon: ClipboardList },
   { to: "/documents", label: "Library", icon: FolderOpen },
-  { to: "/archive", label: "Archive", icon: Archive },
+  // { to: "/archive", label: "Archive", icon: Archive },
 
   // roles must match getUserRole() outputs (uppercase)
   {

@@ -240,6 +240,37 @@ export type WorkQueueResponse = {
   monitoring: WorkQueueItem[];
 };
 
+export type ComplianceClusterDatum = {
+  cluster: string;
+  assigned: number;
+  approved: number;
+  returned: number;
+};
+
+export type ComplianceReportResponse = {
+  clusters: ComplianceClusterDatum[];
+};
+
+export async function getComplianceReport(): Promise<ComplianceReportResponse> {
+  try {
+    const res = await api.get("/reports/compliance", {
+      params: { t: Date.now() },
+    });
+    return {
+      clusters: (res.data?.clusters ?? []) as ComplianceClusterDatum[],
+    };
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to load compliance report (${status})`
+        : "Failed to load compliance report");
+    throw new Error(msg);
+  }
+}
+
+
 export async function getWorkQueue(): Promise<WorkQueueResponse> {
   try {
     const res = await api.get("/work-queue", { params: { t: Date.now() } });

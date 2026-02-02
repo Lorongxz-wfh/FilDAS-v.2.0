@@ -16,8 +16,11 @@ export default function ProtectedLayout() {
 
     (async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/user", {
-          headers: { Authorization: `Bearer ${token}` },
+        const res = await fetch("http://127.0.0.1:8000/api/user", {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         });
 
         if (!alive) return;
@@ -36,19 +39,16 @@ export default function ProtectedLayout() {
     };
   }, [token]);
 
-
- const handleLogout = () => {
-   clearAuth();
-   window.location.href = "/login";
- };
-
+  const handleLogout = () => {
+    clearAuth();
+    window.location.href = "/login";
+  };
 
   // Pages that manage their own padding/scroll containers
   const isSelfManaged =
     location.pathname === "/dashboard" ||
     location.pathname === "/work-queue" ||
     location.pathname.startsWith("/documents");
-
 
   return (
     <MainLayout

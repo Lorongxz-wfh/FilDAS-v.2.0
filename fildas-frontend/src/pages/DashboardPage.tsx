@@ -4,6 +4,7 @@ import {
   listDocuments,
   getCurrentUserOfficeId,
   getWorkQueue,
+  getComplianceReport,
   type WorkQueueItem,
 } from "../services/documents";
 import type { Document } from "../services/documents";
@@ -34,15 +35,21 @@ const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [clusterData, setClusterData] = useState<ComplianceClusterDatum[]>([]);
+
   useEffect(() => {
     const load = async () => {
       try {
-        const [docsData, wq] = await Promise.all([
+        const [docsData, wq, report] = await Promise.all([
           listDocuments(),
           getWorkQueue(),
+          isQA(role)
+            ? getComplianceReport()
+            : Promise.resolve({ clusters: [] }),
         ]);
         setDocs(docsData);
         setAssigned(wq.assigned ?? []);
+        setClusterData(report.clusters ?? []);
       } catch (e: any) {
         setError(e?.message ?? "Failed to load dashboard");
       } finally {
@@ -61,6 +68,12 @@ const DashboardPage: React.FC = () => {
     () => docs.filter((d) => d.status === "Distributed").length,
     [docs],
   );
+
+  const pendingCount = useMemo(() => pending.length, [pending]);
+
+  const totalDocsCount = useMemo(() => docs.length, [docs]);
+
+  // you already have officialCount
 
   const myOfficeDocsCount = useMemo(() => {
     if (!(isOfficeStaff(role) || isOfficeHead(role))) return null;
@@ -144,44 +157,79 @@ const DashboardPage: React.FC = () => {
       {error && <Alert variant="danger">{error}</Alert>}
 
       {isQA(role) && (
-        <Card>
-          <CardBody>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">
-                  Compliance snapshot
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-stretch">
+          {/* Left: Stats box */}
+          <Card className="overflow-hidden sm:w-60 sm:flex-none">
+            <CardBody className="bg-white p-0">
+              <div className="grid grid-cols-1 divide-y divide-slate-100">
+                <div className="text-center py-4">
+                  <div className="text-3xl font-semibold text-sky-700 tabular-nums">
+                    {loading ? (
+                      <InlineSpinner className="h-5 w-5 border-2" />
+                    ) : (
+                      pendingCount
+                    )}
+                  </div>
+                  <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                    Pending actions
+                  </div>
                 </div>
-                <div className="text-xs text-slate-600">
-                  VP clusters + President (placeholder data for now).
+
+                <div className="text-center py-4">
+                  <div className="text-3xl font-semibold text-slate-900 tabular-nums">
+                    {loading ? (
+                      <InlineSpinner className="h-5 w-5 border-2" />
+                    ) : (
+                      totalDocsCount
+                    )}
+                  </div>
+                  <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                    Total documents
+                  </div>
+                </div>
+
+                <div className="text-center py-4">
+                  <div className="text-3xl font-semibold text-emerald-700 tabular-nums">
+                    {loading ? (
+                      <InlineSpinner className="h-5 w-5 border-2" />
+                    ) : (
+                      officialCount
+                    )}
+                  </div>
+                  <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                    Official
+                  </div>
                 </div>
               </div>
+            </CardBody>
+          </Card>
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/reports")}
-              >
-                View reports
-              </Button>
-            </div>
+          {/* Right: Graph bars */}
+          <Card className="sm:flex-1 min-w-0">
+            <CardBody>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-m font-semibold text-slate-900">
+                    Compliance snapshot
+                  </div>
+                </div>
 
-            <div className="mt-4">
-              <ComplianceClusterBarChart
-                height={220}
-                data={
-                  [
-                    { cluster: "VAd", assigned: 12, approved: 8, returned: 2 },
-                    { cluster: "VA", assigned: 20, approved: 14, returned: 4 },
-                    { cluster: "VF", assigned: 9, approved: 6, returned: 1 },
-                    { cluster: "VR", assigned: 7, approved: 5, returned: 2 },
-                    { cluster: "PO", assigned: 6, approved: 4, returned: 1 },
-                  ] as ComplianceClusterDatum[]
-                }
-              />
-            </div>
-          </CardBody>
-        </Card>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/reports")}
+                >
+                  View reports
+                </Button>
+              </div>
+
+              <div className="mt-4 w-full min-w-0">
+                <ComplianceClusterBarChart height={260} data={clusterData} />
+              </div>
+            </CardBody>
+          </Card>
+        </div>
       )}
 
       {/* Pending actions */}

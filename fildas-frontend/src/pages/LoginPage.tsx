@@ -1,6 +1,7 @@
 import React from "react";
 
-const API_BASE = "http://localhost:8000/api"; // same as elsewhere
+const API_BASE = "http://127.0.0.1:8000/api"; // keep consistent with APP_URL
+const BACKEND_BASE = "http://127.0.0.1:8000";
 
 import { useNavigate } from "react-router-dom";
 import { setAuthUser } from "../lib/auth"; // adjust path if needed
@@ -20,7 +21,10 @@ const LoginPage: React.FC = () => {
     try {
       const res = await fetch(`${API_BASE}/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify({ email, password }),
       });
 
@@ -32,6 +36,7 @@ const LoginPage: React.FC = () => {
       }
 
       const data = await res.json();
+
       localStorage.setItem("auth_token", data.token);
       setAuthUser(data.user);
 
