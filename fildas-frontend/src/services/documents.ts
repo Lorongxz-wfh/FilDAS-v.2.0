@@ -15,6 +15,7 @@ export interface CreateDocumentPayload {
 
   doctype: "internal" | "external" | "forms";
   description?: string;
+  effective_date?: string | null; // YYYY-MM-DD, QA-only on create
   visibility_scope?: "office" | "global";
   school_year?: string;
   semester?: string;
@@ -132,6 +133,11 @@ export async function createDocumentWithProgress(
   if (payload.school_year) formData.append("school_year", payload.school_year);
   if (payload.semester) formData.append("semester", payload.semester);
   if (payload.description) formData.append("description", payload.description);
+
+  if (payload.effective_date) {
+    formData.append("effective_date", payload.effective_date);
+  }
+
   if (payload.file) formData.append("file", payload.file);
 
   const token = localStorage.getItem("auth_token");
@@ -314,7 +320,7 @@ export async function getComplianceReport(
 ): Promise<ComplianceReportResponse> {
   try {
     const res = await api.get("/reports/approval", {
-      params: { ...(params ?? {}), t: Date.now() },
+      params: { ...(params ?? {}) },
     });
     return {
       clusters: (res.data?.clusters ?? []) as ComplianceClusterDatum[],
@@ -346,7 +352,7 @@ export async function getComplianceReport(
 
 export async function getWorkQueue(): Promise<WorkQueueResponse> {
   try {
-    const res = await api.get("/work-queue", { params: { t: Date.now() } });
+    const res = await api.get("/work-queue");
     return res.data as WorkQueueResponse;
   } catch (e: any) {
     const status = e?.response?.status;
@@ -1033,9 +1039,7 @@ export async function listNotifications(params?: {
 
 export async function getUnreadNotificationCount(): Promise<number> {
   try {
-    const res = await api.get("/notifications/unread-count", {
-      params: { t: Date.now() },
-    });
+    const res = await api.get("/notifications/unread-count");
     const data = res.data as UnreadCountResponse;
     return Number(data?.unread ?? 0);
   } catch {

@@ -77,17 +77,17 @@ const Navbar: React.FC<NavbarProps> = ({ title = "FilDAS", onLogout }) => {
   function startNotifPolling(mode: "idle" | "open" | "burst") {
     stopNotifPolling();
 
-    const ms = mode === "open" ? 3000 : mode === "burst" ? 2500 : 20000;
+    const ms = mode === "open" ? 8000 : mode === "burst" ? 5000 : 30000;
 
     notifPollRef.current = window.setInterval(() => {
       refreshNotifications({ includeList: isNotifOpen }).catch(() => {});
     }, ms);
 
-    // Auto-stop burst after ~15s (so we don't hammer the API)
+    // Auto-stop burst quickly
     if (mode === "burst") {
       notifBurstTimeoutRef.current = window.setTimeout(() => {
         startNotifPolling(isNotifOpen ? "open" : "idle");
-      }, 15000);
+      }, 8000);
     }
   }
 

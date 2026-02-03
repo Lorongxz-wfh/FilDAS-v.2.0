@@ -726,25 +726,12 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     setPreviewNonce((n) => n + 1);
   };
 
-  const refreshAll = React.useCallback(async () => {
-    // Do not refetch version here—parent already owns version fetch/selection.
-    const nextTasks = await listWorkflowTasks(localVersion.id);
-    setTasks(nextTasks);
+ const refreshAll = React.useCallback(async () => {
+   // Burst polling should only keep the workflow task fresh.
+   const nextTasks = await listWorkflowTasks(localVersion.id);
+   setTasks(nextTasks);
+ }, [localVersion.id]);
 
-    if (activeSideTab === "comments") {
-      const nextMsgs = await listDocumentMessages(localVersion.id);
-      setMessages(nextMsgs);
-    }
-
-    if (activeSideTab === "logs") {
-      const page = await listActivityLogs({
-        scope: "document",
-        document_version_id: localVersion.id,
-        per_page: 50,
-      });
-      setActivityLogs(page.data);
-    }
-  }, [localVersion.id, activeSideTab]);
 
   const stopBurstPolling = React.useCallback(() => {
     setIsBurstPolling(false);
@@ -762,12 +749,12 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
     burstPollRef.current = window.setInterval(() => {
       refreshAll().catch(() => {});
-    }, 1000);
+    }, 4000); // was 1000
 
-    // auto-stop after 25 seconds (tune as you like)
+    // auto-stop after 8 seconds
     burstTimeoutRef.current = window.setTimeout(() => {
       stopBurstPolling();
-    }, 25000);
+    }, 8000); // was 25000
   }, [refreshAll, stopBurstPolling]);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -1653,6 +1640,19 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               <div>
                 <span className="font-medium text-slate-600">Version:</span> v
                 {localVersion.version_number}
+              </div>
+
+              <div>
+                <span className="font-medium text-slate-600">Tags:</span>{" "}
+                <span className="text-slate-700">
+                  {Array.isArray((document as any)?.tags) &&
+                  (document as any).tags.length > 0
+                    ? (document as any).tags
+                        .map((t: any) => (typeof t === "string" ? t : t?.name))
+                        .filter(Boolean)
+                        .join(", ")
+                    : "—"}
+                </span>
               </div>
 
               <div>

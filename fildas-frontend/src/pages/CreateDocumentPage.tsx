@@ -147,6 +147,8 @@ const CreateDocumentPage: React.FC = () => {
           review_office_id: isQA ? (reviewOfficeId as number) : null,
           doctype,
           description,
+          effective_date:
+            isQA && effectiveDate.trim() ? effectiveDate.trim() : null,
           file,
         },
         (pct) => setUploadPct(pct),
@@ -304,12 +306,13 @@ const CreateDocumentPage: React.FC = () => {
                     type="date"
                     value={effectiveDate}
                     onChange={(e) => setEffectiveDate(e.target.value)}
-                    disabled
-                    className="block w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none disabled:opacity-60"
+                    disabled={!isQA}
+                    className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-50 disabled:opacity-60"
                   />
                   <p className="mt-1 text-[11px] text-slate-500">
-                    Coming soon (will be set when distributing official
-                    versions).
+                    {isQA
+                      ? "QA can set this on draft creation."
+                      : "Only QA can set effective date."}
                   </p>
                 </div>
 
