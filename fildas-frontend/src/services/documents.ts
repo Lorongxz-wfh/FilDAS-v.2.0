@@ -242,22 +242,97 @@ export type WorkQueueResponse = {
 
 export type ComplianceClusterDatum = {
   cluster: string;
-  assigned: number;
+  in_review: number;
+  sent_to_qa: number;
   approved: number;
   returned: number;
 };
 
-export type ComplianceReportResponse = {
-  clusters: ComplianceClusterDatum[];
+
+export type ComplianceReportParams = {
+  date_from?: string; // YYYY-MM-DD
+  date_to?: string; // YYYY-MM-DD
+
+  date_field?: "created" | "completed";
+
+  bucket?: "daily" | "weekly" | "monthly" | "yearly" | "total";
+  scope?: "clusters" | "offices";
+  parent?: "ALL" | "PO" | "VAd" | "VA" | "VF" | "VR";
 };
 
-export async function getComplianceReport(): Promise<ComplianceReportResponse> {
+export type ComplianceSeriesDatum = {
+  label: string; // e.g. "2026-02-01" (daily) or "2026-02" (monthly) or "Total"
+  in_review: number;
+  sent_to_qa: number;
+  approved: number;
+  returned: number;
+};
+
+export type ComplianceOfficeDatum = {
+  office_id: number;
+  office_code: string | null;
+  cluster: string | null; // e.g. VAd/VA/VF/VR/PO
+  in_review: number;
+  sent_to_qa: number;
+  approved: number;
+  returned: number;
+};
+
+export type ComplianceVolumeSeriesDatum = {
+  label: string;
+  created: number;
+  approved_final: number;
+};
+
+export type ComplianceKpis = {
+  total_created: number;
+  total_approved_final: number;
+  first_pass_yield_pct: number;
+  pingpong_ratio: number;
+  cycle_time_avg_days: number;
+};
+
+export type ComplianceStageDelayDatum = {
+  stage: string; // Office | VP | QA | Registration
+  avg_hours: number; // average time per task in that stage
+  count: number; // unique distributed versions that hit this stage
+  task_count: number; // number of tasks included in avg
+};
+
+export type ComplianceReportResponse = {
+  clusters: ComplianceClusterDatum[];
+  offices: ComplianceOfficeDatum[];
+  series: ComplianceSeriesDatum[];
+
+  volume_series: ComplianceVolumeSeriesDatum[];
+  kpis: ComplianceKpis;
+
+  stage_delays: ComplianceStageDelayDatum[];
+};
+
+export async function getComplianceReport(
+  params?: ComplianceReportParams,
+): Promise<ComplianceReportResponse> {
   try {
-    const res = await api.get("/reports/compliance", {
-      params: { t: Date.now() },
+    const res = await api.get("/reports/approval", {
+      params: { ...(params ?? {}), t: Date.now() },
     });
     return {
       clusters: (res.data?.clusters ?? []) as ComplianceClusterDatum[],
+      offices: (res.data?.offices ?? []) as ComplianceOfficeDatum[],
+      series: (res.data?.series ?? []) as ComplianceSeriesDatum[],
+
+      volume_series: (res.data?.volume_series ??
+        []) as ComplianceVolumeSeriesDatum[],
+      kpis: (res.data?.kpis ?? {
+        total_created: 0,
+        total_approved_final: 0,
+        first_pass_yield_pct: 0,
+        pingpong_ratio: 0,
+        cycle_time_avg_days: 0,
+      }) as ComplianceKpis,
+      stage_delays: (res.data?.stage_delays ??
+        []) as ComplianceStageDelayDatum[],
     };
   } catch (e: any) {
     const status = e?.response?.status;
@@ -269,7 +344,6 @@ export async function getComplianceReport(): Promise<ComplianceReportResponse> {
     throw new Error(msg);
   }
 }
-
 
 export async function getWorkQueue(): Promise<WorkQueueResponse> {
   try {

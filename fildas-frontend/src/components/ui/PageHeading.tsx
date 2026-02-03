@@ -14,17 +14,19 @@ export default function PageHeading({
   className = "",
 }: Props) {
   return (
-    <div className={`flex items-start justify-between gap-4 ${className}`}>
+    <div className={`flex items-center justify-between gap-4 ${className}`}>
       <div className="min-w-0">
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900">
+        <h1 className="m-0 text-xl font-semibold leading-tight tracking-tight text-slate-900">
           {title}
         </h1>
         {subtitle && (
-          <div className="mt-1 text-sm text-slate-600">{subtitle}</div>
+          <div className="mt-1 text-sm leading-snug text-slate-600">
+            {subtitle}
+          </div>
         )}
       </div>
 
-      {right && <div className="shrink-0">{right}</div>}
+      {right && <div className="shrink-0 flex items-center gap-2">{right}</div>}
     </div>
   );
 }

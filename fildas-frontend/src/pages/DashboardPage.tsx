@@ -45,7 +45,20 @@ const DashboardPage: React.FC = () => {
           getWorkQueue(),
           isQA(role)
             ? getComplianceReport()
-            : Promise.resolve({ clusters: [] }),
+            : Promise.resolve({
+                clusters: [],
+                offices: [],
+                series: [],
+                volume_series: [],
+                kpis: {
+                  total_created: 0,
+                  total_approved_final: 0,
+                  first_pass_yield_pct: 0,
+                  pingpong_ratio: 0,
+                  cycle_time_avg_days: 0,
+                },
+                stage_delays: [],
+              }),
         ]);
         setDocs(docsData);
         setAssigned(wq.assigned ?? []);
@@ -210,7 +223,7 @@ const DashboardPage: React.FC = () => {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-m font-semibold text-slate-900">
-                    Compliance snapshot
+                    Workflow snapshot
                   </div>
                 </div>
 
