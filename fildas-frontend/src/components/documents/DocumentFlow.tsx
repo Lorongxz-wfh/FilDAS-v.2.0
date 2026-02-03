@@ -18,7 +18,7 @@ import { useToast } from "../ui/toast/ToastContext";
 import {
   listOffices,
   getDocumentPreviewLink,
-  getDocumentVersion,
+  // getDocumentVersion, // removed (avoid refetching version details here)
   submitWorkflowAction,
   listWorkflowTasks,
   listActivityLogs,
@@ -722,34 +722,12 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   }, [localVersion.id, localVersion.preview_path]);
 
   const refreshForPreview = async () => {
-    const { version: fresh } = await getDocumentVersion(localVersion.id);
-    setLocalVersion((prev) => ({
-      ...prev,
-      file_path: fresh.file_path,
-      preview_path: fresh.preview_path,
-      original_filename: fresh.original_filename,
-    }));
-
-    setPreviewNonce((n) => n + 1); // reload iframe
+    // Avoid refetching the whole version; just re-request a new signed URL + reload iframe.
+    setPreviewNonce((n) => n + 1);
   };
 
   const refreshAll = React.useCallback(async () => {
-    const { version: freshVersion } = await getDocumentVersion(localVersion.id);
-
-    // Compute previewChanged using the *current* localVersion values (from closure)
-    const previewChanged =
-      localVersion.preview_path !== freshVersion.preview_path ||
-      localVersion.file_path !== freshVersion.file_path;
-
-    setLocalVersion((prev) => ({
-      ...prev,
-      ...freshVersion,
-    }));
-
-    if (previewChanged) {
-      setPreviewNonce((n) => n + 1);
-    }
-
+    // Do not refetch version here—parent already owns version fetch/selection.
     const nextTasks = await listWorkflowTasks(localVersion.id);
     setTasks(nextTasks);
 
@@ -757,12 +735,16 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       const nextMsgs = await listDocumentMessages(localVersion.id);
       setMessages(nextMsgs);
     }
-  }, [
-    localVersion.id,
-    localVersion.preview_path,
-    localVersion.file_path,
-    activeSideTab,
-  ]);
+
+    if (activeSideTab === "logs") {
+      const page = await listActivityLogs({
+        scope: "document",
+        document_version_id: localVersion.id,
+        per_page: 50,
+      });
+      setActivityLogs(page.data);
+    }
+  }, [localVersion.id, activeSideTab]);
 
   const stopBurstPolling = React.useCallback(() => {
     setIsBurstPolling(false);
@@ -1230,27 +1212,19 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
           window.dispatchEvent(new Event("notifications:refresh"));
 
           setTasks(await listWorkflowTasks(res.version.id));
-          setMessages(await listDocumentMessages(res.version.id));
-          setActivityLogs(
-            (
-              await listActivityLogs({
-                scope: "document",
-                document_version_id: res.version.id,
-                per_page: 50,
-              })
-            ).data,
-          );
 
-          if (activeSideTab === "logs")
-            setActivityLogs(
-              (
-                await listActivityLogs({
-                  scope: "document",
-                  document_version_id: res.version.id,
-                  per_page: 50,
-                })
-              ).data,
-            );
+          if (activeSideTab === "comments") {
+            setMessages(await listDocumentMessages(res.version.id));
+          }
+
+          if (activeSideTab === "logs") {
+            const page = await listActivityLogs({
+              scope: "document",
+              document_version_id: res.version.id,
+              per_page: 50,
+            });
+            setActivityLogs(page.data);
+          }
 
           if (action.toStatus === "QA_EDIT") {
             setActiveSideTab("comments");

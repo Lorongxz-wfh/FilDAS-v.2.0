@@ -218,7 +218,7 @@ export interface WorkflowTask {
   document_version_id: number;
   phase: "review" | "approval" | "registration";
   step: string;
-  status: "open" | "completed" | "returned" | "rejected";
+  status: "open" | "completed" | "returned" | "rejected" | "cancelled";
   opened_at: string | null;
   completed_at: string | null;
   created_at: string;
@@ -247,7 +247,6 @@ export type ComplianceClusterDatum = {
   approved: number;
   returned: number;
 };
-
 
 export type ComplianceReportParams = {
   date_from?: string; // YYYY-MM-DD
@@ -382,9 +381,7 @@ export async function listDocumentMessages(
   versionId: number,
 ): Promise<DocumentMessage[]> {
   try {
-    const res = await api.get(`/document-versions/${versionId}/messages`, {
-      params: { t: Date.now() },
-    });
+    const res = await api.get(`/document-versions/${versionId}/messages`);
     return res.data as DocumentMessage[];
   } catch (e: any) {
     const status = e?.response?.status;
@@ -427,6 +424,9 @@ export async function listDocumentsPage(params?: {
   status?: string;
   doctype?: string;
   owner_office_id?: number;
+
+  // NEW: document library scope
+  scope?: "all" | "owned" | "shared" | "assigned";
 }): Promise<Paginated<Document>> {
   try {
     const res = await api.get("/documents", {
@@ -438,6 +438,8 @@ export async function listDocumentsPage(params?: {
         status: params?.status,
         doctype: params?.doctype,
         owner_office_id: params?.owner_office_id,
+
+        scope: params?.scope,
       },
     });
 
@@ -461,9 +463,7 @@ export async function listDocuments(): Promise<Document[]> {
 
 export async function getDocument(id: number): Promise<Document> {
   try {
-    const res = await api.get(`/documents/${id}`, {
-      params: { t: Date.now() },
-    });
+    const res = await api.get(`/documents/${id}`);
     const doc = res.data?.data ?? res.data;
 
     if (!doc || typeof doc !== "object") {
@@ -486,10 +486,7 @@ export async function getDocumentVersions(
   documentId: number,
 ): Promise<DocumentVersion[]> {
   try {
-    const res = await api.get(`/documents/${documentId}/versions`, {
-      params: { t: Date.now() },
-    });
-
+    const res = await api.get(`/documents/${documentId}/versions`);
     const data = res.data;
     const versions = Array.isArray(data) ? data : data?.data;
 
@@ -556,10 +553,7 @@ export async function getDocumentVersion(
   versionId: number,
 ): Promise<{ version: DocumentVersion; document: Document }> {
   try {
-    const res = await api.get(`/document-versions/${versionId}`, {
-      params: { t: Date.now() },
-    });
-
+    const res = await api.get(`/document-versions/${versionId}`);
     const json = res.data;
     if (!json?.version || !json?.document) {
       throw new Error("Invalid document version response format");
@@ -728,10 +722,15 @@ export type DocumentShares = {
   office_ids: number[];
 };
 
+let officesCache: Office[] | null = null;
+
 export async function listOffices(): Promise<Office[]> {
+  if (officesCache) return officesCache;
+
   try {
     const res = await api.get("/offices");
-    return res.data as Office[];
+    officesCache = res.data as Office[];
+    return officesCache;
   } catch (e: any) {
     const status = e?.response?.status;
     const msg =
@@ -864,8 +863,6 @@ export async function listActivityLogs(params: {
         office_id: params.office_id,
         date_from: params.date_from,
         date_to: params.date_to,
-
-        t: Date.now(),
       },
     });
 
@@ -902,9 +899,7 @@ export async function getDocumentPreviewLink(
   versionId: number,
 ): Promise<{ url: string; expires_in_minutes: number }> {
   try {
-    const res = await api.get(`/document-versions/${versionId}/preview-link`, {
-      params: { t: Date.now() },
-    });
+    const res = await api.get(`/document-versions/${versionId}/preview-link`);
     return res.data as { url: string; expires_in_minutes: number };
   } catch (e: any) {
     const status = e?.response?.status;

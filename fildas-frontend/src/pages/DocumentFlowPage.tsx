@@ -58,6 +58,13 @@ const DocumentFlowPage: React.FC = () => {
   const [loading, setLoading] = useState(true); // first load only
   const hasData = !!document && !!selectedVersion;
   const selectedVersionParam = searchParams.get("version_id");
+  const selectedVersionIdFromUrl = selectedVersionParam
+    ? Number(selectedVersionParam)
+    : null;
+  const selectedVersionId =
+    selectedVersionIdFromUrl && !Number.isNaN(selectedVersionIdFromUrl)
+      ? selectedVersionIdFromUrl
+      : null;
   const [isLoadingSelectedVersion, setIsLoadingSelectedVersion] =
     useState(false);
 
@@ -108,70 +115,44 @@ const DocumentFlowPage: React.FC = () => {
     [id, setSearchParams],
   );
 
+  // 1) Initial load: document + versions list (only when id changes)
   useEffect(() => {
     let alive = true;
 
     const load = async () => {
-      // Only show the big loading state if we have nothing to render yet
-      if (!document || !selectedVersion) setLoading(true);
       setError(null);
+      setLoading(true);
 
       try {
-        const qp = selectedVersionParam;
-        const qpId = qp ? Number(qp) : NaN;
-
-        const switching =
-          qpId && !Number.isNaN(qpId) && qpId !== selectedVersion?.id;
-
-        if (switching) setIsLoadingSelectedVersion(true);
-
-        // Always refresh versions list (right panel) in the background
         const [docData, versions] = await Promise.all([
           getDocument(id),
           getDocumentVersions(id),
         ]);
         if (!alive) return;
 
-        setDocument(docData);
-
         const sorted = [...versions].sort(
           (a, b) => Number(b.version_number) - Number(a.version_number),
         );
+
+        setDocument(docData);
         setAllVersions(sorted);
 
-        // If query param exists, try load that version details.
-        // If it was deleted (404), fall back to latest and fix the URL.
-        if (qp && !Number.isNaN(qpId)) {
-          try {
-            const { version, document: docRes } =
-              await getDocumentVersion(qpId);
-            if (!alive) return;
-            setSelectedVersion(version);
-            setDocument(docRes);
-            return;
-          } catch (e: any) {
-            const status = e?.response?.status;
+        // Choose initial selection: URL version if present, else latest
+        const best =
+          (selectedVersionId
+            ? sorted.find((v) => v.id === selectedVersionId)
+            : null) ??
+          sorted[0] ??
+          null;
 
-            // Deleted version id (common after cancel revision -> delete)
-            if (status === 404) {
-              // remove bad param so we don't keep retrying the deleted version
-              setSearchParams((prev) => {
-                const p = new URLSearchParams(prev);
-                p.delete("version_id");
-                p.delete("version"); // cleanup old links too
-                return p;
-              });
-              // then continue to "No query param" selection below
-            } else {
-              throw e;
-            }
-          }
-        }
+        setSelectedVersion(best);
 
-        // No query param: ensure we have a selected version (keep current if possible)
-        setSelectedVersion((prev) => {
-          if (prev && sorted.some((v) => v.id === prev.id)) return prev;
-          return sorted[0] ?? null;
+        setSearchParams((prev) => {
+          const p = new URLSearchParams(prev);
+          if (best) p.set("version_id", String(best.id));
+          else p.delete("version_id");
+          p.delete("version");
+          return p;
         });
       } catch (err: any) {
         if (!alive) return;
@@ -179,9 +160,6 @@ const DocumentFlowPage: React.FC = () => {
       } finally {
         if (!alive) return;
         setLoading(false);
-        setIsLoadingSelectedVersion(false);
-        setTargetVersionId(null);
-        setTargetVersionNumber(null);
       }
     };
 
@@ -190,8 +168,59 @@ const DocumentFlowPage: React.FC = () => {
     return () => {
       alive = false;
     };
+    // only when doc id changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, searchParams.toString()]);
+  }, [id]);
+
+  // 2) When URL version_id changes: fetch that version details only
+  useEffect(() => {
+    let alive = true;
+
+    const loadVersion = async () => {
+      if (!selectedVersionId) return;
+
+      // If we already have that version selected, don’t refetch
+      if (selectedVersion?.id === selectedVersionId) return;
+
+      setIsLoadingSelectedVersion(true);
+      setError(null);
+
+      try {
+        const { version, document: docRes } =
+          await getDocumentVersion(selectedVersionId);
+        if (!alive) return;
+        setSelectedVersion(version);
+        setDocument(docRes);
+      } catch (e: any) {
+        if (!alive) return;
+        const status = e?.response?.status;
+
+        if (status === 404) {
+          // remove bad param so we don't keep retrying the deleted version
+          setSearchParams((prev) => {
+            const p = new URLSearchParams(prev);
+            p.delete("version_id");
+            p.delete("version");
+            return p;
+          });
+        } else {
+          setError(e?.message ?? "Failed to load version");
+        }
+      } finally {
+        if (!alive) return;
+        setIsLoadingSelectedVersion(false);
+        setTargetVersionId(null);
+        setTargetVersionNumber(null);
+      }
+    };
+
+    loadVersion();
+
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVersionId]);
 
   if (loading && !hasData) {
     return (

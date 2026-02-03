@@ -91,19 +91,18 @@ const Navbar: React.FC<NavbarProps> = ({ title = "FilDAS", onLogout }) => {
     }
   }
 
- React.useEffect(() => {
-   if (!user?.id) return;
+  React.useEffect(() => {
+    if (!user?.id) return;
 
-   // Fire-and-forget so it can't delay initial renders
-   refreshNotifications({ includeList: false }).catch(() => {});
-   startNotifPolling("idle");
+    // Fire-and-forget so it can't delay initial renders
+    refreshNotifications({ includeList: false }).catch(() => {});
+    startNotifPolling("idle");
 
-   return () => {
-     stopNotifPolling();
-   };
-   // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [user?.id]);
-
+    return () => {
+      stopNotifPolling();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   React.useEffect(() => {
     const onRefresh = () => {
@@ -206,6 +205,11 @@ const Navbar: React.FC<NavbarProps> = ({ title = "FilDAS", onLogout }) => {
                               await refreshNotifBadge();
                               setIsNotifOpen(false);
                               startNotifPolling("burst");
+
+                              const noLink = Boolean((n as any)?.meta?.no_link);
+
+                              // Rule: if access was removed, do NOT navigate anywhere
+                              if (noLink) return;
 
                               if (n.document_id)
                                 navigate(`/documents/${n.document_id}`);

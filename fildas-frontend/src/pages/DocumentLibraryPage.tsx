@@ -40,11 +40,15 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
 
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
+  const [scopeFilter, setScopeFilter] = useState<
+    "all" | "owned" | "shared" | "assigned"
+  >("all");
+
   const [page, setPage] = useState(1);
 
   useEffect(() => {
     setPage(1);
-  }, [qDebounced, statusFilter, typeFilter]);
+  }, [qDebounced, statusFilter, typeFilter, scopeFilter]);
 
   const [hasMore, setHasMore] = useState(false);
   const PER_PAGE = 25;
@@ -122,10 +126,9 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
         setLoading(true);
         setError(null);
 
-        const ownerOfficeParam =
-          isOfficeStaff(role) || isOfficeHead(role)
-            ? Number(myOfficeId)
-            : undefined;
+        // Do NOT force owner_office_id here.
+        // Office users should see all documents visible to them (owned, shared, or with open tasks).
+        const ownerOfficeParam = undefined;
 
         const res = await listDocumentsPage({
           page,
@@ -134,6 +137,8 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
           status: statusFilter !== "ALL" ? statusFilter : undefined,
           doctype: typeFilter !== "ALL" ? typeFilter : undefined,
           owner_office_id: ownerOfficeParam,
+
+          scope: scopeFilter,
         });
 
         if (!alive) return;
@@ -163,7 +168,16 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
     return () => {
       alive = false;
     };
-  }, [documents, page, qDebounced, statusFilter, typeFilter, role, myOfficeId]);
+  }, [
+    documents,
+    page,
+    qDebounced,
+    statusFilter,
+    typeFilter,
+    scopeFilter,
+    role,
+    myOfficeId,
+  ]);
 
   return (
     <PageFrame
@@ -238,6 +252,21 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
           </select>
         </div>
 
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-600">Library</label>
+          <select
+            value={scopeFilter}
+            onChange={(e) => setScopeFilter(e.target.value as any)}
+            disabled={false}
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 disabled:opacity-60"
+          >
+            <option value="all">All</option>
+            <option value="assigned">Assigned</option>
+            <option value="owned">Owned</option>
+            <option value="shared">Shared</option>
+          </select>
+        </div>
+
         <div className="flex-1" />
 
         <Button
@@ -248,6 +277,7 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
             setQ("");
             setStatusFilter("ALL");
             setTypeFilter("ALL");
+            setScopeFilter("all");
             setPage(1);
           }}
         >

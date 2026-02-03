@@ -6,6 +6,7 @@ import { clearAuth, getAuthToken } from "../auth";
 export default function ProtectedLayout() {
   const token = getAuthToken();
   const location = useLocation();
+  const checkedTokenRef = React.useRef<string | null>(null);
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -16,21 +17,20 @@ export default function ProtectedLayout() {
 
     (async () => {
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/user", {
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        if (!token) return;
+
+        // Avoid duplicate checks (React StrictMode/dev remounts)
+        if (checkedTokenRef.current === token) return;
+        checkedTokenRef.current = token;
+
+        // Use your axios client so interceptors handle 401 consistently
+        const { default: api } = await import("../../services/api");
+        await api.get("/user", { params: { t: Date.now() } });
 
         if (!alive) return;
-
-        if (res.status === 401) {
-          clearAuth();
-          window.location.href = "/login";
-        }
-      } catch {
-        // If backend is down, don't force logout; only logout on real 401.
+      } catch (e: any) {
+        // Only logout on real 401 (api interceptor may already redirect)
+        if (!alive) return;
       }
     })();
 
