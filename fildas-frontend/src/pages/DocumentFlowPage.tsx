@@ -484,7 +484,17 @@ const DocumentFlowPage: React.FC = () => {
                   setHeaderState(s);
                 }}
                 onAfterActionClose={async () => {
-                  // After deleting/cancelling a revision draft, select the newest remaining version
+                  // If v0 draft was deleted, backend soft-deletes the whole document family.
+                  // Detect that by attempting to refetch the document; if it 404s, go back to library.
+                  try {
+                    await getDocument(id);
+                  } catch (e: any) {
+                    // If the document is gone, leave this page.
+                    navigate("/documents");
+                    return;
+                  }
+
+                  // Otherwise, just refresh versions and keep a valid selection.
                   await refreshAndSelectBest();
                 }}
                 onChanged={async () => {
