@@ -18,7 +18,9 @@ import { useToast } from "../ui/toast/ToastContext";
 import {
   listOffices,
   getDocumentPreviewLink,
-  // getDocumentVersion, // removed (avoid refetching version details here)
+  getDocumentVersion,
+  getDocumentRouteSteps,
+  type DocumentRouteStep,
   submitWorkflowAction,
   listWorkflowTasks,
   listActivityLogs,
@@ -585,6 +587,31 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
   const [offices, setOffices] = React.useState<Office[]>([]);
 
+  const [routeSteps, setRouteSteps] = React.useState<DocumentRouteStep[]>([]);
+  const [isLoadingRouteSteps, setIsLoadingRouteSteps] = React.useState(false);
+
+  React.useEffect(() => {
+    let alive = true;
+    async function run() {
+      setIsLoadingRouteSteps(true);
+      try {
+        const res = await getDocumentRouteSteps(localVersion.id);
+        if (!alive) return;
+        setRouteSteps(Array.isArray(res.steps) ? res.steps : []);
+      } catch (e) {
+        // If endpoint is missing or forbidden, just treat as "no custom route"
+        if (!alive) return;
+        setRouteSteps([]);
+      } finally {
+        if (alive) setIsLoadingRouteSteps(false);
+      }
+    }
+    run();
+    return () => {
+      alive = false;
+    };
+  }, [localVersion.id]);
+
   React.useEffect(() => {
     setLocalVersion(version);
     setInitialTitle(document.title);
@@ -726,12 +753,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     setPreviewNonce((n) => n + 1);
   };
 
- const refreshAll = React.useCallback(async () => {
-   // Burst polling should only keep the workflow task fresh.
-   const nextTasks = await listWorkflowTasks(localVersion.id);
-   setTasks(nextTasks);
- }, [localVersion.id]);
-
+  const refreshAll = React.useCallback(async () => {
+    // Burst polling should only keep the workflow task fresh.
+    const nextTasks = await listWorkflowTasks(localVersion.id);
+    setTasks(nextTasks);
+  }, [localVersion.id]);
 
   const stopBurstPolling = React.useCallback(() => {
     setIsBurstPolling(false);
@@ -829,6 +855,8 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       setUploadProgress(0);
     }
   };
+
+  // Part 2
 
   const handleReplaceFileClick = () => {
     fileInputRef.current?.click();
@@ -1057,10 +1085,127 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const isOfficeFlow =
     workflowType === "office" || officeStatuses.has(localVersion.status);
 
-  const activeFlowSteps = isOfficeFlow ? flowStepsOffice : flowStepsQa;
+  const fallbackFlowSteps = isOfficeFlow ? flowStepsOffice : flowStepsQa;
   const activeTransitions = isOfficeFlow ? transitionsOffice : transitionsQa;
 
+  const ownerOfficeIdForFlow =
+    (document as any)?.owner_office_id ??
+    (document as any)?.ownerOfficeId ??
+    null;
+
+  const customFlowSteps =
+    routeSteps.length > 0
+      ? buildCustomFlowSteps({
+          offices,
+          ownerOfficeId: ownerOfficeIdForFlow,
+          routeSteps,
+        })
+      : null;
+
+  const activeFlowSteps = customFlowSteps ?? fallbackFlowSteps;
+
   const currentStep = findCurrentStep(localVersion.status, activeFlowSteps);
+
+  function officeLabelById(
+    offices: Office[] | null | undefined,
+    id: number,
+  ): string {
+    const o = offices?.find((x) => Number(x.id) === Number(id));
+    if (!o) return `Office #${id}`;
+    return `${o.name} (${o.code})`;
+  }
+
+  function buildCustomFlowSteps(opts: {
+    offices: Office[] | null | undefined;
+    ownerOfficeId: number | null | undefined;
+    routeSteps: DocumentRouteStep[];
+  }): FlowStep[] | null {
+    const { offices, ownerOfficeId, routeSteps } = opts;
+
+    const review = routeSteps
+      .filter((s) => s.phase === "review")
+      .sort((a, b) => Number(a.step_order) - Number(b.step_order));
+
+    const approval = routeSteps
+      .filter((s) => s.phase === "approval")
+      .sort((a, b) => Number(a.step_order) - Number(b.step_order));
+
+    // If no custom steps, tell caller to fallback to default hardcoded flowSteps
+    if (!review.length && !approval.length) return null;
+
+    const ownerLabel = ownerOfficeId
+      ? officeLabelById(offices, ownerOfficeId)
+      : "Creator office";
+
+    const out: FlowStep[] = [];
+
+    // Keep Draft as-is (works for both QA and Office start)
+    out.push({
+      id: "draft",
+      label: "Draft",
+      statusValue: "Draft",
+      phase: "review",
+    });
+
+    // Review recipients
+    out.push(
+      ...review.map((s, idx) => ({
+        id: `custom_review_${idx + 1}`,
+        label: officeLabelById(offices, s.office_id),
+        statusValue: "For Office Review", // display-only anchor; backend status may vary
+        phase: "review" as const,
+      })),
+    );
+
+    out.push({
+      id: "custom_review_back",
+      label: `Back to creator: ${ownerLabel}`,
+      statusValue: "For QA Final Check", // display-only anchor
+      phase: "review",
+    });
+
+    // Approval recipients
+    out.push(
+      ...approval.map((s, idx) => ({
+        id: `custom_approval_${idx + 1}`,
+        label: officeLabelById(offices, s.office_id),
+        statusValue: "For Office Approval", // display-only anchor
+        phase: "approval" as const,
+      })),
+    );
+
+    out.push({
+      id: "custom_approval_back",
+      label: `Back to creator: ${ownerLabel}`,
+      statusValue: "For QA Registration", // display-only anchor
+      phase: "approval",
+    });
+
+    // Registration/Distribution (still hard-coded steps)
+    out.push(
+      {
+        id: "custom_register",
+        label: "Register",
+        statusValue: "For QA Registration",
+        phase: "registration",
+      },
+      {
+        id: "custom_distribute",
+        label: "Distribute",
+        statusValue: "For QA Distribution",
+        phase: "registration",
+      },
+      {
+        id: "distributed",
+        label: "Distributed",
+        statusValue: "Distributed",
+        phase: "registration",
+      },
+    );
+
+    return out;
+  }
+
   const currentPhase =
     phases.find((p) => p.id === currentStep.phase) ?? phases[0];
   const currentPhaseIndex = phaseOrder(currentPhase.id);

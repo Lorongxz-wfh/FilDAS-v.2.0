@@ -249,6 +249,34 @@ export interface WorkflowTask {
   assigned_user_id?: number | null;
 }
 
+export type DocumentRouteStep = {
+  phase: "review" | "approval" | "registration" | string;
+  step_order: number;
+  office_id: number;
+};
+
+export type DocumentRouteStepsResponse = {
+  document_version_id: number;
+  steps: DocumentRouteStep[];
+};
+
+export async function getDocumentRouteSteps(
+  versionId: number,
+): Promise<DocumentRouteStepsResponse> {
+  try {
+    const res = await api.get(`/document-versions/${versionId}/route-steps`);
+    return res.data as DocumentRouteStepsResponse;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to load route steps (${status})`
+        : "Failed to load route steps");
+    throw new Error(msg);
+  }
+}
+
 export type WorkQueueItem = {
   task: WorkflowTask | null;
   version: DocumentVersion;
