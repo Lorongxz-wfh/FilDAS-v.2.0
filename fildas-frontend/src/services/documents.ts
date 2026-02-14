@@ -7,11 +7,17 @@ const API_BASE =
 export interface CreateDocumentPayload {
   title: string;
 
-  // IMPORTANT: tells backend which workflow to start
+  // Which starter flow
   workflow_type?: "qa" | "office";
 
-  // QA flow: required. Office flow: omitted (backend will route to office head).
+  // Existing QA default reviewer office (still supported)
   review_office_id?: number | null;
+
+  // NEW: routing selector
+  routing_mode?: "default" | "custom";
+
+  // NEW: ordered recipient offices for custom routing (review phase for now)
+  custom_review_office_ids?: number[];
 
   doctype: "internal" | "external" | "forms";
   description?: string;
@@ -123,9 +129,18 @@ export async function createDocumentWithProgress(
     formData.append("workflow_type", payload.workflow_type);
   }
 
-  // Only send review_office_id if present (QA flow).
   if (payload.review_office_id != null) {
     formData.append("review_office_id", String(payload.review_office_id));
+  }
+
+  if (payload.routing_mode) {
+    formData.append("routing_mode", payload.routing_mode);
+  }
+
+  if (payload.custom_review_office_ids?.length) {
+    for (const id of payload.custom_review_office_ids) {
+      formData.append("custom_review_office_ids[]", String(id));
+    }
   }
 
   if (payload.visibility_scope)
