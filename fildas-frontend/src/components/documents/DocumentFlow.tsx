@@ -2,12 +2,15 @@ import React from "react";
 import UploadProgress from "../ui/loader/UploadProgress";
 import InlineSpinner from "../ui/loader/InlineSpinner";
 import Skeleton from "../ui/loader/Skeleton";
+import WorkflowProgressCard from "./documentFlow/WorkflowProgressCard";
+import WorkflowInboxCard from "./documentFlow/WorkflowInboxCard";
+import DocumentPreviewPanel from "./documentFlow/DocumentPreviewPanel";
+
 import type {
   Document,
   DocumentVersion,
   WorkflowTask,
   DocumentMessage,
-  WorkflowActionCode,
   Office,
 } from "../../services/documents";
 
@@ -18,7 +21,6 @@ import { useToast } from "../ui/toast/ToastContext";
 import {
   listOffices,
   getDocumentPreviewLink,
-  getDocumentVersion,
   getDocumentRouteSteps,
   type DocumentRouteStep,
   submitWorkflowAction,
@@ -36,6 +38,25 @@ import {
 } from "../../services/documents";
 
 import { getAuthUser } from "../../lib/auth"; // adjust path if needed
+
+import {
+  phases,
+  flowStepsOffice,
+  flowStepsQa,
+  transitionsCustom,
+  transitionsOffice,
+  transitionsQa,
+} from "./documentFlow/flowConfig";
+
+import {
+  buildCustomFlowSteps,
+  findCurrentStep,
+  formatWhen,
+  officeIdByCode,
+  officeLabelById,
+  phaseOrder,
+  toWorkflowAction,
+} from "./documentFlow/flowUtils";
 
 export type HeaderActionButton = {
   key: string;
@@ -61,501 +82,6 @@ interface DocumentFlowProps {
   onChanged?: () => Promise<void> | void;
   onHeaderStateChange?: (s: DocumentFlowHeaderState) => void;
   onAfterActionClose?: () => void; // NEW
-}
-
-type PhaseId = "review" | "approval" | "registration";
-
-interface Phase {
-  id: PhaseId;
-  label: string;
-}
-
-interface FlowStep {
-  id: string;
-  label: string;
-  statusValue: string;
-  phase: PhaseId;
-}
-
-const phases: Phase[] = [
-  { id: "review", label: "Review" },
-  { id: "approval", label: "Approval" },
-  { id: "registration", label: "Registration / Distribution" },
-];
-
-const flowStepsQa: FlowStep[] = [
-  // Review
-  {
-    id: "draft",
-    label: "Drafted by QA",
-    statusValue: "Draft",
-    phase: "review",
-  },
-  {
-    id: "office_review",
-    label: "Office review",
-    statusValue: "For Office Review",
-    phase: "review",
-  },
-  {
-    id: "vp_review",
-    label: "VP review",
-    statusValue: "For VP Review",
-    phase: "review",
-  },
-  {
-    id: "qafinalcheck",
-    label: "QA final check",
-    statusValue: "For QA Final Check",
-    phase: "review",
-  },
-
-  // Approval
-  {
-    id: "office_approval",
-    label: "Office approval",
-    statusValue: "For Office Approval",
-    phase: "approval",
-  },
-  {
-    id: "vp_approval",
-    label: "VP approval",
-    statusValue: "For VP Approval",
-    phase: "approval",
-  },
-  {
-    id: "pres_approval",
-    label: "President approval",
-    statusValue: "For President Approval",
-    phase: "approval",
-  },
-
-  // Registration / Distribution
-  {
-    id: "qa_registration",
-    label: "QA registration",
-    statusValue: "For QA Registration",
-    phase: "registration",
-  },
-  {
-    id: "qa_distribution",
-    label: "QA distribution",
-    statusValue: "For QA Distribution",
-    phase: "registration",
-  },
-  {
-    id: "distributed",
-    label: "Distributed",
-    statusValue: "Distributed",
-    phase: "registration",
-  },
-];
-
-const flowStepsOffice: FlowStep[] = [
-  // Review (Office-start)
-  {
-    id: "office_draft",
-    label: "Office draft",
-    statusValue: "Office Draft",
-    phase: "review",
-  },
-  {
-    id: "office_head_review",
-    label: "Office head review",
-    statusValue: "For Office Head Review",
-    phase: "review",
-  },
-  {
-    id: "vp_review_office",
-    label: "VP review",
-    statusValue: "For VP Review (Office)",
-    phase: "review",
-  },
-  {
-    id: "qa_approval_office",
-    label: "QA approval",
-    statusValue: "For QA Approval (Office)",
-    phase: "review",
-  },
-
-  // Approval (Office-start, optional but you already created backend statuses)
-  {
-    id: "office_approval_office",
-    label: "Office approval",
-    statusValue: "For Office Approval (Office)",
-    phase: "approval",
-  },
-  {
-    id: "vp_approval_office",
-    label: "VP approval",
-    statusValue: "For VP Approval (Office)",
-    phase: "approval",
-  },
-  {
-    id: "pres_approval_office",
-    label: "President approval",
-    statusValue: "For President Approval (Office)",
-    phase: "approval",
-  },
-
-  // Registration / Distribution
-  {
-    id: "qa_registration_office",
-    label: "QA registration",
-    statusValue: "For QA Registration (Office)",
-    phase: "registration",
-  },
-  {
-    id: "qa_distribution_office",
-    label: "QA distribution",
-    statusValue: "For QA Distribution (Office)",
-    phase: "registration",
-  },
-  {
-    id: "distributed",
-    label: "Distributed",
-    statusValue: "Distributed",
-    phase: "registration",
-  },
-];
-
-type TransitionAction = {
-  toStatus: string;
-  label: string;
-};
-
-function toWorkflowAction(toStatus: string): WorkflowActionCode | null {
-  switch (toStatus) {
-    case "For Office Review":
-      return "SEND_TO_OFFICE_REVIEW";
-
-    case "For Office Head Review":
-      return "FORWARD_TO_OFFICE_HEAD_REVIEW";
-
-    case "For VP Review":
-    case "For VP Review (Office)":
-      return "FORWARD_TO_VP_REVIEW";
-
-    case "For QA Final Check":
-      return "VP_SEND_BACK_TO_QA_FINAL_CHECK";
-
-    case "For QA Approval (Office)":
-      return "VP_FORWARD_TO_QA_APPROVAL";
-
-    case "For Office Approval":
-    case "For Office Approval (Office)":
-      return "START_OFFICE_APPROVAL";
-
-    case "For VP Approval":
-    case "For VP Approval (Office)":
-      return "FORWARD_TO_VP_APPROVAL";
-
-    case "For President Approval":
-    case "For President Approval (Office)":
-      return "FORWARD_TO_PRESIDENT_APPROVAL";
-
-    case "For QA Registration":
-    case "For QA Registration (Office)":
-      return "FORWARD_TO_QA_REGISTRATION";
-
-    case "For QA Distribution":
-    case "For QA Distribution (Office)":
-      return "FORWARD_TO_QA_DISTRIBUTION";
-
-    case "Distributed":
-      return "MARK_DISTRIBUTED";
-
-    case "QA_EDIT":
-      return "RETURN_TO_QA_EDIT";
-
-    case "OFFICE_EDIT":
-      return "RETURN_TO_OFFICE_EDIT";
-
-    default:
-      return null;
-  }
-}
-
-const transitionsQa: Record<string, TransitionAction[]> = {
-  // Review phase
-  Draft: [
-    // ✅ Explicit Draft
-    {
-      toStatus: "For Office Review",
-      label: "Send to Office for review",
-    },
-  ],
-
-  "For Office Review": [
-    {
-      toStatus: "For VP Review",
-      label: "Forward to VP for review",
-    },
-    {
-      toStatus: "QA_EDIT",
-      label: "Return to QA (edit)",
-    },
-  ],
-  "For VP Review": [
-    {
-      toStatus: "For QA Final Check",
-      label: "Send back to QA for final check",
-    },
-    { toStatus: "QA_EDIT", label: "Return to QA edit" },
-  ],
-
-  "For QA Final Check": [
-    {
-      toStatus: "For Office Approval",
-      label: "Start approval phase (Office approval)",
-    },
-    { toStatus: "QA_EDIT", label: "Return to QA edit" },
-  ],
-
-  // Approval phase
-  "For Office Approval": [
-    {
-      toStatus: "For VP Approval",
-      label: "Forward to VP for approval",
-    },
-    {
-      toStatus: "QA_EDIT",
-      label: "Return to QA (edit)",
-    },
-  ],
-  "For VP Approval": [
-    {
-      toStatus: "For President Approval",
-      label: "Forward to President for approval",
-    },
-    {
-      toStatus: "QA_EDIT",
-      label: "Return to QA (edit)",
-    },
-  ],
-  "For President Approval": [
-    {
-      toStatus: "For QA Registration",
-      label: "Forward to QA for registration",
-    },
-    {
-      toStatus: "QA_EDIT",
-      label: "Return to QA (edit)",
-    },
-  ],
-
-  "For QA Registration": [
-    {
-      toStatus: "For QA Distribution",
-      label: "Proceed to QA distribution",
-    },
-    {
-      toStatus: "QA_EDIT",
-      label: "Return to QA (edit)",
-    },
-  ],
-
-  // Distribution phase
-  "For QA Distribution": [
-    {
-      toStatus: "Distributed",
-      label: "Mark as distributed",
-    },
-    {
-      toStatus: "QA_EDIT",
-      label: "Return to QA (edit)",
-    },
-  ],
-  Distributed: [],
-};
-
-const transitionsOffice: Record<string, TransitionAction[]> = {
-  "Office Draft": [
-    {
-      toStatus: "For Office Head Review",
-      label: "Send to Office head for review",
-    },
-  ],
-
-  "For Office Head Review": [
-    { toStatus: "For VP Review (Office)", label: "Forward to VP for review" },
-    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
-  ],
-
-  "For VP Review (Office)": [
-    {
-      toStatus: "For QA Approval (Office)",
-      label: "Forward to QA for approval",
-    },
-    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
-  ],
-
-  "For QA Approval (Office)": [
-    {
-      toStatus: "Distributed",
-      label: "Approve and distribute (finish)",
-    },
-    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
-  ],
-
-  "For Office Approval (Office)": [
-    {
-      toStatus: "For VP Approval (Office)",
-      label: "Forward to VP for approval",
-    },
-    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
-  ],
-
-  "For VP Approval (Office)": [
-    {
-      toStatus: "For President Approval (Office)",
-      label: "Forward to President for approval",
-    },
-    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
-  ],
-
-  "For President Approval (Office)": [
-    {
-      toStatus: "For QA Registration (Office)",
-      label: "Forward to QA for registration",
-    },
-    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
-  ],
-
-  "For QA Registration (Office)": [
-    {
-      toStatus: "For QA Distribution (Office)",
-      label: "Proceed to QA distribution",
-    },
-    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
-  ],
-
-  "For QA Distribution (Office)": [
-    { toStatus: "Distributed", label: "Mark as distributed" },
-    { toStatus: "OFFICE_EDIT", label: "Return to Office draft (edit)" },
-  ],
-
-  Distributed: [],
-};
-
-function officeIdByCode(
-  offices: Office[] | null | undefined,
-  code: string,
-): number | null {
-  if (!offices?.length) return null;
-  const target = String(code || "").toUpperCase();
-  return (
-    offices.find((o) => String(o.code || "").toUpperCase() === target)?.id ??
-    null
-  );
-}
-
-function resolveVpCodeForOfficeCode(
-  ownerCode: string | null | undefined,
-): string | null {
-  if (!ownerCode) return null;
-
-  // President cluster (temporary): route straight to President
-  const presidentCodes = new Set(["PO", "HR", "SA", "CH", "AA"]);
-  if (presidentCodes.has(ownerCode)) return "PO";
-
-  const vpadCodes = new Set([
-    "VAd",
-    "PC",
-    "MD",
-    "SO",
-    "SP",
-    "SC",
-    "SH",
-    "BG",
-    "M",
-    "WP",
-    "IT",
-  ]);
-  if (vpadCodes.has(ownerCode)) return "VAd";
-
-  const vpfCodes = new Set(["VF", "AO", "BO", "BM", "CO", "PR", "UE"]);
-  if (vpfCodes.has(ownerCode)) return "VF";
-
-  const vprCodes = new Set(["VR", "RC", "CX", "QA", "IP"]);
-  if (vprCodes.has(ownerCode)) return "VR";
-
-  const vpCodes = new Set([
-    "VA",
-    "CN",
-    "CB",
-    "CT",
-    "HS",
-    "ES",
-    "PS",
-    "GS",
-    "AS",
-    "TM",
-    "CS",
-    "JE",
-    "CE",
-    "AR",
-    "GC",
-    "UL",
-    "NS",
-  ]);
-  if (vpCodes.has(ownerCode)) return "VA";
-
-  // fallback
-  return "VA";
-}
-
-function expectedActorOfficeId(
-  fromStatus: string,
-  ownerOfficeId: number | null | undefined,
-  reviewOfficeId: number | null | undefined,
-  ownerOfficeCode: string | null | undefined,
-  offices: Office[] | null | undefined,
-): number | null {
-  switch (fromStatus) {
-    // QA acts
-    case "Draft":
-    case "For QA Final Check":
-    case "For QA Registration":
-    case "For QA Distribution":
-      return officeIdByCode(offices, "QA");
-
-    // Office acts: use QA-selected review office if present, else fallback to owner office
-    case "For Office Review":
-    case "For Office Approval":
-      return reviewOfficeId ?? ownerOfficeId ?? null;
-
-    // VP acts (VP for that owner office)
-    case "For VP Review":
-    case "For VP Approval": {
-      const vpCode = resolveVpCodeForOfficeCode(ownerOfficeCode);
-      return vpCode ? officeIdByCode(offices, vpCode) : null;
-    }
-
-    // President acts
-    case "For President Approval":
-      return officeIdByCode(offices, "PO");
-
-    default:
-      return null;
-  }
-}
-
-function findCurrentStep(status: string, steps: FlowStep[]): FlowStep {
-  const found = steps.find((s) => s.statusValue === status);
-  return found ?? steps[0];
-}
-
-function phaseOrder(phaseId: PhaseId): number {
-  return phases.findIndex((p) => p.id === phaseId);
-}
-
-function formatWhen(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return iso;
-  }
 }
 
 const DocumentFlow: React.FC<DocumentFlowProps> = ({
@@ -677,7 +203,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
   const [isBurstPolling, setIsBurstPolling] = React.useState(false);
 
-  const defaultPollRef = React.useRef<number | null>(null);
   const burstPollRef = React.useRef<number | null>(null);
   const burstTimeoutRef = React.useRef<number | null>(null);
 
@@ -854,12 +379,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       setIsUploading(false);
       setUploadProgress(0);
     }
-  };
-
-  // Part 2
-
-  const handleReplaceFileClick = () => {
-    fileInputRef.current?.click();
   };
 
   React.useEffect(() => {
@@ -1082,11 +601,17 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     "For QA Distribution (Office)",
   ]);
 
+  const isCustomRouting = routeSteps.length > 0;
+
   const isOfficeFlow =
     workflowType === "office" || officeStatuses.has(localVersion.status);
 
   const fallbackFlowSteps = isOfficeFlow ? flowStepsOffice : flowStepsQa;
-  const activeTransitions = isOfficeFlow ? transitionsOffice : transitionsQa;
+  const activeTransitions = isCustomRouting
+    ? transitionsCustom
+    : isOfficeFlow
+      ? transitionsOffice
+      : transitionsQa;
 
   const ownerOfficeIdForFlow =
     (document as any)?.owner_office_id ??
@@ -1104,111 +629,39 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
   const activeFlowSteps = customFlowSteps ?? fallbackFlowSteps;
 
-  const currentStep = findCurrentStep(localVersion.status, activeFlowSteps);
+  const [currentTask, setCurrentTask] = React.useState<WorkflowTask | null>(
+    null,
+  );
 
-  function officeLabelById(
-    offices: Office[] | null | undefined,
-    id: number,
-  ): string {
-    const o = offices?.find((x) => Number(x.id) === Number(id));
-    if (!o) return `Office #${id}`;
-    return `${o.name} (${o.code})`;
-  }
+  // For custom routing, prefer task.step + assigned office to decide current step.
+  const currentStep = (() => {
+    if (isCustomRouting && currentTask?.step) {
+      // 1) Try exact match by step id (works for back-to-originator, registration, distributed, etc.)
+      const exact = activeFlowSteps.find((s) => s.id === currentTask.step);
+      if (exact) return exact;
 
-  function buildCustomFlowSteps(opts: {
-    offices: Office[] | null | undefined;
-    ownerOfficeId: number | null | undefined;
-    routeSteps: DocumentRouteStep[];
-  }): FlowStep[] | null {
-    const { offices, ownerOfficeId, routeSteps } = opts;
+      // 2) For office-loop steps (custom_review_office/custom_approval_office),
+      // pick the step whose label contains the assigned office label.
+      const assignedId = currentTask?.assigned_office_id ?? null;
+      if (assignedId) {
+        const assignedLabel = officeLabelById(offices, assignedId);
+        const candidates = activeFlowSteps.filter(
+          (s) => s.id === currentTask.step,
+        );
+        const hit = candidates.find((s) =>
+          String(s.label).includes(assignedLabel),
+        );
+        if (hit) return hit;
+        if (candidates[0]) return candidates[0];
+      }
+    }
 
-    const review = routeSteps
-      .filter((s) => s.phase === "review")
-      .sort((a, b) => Number(a.step_order) - Number(b.step_order));
-
-    const approval = routeSteps
-      .filter((s) => s.phase === "approval")
-      .sort((a, b) => Number(a.step_order) - Number(b.step_order));
-
-    // If no custom steps, tell caller to fallback to default hardcoded flowSteps
-    if (!review.length && !approval.length) return null;
-
-    const ownerLabel = ownerOfficeId
-      ? officeLabelById(offices, ownerOfficeId)
-      : "Creator office";
-
-    const out: FlowStep[] = [];
-
-    // Keep Draft as-is (works for both QA and Office start)
-    out.push({
-      id: "draft",
-      label: "Draft",
-      statusValue: "Draft",
-      phase: "review",
-    });
-
-    // Review recipients
-    out.push(
-      ...review.map((s, idx) => ({
-        id: `custom_review_${idx + 1}`,
-        label: officeLabelById(offices, s.office_id),
-        statusValue: "For Office Review", // display-only anchor; backend status may vary
-        phase: "review" as const,
-      })),
-    );
-
-    out.push({
-      id: "custom_review_back",
-      label: `Back to creator: ${ownerLabel}`,
-      statusValue: "For QA Final Check", // display-only anchor
-      phase: "review",
-    });
-
-    // Approval recipients
-    out.push(
-      ...approval.map((s, idx) => ({
-        id: `custom_approval_${idx + 1}`,
-        label: officeLabelById(offices, s.office_id),
-        statusValue: "For Office Approval", // display-only anchor
-        phase: "approval" as const,
-      })),
-    );
-
-    out.push({
-      id: "custom_approval_back",
-      label: `Back to creator: ${ownerLabel}`,
-      statusValue: "For QA Registration", // display-only anchor
-      phase: "approval",
-    });
-
-    // Registration/Distribution (still hard-coded steps)
-    out.push(
-      {
-        id: "custom_register",
-        label: "Register",
-        statusValue: "For QA Registration",
-        phase: "registration",
-      },
-      {
-        id: "custom_distribute",
-        label: "Distribute",
-        statusValue: "For QA Distribution",
-        phase: "registration",
-      },
-      {
-        id: "distributed",
-        label: "Distributed",
-        statusValue: "Distributed",
-        phase: "registration",
-      },
-    );
-
-    return out;
-  }
+    return findCurrentStep(localVersion.status, activeFlowSteps);
+  })();
 
   const currentPhase =
     phases.find((p) => p.id === currentStep.phase) ?? phases[0];
-  const currentPhaseIndex = phaseOrder(currentPhase.id);
+  const currentPhaseIndex = phaseOrder(phases, currentPhase.id);
   const currentGlobalIndex = activeFlowSteps.findIndex(
     (s) => s.id === currentStep.id,
   );
@@ -1216,10 +669,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     currentGlobalIndex >= 0
       ? (activeFlowSteps[currentGlobalIndex + 1] ?? null)
       : null;
-
-  const [currentTask, setCurrentTask] = React.useState<WorkflowTask | null>(
-    null,
-  );
 
   React.useEffect(() => {
     if (!tasks.length) {
@@ -1257,7 +706,30 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const canAct = !!assignedOfficeId && myOfficeId === assignedOfficeId;
 
   // Build actions for the current status.
-  const availableActions = activeTransitions[localVersion.status] ?? [];
+  const availableActions = (() => {
+    const s = localVersion.status;
+
+    // Custom flow office loop: backend emits "For {CODE} Review/Approval"
+    if (isCustomRouting) {
+      if (s.startsWith("For ") && s.endsWith(" Review")) {
+        return [
+          { toStatus: "For Office Review", label: "Forward to next reviewer" },
+          { toStatus: "QA_EDIT", label: "Return to edit" },
+        ];
+      }
+      if (s.startsWith("For ") && s.endsWith(" Approval")) {
+        return [
+          {
+            toStatus: "For Office Approval",
+            label: "Forward to next approver",
+          },
+          { toStatus: "QA_EDIT", label: "Return to edit" },
+        ];
+      }
+    }
+
+    return activeTransitions[s] ?? [];
+  })();
 
   const fullCode = document.code ?? "CODE-NOT-AVAILABLE";
 
@@ -1546,660 +1018,89 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   return (
     <section className="space-y-6">
       {/* Workflow progress */}
-      <div className="mx-auto w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Workflow progress
-            </p>
-            {!isTasksReady ? (
-              <Skeleton className="mt-1 h-5 w-52" />
-            ) : (
-              <p className="mt-1 text-sm font-medium text-slate-900">
-                {currentPhase.label}
-              </p>
-            )}
-          </div>
-
-          <div className="text-right">
-            <p className="text-[11px] text-slate-500">Current step</p>
-            {!isTasksReady ? (
-              <Skeleton className="mt-1 h-4 w-28 ml-auto" />
-            ) : (
-              <p className="mt-0.5 text-xs font-semibold text-slate-900">
-                {currentStep.label}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Phase rail */}
-        <div className="mt-4 grid grid-cols-3 gap-3">
-          {phases.map((phase, index) => {
-            const isCurrent = index === currentPhaseIndex;
-            const isCompleted = index < currentPhaseIndex;
-
-            return (
-              <div
-                key={phase.id}
-                className={`rounded-xl border px-4 py-3 ${
-                  isCurrent
-                    ? "border-sky-200 bg-sky-50"
-                    : isCompleted
-                      ? "border-emerald-200 bg-emerald-50/40"
-                      : "border-slate-200 bg-white"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`h-2.5 w-2.5 rounded-full ${
-                        isCurrent
-                          ? "bg-sky-600"
-                          : isCompleted
-                            ? "bg-emerald-500"
-                            : "bg-slate-300"
-                      }`}
-                    />
-                    <span
-                      className={`text-xs font-semibold ${
-                        isCurrent
-                          ? "text-sky-800"
-                          : isCompleted
-                            ? "text-slate-700"
-                            : "text-slate-500"
-                      }`}
-                    >
-                      {phase.label}
-                    </span>
-                  </div>
-
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      isCurrent
-                        ? "bg-sky-100 text-sky-700"
-                        : isCompleted
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {isCurrent ? "Current" : isCompleted ? "Done" : "Next"}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Steps timeline (current phase only) */}
-        <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50/40 p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {currentPhase.label} steps
-            </p>
-            {nextStep ? (
-              <p className="text-[11px] text-slate-500">
-                Next:{" "}
-                <span className="font-medium text-slate-700">
-                  {nextStep.label}
-                </span>
-              </p>
-            ) : (
-              <p className="text-[11px] text-slate-500">No next step</p>
-            )}
-          </div>
-
-          <div className="mt-4 flex items-center gap-3">
-            {activeFlowSteps
-              .filter((s) => s.phase === currentPhase.id)
-              .map((step, index, arr) => {
-                const stepIndex = activeFlowSteps.findIndex(
-                  (s) => s.id === step.id,
-                );
-                const isCurrent = step.id === currentStep.id;
-                const isCompleted =
-                  currentGlobalIndex >= 0 &&
-                  stepIndex >= 0 &&
-                  stepIndex < currentGlobalIndex;
-
-                return (
-                  <React.Fragment key={step.id}>
-                    <div className="min-w-0 flex flex-col items-center">
-                      <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold shadow-sm ${
-                          isCurrent
-                            ? "bg-sky-600 text-white"
-                            : isCompleted
-                              ? "bg-emerald-500 text-white"
-                              : "bg-white text-slate-600 border border-slate-200"
-                        }`}
-                      >
-                        {index + 1}
-                      </div>
-
-                      <span
-                        className={`mt-2 max-w-[140px] truncate text-center text-[11px] font-medium ${
-                          isCurrent
-                            ? "text-sky-800"
-                            : isCompleted
-                              ? "text-slate-700"
-                              : "text-slate-500"
-                        }`}
-                        title={step.label}
-                      >
-                        {step.label}
-                      </span>
-                    </div>
-
-                    {index < arr.length - 1 && (
-                      <div className="flex-1 px-1">
-                        <div
-                          className={`h-1 rounded-full ${
-                            isCompleted
-                              ? "bg-emerald-400"
-                              : isCurrent
-                                ? "bg-sky-300"
-                                : "bg-slate-200"
-                          }`}
-                        />
-                      </div>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-          </div>
-        </div>
-      </div>
+      <WorkflowProgressCard
+        phases={phases}
+        routeStepsCount={routeSteps.length}
+        isTasksReady={isTasksReady}
+        currentStep={currentStep}
+        nextStep={nextStep}
+        currentPhaseIndex={currentPhaseIndex}
+        currentGlobalIndex={currentGlobalIndex}
+        currentPhaseId={currentPhase.id}
+        activeFlowSteps={activeFlowSteps}
+      />
 
       {/* 3. Title + code + status + notes and 4. Preview */}
       <div className="mt-4 grid gap-6 lg:grid-cols-[320px,1fr]">
         {/* left: meta + notes */}
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
-            {localVersion.status === "Draft" ? (
-              <>
-                <div className="flex items-center gap-3 mb-2">
-                  <input
-                    type="text"
-                    value={localTitle}
-                    onChange={(e) => setLocalTitle(e.target.value)}
-                    className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-lg font-semibold text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                    placeholder="Enter document title"
-                  />
-                  {isSavingTitle && (
-                    <span className="ml-1 text-slate-400">
-                      <InlineSpinner />
-                    </span>
-                  )}
-                </div>
+          <WorkflowInboxCard
+            isTasksReady={isTasksReady}
+            isBurstPolling={isBurstPolling}
+            stopBurstPolling={stopBurstPolling}
+            currentStep={currentStep}
+            nextStep={nextStep}
+            assignedOfficeId={assignedOfficeId}
+            myOfficeId={myOfficeId}
+            currentTask={currentTask}
+            canAct={canAct}
+            activeSideTab={activeSideTab}
+            setActiveSideTab={setActiveSideTab}
+            isLoadingActivityLogs={isLoadingActivityLogs}
+            activityLogs={activityLogs}
+            isLoadingMessages={isLoadingMessages}
+            messages={messages}
+            draftMessage={draftMessage}
+            setDraftMessage={setDraftMessage}
+            isSendingMessage={isSendingMessage}
+            onSendMessage={async () => {
+              const text = draftMessage.trim();
+              if (!text) return;
 
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  {fullCode}
-                </p>
-
-                <div className="mt-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                      Description (locked after Draft)
-                    </p>
-                    {isSavingDesc && (
-                      <span className="text-slate-400">
-                        <InlineSpinner />
-                      </span>
-                    )}
-                  </div>
-
-                  <textarea
-                    className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-800 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                    rows={3}
-                    value={localDesc}
-                    onChange={(e) => setLocalDesc(e.target.value)}
-                    placeholder="Enter description…"
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <h1 className="text-lg font-semibold tracking-tight text-slate-900">
-                  {document.title}
-                </h1>
-                <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">
-                  {fullCode}
-                </p>
-
-                <div className="mt-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Description
-                  </p>
-                  <p className="mt-1 text-sm text-slate-800 whitespace-pre-wrap">
-                    {localVersion.description?.trim()
-                      ? localVersion.description
-                      : "—"}
-                  </p>
-                </div>
-              </>
-            )}
-
-            {/* Metadata row */}
-            <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-500">
-              <div>
-                <span className="font-medium text-slate-600">Version:</span> v
-                {localVersion.version_number}
-              </div>
-
-              <div>
-                <span className="font-medium text-slate-600">Tags:</span>{" "}
-                <span className="text-slate-700">
-                  {Array.isArray((document as any)?.tags) &&
-                  (document as any).tags.length > 0
-                    ? (document as any).tags
-                        .map((t: any) => (typeof t === "string" ? t : t?.name))
-                        .filter(Boolean)
-                        .join(", ")
-                    : "—"}
-                </span>
-              </div>
-
-              <div>
-                <span className="font-medium text-slate-600">
-                  Effective date:
-                </span>{" "}
-                {canEditEffectiveDate ? (
-                  <span className="inline-flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={localEffectiveDate}
-                      onChange={(e) => setLocalEffectiveDate(e.target.value)}
-                      className="rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-800"
-                    />
-                    {isSavingEffectiveDate && (
-                      <span className="text-slate-400">
-                        <InlineSpinner />
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  <span>
-                    {(localVersion as any)?.effective_date
-                      ? formatWhen((localVersion as any).effective_date)
-                      : "—"}
-                  </span>
-                )}
-              </div>
-
-              <div>
-                <span className="font-medium text-slate-600">Updated:</span>{" "}
-                {formatWhen(localVersion.updated_at)}
-              </div>
-
-              <div>
-                <span className="font-medium text-slate-600">Created:</span>{" "}
-                {formatWhen(localVersion.created_at)}
-              </div>
-
-              <div>
-                <span className="font-medium text-slate-600">Distributed:</span>{" "}
-                {localVersion.distributed_at
-                  ? formatWhen(localVersion.distributed_at)
-                  : "-"}
-              </div>
-            </div>
-
-            <p className="mt-2 text-sm text-slate-600">
-              Status:{" "}
-              <span className="font-semibold text-slate-900">
-                {localVersion.status}
-              </span>
-            </p>
-            <p className="mt-1 text-xs text-slate-600">
-              Type:{" "}
-              <span className="font-semibold text-slate-900">
-                {document.doctype}
-              </span>
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Workflow inbox
-                </p>
-                <p className="mt-1 text-sm font-medium text-slate-900">
-                  {isTasksReady ? currentStep.label : "Loading step…"}
-                </p>
-
-                <p className="mt-1 text-[11px] text-slate-500">
-                  {nextStep ? `Next: ${nextStep.label}` : "No next step"}
-                </p>
-              </div>
-
-              <div className="flex flex-col items-end gap-2">
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                    !isTasksReady
-                      ? "bg-slate-100 text-slate-500"
-                      : canAct
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-slate-100 text-slate-600"
-                  }`}
-                >
-                  {!isTasksReady
-                    ? "Checking…"
-                    : canAct
-                      ? "Action enabled"
-                      : "View only"}
-                </span>
-
-                {isBurstPolling && (
-                  <button
-                    type="button"
-                    onClick={stopBurstPolling}
-                    className="text-[11px] font-medium text-slate-500 hover:text-slate-800"
-                  >
-                    Stop live updates
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2">
-              {!isTasksReady ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-              ) : (
-                <>
-                  <p className="text-[11px] text-slate-600">
-                    Assigned:{" "}
-                    <span className="font-medium text-slate-800">
-                      {assignedOfficeId ?? "-"}
-                    </span>
-                    {"  "}•{"  "}
-                    You:{" "}
-                    <span className="font-medium text-slate-800">
-                      {myOfficeId ?? "-"}
-                    </span>
-                  </p>
-
-                  {!currentTask && (
-                    <p className="mt-1 text-[11px] text-rose-600">
-                      No open workflow task found for this version.
-                    </p>
-                  )}
-
-                  {currentTask && !canAct && (
-                    <p className="mt-1 text-[11px] text-slate-600">
-                      You can view this document, but only the assigned office
-                      can perform workflow actions.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div className="mt-4">
-              <div className="flex border-b border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setActiveSideTab("comments")}
-                  className={`-mb-px px-3 py-2 text-xs font-medium border border-slate-200 border-b-0 rounded-t-md ${
-                    activeSideTab === "comments"
-                      ? "border-slate-200 bg-white text-slate-900"
-                      : "border-transparent bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                  }`}
-                >
-                  Comments
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveSideTab("logs")}
-                  className={`-mb-px px-3 py-2 text-xs font-medium border border-slate-200 border-b-0 rounded-t-md ${
-                    activeSideTab === "logs"
-                      ? "border-slate-200 bg-white text-slate-900"
-                      : "border-transparent bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                  }`}
-                >
-                  Activity
-                </button>
-              </div>
-
-              {activeSideTab === "logs" ? (
-                <div className="mt-3 space-y-2">
-                  {isLoadingActivityLogs ? (
-                    <div className="h-44 space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                    </div>
-                  ) : activityLogs.length === 0 ? (
-                    <p className="text-xs text-slate-500">No activity yet.</p>
-                  ) : (
-                    <div className="h-44 overflow-y-auto space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
-                      {activityLogs.map((l) => (
-                        <div
-                          key={l.id}
-                          className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 shadow-sm"
-                        >
-                          <p className="text-xs text-slate-700">
-                            <span className="font-semibold">{l.event}</span>
-                            {l.label ? ` — ${l.label}` : ""}
-                          </p>
-                          <p className="text-[11px] text-slate-500">
-                            {l.created_at
-                              ? `When: ${formatWhen(l.created_at)}`
-                              : ""}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-3 space-y-2">
-                  {isLoadingMessages ? (
-                    <div className="h-44 space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
-                      <Skeleton className="h-14 w-full" />
-                      <Skeleton className="h-14 w-full" />
-                      <Skeleton className="h-14 w-full" />
-                    </div>
-                  ) : messages.length === 0 ? (
-                    <p className="text-xs text-slate-500">No comments yet.</p>
-                  ) : (
-                    <div className="h-44 overflow-y-auto space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2">
-                      {messages.map((m) => (
-                        <div
-                          key={m.id}
-                          className="rounded-xl bg-white/80 border border-slate-200 px-3 py-2 shadow-sm"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-[11px] text-slate-500 truncate">
-                              {m.sender?.full_name ?? "Unknown"} —{" "}
-                              {m.sender?.role?.name ?? "-"} —{" "}
-                              {formatWhen(m.created_at)}
-                            </p>
-                            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-                              {m.type}
-                            </span>
-                          </div>
-
-                          <p className="text-sm text-slate-800 whitespace-pre-wrap">
-                            {m.message}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    <textarea
-                      className="flex-1 rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-800 shadow-sm"
-                      rows={2}
-                      value={draftMessage}
-                      onChange={(e) => setDraftMessage(e.target.value)}
-                      placeholder="Write a comment…"
-                    />
-                    <button
-                      type="button"
-                      disabled={
-                        isSendingMessage || draftMessage.trim().length === 0
-                      }
-                      className={`rounded-md px-3 py-2 text-xs font-medium border ${
-                        isSendingMessage || draftMessage.trim().length === 0
-                          ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
-                          : "border-sky-600 bg-sky-600 text-white hover:bg-sky-700"
-                      }`}
-                      onClick={async () => {
-                        const text = draftMessage.trim();
-                        if (!text) return;
-
-                        setIsSendingMessage(true);
-                        try {
-                          await postDocumentMessage(localVersion.id, {
-                            message: text,
-                            type: "comment",
-                          });
-                          setDraftMessage("");
-                          setMessages(
-                            await listDocumentMessages(localVersion.id),
-                          );
-                        } catch (e) {
-                          alert((e as Error).message);
-                        } finally {
-                          setIsSendingMessage(false);
-                        }
-                      }}
-                    >
-                      {isSendingMessage ? "Sending…" : "Send"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+              setIsSendingMessage(true);
+              try {
+                await postDocumentMessage(localVersion.id, {
+                  message: text,
+                  type: "comment",
+                });
+                setDraftMessage("");
+                setMessages(await listDocumentMessages(localVersion.id));
+              } catch (e) {
+                alert((e as Error).message);
+              } finally {
+                setIsSendingMessage(false);
+              }
+            }}
+            formatWhen={formatWhen}
+          />
         </div>
 
         {/* right: document preview */}
-        <div className="space-y-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 flex items-center justify-between">
-            Document preview
-          </h2>
-
-          <button
-            type="button"
-            disabled={!localVersion.preview_path}
-            onClick={async () => {
-              try {
-                const res = await getDocumentPreviewLink(localVersion.id);
-                window.open(res.url, "_blank");
-              } catch (e: any) {
-                alert(e.message || "Failed to open preview");
-              }
-            }}
-            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ml-2 ${
-              !localVersion.preview_path
-                ? "bg-slate-50 text-slate-400 cursor-not-allowed"
-                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-            }`}
-          >
-            Open preview
-          </button>
-
-          <div
-            className={`relative h-[600px] w-full overflow-hidden rounded-xl border-2 transition-all ${
-              localVersion.file_path
-                ? "border-slate-200 bg-white cursor-pointer hover:border-sky-300 hover:shadow-md"
-                : "border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-sky-400 hover:bg-sky-50"
-            }`}
-            onClick={() => {
-              if (isUploading) return;
-              if (localVersion.status !== "Draft") return;
-              fileInputRef.current?.click();
-            }}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-          >
-            {localVersion.file_path &&
-              localVersion.preview_path &&
-              !signedPreviewUrl && (
-                <div className="absolute inset-0 p-4">
-                  <Skeleton className="h-full w-full rounded-lg" />
-                </div>
-              )}
-
-            {localVersion.file_path && localVersion.preview_path ? (
-              <iframe
-                key={`${localVersion.id}-${previewNonce}`}
-                src={signedPreviewUrl || "about:blank"}
-                title="Document preview"
-                className="h-full w-full"
-                onLoad={() => setIsPreviewLoading(false)}
-                onError={() => setIsPreviewLoading(false)}
-              />
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center p-8 text-center text-sm">
-                <div className="mb-3 h-12 w-12 rounded-full bg-slate-200 flex items-center justify-center">
-                  <svg
-                    className="h-6 w-6 text-slate-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                </div>
-                <p className="mb-1 font-medium text-slate-900">
-                  {localVersion.file_path
-                    ? "Click to replace document"
-                    : "Upload new document"}
-                </p>
-                <p className="text-slate-500 mb-4">
-                  {localVersion.file_path
-                    ? "Drag & drop or click to replace the current file"
-                    : "Drag & drop PDF, Word, Excel, PowerPoint, or click to browse (max 10MB)"}
-                </p>
-                {localVersion.file_path && (
-                  <p className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                    {localVersion.original_filename}
-                  </p>
-                )}
-              </div>
-            )}
-            {isUploading && (
-              <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center">
-                <div className="w-full max-w-sm rounded-xl bg-white p-4 shadow-md">
-                  <p className="mb-3 text-sm font-medium text-slate-700">
-                    {uploadProgress >= 100 ? "Processing..." : "Uploading..."}
-                  </p>
-                  <UploadProgress value={uploadProgress} />
-                </div>
-              </div>
-            )}
-
-            {isPreviewLoading && (
-              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
-                <InlineSpinner className="h-8 w-8 border-2" />
-              </div>
-            )}
-
-            {/* ✅ ALWAYS VISIBLE - end of preview div */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-              className="sr-only"
-              onChange={handleFileSelect}
-            />
-          </div>
-        </div>
+        <DocumentPreviewPanel
+          versionId={localVersion.id}
+          previewPath={localVersion.preview_path ?? null}
+          filePath={localVersion.file_path ?? null}
+          originalFilename={localVersion.original_filename ?? null}
+          status={localVersion.status}
+          signedPreviewUrl={signedPreviewUrl}
+          previewNonce={previewNonce}
+          isUploading={isUploading}
+          uploadProgress={uploadProgress}
+          isPreviewLoading={isPreviewLoading}
+          setIsPreviewLoading={setIsPreviewLoading}
+          fileInputRef={fileInputRef}
+          onOpenPreview={async () => {
+            const res = await getDocumentPreviewLink(localVersion.id);
+            window.open(res.url, "_blank");
+          }}
+          onClickReplace={() => {
+            fileInputRef.current?.click();
+          }}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onFileSelect={handleFileSelect}
+        />
       </div>
     </section>
   );

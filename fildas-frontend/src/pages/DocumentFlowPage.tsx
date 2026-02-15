@@ -350,16 +350,22 @@ const DocumentFlowPage: React.FC = () => {
     <>
       <SplitFrame
         title={
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="truncate">
-              {headerState?.title ?? document.title}
-            </span>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
-              v{headerState?.versionNumber ?? current?.version_number ?? "-"}
-            </span>
-            <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
-              {headerState?.status ?? current?.status ?? "-"}
-            </span>
+          <div className="min-w-0">
+            <div className="flex items-start gap-2 min-w-0">
+              <span className="min-w-0 whitespace-normal wrap-break-word leading-snug">
+                {headerState?.title ?? document.title}
+              </span>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                  v
+                  {headerState?.versionNumber ?? current?.version_number ?? "-"}
+                </span>
+                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+                  {headerState?.status ?? current?.status ?? "-"}
+                </span>
+              </div>
+            </div>
           </div>
         }
         subtitle={
@@ -464,7 +470,7 @@ const DocumentFlowPage: React.FC = () => {
         }
         rightTitle="Versions"
         rightSubtitle={`${allVersions.length} total`}
-        rightWidthClassName="w-[340px]"
+        rightWidthClassName="w-[360px] max-w-[45vw]"
         left={
           <div className="relative">
             {selectedVersion ? (
@@ -568,7 +574,10 @@ const DocumentFlowPage: React.FC = () => {
                       )}
                     </div>
 
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                    <span
+                      className="max-w-35 truncate rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600"
+                      title={v.status}
+                    >
                       {v.status}
                     </span>
                   </div>
