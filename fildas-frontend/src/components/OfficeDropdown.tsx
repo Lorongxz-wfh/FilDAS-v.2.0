@@ -6,12 +6,16 @@ interface OfficeDropdownProps {
   value: number | null;
   onChange: (officeId: number) => void;
   error?: string;
+
+  // Optional: prevent picking offices that are already selected elsewhere
+  excludeOfficeIds?: number[];
 }
 
 const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
   value,
   onChange,
   error,
+  excludeOfficeIds = [],
 }) => {
   const [offices, setOffices] = useState<Office[]>([]);
   const [search, setSearch] = useState("");
@@ -32,11 +36,17 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
     load();
   }, []);
 
-  const filtered = offices.filter(
-    (office) =>
-      office.name.toLowerCase().includes(search.toLowerCase()) ||
-      office.code.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filtered = offices.filter((office) => {
+    // Hide offices excluded by parent (but keep the currently selected visible)
+    if (excludeOfficeIds.includes(office.id) && office.id !== value)
+      return false;
+
+    const q = search.toLowerCase();
+    return (
+      office.name.toLowerCase().includes(q) ||
+      office.code.toLowerCase().includes(q)
+    );
+  });
 
   const selected = offices.find((o) => o.id === value);
 

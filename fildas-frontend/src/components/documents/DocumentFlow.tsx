@@ -636,24 +636,26 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   // For custom routing, prefer task.step + assigned office to decide current step.
   const currentStep = (() => {
     if (isCustomRouting && currentTask?.step) {
-      // 1) Try exact match by step id (works for back-to-originator, registration, distributed, etc.)
-      const exact = activeFlowSteps.find((s) => s.id === currentTask.step);
-      if (exact) return exact;
-
-      // 2) For office-loop steps (custom_review_office/custom_approval_office),
-      // pick the step whose label contains the assigned office label.
       const assignedId = currentTask?.assigned_office_id ?? null;
-      if (assignedId) {
-        const assignedLabel = officeLabelById(offices, assignedId);
-        const candidates = activeFlowSteps.filter(
-          (s) => s.id === currentTask.step,
-        );
-        const hit = candidates.find((s) =>
-          String(s.label).includes(assignedLabel),
+
+      // Custom loop steps: our UI ids are now "custom_review_office:{officeId}" etc.
+      if (currentTask.step === "custom_review_office" && assignedId) {
+        const hit = activeFlowSteps.find(
+          (s) => s.id === `custom_review_office:${Number(assignedId)}`,
         );
         if (hit) return hit;
-        if (candidates[0]) return candidates[0];
       }
+
+      if (currentTask.step === "custom_approval_office" && assignedId) {
+        const hit = activeFlowSteps.find(
+          (s) => s.id === `custom_approval_office:${Number(assignedId)}`,
+        );
+        if (hit) return hit;
+      }
+
+      // Non-loop steps should match exactly (draft, back-to-originator, registration, distribution, distributed)
+      const exact = activeFlowSteps.find((s) => s.id === currentTask.step);
+      if (exact) return exact;
     }
 
     return findCurrentStep(localVersion.status, activeFlowSteps);
@@ -705,19 +707,33 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   // Can I act? Only if my office is the one assigned on the open task.
   const canAct = !!assignedOfficeId && myOfficeId === assignedOfficeId;
 
-  // Build actions for the current status.
+  // Build actions for the current status / task.
   const availableActions = (() => {
     const s = localVersion.status;
 
-    // Custom flow office loop: backend emits "For {CODE} Review/Approval"
     if (isCustomRouting) {
-      if (s.startsWith("For ") && s.endsWith(" Review")) {
+      const step = String(currentTask?.step ?? "");
+
+      // In custom routing, backend advances based on currentTask.step.
+      if (step === "draft") {
+        return [{ toStatus: "For Office Review", label: "Send for review" }];
+      }
+
+      if (step === "custom_review_office") {
         return [
           { toStatus: "For Office Review", label: "Forward to next reviewer" },
           { toStatus: "QA_EDIT", label: "Return to edit" },
         ];
       }
-      if (s.startsWith("For ") && s.endsWith(" Approval")) {
+
+      if (step === "custom_review_back_to_originator") {
+        return [
+          { toStatus: "For Office Approval", label: "Start approval phase" },
+          { toStatus: "QA_EDIT", label: "Return to edit" },
+        ];
+      }
+
+      if (step === "custom_approval_office") {
         return [
           {
             toStatus: "For Office Approval",
@@ -726,6 +742,30 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
           { toStatus: "QA_EDIT", label: "Return to edit" },
         ];
       }
+
+      if (step === "custom_approval_back_to_originator") {
+        return [
+          { toStatus: "For Registration", label: "Proceed to registration" },
+          { toStatus: "QA_EDIT", label: "Return to edit" },
+        ];
+      }
+
+      if (step === "custom_registration") {
+        return [
+          { toStatus: "For Distribution", label: "Proceed to distribution" },
+          { toStatus: "QA_EDIT", label: "Return to edit" },
+        ];
+      }
+
+      if (step === "custom_distribution") {
+        return [
+          { toStatus: "Distributed", label: "Mark as distributed" },
+          { toStatus: "QA_EDIT", label: "Return to edit" },
+        ];
+      }
+
+      // distributed or unknown step: no actions
+      return [];
     }
 
     return activeTransitions[s] ?? [];
@@ -744,7 +784,47 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
       disabled: isChangingStatus || !canAct,
       onClick: async () => {
-        const code = toWorkflowAction(action.toStatus);
+        // In custom routing, backend advances by currentTask.step (action string just needs to be valid).
+        const resolveActionCode = (): ReturnType<typeof toWorkflowAction> => {
+          if (!isCustomRouting) return toWorkflowAction(action.toStatus);
+
+          // Return is always the same
+          if (action.toStatus === "QA_EDIT") return "RETURN_TO_QA_EDIT";
+
+          const step = String(currentTask?.step ?? "");
+
+          // Forward actions (pick any valid action that exists in WorkflowController map)
+          switch (step) {
+            case "draft":
+              return "SEND_TO_OFFICE_REVIEW";
+
+            case "custom_review_office":
+              return "FORWARD_TO_VP_REVIEW";
+
+            case "custom_review_back_to_originator":
+              return "START_OFFICE_APPROVAL";
+
+            case "custom_approval_office":
+              return "FORWARD_TO_VP_APPROVAL";
+
+            case "custom_approval_back_to_originator":
+              return "FORWARD_TO_QA_REGISTRATION";
+
+            case "custom_registration":
+              return "FORWARD_TO_QA_DISTRIBUTION";
+
+            case "custom_distribution":
+              return "MARK_DISTRIBUTED";
+
+            default:
+              // Safe fallback: try mapping by status string, else use a generic forward
+              return (
+                toWorkflowAction(action.toStatus) ?? "FORWARD_TO_VP_REVIEW"
+              );
+          }
+        };
+
+        const code = resolveActionCode();
         if (!code) {
           push({
             type: "error",
@@ -782,7 +862,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
           // When QA sends to Office Review: use office selected during Create page.
           // Prefer review_office_id if backend already set it; otherwise fallback to owner office.
-          if (code === "SEND_TO_OFFICE_REVIEW") {
+          if (code === "SEND_TO_OFFICE_REVIEW" && !isCustomRouting) {
             const targetOfficeId = reviewOfficeId ?? ownerOfficeId ?? null;
 
             if (!targetOfficeId) {

@@ -438,6 +438,9 @@ const CreateDocumentPage: React.FC = () => {
                           <OfficeDropdown
                             value={val > 0 ? val : null}
                             onChange={(id) => updateCustomRecipient(idx, id)}
+                            excludeOfficeIds={customSelectedIds.filter(
+                              (id) => id !== val,
+                            )}
                           />
                         </div>
 

@@ -207,7 +207,7 @@ export function buildCustomFlowSteps(opts: {
 
   out.push(
     ...ordered.map((s) => ({
-      id: "custom_review_office",
+      id: `custom_review_office:${Number(s.office_id)}`,
       label: `${officeLabelById(offices, s.office_id)} Review`,
       statusValue: "For Office Review",
       phase: "review" as const,
@@ -217,13 +217,13 @@ export function buildCustomFlowSteps(opts: {
   out.push({
     id: "custom_review_back_to_originator",
     label: `Originator check (${ownerLabel})`,
-    statusValue: "For QA Final Check",
+    statusValue: "For Creator Check",
     phase: "review",
   });
 
   out.push(
     ...ordered.map((s) => ({
-      id: "custom_approval_office",
+      id: `custom_approval_office:${Number(s.office_id)}`,
       label: `${officeLabelById(offices, s.office_id)} Approval`,
       statusValue: "For Office Approval",
       phase: "approval" as const,
@@ -233,7 +233,7 @@ export function buildCustomFlowSteps(opts: {
   out.push({
     id: "custom_approval_back_to_originator",
     label: `Originator proceed (${ownerLabel})`,
-    statusValue: "For QA Registration",
+    statusValue: "For Creator Final",
     phase: "approval",
   });
 
