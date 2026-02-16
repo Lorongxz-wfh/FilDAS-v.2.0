@@ -1,6 +1,6 @@
 import React from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { getAuthUser } from "../lib/auth";
+import { useAuthUser } from "../hooks/useAuthUser";
 import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
 import Alert from "../components/ui/Alert";
@@ -30,7 +30,7 @@ import {
 const ReportsPage: React.FC = () => {
   const navigate = useNavigate();
 
-  const me = getAuthUser();
+  const me = useAuthUser();
   const [dateFrom, setDateFrom] = React.useState<string>("");
   const [dateTo, setDateTo] = React.useState<string>("");
   const [bucket, setBucket] = React.useState<
