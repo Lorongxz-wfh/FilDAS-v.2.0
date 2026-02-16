@@ -1,10 +1,8 @@
 import React from "react";
-import UploadProgress from "../ui/loader/UploadProgress";
-import InlineSpinner from "../ui/loader/InlineSpinner";
-import Skeleton from "../ui/loader/Skeleton";
 import WorkflowProgressCard from "./documentFlow/WorkflowProgressCard";
 import WorkflowInboxCard from "./documentFlow/WorkflowInboxCard";
 import DocumentPreviewPanel from "./documentFlow/DocumentPreviewPanel";
+import type { WorkflowActionCode } from "../../services/documents";
 
 import type {
   Document,
@@ -37,8 +35,6 @@ import {
   type ActivityLogItem,
 } from "../../services/documents";
 
-import { getAuthUser } from "../../lib/auth"; // adjust path if needed
-
 import {
   phases,
   flowStepsOffice,
@@ -53,7 +49,6 @@ import {
   findCurrentStep,
   formatWhen,
   officeIdByCode,
-  officeLabelById,
   phaseOrder,
   toWorkflowAction,
 } from "./documentFlow/flowUtils";
@@ -98,7 +93,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const [initialDesc, setInitialDesc] = React.useState(
     version.description ?? "",
   );
-  const [isSavingDesc, setIsSavingDesc] = React.useState(false);
 
   // Effective date (stored as YYYY-MM-DD)
   const [localEffectiveDate, setLocalEffectiveDate] = React.useState<string>(
@@ -108,18 +102,14 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     React.useState<string>(
       String((version as any)?.effective_date ?? "").slice(0, 10),
     );
-  const [isSavingEffectiveDate, setIsSavingEffectiveDate] =
-    React.useState(false);
 
   const [offices, setOffices] = React.useState<Office[]>([]);
 
   const [routeSteps, setRouteSteps] = React.useState<DocumentRouteStep[]>([]);
-  const [isLoadingRouteSteps, setIsLoadingRouteSteps] = React.useState(false);
 
   React.useEffect(() => {
     let alive = true;
     async function run() {
-      setIsLoadingRouteSteps(true);
       try {
         const res = await getDocumentRouteSteps(localVersion.id);
         if (!alive) return;
@@ -129,7 +119,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         if (!alive) return;
         setRouteSteps([]);
       } finally {
-        if (alive) setIsLoadingRouteSteps(false);
       }
     }
     run();
@@ -172,13 +161,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
   const canEditEffectiveDate = isQAOfficeUser && isQAStep;
 
-  function isQAUser(): boolean {
-    const u: any = getAuthUser?.();
-    const roleName = String(u?.role?.name ?? "").toLowerCase();
-    const officeCode = String(u?.office?.code ?? "").toUpperCase();
-    return roleName === "qa" || officeCode === "QA";
-  }
-
   const onHeaderStateChangeRef = React.useRef(onHeaderStateChange);
 
   React.useEffect(() => {
@@ -186,7 +168,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   }, [onHeaderStateChange]);
 
   const [isUploading, setIsUploading] = React.useState(false);
-  const [isSavingTitle, setIsSavingTitle] = React.useState(false);
   const [tasks, setTasks] = React.useState<WorkflowTask[]>([]);
   const [isTasksReady, setIsTasksReady] = React.useState(false);
   const [messages, setMessages] = React.useState<DocumentMessage[]>([]);
@@ -197,7 +178,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
   const [draftMessage, setDraftMessage] = React.useState("");
   const [isSendingMessage, setIsSendingMessage] = React.useState(false);
-  const [isLoadingTasks, setIsLoadingTasks] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState(0);
   const [isChangingStatus, setIsChangingStatus] = React.useState(false);
 
@@ -278,12 +258,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     setPreviewNonce((n) => n + 1);
   };
 
-  const refreshAll = React.useCallback(async () => {
-    // Burst polling should only keep the workflow task fresh.
-    const nextTasks = await listWorkflowTasks(localVersion.id);
-    setTasks(nextTasks);
-  }, [localVersion.id]);
-
   const stopBurstPolling = React.useCallback(() => {
     setIsBurstPolling(false);
 
@@ -293,20 +267,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     if (burstTimeoutRef.current) window.clearTimeout(burstTimeoutRef.current);
     burstTimeoutRef.current = null;
   }, []);
-
-  const startBurstPolling = React.useCallback(() => {
-    stopBurstPolling();
-    setIsBurstPolling(true);
-
-    burstPollRef.current = window.setInterval(() => {
-      refreshAll().catch(() => {});
-    }, 4000); // was 1000
-
-    // auto-stop after 8 seconds
-    burstTimeoutRef.current = window.setTimeout(() => {
-      stopBurstPolling();
-    }, 8000); // was 25000
-  }, [refreshAll, stopBurstPolling]);
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -387,7 +347,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     setIsTasksReady(false);
 
     (async () => {
-      setIsLoadingTasks(true);
       try {
         const t = await listWorkflowTasks(localVersion.id);
         if (alive) setTasks(t);
@@ -395,10 +354,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         console.error("Failed to load tasks", e);
         if (alive) setTasks([]);
       } finally {
-        if (alive) {
-          setIsLoadingTasks(false);
-          setIsTasksReady(true);
-        }
+        if (alive) setIsTasksReady(true);
       }
     })();
 
@@ -483,7 +439,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     if (descSaveTimerRef.current) window.clearTimeout(descSaveTimerRef.current);
 
     descSaveTimerRef.current = window.setTimeout(async () => {
-      setIsSavingDesc(true);
       try {
         const updated = await updateDocumentVersionDescription(
           localVersion.id,
@@ -496,8 +451,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         if (onChanged) await onChanged();
       } catch (e) {
         console.error("Auto-save description failed", e);
-      } finally {
-        setIsSavingDesc(false);
       }
     }, 600);
 
@@ -517,15 +470,12 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       window.clearTimeout(titleSaveTimerRef.current);
 
     titleSaveTimerRef.current = window.setTimeout(async () => {
-      setIsSavingTitle(true);
       try {
         await saveTitleOnly({ title: localTitle });
         setInitialTitle(localTitle);
         if (onChanged) await onChanged();
       } catch (e) {
         console.error("Auto-save title failed", e);
-      } finally {
-        setIsSavingTitle(false);
       }
     }, 600);
 
@@ -545,8 +495,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
     effectiveDateSaveTimerRef.current = window.setTimeout(async () => {
       try {
-        setIsSavingEffectiveDate(true);
-
         const updated = await updateDocumentVersionEffectiveDate(
           localVersion.id,
           localEffectiveDate.trim() ? localEffectiveDate.trim() : null,
@@ -557,8 +505,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         if (onChanged) await onChanged();
       } catch (e) {
         console.error("Auto-save effective date failed", e);
-      } finally {
-        setIsSavingEffectiveDate(false);
       }
     }, 600);
 
@@ -699,72 +645,77 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     (localVersion as any)?.review_office_id ??
     null;
 
-  const ownerOfficeCode =
-    (document as any)?.owner_office?.code ??
-    (document as any)?.office?.code ??
-    null;
-
   // Can I act? Only if my office is the one assigned on the open task.
   const canAct = !!assignedOfficeId && myOfficeId === assignedOfficeId;
 
   // Build actions for the current status / task.
-  const availableActions = (() => {
+  type TransitionAction = { toStatus: string; label: string };
+  type CustomAction = {
+    toStatus: WorkflowActionCode;
+    label: string;
+  };
+
+  const availableActions: TransitionAction[] | CustomAction[] = (() => {
     const s = localVersion.status;
 
     if (isCustomRouting) {
       const step = String(currentTask?.step ?? "");
 
-      // In custom routing, backend advances based on currentTask.step.
       if (step === "draft") {
-        return [{ toStatus: "For Office Review", label: "Send for review" }];
+        return [{ toStatus: "SENDTOOFFICEREVIEW", label: "Send for review" }];
       }
 
       if (step === "custom_review_office") {
         return [
-          { toStatus: "For Office Review", label: "Forward to next reviewer" },
-          { toStatus: "QA_EDIT", label: "Return to edit" },
+          { toStatus: "FORWARDTOVPREVIEW", label: "Forward to next reviewer" },
+          { toStatus: "RETURNTOQAEDIT", label: "Return to edit" },
         ];
       }
 
       if (step === "custom_review_back_to_originator") {
         return [
-          { toStatus: "For Office Approval", label: "Start approval phase" },
-          { toStatus: "QA_EDIT", label: "Return to edit" },
+          { toStatus: "STARTOFFICEAPPROVAL", label: "Start approval phase" },
+          { toStatus: "RETURNTOQAEDIT", label: "Return to edit" },
         ];
       }
 
       if (step === "custom_approval_office") {
         return [
           {
-            toStatus: "For Office Approval",
+            toStatus: "FORWARDTOVPAPPROVAL",
             label: "Forward to next approver",
           },
-          { toStatus: "QA_EDIT", label: "Return to edit" },
+          { toStatus: "RETURNTOQAEDIT", label: "Return to edit" },
         ];
       }
 
       if (step === "custom_approval_back_to_originator") {
         return [
-          { toStatus: "For Registration", label: "Proceed to registration" },
-          { toStatus: "QA_EDIT", label: "Return to edit" },
+          {
+            toStatus: "FORWARDTOQAREGISTRATION",
+            label: "Proceed to registration",
+          },
+          { toStatus: "RETURNTOQAEDIT", label: "Return to edit" },
         ];
       }
 
       if (step === "custom_registration") {
         return [
-          { toStatus: "For Distribution", label: "Proceed to distribution" },
-          { toStatus: "QA_EDIT", label: "Return to edit" },
+          {
+            toStatus: "FORWARDTOQADISTRIBUTION",
+            label: "Proceed to distribution",
+          },
+          { toStatus: "RETURNTOQAEDIT", label: "Return to edit" },
         ];
       }
 
       if (step === "custom_distribution") {
         return [
-          { toStatus: "Distributed", label: "Mark as distributed" },
-          { toStatus: "QA_EDIT", label: "Return to edit" },
+          { toStatus: "MARKDISTRIBUTED", label: "Mark as distributed" },
+          { toStatus: "RETURNTOQAEDIT", label: "Return to edit" },
         ];
       }
 
-      // distributed or unknown step: no actions
       return [];
     }
 
@@ -775,7 +726,8 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
   const headerActions: HeaderActionButton[] = availableActions.map((action) => {
     const isDanger =
-      action.toStatus === "QA_EDIT" || action.toStatus === "OFFICE_EDIT";
+      action.toStatus === "RETURNTOQAEDIT" ||
+      action.toStatus === "RETURNTOOFFICEEDIT";
 
     return {
       key: action.toStatus,
@@ -785,46 +737,17 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       disabled: isChangingStatus || !canAct,
       onClick: async () => {
         // In custom routing, backend advances by currentTask.step (action string just needs to be valid).
-        const resolveActionCode = (): ReturnType<typeof toWorkflowAction> => {
-          if (!isCustomRouting) return toWorkflowAction(action.toStatus);
+        const resolveActionCode = (
+          a: TransitionAction | CustomAction,
+        ): WorkflowActionCode | null => {
+          if (!isCustomRouting) return toWorkflowAction(a.toStatus);
 
-          // Return is always the same
-          if (action.toStatus === "QA_EDIT") return "RETURN_TO_QA_EDIT";
-
-          const step = String(currentTask?.step ?? "");
-
-          // Forward actions (pick any valid action that exists in WorkflowController map)
-          switch (step) {
-            case "draft":
-              return "SEND_TO_OFFICE_REVIEW";
-
-            case "custom_review_office":
-              return "FORWARD_TO_VP_REVIEW";
-
-            case "custom_review_back_to_originator":
-              return "START_OFFICE_APPROVAL";
-
-            case "custom_approval_office":
-              return "FORWARD_TO_VP_APPROVAL";
-
-            case "custom_approval_back_to_originator":
-              return "FORWARD_TO_QA_REGISTRATION";
-
-            case "custom_registration":
-              return "FORWARD_TO_QA_DISTRIBUTION";
-
-            case "custom_distribution":
-              return "MARK_DISTRIBUTED";
-
-            default:
-              // Safe fallback: try mapping by status string, else use a generic forward
-              return (
-                toWorkflowAction(action.toStatus) ?? "FORWARD_TO_VP_REVIEW"
-              );
-          }
+          // custom routing: toStatus is already a backend action code
+          return (a as CustomAction).toStatus;
         };
 
-        const code = resolveActionCode();
+        const code = resolveActionCode(action);
+
         if (!code) {
           push({
             type: "error",
@@ -837,8 +760,8 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         let note: string | null = null;
 
         if (
-          action.toStatus === "QA_EDIT" ||
-          action.toStatus === "OFFICE_EDIT"
+          action.toStatus === "RETURNTOQAEDIT" ||
+          action.toStatus === "RETURNTOOFFICEEDIT"
         ) {
           note = window.prompt("Return note (required):", "");
           if (note === null) return;
@@ -862,7 +785,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
           // When QA sends to Office Review: use office selected during Create page.
           // Prefer review_office_id if backend already set it; otherwise fallback to owner office.
-          if (code === "SEND_TO_OFFICE_REVIEW" && !isCustomRouting) {
+          if (code === "SENDTOOFFICEREVIEW" && !isCustomRouting) {
             const targetOfficeId = reviewOfficeId ?? ownerOfficeId ?? null;
 
             if (!targetOfficeId) {
@@ -910,7 +833,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             setActivityLogs(page.data);
           }
 
-          if (action.toStatus === "QA_EDIT") {
+          if (
+            action.toStatus === "RETURNTOQAEDIT" ||
+            action.toStatus === "RETURNTOOFFICEEDIT"
+          ) {
             setActiveSideTab("comments");
           }
 

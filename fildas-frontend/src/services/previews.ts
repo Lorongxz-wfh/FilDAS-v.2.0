@@ -1,4 +1,10 @@
-import api from "./api";
+let apiPromise: Promise<typeof import("./api")> | null = null;
+
+async function getApi() {
+  if (!apiPromise) apiPromise = import("./api");
+  const mod = await apiPromise;
+  return mod.default;
+}
 
 export type TempPreview = {
   id: string;
@@ -12,11 +18,16 @@ export async function createTempPreview(file: File): Promise<TempPreview> {
 
   // IMPORTANT: do NOT manually set Content-Type for FormData;
   // axios will set multipart boundary correctly.
+  const api = await getApi();
   const res = await api.post("/previews", form);
 
   return res.data as TempPreview;
 }
 
-export async function deleteTempPreview(year: number, id: string): Promise<void> {
+export async function deleteTempPreview(
+  year: number,
+  id: string,
+): Promise<void> {
+  const api = await getApi();
   await api.delete(`/previews/${year}/${id}`);
 }

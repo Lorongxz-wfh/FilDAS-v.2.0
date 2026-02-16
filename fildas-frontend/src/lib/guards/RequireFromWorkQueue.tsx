@@ -1,4 +1,3 @@
-import React from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 const WORKQUEUE_SESSION_KEY = "from_workqueue_session";

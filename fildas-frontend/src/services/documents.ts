@@ -1,5 +1,15 @@
 import { getAuthUser, clearAuthAndRedirect } from "../lib/auth";
-import api from "./api";
+
+// NOTE: api is dynamically imported to keep it out of the login/initial bundle.
+let apiPromise: Promise<typeof import("./api")> | null = null;
+
+type ApiClient = (typeof import("./api"))["default"];
+
+async function getApi(): Promise<ApiClient> {
+  if (!apiPromise) apiPromise = import("./api");
+  const mod = await apiPromise;
+  return mod.default;
+}
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api";
@@ -264,7 +274,9 @@ export async function getDocumentRouteSteps(
   versionId: number,
 ): Promise<DocumentRouteStepsResponse> {
   try {
+    const api = await getApi();
     const res = await api.get(`/document-versions/${versionId}/route-steps`);
+
     return res.data as DocumentRouteStepsResponse;
   } catch (e: any) {
     const status = e?.response?.status;
@@ -362,9 +374,11 @@ export async function getComplianceReport(
   params?: ComplianceReportParams,
 ): Promise<ComplianceReportResponse> {
   try {
+    const api = await getApi();
     const res = await api.get("/reports/approval", {
       params: { ...(params ?? {}) },
     });
+
     return {
       clusters: (res.data?.clusters ?? []) as ComplianceClusterDatum[],
       offices: (res.data?.offices ?? []) as ComplianceOfficeDatum[],
@@ -395,6 +409,7 @@ export async function getComplianceReport(
 
 export async function getWorkQueue(): Promise<WorkQueueResponse> {
   try {
+    const api = await getApi();
     const res = await api.get("/work-queue");
     return res.data as WorkQueueResponse;
   } catch (e: any) {
@@ -430,6 +445,7 @@ export async function listDocumentMessages(
   versionId: number,
 ): Promise<DocumentMessage[]> {
   try {
+    const api = await getApi();
     const res = await api.get(`/document-versions/${versionId}/messages`);
     return res.data as DocumentMessage[];
   } catch (e: any) {
@@ -448,6 +464,7 @@ export async function postDocumentMessage(
   payload: { message: string; type?: DocumentMessage["type"] },
 ): Promise<DocumentMessage> {
   try {
+    const api = await getApi();
     const res = await api.post(
       `/document-versions/${versionId}/messages`,
       payload,
@@ -478,6 +495,7 @@ export async function listDocumentsPage(params?: {
   scope?: "all" | "owned" | "shared" | "assigned";
 }): Promise<Paginated<Document>> {
   try {
+    const api = await getApi();
     const res = await api.get("/documents", {
       params: {
         page: params?.page ?? 1,
@@ -512,6 +530,7 @@ export async function listDocuments(): Promise<Document[]> {
 
 export async function getDocument(id: number): Promise<Document> {
   try {
+    const api = await getApi();
     const res = await api.get(`/documents/${id}`);
     const doc = res.data?.data ?? res.data;
 
@@ -535,6 +554,7 @@ export async function getDocumentVersions(
   documentId: number,
 ): Promise<DocumentVersion[]> {
   try {
+    const api = await getApi();
     const res = await api.get(`/documents/${documentId}/versions`);
     const data = res.data;
     const versions = Array.isArray(data) ? data : data?.data;
@@ -566,6 +586,7 @@ export async function createRevision(
   documentId: number,
 ): Promise<DocumentVersion> {
   try {
+    const api = await getApi();
     const res = await api.post(`/documents/${documentId}/revision`);
     return res.data as DocumentVersion;
   } catch (e: any) {
@@ -578,6 +599,7 @@ export async function createRevision(
 
 export async function cancelRevision(versionId: number): Promise<void> {
   try {
+    const api = await getApi();
     await api.post(`/document-versions/${versionId}/cancel`);
   } catch (e: any) {
     const status = e?.response?.status;
@@ -589,6 +611,7 @@ export async function cancelRevision(versionId: number): Promise<void> {
 
 export async function deleteDraftVersion(versionId: number): Promise<void> {
   try {
+    const api = await getApi();
     await api.delete(`/document-versions/${versionId}`);
   } catch (e: any) {
     const status = e?.response?.status;
@@ -602,6 +625,7 @@ export async function getDocumentVersion(
   versionId: number,
 ): Promise<{ version: DocumentVersion; document: Document }> {
   try {
+    const api = await getApi();
     const res = await api.get(`/document-versions/${versionId}`);
     const json = res.data;
     if (!json?.version || !json?.document) {
@@ -682,6 +706,7 @@ export async function updateDocumentTitle(
   title: string,
 ): Promise<void> {
   try {
+    const api = await getApi();
     await api.patch(`/documents/${documentId}`, { title });
   } catch (e: any) {
     const status = e?.response?.status;
@@ -696,6 +721,7 @@ export async function updateDocumentVersionDescription(
   description: string,
 ): Promise<DocumentVersion> {
   try {
+    const api = await getApi();
     const res = await api.patch(`/document-versions/${versionId}`, {
       description,
     });
@@ -714,6 +740,7 @@ export async function updateDocumentVersionEffectiveDate(
   effective_date: string | null,
 ): Promise<DocumentVersion> {
   try {
+    const api = await getApi();
     const res = await api.patch(`/document-versions/${versionId}`, {
       effective_date,
     });
@@ -731,6 +758,7 @@ export async function downloadDocument(
   version: DocumentVersion,
 ): Promise<void> {
   try {
+    const api = await getApi();
     const res = await api.get(`/document-versions/${version.id}/download`, {
       responseType: "blob",
       headers: {
@@ -777,6 +805,7 @@ export async function listOffices(): Promise<Office[]> {
   if (officesCache) return officesCache;
 
   try {
+    const api = await getApi();
     const res = await api.get("/offices");
     officesCache = res.data as Office[];
     return officesCache;
@@ -795,20 +824,21 @@ export const getCurrentUserOfficeId = (): number => {
   return getAuthUser()?.office?.id ?? 0;
 };
 
+// Must match backend WorkflowController action strings exactly
 export type WorkflowActionCode =
-  | "SEND_TO_OFFICE_REVIEW"
-  | "FORWARD_TO_OFFICE_HEAD_REVIEW"
-  | "FORWARD_TO_VP_REVIEW"
-  | "VP_SEND_BACK_TO_QA_FINAL_CHECK"
-  | "VP_FORWARD_TO_QA_APPROVAL"
-  | "START_OFFICE_APPROVAL"
-  | "FORWARD_TO_VP_APPROVAL"
-  | "FORWARD_TO_PRESIDENT_APPROVAL"
-  | "FORWARD_TO_QA_REGISTRATION"
-  | "FORWARD_TO_QA_DISTRIBUTION"
-  | "MARK_DISTRIBUTED"
-  | "RETURN_TO_QA_EDIT"
-  | "RETURN_TO_OFFICE_EDIT";
+  | "SENDTOOFFICEREVIEW"
+  | "FORWARDTOOFFICEHEADREVIEW"
+  | "FORWARDTOVPREVIEW"
+  | "VPSENDBACKTOQAFINALCHECK"
+  | "VPFORWARDTOQAAPPROVAL"
+  | "STARTOFFICEAPPROVAL"
+  | "FORWARDTOVPAPPROVAL"
+  | "FORWARDTOPRESIDENTAPPROVAL"
+  | "FORWARDTOQAREGISTRATION"
+  | "FORWARDTOQADISTRIBUTION"
+  | "MARKDISTRIBUTED"
+  | "RETURNTOQAEDIT"
+  | "RETURNTOOFFICEEDIT";
 
 export type WorkflowActionResult = {
   version: DocumentVersion;
@@ -816,21 +846,7 @@ export type WorkflowActionResult = {
   target_office?: { id: number; name: string; code: string } | null;
 };
 
-const WORKFLOW_ACTION_MAP: Record<WorkflowActionCode, string> = {
-  SEND_TO_OFFICE_REVIEW: "SEND_TO_OFFICE_REVIEW",
-  FORWARD_TO_OFFICE_HEAD_REVIEW: "FORWARD_TO_OFFICE_HEAD_REVIEW",
-  FORWARD_TO_VP_REVIEW: "FORWARD_TO_VP_REVIEW",
-  VP_SEND_BACK_TO_QA_FINAL_CHECK: "VP_SEND_BACK_TO_QA_FINAL_CHECK",
-  VP_FORWARD_TO_QA_APPROVAL: "VP_FORWARD_TO_QA_APPROVAL",
-  START_OFFICE_APPROVAL: "START_OFFICE_APPROVAL",
-  FORWARD_TO_VP_APPROVAL: "FORWARD_TO_VP_APPROVAL",
-  FORWARD_TO_PRESIDENT_APPROVAL: "FORWARD_TO_PRESIDENT_APPROVAL",
-  FORWARD_TO_QA_REGISTRATION: "FORWARD_TO_QA_REGISTRATION",
-  FORWARD_TO_QA_DISTRIBUTION: "FORWARD_TO_QA_DISTRIBUTION",
-  MARK_DISTRIBUTED: "MARK_DISTRIBUTED",
-  RETURN_TO_QA_EDIT: "RETURN_TO_QA_EDIT",
-  RETURN_TO_OFFICE_EDIT: "RETURN_TO_OFFICE_EDIT",
-};
+// No mapping needed: we send backend codes directly.
 
 export async function submitWorkflowAction(
   versionId: number,
@@ -839,8 +855,9 @@ export async function submitWorkflowAction(
   extra?: { review_office_id?: number | null },
 ): Promise<WorkflowActionResult> {
   try {
+    const api = await getApi();
     const res = await api.post(`/document-versions/${versionId}/actions`, {
-      action: WORKFLOW_ACTION_MAP[action],
+      action,
       note,
       ...(extra ?? {}),
     });
@@ -861,6 +878,7 @@ export async function logOpenedVersion(
   source?: string,
 ): Promise<void> {
   try {
+    const api = await getApi();
     await api.post("/activity/opened-version", {
       document_version_id: versionId,
       source: source ?? "versions_panel",
@@ -899,6 +917,7 @@ export async function listActivityLogs(params: {
   date_to?: string; // YYYY-MM-DD
 }): Promise<Paginated<ActivityLogItem>> {
   try {
+    const api = await getApi();
     const res = await api.get("/activity", {
       params: {
         scope: params.scope ?? "office",
@@ -931,6 +950,7 @@ export async function listWorkflowTasks(
   versionId: number,
 ): Promise<WorkflowTask[]> {
   try {
+    const api = await getApi();
     const res = await api.get(`/document-versions/${versionId}/tasks`);
     return res.data as WorkflowTask[];
   } catch (e: any) {
@@ -948,6 +968,7 @@ export async function getDocumentPreviewLink(
   versionId: number,
 ): Promise<{ url: string; expires_in_minutes: number }> {
   try {
+    const api = await getApi();
     const res = await api.get(`/document-versions/${versionId}/preview-link`);
     return res.data as { url: string; expires_in_minutes: number };
   } catch (e: any) {
@@ -969,6 +990,7 @@ export type DocumentStats = {
 
 export async function getDocumentStats(): Promise<DocumentStats> {
   try {
+    const api = await getApi();
     const res = await api.get("/documents/stats");
     return res.data as DocumentStats;
   } catch (e: any) {
@@ -984,6 +1006,7 @@ export async function getDocumentShares(
   documentId: number,
 ): Promise<DocumentShares> {
   try {
+    const api = await getApi();
     const res = await api.get(`/documents/${documentId}/shares`, {
       params: { t: Date.now() },
     });
@@ -1002,6 +1025,7 @@ export async function setDocumentShares(
   officeIds: number[],
 ): Promise<DocumentShares> {
   try {
+    const api = await getApi();
     const res = await api.post(`/documents/${documentId}/shares`, {
       office_ids: officeIds,
     });
@@ -1018,6 +1042,7 @@ export async function setDocumentShares(
 }
 
 export async function getDocumentTags(documentId: number): Promise<string[]> {
+  const api = await getApi();
   const res = await api.get(`/documents/${documentId}/tags`);
   const tags = res.data?.tags;
   return Array.isArray(tags) ? (tags as string[]) : [];
@@ -1027,6 +1052,7 @@ export async function setDocumentTags(
   documentId: number,
   tags: string[],
 ): Promise<string[]> {
+  const api = await getApi();
   const res = await api.put(`/documents/${documentId}/tags`, { tags });
   const out = res.data?.tags;
   return Array.isArray(out) ? (out as string[]) : [];
@@ -1043,6 +1069,7 @@ export async function listNotifications(params?: {
   const cached = notifCache.get(key);
 
   try {
+    const api = await getApi();
     const res = await api.get("/notifications", {
       params: {
         page,
@@ -1082,6 +1109,7 @@ export async function listNotifications(params?: {
 
 export async function getUnreadNotificationCount(): Promise<number> {
   try {
+    const api = await getApi();
     const res = await api.get("/notifications/unread-count");
     const data = res.data as UnreadCountResponse;
     return Number(data?.unread ?? 0);
@@ -1093,11 +1121,13 @@ export async function getUnreadNotificationCount(): Promise<number> {
 export async function markNotificationRead(
   notificationId: number,
 ): Promise<void> {
+  const api = await getApi();
   await api.post(`/notifications/${notificationId}/read`);
   clearNotifCache();
 }
 
 export async function markAllNotificationsRead(): Promise<void> {
+  const api = await getApi();
   await api.post("/notifications/read-all");
   clearNotifCache();
 }

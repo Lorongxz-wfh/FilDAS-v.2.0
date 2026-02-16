@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   listDocuments,
-  getCurrentUserOfficeId,
   getWorkQueue,
   getComplianceReport,
   type WorkQueueItem,
@@ -28,7 +27,6 @@ import {
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const role = getUserRole();
-  const myOfficeId = getCurrentUserOfficeId();
 
   const [docs, setDocs] = useState<Document[]>([]);
   const [assigned, setAssigned] = useState<WorkQueueItem[]>([]);
@@ -85,15 +83,6 @@ const DashboardPage: React.FC = () => {
   const pendingCount = useMemo(() => pending.length, [pending]);
 
   const totalDocsCount = useMemo(() => docs.length, [docs]);
-
-  // you already have officialCount
-
-  const myOfficeDocsCount = useMemo(() => {
-    if (!(isOfficeStaff(role) || isOfficeHead(role))) return null;
-    return docs.filter(
-      (d) => Number((d as any).owner_office_id) === Number(myOfficeId),
-    ).length;
-  }, [docs, role, myOfficeId]);
 
   const recentOfficial = useMemo(() => {
     return docs

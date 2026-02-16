@@ -1,6 +1,5 @@
 import React from "react";
 import InlineSpinner from "./loader/InlineSpinner";
-import TableSkeleton from "./loader/TableSkeleton";
 
 type Align = "left" | "center" | "right";
 

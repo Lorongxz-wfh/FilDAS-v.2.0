@@ -1,7 +1,6 @@
 import React from "react";
 
 const API_BASE = "http://127.0.0.1:8000/api"; // keep consistent with APP_URL
-const BACKEND_BASE = "http://127.0.0.1:8000";
 
 import logoUrl from "../assets/FCU Logo.png";
 
@@ -51,7 +50,7 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-4 sm:p-8">
+    <main className="min-h-screen bg-linear-to-b from-slate-50 to-slate-100 p-4 sm:p-8">
       <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-6xl items-center justify-center sm:min-h-[calc(100vh-4rem)]">
         <div className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white/70 shadow-sm lg:grid lg:grid-cols-2">
           {/* Left panel (hidden on mobile) */}

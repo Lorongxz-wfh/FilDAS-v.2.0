@@ -4,9 +4,7 @@ import { getUserRole } from "../../lib/roleFilters";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
-  Mailbox,
   FolderOpen,
-  Archive,
   BarChart3,
   ClipboardList,
   ScrollText,

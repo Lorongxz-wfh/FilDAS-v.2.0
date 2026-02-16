@@ -6,37 +6,37 @@ import type { FlowStep, PhaseId } from "./flowConfig";
 export function toWorkflowAction(toStatus: string): WorkflowActionCode | null {
   switch (toStatus) {
     case "For Office Review":
-      return "SEND_TO_OFFICE_REVIEW";
+      return "SENDTOOFFICEREVIEW";
     case "For Office Head Review":
-      return "FORWARD_TO_OFFICE_HEAD_REVIEW";
+      return "FORWARDTOOFFICEHEADREVIEW";
     case "For VP Review":
     case "For VP Review (Office)":
-      return "FORWARD_TO_VP_REVIEW";
+      return "FORWARDTOVPREVIEW";
     case "For QA Final Check":
-      return "VP_SEND_BACK_TO_QA_FINAL_CHECK";
+      return "VPSENDBACKTOQAFINALCHECK";
     case "For QA Approval (Office)":
-      return "VP_FORWARD_TO_QA_APPROVAL";
+      return "VPFORWARDTOQAAPPROVAL";
     case "For Office Approval":
     case "For Office Approval (Office)":
-      return "START_OFFICE_APPROVAL";
+      return "STARTOFFICEAPPROVAL";
     case "For VP Approval":
     case "For VP Approval (Office)":
-      return "FORWARD_TO_VP_APPROVAL";
+      return "FORWARDTOVPAPPROVAL";
     case "For President Approval":
     case "For President Approval (Office)":
-      return "FORWARD_TO_PRESIDENT_APPROVAL";
+      return "FORWARDTOPRESIDENTAPPROVAL";
     case "For QA Registration":
     case "For QA Registration (Office)":
-      return "FORWARD_TO_QA_REGISTRATION";
+      return "FORWARDTOQAREGISTRATION";
     case "For QA Distribution":
     case "For QA Distribution (Office)":
-      return "FORWARD_TO_QA_DISTRIBUTION";
+      return "FORWARDTOQADISTRIBUTION";
     case "Distributed":
-      return "MARK_DISTRIBUTED";
+      return "MARKDISTRIBUTED";
     case "QA_EDIT":
-      return "RETURN_TO_QA_EDIT";
+      return "RETURNTOQAEDIT";
     case "OFFICE_EDIT":
-      return "RETURN_TO_OFFICE_EDIT";
+      return "RETURNTOOFFICEEDIT";
     default:
       return null;
   }

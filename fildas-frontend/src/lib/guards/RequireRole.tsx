@@ -1,4 +1,3 @@
-import React from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { getUserRole } from "../roleFilters";
 import { getAuthUser } from "../auth";

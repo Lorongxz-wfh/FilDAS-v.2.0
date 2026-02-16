@@ -53,11 +53,11 @@ export const getUserRole = (): UserRole => {
   // fallback: treat unknown/missing role as OFFICE_STAFF (least privilege UI)
   // (RequireRole will still block protected pages)
   return "OFFICE_STAFF";
-};;
+};
 
 export const isSysAdmin = (role: UserRole): boolean => role === "SYSADMIN";
 
-export const isPendingForRole = (status: string, role: UserRole): boolean => {
+export const isPendingForRole = (_status: string, _role: UserRole): boolean => {
   // For now, do NOT drive “pending” by status strings.
   // Pending items come from /work-queue (open tasks).
   // Keep this only for optional UI filtering later.

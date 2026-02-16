@@ -37,10 +37,6 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
   }, []);
 
   const filtered = offices.filter((office) => {
-    // Hide offices excluded by parent (but keep the currently selected visible)
-    if (excludeOfficeIds.includes(office.id) && office.id !== value)
-      return false;
-
     const q = search.toLowerCase();
     return (
       office.name.toLowerCase().includes(q) ||
@@ -98,28 +94,38 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
                 No offices found
               </li>
             ) : (
-              filtered.map((office) => (
-                <li key={office.id}>
-                  <button
-                    type="button"
-                    className={`w-full text-left px-3 py-2 text-sm transition ${
-                      value === office.id
-                        ? "bg-sky-50 text-sky-700 font-medium"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                    onClick={() => {
-                      onChange(office.id);
-                      setIsOpen(false);
-                      setSearch("");
-                    }}
-                  >
-                    <span className="font-medium">{office.name}</span>
-                    <span className="text-xs text-slate-500 ml-2">
-                      ({office.code})
-                    </span>
-                  </button>
-                </li>
-              ))
+              filtered.map((office) => {
+                const isExcluded =
+                  excludeOfficeIds.includes(office.id) && office.id !== value;
+
+                return (
+                  <li key={office.id}>
+                    <button
+                      type="button"
+                      disabled={isExcluded}
+                      aria-disabled={isExcluded}
+                      className={`w-full text-left px-3 py-2 text-sm transition ${
+                        value === office.id
+                          ? "bg-sky-50 text-sky-700 font-medium"
+                          : isExcluded
+                            ? "text-slate-400 cursor-not-allowed"
+                            : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                      onClick={() => {
+                        if (isExcluded) return;
+                        onChange(office.id);
+                        setIsOpen(false);
+                        setSearch("");
+                      }}
+                    >
+                      <span className="font-medium">{office.name}</span>
+                      <span className="text-xs text-slate-500 ml-2">
+                        ({office.code})
+                      </span>
+                    </button>
+                  </li>
+                );
+              })
             )}
           </ul>
         </div>
