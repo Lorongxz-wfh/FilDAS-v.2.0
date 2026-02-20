@@ -6,6 +6,7 @@ import PageFrame from "../components/layout/PageFrame";
 import { Card, CardBody } from "../components/ui/Card";
 import Table, { type TableColumn } from "../components/ui/Table";
 import { getAdminUsers, type AdminUser } from "../services/admin";
+import UserEditModal from "../components/admin/UserEditModal";
 
 const UserManagerPage: React.FC = () => {
   const me = getAuthUser();
@@ -18,6 +19,9 @@ const UserManagerPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editMode, setEditMode] = useState<"edit" | "create">("edit");
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +54,29 @@ const UserManagerPage: React.FC = () => {
       cancelled = true;
     };
   }, [page, search]);
+
+  const openEdit = (u: AdminUser) => {
+    setEditMode("edit");
+    setSelectedUser(u);
+    setIsEditOpen(true);
+  };
+
+  const openCreate = () => {
+    setEditMode("create");
+    setSelectedUser(null);
+    setIsEditOpen(true);
+  };
+
+  const handleSaved = (saved: AdminUser) => {
+    if (editMode === "create") {
+      // Option X: refetch by jumping to page 1 (effect will reload)
+      setPage(1);
+      return;
+    }
+
+    // edit mode: patch current page
+    setUsers((prev) => prev.map((u) => (u.id === saved.id ? saved : u)));
+  };
 
   const columns: TableColumn<AdminUser>[] = useMemo(
     () => [
@@ -126,6 +153,15 @@ const UserManagerPage: React.FC = () => {
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
+            variant="primary"
+            size="sm"
+            onClick={openCreate}
+          >
+            New user
+          </Button>
+
+          <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => {
@@ -185,7 +221,8 @@ const UserManagerPage: React.FC = () => {
               error={null}
               emptyMessage="No users found for the current filter."
               rowKey={(u) => u.id}
-              className="h-[520px]"
+              onRowClick={openEdit}
+              className="h-130"
             />
           </div>
 
@@ -226,6 +263,16 @@ const UserManagerPage: React.FC = () => {
       <Card>
         <CardBody>
           <div className="text-sm font-semibold text-slate-900">Roles</div>
+          <UserEditModal
+            open={isEditOpen}
+            mode={editMode}
+            user={selectedUser}
+            onClose={() => {
+              setIsEditOpen(false);
+              setSelectedUser(null);
+            }}
+            onSaved={handleSaved}
+          />
           <div className="mt-2 text-sm text-slate-600">Roles coming soon.</div>
         </CardBody>
       </Card>

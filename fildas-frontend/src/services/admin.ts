@@ -43,3 +43,62 @@ export async function getAdminUsers(params: {
   const res = await api.get("/admin/users", { params });
   return res.data as AdminUsersResponse;
 }
+
+export type AdminRole = {
+  id: number;
+  name: string;
+  label: string;
+};
+
+export type AdminOffice = {
+  id: number;
+  code: string;
+  name: string;
+};
+
+export async function getAdminRoles(): Promise<AdminRole[]> {
+  const res = await api.get("/admin/roles");
+  return res.data as AdminRole[];
+}
+
+export async function getAdminOffices(): Promise<AdminOffice[]> {
+  const res = await api.get("/admin/offices");
+  return res.data as AdminOffice[];
+}
+
+export type AdminUserUpdatePayload = Partial<{
+  first_name: string | null;
+  middle_name: string | null;
+  last_name: string | null;
+  suffix: string | null;
+  email: string | null;
+  office_id: number | null;
+  role_id: number | null;
+  password: string | null;
+}>;
+
+export async function updateAdminUser(
+  userId: number,
+  payload: AdminUserUpdatePayload,
+): Promise<{ user: AdminUser }> {
+  const res = await api.patch(`/admin/users/${userId}`, payload);
+  return res.data as { user: AdminUser };
+}
+
+export type AdminUserCreatePayload = {
+  first_name: string;
+  middle_name?: string | null;
+  last_name: string;
+  suffix?: string | null;
+  email: string;
+  password: string;
+  office_id?: number | null;
+  role_id?: number | null;
+};
+
+export async function createAdminUser(
+  payload: AdminUserCreatePayload,
+): Promise<{ user: AdminUser }> {
+  const res = await api.post("/admin/users", payload);
+  return res.data as { user: AdminUser };
+}
