@@ -9,6 +9,7 @@ import {
   ClipboardList,
   ScrollText,
   Users,
+  Building2,
 } from "lucide-react";
 
 type LinkItem = {
@@ -51,6 +52,12 @@ const links: LinkItem[] = [
     to: "/user-manager",
     label: "User manager",
     icon: Users,
+    roles: ["SYSADMIN", "ADMIN"],
+  },
+  {
+    to: "/office-manager",
+    label: "Office manager",
+    icon: Building2,
     roles: ["SYSADMIN", "ADMIN"],
   },
 ];

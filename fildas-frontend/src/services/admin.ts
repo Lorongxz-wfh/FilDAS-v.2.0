@@ -55,20 +55,74 @@ export type AdminRole = {
   label: string;
 };
 
-export type AdminOffice = {
-  id: number;
-  code: string;
-  name: string;
-};
-
 export async function getAdminRoles(): Promise<AdminRole[]> {
   const res = await api.get("/admin/roles");
   return res.data as AdminRole[];
 }
 
-export async function getAdminOffices(): Promise<AdminOffice[]> {
-  const res = await api.get("/admin/offices");
+export type AdminOffice = {
+  id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  type?: string | null;
+  cluster_kind?: "vp" | "president" | null;
+  parent_office_id?: number | null;
+  deleted_at?: string | null;
+
+  parentOffice?: {
+    id: number;
+    code: string;
+    name: string;
+  } | null;
+};
+
+export async function getAdminOffices(params?: {
+  q?: string;
+  disabled?: boolean; // show disabled (onlyTrashed)
+}): Promise<AdminOffice[]> {
+  const res = await api.get("/admin/offices", { params });
   return res.data as AdminOffice[];
+}
+
+export type AdminOfficeCreatePayload = {
+  name: string;
+  code: string;
+  description?: string | null;
+  type?: string | null;
+  cluster_kind?: "vp" | "president" | null;
+  parent_office_id?: number | null;
+};
+
+export async function createAdminOffice(
+  payload: AdminOfficeCreatePayload,
+): Promise<{ office: AdminOffice }> {
+  const res = await api.post("/admin/offices", payload);
+  return res.data as { office: AdminOffice };
+}
+
+export type AdminOfficeUpdatePayload = Partial<AdminOfficeCreatePayload>;
+
+export async function updateAdminOffice(
+  officeId: number,
+  payload: AdminOfficeUpdatePayload,
+): Promise<{ office: AdminOffice }> {
+  const res = await api.patch(`/admin/offices/${officeId}`, payload);
+  return res.data as { office: AdminOffice };
+}
+
+export async function disableAdminOffice(
+  officeId: number,
+): Promise<{ message: string }> {
+  const res = await api.delete(`/admin/offices/${officeId}`);
+  return res.data as { message: string };
+}
+
+export async function restoreAdminOffice(
+  officeId: number,
+): Promise<{ office: AdminOffice }> {
+  const res = await api.patch(`/admin/offices/${officeId}/restore`);
+  return res.data as { office: AdminOffice };
 }
 
 export type AdminUserUpdatePayload = Partial<{

@@ -17,6 +17,7 @@ const ArchivePage = React.lazy(() => import("./pages/ArchivePage"));
 const ReportsPage = React.lazy(() => import("./pages/ReportsPage"));
 const MyActivityPage = React.lazy(() => import("./pages/MyActivityPage"));
 const UserManagerPage = React.lazy(() => import("./pages/UserManagerPage"));
+const OfficeManagerPage = React.lazy(() => import("./pages/OfficeManagerPage"));
 const ActivityLogsPage = React.lazy(() => import("./pages/ActivityLogsPage"));
 const DocumentFlowPage = React.lazy(() => import("./pages/DocumentFlowPage"));
 
@@ -76,6 +77,7 @@ export default function App() {
 
           <Route element={<RequireRole allow={["SYSADMIN", "ADMIN"]} />}>
             <Route path="/user-manager" element={<UserManagerPage />} />
+            <Route path="/office-manager" element={<OfficeManagerPage />} />
           </Route>
 
           {/* Archive is authenticated */}
