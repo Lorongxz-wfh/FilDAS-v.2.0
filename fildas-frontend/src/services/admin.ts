@@ -11,6 +11,11 @@ export interface AdminUser {
   profile_photo_path?: string | null;
   role_id: number | null;
   office_id: number | null;
+
+  disabled_at?: string | null;
+  disabled_by?: number | null;
+  deleted_at?: string | null;
+
   created_at: string;
   updated_at: string;
   role?: {
@@ -101,4 +106,25 @@ export async function createAdminUser(
 ): Promise<{ user: AdminUser }> {
   const res = await api.post("/admin/users", payload);
   return res.data as { user: AdminUser };
+}
+
+export async function disableAdminUser(
+  userId: number,
+): Promise<{ user: AdminUser }> {
+  const res = await api.patch(`/admin/users/${userId}/disable`);
+  return res.data as { user: AdminUser };
+}
+
+export async function enableAdminUser(
+  userId: number,
+): Promise<{ user: AdminUser }> {
+  const res = await api.patch(`/admin/users/${userId}/enable`);
+  return res.data as { user: AdminUser };
+}
+
+export async function deleteAdminUser(
+  userId: number,
+): Promise<{ message: string }> {
+  const res = await api.delete(`/admin/users/${userId}`);
+  return res.data as { message: string };
 }

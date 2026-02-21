@@ -6,6 +6,9 @@ import InlineSpinner from "../ui/loader/InlineSpinner";
 import AdminOfficeDropdown from "./AdminOfficeDropdown";
 import {
   createAdminUser,
+  deleteAdminUser,
+  disableAdminUser,
+  enableAdminUser,
   getAdminRoles,
   type AdminRole,
   type AdminUser,
@@ -32,6 +35,9 @@ const UserEditModal: React.FC<Props> = ({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [acting, setActing] = useState<null | "disable" | "enable" | "delete">(
+    null,
+  );
 
   // Form state
   const [firstName, setFirstName] = useState("");
@@ -98,12 +104,68 @@ const UserEditModal: React.FC<Props> = ({
 
   const canSave = useMemo(() => {
     if (mode === "edit" && !user) return false;
+    if (mode === "edit" && user?.deleted_at) return false;
     if (!firstName.trim()) return false;
     if (!lastName.trim()) return false;
     if (!email.trim()) return false;
     if (mode === "create" && password.trim().length < 6) return false;
     return true;
   }, [mode, user, firstName, lastName, email, password]);
+
+  const handleDisable = async () => {
+    if (!user) return;
+    if (!confirm(`Disable ${user.full_name}?`)) return;
+
+    try {
+      setActing("disable");
+      setError(null);
+      const res = await disableAdminUser(user.id);
+      onSaved?.(res.user);
+      onClose();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to disable user");
+    } finally {
+      setActing(null);
+    }
+  };
+
+  const handleEnable = async () => {
+    if (!user) return;
+    if (!confirm(`Enable ${user.full_name}?`)) return;
+
+    try {
+      setActing("enable");
+      setError(null);
+      const res = await enableAdminUser(user.id);
+      onSaved?.(res.user);
+      onClose();
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to enable user");
+    } finally {
+      setActing(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!user) return;
+    const ok = confirm(
+      `Soft delete ${user.full_name}?\n\nThis hides the account and blocks access. You can show deleted users via filter later.`,
+    );
+    if (!ok) return;
+
+    try {
+      setActing("delete");
+      setError(null);
+      await deleteAdminUser(user.id);
+      onClose();
+      // Tell parent to refetch (we don't have the deleted user object anymore)
+      onSaved?.({ ...user, deleted_at: new Date().toISOString() });
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to delete user");
+    } finally {
+      setActing(null);
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -169,6 +231,8 @@ const UserEditModal: React.FC<Props> = ({
   }, [open, roleDisablesOffice]);
 
   const roleOptionsDisabled = loadingRoles || roles.length === 0;
+
+  const isDeleted = mode === "edit" && !!user?.deleted_at;
 
   return (
     <Modal
@@ -317,33 +381,81 @@ const UserEditModal: React.FC<Props> = ({
         </div>
       </div>
 
-      <div className="mt-5 flex items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onClose}
-          disabled={saving}
-        >
-          Cancel
-        </Button>
-
-        <Button
-          type="button"
-          variant="primary"
-          size="sm"
-          onClick={handleSave}
-          disabled={!canSave || saving}
-        >
-          {saving ? (
-            <span className="inline-flex items-center gap-2">
-              <InlineSpinner className="h-4 w-4 border-2" />
-              Saving
-            </span>
-          ) : (
-            "Save changes"
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {isDeleted && (
+            <div className="text-xs text-slate-500">
+              This user is deleted and cannot be modified.
+            </div>
           )}
-        </Button>
+
+          {mode === "edit" && user && !isDeleted && (
+            <>
+              {user.disabled_at ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEnable}
+                    disabled={saving || acting !== null}
+                  >
+                    {acting === "enable" ? "Enabling..." : "Enable"}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={handleDelete}
+                    disabled={saving || acting !== null}
+                  >
+                    {acting === "delete" ? "Deleting..." : "Delete"}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDisable}
+                  disabled={saving || acting !== null}
+                >
+                  {acting === "disable" ? "Disabling..." : "Disable"}
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            disabled={saving || acting !== null}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={handleSave}
+            disabled={!canSave || saving || acting !== null}
+          >
+            {saving ? (
+              <span className="inline-flex items-center gap-2">
+                <InlineSpinner className="h-4 w-4 border-2" />
+                Saving
+              </span>
+            ) : (
+              "Save changes"
+            )}
+          </Button>
+        </div>
       </div>
     </Modal>
   );

@@ -19,6 +19,7 @@ const UserManagerPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [reloadTick, setReloadTick] = useState(0);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editMode, setEditMode] = useState<"edit" | "create">("edit");
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
@@ -53,7 +54,7 @@ const UserManagerPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [page, search]);
+  }, [page, search, reloadTick]);
 
   const openEdit = (u: AdminUser) => {
     setEditMode("edit");
@@ -67,15 +68,10 @@ const UserManagerPage: React.FC = () => {
     setIsEditOpen(true);
   };
 
-  const handleSaved = (saved: AdminUser) => {
-    if (editMode === "create") {
-      // Option X: refetch by jumping to page 1 (effect will reload)
-      setPage(1);
-      return;
-    }
-
-    // edit mode: patch current page
-    setUsers((prev) => prev.map((u) => (u.id === saved.id ? saved : u)));
+  const handleSaved = (_saved: AdminUser) => {
+    // Always refetch so disable/enable/delete updates the table correctly.
+    setPage(1);
+    setReloadTick((t) => t + 1);
   };
 
   const columns: TableColumn<AdminUser>[] = useMemo(
