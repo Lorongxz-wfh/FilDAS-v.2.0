@@ -10,6 +10,7 @@ import {
   ScrollText,
   Users,
   Building2,
+  Inbox,
 } from "lucide-react";
 
 type LinkItem = {
@@ -23,6 +24,26 @@ const links: LinkItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/work-queue", label: "Work queue", icon: ClipboardList },
   { to: "/documents", label: "Library", icon: FolderOpen },
+  // Document Requests
+  {
+    to: "/document-requests",
+    label: "Requests",
+    icon: Inbox,
+    // One sidebar entry for everyone.
+    roles: [
+      "OFFICE_STAFF",
+      "OFFICE_HEAD",
+      "VPAA",
+      "VPAD",
+      "VPF",
+      "VPR",
+      "PRESIDENT",
+      "ADMIN",
+      "QA",
+      "SYSADMIN",
+    ],
+  },
+
   // { to: "/archive", label: "Archive", icon: Archive },
 
   // roles must match getUserRole() outputs (uppercase)

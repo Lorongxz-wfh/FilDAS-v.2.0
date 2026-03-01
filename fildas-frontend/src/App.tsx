@@ -21,6 +21,16 @@ const OfficeManagerPage = React.lazy(() => import("./pages/OfficeManagerPage"));
 const ActivityLogsPage = React.lazy(() => import("./pages/ActivityLogsPage"));
 const DocumentFlowPage = React.lazy(() => import("./pages/DocumentFlowPage"));
 
+const DocumentRequestListPage = React.lazy(
+  () => import("./pages/DocumentRequestListPage"),
+);
+const CreateDocumentRequestPage = React.lazy(
+  () => import("./pages/CreateDocumentRequestPage"),
+);
+const DocumentRequestPage = React.lazy(
+  () => import("./pages/DocumentRequestPage"),
+);
+
 import ProtectedLayout from "./lib/guards/ProtectedLayout";
 import RequireRole from "./lib/guards/RequireRole";
 
@@ -38,6 +48,41 @@ export default function App() {
           <Route path="/work-queue" element={<MyWorkQueuePage />} />
           <Route path="/my-activity" element={<MyActivityPage />} />
           <Route path="/inbox" element={<InboxPage />} />
+
+          {/* Document Requests */}
+          <Route
+            path="/document-requests"
+            element={<DocumentRequestListPage />}
+          />
+          <Route
+            path="/document-requests/:id"
+            element={<DocumentRequestPage />}
+          />
+
+          <Route element={<RequireRole allow={["QA", "SYSADMIN", "ADMIN"]} />}>
+            <Route
+              path="/document-requests/create"
+              element={<CreateDocumentRequestPage />}
+            />
+          </Route>
+
+          {/* Back-compat (optional): redirect old compliance URLs */}
+          <Route
+            path="/compliance"
+            element={<Navigate to="/document-requests" replace />}
+          />
+          <Route
+            path="/compliance/create"
+            element={<Navigate to="/document-requests/create" replace />}
+          />
+          <Route
+            path="/compliance/inbox"
+            element={<Navigate to="/document-requests" replace />}
+          />
+          <Route
+            path="/compliance/:id"
+            element={<Navigate to="/document-requests/:id" replace />}
+          />
 
           {/* DocumentFlow is ok to open normally */}
           <Route path="/documents/:id" element={<DocumentFlowPage />} />

@@ -8,6 +8,11 @@ export type AuthUser = {
   profile_photo_path: string | null;
   email: string;
   role: string;
+
+  // Always prefer this for comparisons/permission checks
+  office_id: number | null;
+
+  // Extra display info (optional)
   office: { id: number; name: string; code: string } | null;
 };
 
@@ -30,7 +35,15 @@ export function getAuthUser(): AuthUser | null {
   try {
     const raw = localStorage.getItem(AUTH_USER_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as AuthUser;
+
+    const u = JSON.parse(raw) as any;
+
+    // Back-compat: older payloads only had `office: {id...}` and no `office_id`
+    if (u && (u.office_id === undefined || u.office_id === null)) {
+      u.office_id = u.office?.id ?? null;
+    }
+
+    return u as AuthUser;
   } catch {
     return null;
   }
@@ -43,7 +56,6 @@ export function setAuthUser(user: AuthUser): void {
 export function clearAuthUser(): void {
   localStorage.removeItem(AUTH_USER_KEY);
 }
-
 
 export function clearAuthAndRedirect(): void {
   localStorage.removeItem(AUTH_TOKEN_KEY);
