@@ -25,6 +25,31 @@ export type DocumentRequestRecipientRow = {
   office_code?: string;
 };
 
+export type DocumentRequestSubmissionFileRow = {
+  id: number;
+  original_filename: string;
+  file_path?: string | null;
+  preview_path?: string | null;
+  mime?: string | null;
+  size_bytes?: number | null;
+  created_at?: string;
+};
+
+export type DocumentRequestSubmissionRow = {
+  id: number;
+  recipient_id: number;
+  attempt_no: number;
+  status: "submitted" | "accepted" | "rejected";
+  note?: string | null;
+  submitted_by_user_id?: number | null;
+  qa_reviewed_by_user_id?: number | null;
+  qa_review_note?: string | null;
+  reviewed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  files: DocumentRequestSubmissionFileRow[];
+};
+
 export async function listDocumentRequests(params?: {
   status?: "open" | "closed" | "cancelled";
   q?: string;
@@ -44,6 +69,7 @@ export async function listDocumentRequestInbox(params?: {
 
 export async function getDocumentRequest(requestId: number) {
   const res = await api.get(`/document-requests/${requestId}`);
+
   return res.data as {
     request: DocumentRequestRow & {
       office_id?: number | null;
@@ -51,6 +77,9 @@ export async function getDocumentRequest(requestId: number) {
       office_code?: string | null;
     };
     recipient?: DocumentRequestRecipientRow | null;
+
+    latest_submission?: DocumentRequestSubmissionRow | null;
+    submissions?: DocumentRequestSubmissionRow[];
   };
 }
 
