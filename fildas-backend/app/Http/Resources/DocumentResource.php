@@ -1,0 +1,87 @@
+<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class DocumentResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        $doc = $this;
+
+        // Prefer latest version; fallback null
+        $v = $doc->relationLoaded('latestVersion') ? $doc->latestVersion : null;
+
+        // Resolve current OPEN task assignee only if it was eager-loaded.
+        // Never query inside a Resource (avoids N+1 on lists). [web:702]
+        $assigneeOffice = null;
+
+        if ($v && $v->relationLoaded('tasks')) {
+            $openTask = $v->tasks->firstWhere('status', 'open');
+
+            if ($openTask && $openTask->relationLoaded('assignedOffice')) {
+                $assigneeOffice = $openTask->assignedOffice;
+            }
+        }
+
+
+        return [
+            'id' => $doc->id,
+            'title' => $doc->title,
+
+            // keep old key names temporarily for frontend compatibility
+            'office_id' => $doc->owner_office_id,
+            'office' => $this->whenLoaded('ownerOffice', function () use ($doc) {
+                return [
+                    'id' => $doc->ownerOffice->id,
+                    'name' => $doc->ownerOffice->name,
+                    'code' => $doc->ownerOffice->code,
+                ];
+            }),
+
+            // NEW: routing office (QA-selected) for Office Review/Approval steps
+            'review_office_id' => $doc->review_office_id,
+            'review_office' => $this->whenLoaded('reviewOffice', function () use ($doc) {
+                return [
+                    'id' => $doc->reviewOffice->id,
+                    'name' => $doc->reviewOffice->name,
+                    'code' => $doc->reviewOffice->code,
+                ];
+            }),
+
+
+            'doctype' => $doc->doctype,
+            'code' => $doc->code,
+            'tags' => $this->whenLoaded('tags', function () use ($doc) {
+                return $doc->tags->pluck('name')->values();
+            }),
+
+
+            // Flattened version fields (compat)
+            'status' => $v?->status ?? 'Draft',
+
+            // Who currently needs to act (office), used for UI labels like “Forward to X”
+            'current_assignee_office' => $assigneeOffice ? [
+                'id' => $assigneeOffice->id,
+                'name' => $assigneeOffice->name,
+                'code' => $assigneeOffice->code,
+            ] : null,
+
+            'version_number' => $v?->version_number ?? 0,
+            'file_path' => $v?->file_path,
+            'preview_path' => $v?->preview_path,
+            'original_filename' => $v?->original_filename,
+
+            // New metadata (optional for frontend now)
+            'visibility_scope' => $doc->visibility_scope,
+            'school_year' => $doc->school_year,
+            'semester' => $doc->semester,
+
+            'created_by' => $doc->created_by,
+            'created_at' => optional($doc->created_at)->toISOString(),
+            'updated_at' => optional($doc->updated_at)->toISOString(),
+        ];
+    }
+}
