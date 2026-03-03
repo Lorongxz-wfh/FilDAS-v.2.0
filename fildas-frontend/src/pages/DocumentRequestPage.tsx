@@ -69,13 +69,9 @@ export default function DocumentRequestPage() {
   }, [latestSubmission]);
 
   // Signed preview for selected submission file (dropdown target; QA/history)
-  const [submissionPreviewUrl, setSubmissionPreviewUrl] =
-    React.useState<string>("");
-  const [submissionPreviewLoading, setSubmissionPreviewLoading] =
-    React.useState(false);
-  const [submissionPreviewError, setSubmissionPreviewError] = React.useState<
-    string | null
-  >(null);
+  const [, setSubmissionPreviewUrl] = React.useState<string>("");
+  const [, setSubmissionPreviewLoading] = React.useState(false);
+  const [, setSubmissionPreviewError] = React.useState<string | null>(null);
 
   // Signed preview for latest submission file (main preview)
   const [latestSubmissionPreviewUrl, setLatestSubmissionPreviewUrl] =
