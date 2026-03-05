@@ -18,40 +18,46 @@ class PreviewController extends Controller
             'file' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:10240',
         ]);
 
-        $storageRoot = base_path(env('DOC_STORAGE_PATH', '../documents'));
-        if (!is_dir($storageRoot)) {
-            mkdir($storageRoot, 0775, true);
-        }
-
         $year = now()->year;
         $previewId = (string) Str::uuid();
-
-        $folder = $storageRoot . DIRECTORY_SEPARATOR . 'previews' . DIRECTORY_SEPARATOR . $year . DIRECTORY_SEPARATOR . $previewId;
-        if (!is_dir($folder)) {
-            mkdir($folder, 0775, true);
-        }
-
         $file = $request->file('file');
         $ext = strtolower($file->getClientOriginalExtension());
+        $r2Folder = 'previews/' . $year . '/' . $previewId;
 
-        // store original
+        $tmpDir = sys_get_temp_dir() . '/fildas/previews/' . $previewId;
+        if (!is_dir($tmpDir)) {
+            mkdir($tmpDir, 0775, true);
+        }
+
         $originalName = 'original.' . $ext;
-        $originalFullPath = $folder . DIRECTORY_SEPARATOR . $originalName;
-        $file->move($folder, $originalName);
+        $tmpOriginalPath = $tmpDir . '/' . $originalName;
+        $file->move($tmpDir, $originalName);
 
-        // if PDF: skip conversion; just copy to preview.pdf
         if ($ext === 'pdf') {
-            @copy($originalFullPath, $folder . DIRECTORY_SEPARATOR . 'preview.pdf');
+            $tmpPreviewPath = $tmpDir . '/preview.pdf';
+            @copy($tmpOriginalPath, $tmpPreviewPath);
         } else {
-            $previewFileName = DocumentPreviewService::generatePreview($folder, $originalFullPath);
+            $previewFileName = DocumentPreviewService::generatePreview($tmpDir, $tmpOriginalPath);
 
             if (!$previewFileName) {
                 return response()->json(['message' => 'Preview generation failed.'], 422);
             }
 
-            // normalize name to preview.pdf for stable serving
-            @rename($folder . DIRECTORY_SEPARATOR . $previewFileName, $folder . DIRECTORY_SEPARATOR . 'preview.pdf');
+            $tmpPreviewPath = $tmpDir . '/preview.pdf';
+            @rename($tmpDir . '/' . $previewFileName, $tmpPreviewPath);
         }
+
+        // Upload preview to R2
+        \Illuminate\Support\Facades\Storage::disk('s3')->putFileAs(
+            $r2Folder,
+            new \Illuminate\Http\File($tmpPreviewPath),
+            'preview.pdf'
+        );
+
+        // Cleanup tmp
+        @unlink($tmpOriginalPath);
+        @unlink($tmpPreviewPath);
+        @rmdir($tmpDir);
 
         $signedUrl = URL::temporarySignedRoute(
             'previews.preview',
@@ -69,14 +75,17 @@ class PreviewController extends Controller
     // GET /api/previews/{year}/{preview}/preview (signed)
     public function previewSigned(Request $request, int $year, string $preview)
     {
-        $storageRoot = base_path(env('DOC_STORAGE_PATH', '../documents'));
-        $fullPath = $storageRoot . DIRECTORY_SEPARATOR . 'previews' . DIRECTORY_SEPARATOR . $year . DIRECTORY_SEPARATOR . $preview . DIRECTORY_SEPARATOR . 'preview.pdf';
+        $r2Path = 'previews/' . $year . '/' . $preview . '/preview.pdf';
 
-        if (!file_exists($fullPath)) {
+        if (!\Illuminate\Support\Facades\Storage::disk('s3')->exists($r2Path)) {
             return response()->json(['message' => 'Preview not found.'], Response::HTTP_NOT_FOUND);
         }
 
-        return response()->file($fullPath, [
+        $stream = \Illuminate\Support\Facades\Storage::disk('s3')->readStream($r2Path);
+
+        return response()->stream(function () use ($stream) {
+            fpassthru($stream);
+        }, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="preview.pdf"',
         ]);
@@ -85,10 +94,9 @@ class PreviewController extends Controller
     // DELETE /api/previews/{year}/{preview} (auth)
     public function destroy(Request $request, int $year, string $preview)
     {
-        $storageRoot = base_path(env('DOC_STORAGE_PATH', '../documents'));
-        $dir = $storageRoot . DIRECTORY_SEPARATOR . 'previews' . DIRECTORY_SEPARATOR . $year . DIRECTORY_SEPARATOR . $preview;
-
-        $this->rrmdir($dir);
+        $r2Folder = 'previews/' . $year . '/' . $preview;
+        $files = \Illuminate\Support\Facades\Storage::disk('s3')->allFiles($r2Folder);
+        \Illuminate\Support\Facades\Storage::disk('s3')->delete($files);
 
         return response()->json(['message' => 'Preview deleted.'], 200);
     }
