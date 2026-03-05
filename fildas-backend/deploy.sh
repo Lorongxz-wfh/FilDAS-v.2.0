@@ -4,6 +4,8 @@ set -e
 cd /var/www/html
 
 # Keep boot light on free instances; cache later once stable
+php artisan config:clear
+php artisan config:cache
 php artisan migrate --force || true
 php artisan db:seed --force || true
 
