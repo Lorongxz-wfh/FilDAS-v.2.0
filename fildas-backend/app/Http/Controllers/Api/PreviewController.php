@@ -47,8 +47,8 @@ class PreviewController extends Controller
             @rename($tmpDir . '/' . $previewFileName, $tmpPreviewPath);
         }
 
-        // Upload preview to R2
-        \Illuminate\Support\Facades\Storage::disk('s3')->putFileAs(
+        // Upload preview to storage
+        \Illuminate\Support\Facades\Storage::disk()->putFileAs(
             $r2Folder,
             new \Illuminate\Http\File($tmpPreviewPath),
             'preview.pdf'
@@ -77,11 +77,11 @@ class PreviewController extends Controller
     {
         $r2Path = 'previews/' . $year . '/' . $preview . '/preview.pdf';
 
-        if (!\Illuminate\Support\Facades\Storage::disk('s3')->exists($r2Path)) {
+        if (!\Illuminate\Support\Facades\Storage::disk()->exists($r2Path)) {
             return response()->json(['message' => 'Preview not found.'], Response::HTTP_NOT_FOUND);
         }
 
-        $stream = \Illuminate\Support\Facades\Storage::disk('s3')->readStream($r2Path);
+        $stream = \Illuminate\Support\Facades\Storage::disk()->readStream($r2Path);
 
         return response()->stream(function () use ($stream) {
             fpassthru($stream);
@@ -95,8 +95,8 @@ class PreviewController extends Controller
     public function destroy(Request $request, int $year, string $preview)
     {
         $r2Folder = 'previews/' . $year . '/' . $preview;
-        $files = \Illuminate\Support\Facades\Storage::disk('s3')->allFiles($r2Folder);
-        \Illuminate\Support\Facades\Storage::disk('s3')->delete($files);
+        $files = \Illuminate\Support\Facades\Storage::disk()->allFiles($r2Folder);
+        \Illuminate\Support\Facades\Storage::disk()->delete($files);
 
         return response()->json(['message' => 'Preview deleted.'], 200);
     }

@@ -18,8 +18,8 @@ class DocumentVersionFileService
         $storedName = 'original.' . $extension;
         $r2Path = $year . '/' . $version->id . '/' . $storedName;
 
-        // Upload original file to R2
-        Storage::disk('s3')->putFileAs(
+        // Upload original file to storage
+        Storage::disk()->putFileAs(
             $year . '/' . $version->id,
             $file,
             $storedName
@@ -43,7 +43,7 @@ class DocumentVersionFileService
             $previewTmpPath = $tmpDir . '/' . $previewFileName;
             $r2PreviewPath = $year . '/' . $version->id . '/' . $previewFileName;
 
-            Storage::disk('s3')->putFileAs(
+            Storage::disk()->putFileAs(
                 $year . '/' . $version->id,
                 new \Illuminate\Http\File($previewTmpPath),
                 $previewFileName
@@ -65,10 +65,10 @@ class DocumentVersionFileService
     public function deleteVersionFiles(DocumentVersion $version): void
     {
         if ($version->file_path) {
-            Storage::disk('s3')->delete($version->file_path);
+            Storage::disk()->delete($version->file_path);
         }
         if ($version->preview_path) {
-            Storage::disk('s3')->delete($version->preview_path);
+            Storage::disk()->delete($version->preview_path);
         }
     }
 }

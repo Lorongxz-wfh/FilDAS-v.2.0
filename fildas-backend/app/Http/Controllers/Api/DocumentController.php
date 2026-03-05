@@ -741,7 +741,7 @@ class DocumentController extends Controller
             return response()->json(['message' => 'Preview not available for this version.'], Response::HTTP_NOT_FOUND);
         }
 
-        if (!Storage::disk('s3')->exists($version->preview_path)) {
+        if (!Storage::disk()->exists($version->preview_path)) {
             return response()->json(['message' => 'Preview file not found on server.'], Response::HTTP_NOT_FOUND);
         }
 
@@ -760,7 +760,7 @@ class DocumentController extends Controller
             ],
         ]);
 
-        $stream = Storage::disk('s3')->readStream($version->preview_path);
+        $stream = Storage::disk()->readStream($version->preview_path);
 
         return response()->stream(function () use ($stream) {
             fpassthru($stream);
@@ -779,7 +779,7 @@ class DocumentController extends Controller
             return response()->json(['message' => 'No file available for this version.'], 404);
         }
 
-        if (!Storage::disk('s3')->exists($version->file_path)) {
+        if (!Storage::disk()->exists($version->file_path)) {
             return response()->json(['message' => 'File not found on server.'], 404);
         }
 
@@ -799,7 +799,7 @@ class DocumentController extends Controller
             ],
         ]);
 
-        $stream = Storage::disk('s3')->readStream($version->file_path);
+        $stream = Storage::disk()->readStream($version->file_path);
 
         return response()->stream(function () use ($stream) {
             fpassthru($stream);
