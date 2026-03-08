@@ -112,14 +112,6 @@ const Navbar: React.FC<NavbarProps> = ({ onThemeToggle, theme = "light" }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNotifOpen]);
 
-  const fullName: string = user?.full_name || "";
-  const initials = fullName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p: string) => p[0]?.toUpperCase())
-    .join("");
-
   return (
     <header className="relative z-50 border-b border-slate-200 bg-white/80 backdrop-blur-sm dark:border-surface-400 dark:bg-surface-500/80">
       <div className="flex items-center justify-end px-4 py-2.5">
@@ -282,7 +274,6 @@ const Navbar: React.FC<NavbarProps> = ({ onThemeToggle, theme = "light" }) => {
               </div>
             </div>
           )}
-          
         </div>
       </div>
     </header>

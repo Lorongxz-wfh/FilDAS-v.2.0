@@ -2,7 +2,6 @@ import React from "react";
 import WorkflowProgressCard from "./documentFlow/WorkflowProgressCard";
 import WorkflowInboxCard from "./documentFlow/WorkflowInboxCard";
 import DocumentPreviewPanel from "./documentFlow/DocumentPreviewPanel";
-import WorkflowActionBar from "./documentFlow/WorkflowActionBar";
 
 import {
   type Document,
@@ -14,7 +13,6 @@ import {
   getDocumentPreviewLink,
   getDocumentRouteSteps,
   type DocumentRouteStep,
-  listDocumentMessages,
   deleteDraftVersion,
   downloadDocument,
   postDocumentMessage,

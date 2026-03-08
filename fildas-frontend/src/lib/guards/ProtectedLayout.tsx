@@ -1,11 +1,10 @@
 import React from "react";
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import MainLayout from "../../layout/MainLayout";
 import { clearAuth, getAuthToken } from "../auth";
 
 export default function ProtectedLayout() {
   const token = getAuthToken();
-  const location = useLocation();
   const checkedTokenRef = React.useRef<string | null>(null);
 
   if (!token) {

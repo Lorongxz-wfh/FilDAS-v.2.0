@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
-import { useNavigate } from "react-router-dom";
 import { useToast } from "../components/ui/toast/ToastContext";
 
 import {
@@ -16,7 +15,6 @@ import TemplateUploadForm from "../components/templates/TemplateUploadForm";
 import TemplateDetailPanel from "../components/templates/TemplateDetailPanel";
 
 const TemplatesPage: React.FC = () => {
-  const navigate = useNavigate();
   const { push } = useToast();
 
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);

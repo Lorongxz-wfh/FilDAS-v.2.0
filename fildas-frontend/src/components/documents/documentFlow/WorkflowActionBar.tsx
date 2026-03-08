@@ -1,7 +1,6 @@
 import React from "react";
 import Button from "../../ui/Button";
 import Modal from "../../ui/Modal";
-import type { WorkflowActionCode } from "../../../services/documents";
 import type { HeaderActionButton } from "../DocumentFlow";
 
 type Props = {

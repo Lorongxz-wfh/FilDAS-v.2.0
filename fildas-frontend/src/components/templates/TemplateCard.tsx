@@ -17,7 +17,6 @@ type Props = {
 
 const TemplateCard: React.FC<Props> = ({
   template,
-  onDeleted,
   isDeleting,
   onDeleteClick,
   onSelect,
