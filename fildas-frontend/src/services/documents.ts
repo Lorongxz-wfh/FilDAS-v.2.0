@@ -824,51 +824,86 @@ export const getCurrentUserOfficeId = (): number => {
   return getAuthUser()?.office?.id ?? 0;
 };
 
-// Must match backend WorkflowController action strings exactly
+// Must match backend WorkflowSteps action constants exactly
 export type WorkflowActionCode =
-  | "SENDTOOFFICEREVIEW"
-  | "FORWARDTOOFFICEHEADREVIEW"
-  | "FORWARDTOVPREVIEW"
-  | "VPSENDBACKTOQAFINALCHECK"
-  | "VPFORWARDTOQAAPPROVAL"
-  | "STARTOFFICEAPPROVAL"
-  | "FORWARDTOVPAPPROVAL"
-  | "FORWARDTOPRESIDENTAPPROVAL"
-  | "FORWARDTOQAREGISTRATION"
-  | "FORWARDTOQADISTRIBUTION"
-  | "MARKDISTRIBUTED"
-  | "RETURNTOQAEDIT"
-  | "RETURNTOOFFICEEDIT";
+  // Universal
+  | "REJECT"
+  // QA flow
+  | "QA_SEND_TO_OFFICE_REVIEW"
+  | "QA_OFFICE_FORWARD_TO_VP"
+  | "QA_OFFICE_RETURN_TO_QA"
+  | "QA_VP_SEND_BACK_TO_QA"
+  | "QA_START_OFFICE_APPROVAL"
+  | "QA_OFFICE_FORWARD_TO_VP_APPROVAL"
+  | "QA_VP_FORWARD_TO_PRESIDENT"
+  | "QA_PRESIDENT_SEND_BACK_TO_QA"
+  | "QA_REGISTER"
+  | "QA_DISTRIBUTE"
+  // Office flow
+  | "OFFICE_SEND_TO_HEAD"
+  | "OFFICE_HEAD_FORWARD_TO_VP"
+  | "OFFICE_HEAD_RETURN_TO_STAFF"
+  | "OFFICE_VP_SEND_BACK_TO_STAFF"
+  | "OFFICE_SEND_TO_QA_APPROVAL"
+  | "OFFICE_QA_RETURN_TO_STAFF"
+  | "OFFICE_QA_APPROVE"
+  | "OFFICE_REGISTER"
+  | "OFFICE_DISTRIBUTE"
+  // Custom flow
+  | "CUSTOM_FORWARD"
+  | "CUSTOM_START_APPROVAL"
+  | "CUSTOM_REGISTER"
+  | "CUSTOM_DISTRIBUTE";
 
 export type WorkflowActionResult = {
   version: DocumentVersion;
-  action_message?: string;
-  target_office?: { id: number; name: string; code: string } | null;
+  task?: WorkflowTask;
+  message?: string;
 };
-
-// No mapping needed: we send backend codes directly.
 
 export async function submitWorkflowAction(
   versionId: number,
   action: WorkflowActionCode,
   note?: string,
-  extra?: { review_office_id?: number | null },
 ): Promise<WorkflowActionResult> {
   try {
     const api = await getApi();
     const res = await api.post(`/document-versions/${versionId}/actions`, {
       action,
       note,
-      ...(extra ?? {}),
     });
-    const data = res.data;
-    if (data?.version) return data as WorkflowActionResult;
-    return { version: data as DocumentVersion };
+    return res.data as WorkflowActionResult;
   } catch (e: any) {
     const status = e?.response?.status;
     const msg =
       e?.response?.data?.message ||
       (status ? `Request failed (${status})` : "Request failed");
+    throw new Error(msg);
+  }
+}
+
+export type AvailableActionsResponse = {
+  document_version_id: number;
+  actions: WorkflowActionCode[];
+};
+
+export async function getAvailableActions(
+  versionId: number,
+): Promise<WorkflowActionCode[]> {
+  try {
+    const api = await getApi();
+    const res = await api.get(
+      `/document-versions/${versionId}/available-actions`,
+    );
+    const data = res.data as AvailableActionsResponse;
+    return data.actions ?? [];
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status
+        ? `Failed to load actions (${status})`
+        : "Failed to load actions");
     throw new Error(msg);
   }
 }

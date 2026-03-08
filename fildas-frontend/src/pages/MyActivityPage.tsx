@@ -105,10 +105,10 @@ const MyActivityPage: React.FC = () => {
       <Card>
         <CardBody className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-slate-900">
+            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               Proof log
             </div>
-            <div className="text-xs text-slate-600">
+            <div className="text-xs text-slate-600 dark:text-slate-400">
               Shows actions you performed (scope: mine).
             </div>
           </div>
@@ -123,7 +123,7 @@ const MyActivityPage: React.FC = () => {
             >
               Prev
             </Button>
-            <div className="text-xs text-slate-600 tabular-nums">
+            <div className="text-xs text-slate-600 dark:text-slate-400 tabular-nums">
               Page {currentPage} / {lastPage}
             </div>
             <Button
@@ -146,20 +146,22 @@ const MyActivityPage: React.FC = () => {
               <SkeletonList rows={8} rowClassName="h-10" />
             </div>
           ) : rows.length === 0 ? (
-            <p className="text-sm text-slate-600">No activity yet.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              No activity yet.
+            </p>
           ) : (
             <div className="space-y-2">
               {rows.map((l) => (
                 <div
                   key={l.id}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2"
+                  className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
                         {l.label || l.event}
                       </p>
-                      <p className="text-[11px] text-slate-500 truncate">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                         {l.event}
                         {l.document_id ? ` • Doc#${l.document_id}` : ""}
                         {l.document_version_id
@@ -167,7 +169,7 @@ const MyActivityPage: React.FC = () => {
                           : ""}
                       </p>
                     </div>
-                    <div className="shrink-0 text-[11px] text-slate-500">
+                    <div className="shrink-0 text-[11px] text-slate-500 dark:text-slate-400">
                       {formatWhen(l.created_at)}
                     </div>
                   </div>

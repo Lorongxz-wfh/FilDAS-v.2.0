@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   getDocument,
   getDocumentVersions,
@@ -10,11 +10,17 @@ import {
 } from "../services/documents";
 import DocumentFlow from "../components/documents/DocumentFlow";
 import ShareDocumentModal from "../components/documents/ShareDocumentModal";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useNavigate,
+  useLocation,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import Alert from "../components/ui/Alert";
 import Button from "../components/ui/Button";
 import InlineSpinner from "../components/ui/loader/InlineSpinner";
 import SplitFrame from "../components/layout/SplitFrame";
+import BackButton from "../components/ui/buttons/BackButton";
 import Skeleton from "../components/ui/loader/Skeleton";
 
 const DocumentFlowPage: React.FC = () => {
@@ -22,22 +28,12 @@ const DocumentFlowPage: React.FC = () => {
   const id = Number(params.id);
   const navigate = useNavigate();
 
+  const location = useLocation();
+  const backTo: string = (location.state as any)?.from ?? "/documents";
+
   const handleBack = () => {
-    if (window.history.length > 1) navigate(-1);
-    else navigate("/documents");
+    navigate(backTo);
   };
-
-  if (!params.id || Number.isNaN(id)) {
-    return (
-      <div className="flex flex-col gap-3">
-        <Button type="button" variant="outline" size="sm" onClick={handleBack}>
-          ← Back
-        </Button>
-
-        <Alert variant="danger">Invalid document id.</Alert>
-      </div>
-    );
-  }
 
   const [document, setDocument] = useState<Document | null>(null);
   const [allVersions, setAllVersions] = useState<DocumentVersion[]>([]);
@@ -46,6 +42,7 @@ const DocumentFlowPage: React.FC = () => {
     code: string;
     status: string;
     versionNumber: number;
+    canAct: boolean;
     headerActions: any[];
     versionActions: any[];
   } | null>(null);
@@ -55,7 +52,7 @@ const DocumentFlowPage: React.FC = () => {
   const [selectedVersion, setSelectedVersion] =
     useState<DocumentVersion | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const [loading, setLoading] = useState(true); // first load only
+  const [loading, setLoading] = useState(true);
   const hasData = !!document && !!selectedVersion;
   const selectedVersionParam = searchParams.get("version_id");
   const selectedVersionIdFromUrl = selectedVersionParam
@@ -68,14 +65,12 @@ const DocumentFlowPage: React.FC = () => {
   const [isLoadingSelectedVersion, setIsLoadingSelectedVersion] =
     useState(false);
 
-  // Stores what the user last clicked (for nicer "Loading vX..." text)
   const [targetVersionId, setTargetVersionId] = useState<number | null>(null);
   const [targetVersionNumber, setTargetVersionNumber] = useState<
     number | string | null
   >(null);
 
   const [error, setError] = useState<string | null>(null);
-
   const [shareOpen, setShareOpen] = useState(false);
 
   const refreshAndSelectBest = React.useCallback(
@@ -93,7 +88,6 @@ const DocumentFlowPage: React.FC = () => {
       setAllVersions(sorted);
 
       const preferId = opts?.preferVersionId ?? null;
-
       const best =
         (preferId ? sorted.find((v) => v.id === preferId) : null) ??
         sorted[0] ??
@@ -105,17 +99,13 @@ const DocumentFlowPage: React.FC = () => {
         const p = new URLSearchParams(prev);
         if (best) p.set("version_id", String(best.id));
         else p.delete("version_id");
-
-        // Back-compat cleanup: remove old param if it exists
         p.delete("version");
-
         return p;
       });
     },
     [id, setSearchParams],
   );
 
-  // 1) Initial load: document + versions list (only when id changes)
   useEffect(() => {
     let alive = true;
 
@@ -137,7 +127,6 @@ const DocumentFlowPage: React.FC = () => {
         setDocument(docData);
         setAllVersions(sorted);
 
-        // Choose initial selection: URL version if present, else latest
         const best =
           (selectedVersionId
             ? sorted.find((v) => v.id === selectedVersionId)
@@ -164,22 +153,17 @@ const DocumentFlowPage: React.FC = () => {
     };
 
     load();
-
     return () => {
       alive = false;
     };
-    // only when doc id changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // 2) When URL version_id changes: fetch that version details only
   useEffect(() => {
     let alive = true;
 
     const loadVersion = async () => {
       if (!selectedVersionId) return;
-
-      // If we already have that version selected, don’t refetch
       if (selectedVersion?.id === selectedVersionId) return;
 
       setIsLoadingSelectedVersion(true);
@@ -194,9 +178,7 @@ const DocumentFlowPage: React.FC = () => {
       } catch (e: any) {
         if (!alive) return;
         const status = e?.response?.status;
-
         if (status === 404) {
-          // remove bad param so we don't keep retrying the deleted version
           setSearchParams((prev) => {
             const p = new URLSearchParams(prev);
             p.delete("version_id");
@@ -215,7 +197,6 @@ const DocumentFlowPage: React.FC = () => {
     };
 
     loadVersion();
-
     return () => {
       alive = false;
     };
@@ -228,84 +209,58 @@ const DocumentFlowPage: React.FC = () => {
         <SplitFrame
           title={
             <div className="flex items-center gap-2 min-w-0">
-              {" "}
-              <Skeleton className="h-5 w-56" />{" "}
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-400">
-                {" "}
-                v…{" "}
-              </span>{" "}
-              <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-300">
-                {" "}
-                Loading…{" "}
-              </span>{" "}
+              <Skeleton className="h-5 w-56" />
+              <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                v…
+              </span>
+              <span className="rounded-full bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 text-[11px] font-medium text-sky-300 dark:text-sky-600">
+                Loading…
+              </span>
             </div>
           }
           subtitle={<Skeleton className="h-4 w-40" />}
-          right={
-            <div className="flex flex-wrap justify-end gap-2">
-              {" "}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleBack}
-              >
-                {" "}
-                ← Back{" "}
-              </Button>{" "}
-            </div>
-          }
+          onBack={handleBack}
           rightTitle="Versions"
           rightSubtitle="Loading…"
           rightWidthClassName="w-[340px]"
           left={
             <div className="mx-auto w-full max-w-5xl space-y-4">
-              {" "}
-              <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                {" "}
-                <Skeleton className="h-5 w-52" />{" "}
+              <div className="rounded-2xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-5">
+                <Skeleton className="h-5 w-52" />
                 <div className="mt-4 grid grid-cols-3 gap-3">
-                  {" "}
-                  <Skeleton className="h-14 w-full rounded-xl" />{" "}
-                  <Skeleton className="h-14 w-full rounded-xl" />{" "}
-                  <Skeleton className="h-14 w-full rounded-xl" />{" "}
-                </div>{" "}
-              </div>{" "}
+                  <Skeleton className="h-14 w-full rounded-xl" />
+                  <Skeleton className="h-14 w-full rounded-xl" />
+                  <Skeleton className="h-14 w-full rounded-xl" />
+                </div>
+              </div>
               <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
-                {" "}
                 <div className="space-y-4">
-                  {" "}
-                  <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
-                    {" "}
-                    <Skeleton className="h-6 w-64" />{" "}
-                    <Skeleton className="mt-2 h-4 w-32" />{" "}
+                  <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-5 py-4">
+                    <Skeleton className="h-6 w-64" />
+                    <Skeleton className="mt-2 h-4 w-32" />
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      {" "}
-                      <Skeleton className="h-4 w-full" />{" "}
-                      <Skeleton className="h-4 w-full" />{" "}
-                      <Skeleton className="h-4 w-full" />{" "}
-                      <Skeleton className="h-4 w-full" />{" "}
-                    </div>{" "}
-                  </div>{" "}
-                  <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
-                    {" "}
-                    <Skeleton className="h-56 w-full rounded-xl" />{" "}
-                  </div>{" "}
-                </div>{" "}
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-5 py-4">
+                    <Skeleton className="h-56 w-full rounded-xl" />
+                  </div>
+                </div>
                 <div className="space-y-3">
-                  {" "}
-                  <Skeleton className="h-4 w-40" />{" "}
-                  <div className="h-150 w-full rounded-xl border-2 border-slate-200 bg-white" />{" "}
-                </div>{" "}
-              </div>{" "}
+                  <Skeleton className="h-4 w-40" />
+                  <div className="h-150 w-full rounded-xl border-2 border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500" />
+                </div>
+              </div>
             </div>
           }
           rightPanel={
             <div className="space-y-2">
-              {" "}
-              <Skeleton className="h-16 w-full rounded-xl" />{" "}
-              <Skeleton className="h-16 w-full rounded-xl" />{" "}
-              <Skeleton className="h-16 w-full rounded-xl" />{" "}
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
             </div>
           }
         />
@@ -314,26 +269,30 @@ const DocumentFlowPage: React.FC = () => {
           open={shareOpen}
           documentId={document?.id ?? null}
           onClose={() => setShareOpen(false)}
-          onSaved={() => {
-            // no-op for now; later you can show a toast
-          }}
+          onSaved={() => {}}
         />
       </>
+    );
+  }
+
+  if (!params.id || Number.isNaN(id)) {
+    return (
+      <div className="flex flex-col gap-3">
+        <BackButton onClick={handleBack} />
+        <Alert variant="danger">Invalid document id.</Alert>
+      </div>
     );
   }
 
   if (error || !document) {
     return (
       <div className="flex flex-col gap-3">
-        <Button type="button" variant="outline" size="sm" onClick={handleBack}>
-          ← Back
-        </Button>
+        <BackButton onClick={handleBack} />
         <Alert variant="danger">{error ?? "Document not found."}</Alert>
       </div>
     );
   }
 
-  // Show revise for LATEST Distributed version (v0.0, v1.0, v2.0...)
   const current = selectedVersion ?? allVersions[0] ?? null;
 
   const isLatestSelected = current
@@ -344,8 +303,6 @@ const DocumentFlowPage: React.FC = () => {
 
   const isRevisable = isLatestSelected && current?.status === "Distributed";
 
-  // UI
-
   return (
     <>
       <SplitFrame
@@ -355,13 +312,12 @@ const DocumentFlowPage: React.FC = () => {
               <span className="min-w-0 whitespace-normal wrap-break-word leading-snug">
                 {headerState?.title ?? document.title}
               </span>
-
               <div className="flex shrink-0 items-center gap-2">
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">
                   v
                   {headerState?.versionNumber ?? current?.version_number ?? "-"}
                 </span>
-                <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+                <span className="rounded-full bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-400">
                   {headerState?.status ?? current?.status ?? "-"}
                 </span>
               </div>
@@ -369,22 +325,12 @@ const DocumentFlowPage: React.FC = () => {
           </div>
         }
         subtitle={
-          <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
             {headerState?.code ?? document.code ?? "CODE-NOT-AVAILABLE"}
           </span>
         }
         right={
           <div className="flex flex-wrap justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleBack}
-              disabled={isLoadingSelectedVersion}
-            >
-              ← Back
-            </Button>
-
             {current?.status === "Distributed" && (
               <Button
                 type="button"
@@ -406,7 +352,6 @@ const DocumentFlowPage: React.FC = () => {
                 onClick={async () => {
                   try {
                     const revised = await createRevision(document.id);
-
                     setAllVersions((prev) => {
                       const next = [
                         revised,
@@ -418,12 +363,11 @@ const DocumentFlowPage: React.FC = () => {
                       );
                       return next;
                     });
-
                     setSelectedVersion(revised);
                     setSearchParams((prev) => {
                       const p = new URLSearchParams(prev);
                       p.set("version_id", String(revised.id));
-                      p.delete("version"); // cleanup old param too
+                      p.delete("version");
                       return p;
                     });
                   } catch (e: any) {
@@ -468,6 +412,8 @@ const DocumentFlowPage: React.FC = () => {
             ))}
           </div>
         }
+        onBack={handleBack}
+        onBackDisabled={isLoadingSelectedVersion}
         rightTitle="Versions"
         rightSubtitle={`${allVersions.length} total`}
         rightWidthClassName="w-[360px] max-w-[45vw]"
@@ -478,7 +424,6 @@ const DocumentFlowPage: React.FC = () => {
                 document={document}
                 version={selectedVersion}
                 onHeaderStateChange={(s) => {
-                  // DO NOT include function identity in signature; only compare stable fields
                   const sig =
                     `${s.title}|${s.code}|${s.status}|${s.versionNumber}|${s.canAct}|` +
                     `${(s.headerActions ?? []).map((a) => `${a.key}:${a.disabled ? 1 : 0}:${a.variant}`).join(",")}|` +
@@ -486,25 +431,18 @@ const DocumentFlowPage: React.FC = () => {
 
                   if (sig === headerSigRef.current) return;
                   headerSigRef.current = sig;
-
                   setHeaderState(s);
                 }}
                 onAfterActionClose={async () => {
-                  // If v0 draft was deleted, backend soft-deletes the whole document family.
-                  // Detect that by attempting to refetch the document; if it 404s, go back to library.
                   try {
                     await getDocument(id);
                   } catch (e: any) {
-                    // If the document is gone, leave this page.
                     navigate("/documents");
                     return;
                   }
-
-                  // Otherwise, just refresh versions and keep a valid selection.
                   await refreshAndSelectBest();
                 }}
                 onChanged={async () => {
-                  // Keep list + selection consistent after any action
                   await refreshAndSelectBest({
                     preferVersionId: selectedVersion?.id ?? null,
                   });
@@ -515,8 +453,8 @@ const DocumentFlowPage: React.FC = () => {
             )}
 
             {(isLoadingSelectedVersion || (loading && hasData)) && (
-              <div className="absolute inset-0 rounded-xl bg-white/50 backdrop-blur-[1px] flex items-start justify-end p-3 pointer-events-none">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white border border-slate-200 px-3 py-1 text-xs text-slate-700 shadow-sm">
+              <div className="absolute inset-0 rounded-xl bg-white/50 dark:bg-surface-500/60 backdrop-blur-[1px] flex items-start justify-end p-3 pointer-events-none">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white dark:bg-surface-600 border border-slate-200 dark:border-surface-400 px-3 py-1 text-xs text-slate-700 dark:text-slate-300 shadow-sm">
                   <InlineSpinner className="h-3 w-3 border-2" />
                   {targetVersionNumber != null
                     ? `Loading v${targetVersionNumber}…`
@@ -539,21 +477,18 @@ const DocumentFlowPage: React.FC = () => {
                   onClick={() => {
                     setTargetVersionId(v.id);
                     setTargetVersionNumber(v.version_number);
-
                     setSearchParams((prev) => {
                       const p = new URLSearchParams(prev);
                       p.set("version_id", String(v.id));
                       return p;
                     });
-
-                    // Read-action log (B): per click, deduped server-side
                     logOpenedVersion(v.id, "versions_panel");
                   }}
                   className={[
                     "w-full rounded-xl border px-3 py-2 text-left transition relative",
                     isSelected
-                      ? "border-sky-300 bg-white shadow-sm"
-                      : "border-slate-200 bg-white/70 hover:bg-white",
+                      ? "border-sky-300 dark:border-sky-700 bg-white dark:bg-surface-500 shadow-sm"
+                      : "border-slate-200 dark:border-surface-400 bg-white/70 dark:bg-surface-600 hover:bg-white dark:hover:bg-surface-500",
                     isLoadingSelectedVersion
                       ? "opacity-70 cursor-not-allowed"
                       : "",
@@ -566,7 +501,7 @@ const DocumentFlowPage: React.FC = () => {
 
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <p className="text-xs font-semibold text-slate-900">
+                      <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
                         v{v.version_number}
                       </p>
                       {isLoadingSelectedVersion && targetVersionId === v.id && (
@@ -575,14 +510,14 @@ const DocumentFlowPage: React.FC = () => {
                     </div>
 
                     <span
-                      className="max-w-35 truncate rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600"
+                      className="max-w-35 truncate rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300"
                       title={v.status}
                     >
                       {v.status}
                     </span>
                   </div>
 
-                  <div className="mt-1 grid grid-cols-2 gap-2 text-[10px] text-slate-500">
+                  <div className="mt-1 grid grid-cols-2 gap-2 text-[10px] text-slate-500 dark:text-slate-400">
                     <div>
                       Created: {new Date(v.created_at).toLocaleDateString()}
                     </div>
@@ -601,9 +536,7 @@ const DocumentFlowPage: React.FC = () => {
         open={shareOpen}
         documentId={document?.id ?? null}
         onClose={() => setShareOpen(false)}
-        onSaved={() => {
-          // optional: toast later
-        }}
+        onSaved={() => {}}
       />
     </>
   );

@@ -105,7 +105,7 @@ const ActivityLogsPage: React.FC = () => {
             setPage(1);
             setScope(e.target.value as Scope);
           }}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
         >
           <option value="all">All</option>
           <option value="office">My office</option>
@@ -119,7 +119,7 @@ const ActivityLogsPage: React.FC = () => {
             setQ(e.target.value);
           }}
           placeholder="Search event/label..."
-          className="w-full md:w-96 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+          className="w-full md:w-96 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500"
         />
 
         <Button
@@ -137,10 +137,10 @@ const ActivityLogsPage: React.FC = () => {
 
       {error ? <Alert variant="danger">{error}</Alert> : null}
 
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden dark:border-surface-400 dark:bg-surface-500">
         <div className="overflow-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600 dark:bg-surface-600 dark:text-slate-400">
               <tr>
                 <th className="px-3 py-2 text-left">When</th>
                 <th className="px-3 py-2 text-left">Event</th>
@@ -153,7 +153,7 @@ const ActivityLogsPage: React.FC = () => {
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-surface-400">
               {loading ? (
                 <tr>
                   <td className="px-3 py-3 text-slate-500" colSpan={8}>
@@ -168,29 +168,32 @@ const ActivityLogsPage: React.FC = () => {
                 </tr>
               ) : (
                 rows.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="px-3 py-2 whitespace-nowrap text-slate-700">
+                  <tr
+                    key={r.id}
+                    className="hover:bg-slate-50 dark:hover:bg-surface-400"
+                  >
+                    <td className="px-3 py-2 whitespace-nowrap text-slate-700 dark:text-slate-300">
                       {formatWhen(r.created_at)}
                     </td>
-                    <td className="px-3 py-2 font-medium text-slate-900">
+                    <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
                       {r.event}
                     </td>
-                    <td className="px-3 py-2 text-slate-700">
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">
                       {r.label ?? "-"}
                     </td>
-                    <td className="px-3 py-2 text-slate-700">
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">
                       {r.document_id ?? "-"}
                     </td>
-                    <td className="px-3 py-2 text-slate-700">
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">
                       {r.document_version_id ?? "-"}
                     </td>
-                    <td className="px-3 py-2 text-slate-700">
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">
                       {r.actor_user_id ?? "-"}
                     </td>
-                    <td className="px-3 py-2 text-slate-700">
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">
                       {r.actor_office_id ?? "-"}
                     </td>
-                    <td className="px-3 py-2 text-slate-700">
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">
                       {r.target_office_id ?? "-"}
                     </td>
                   </tr>
@@ -200,7 +203,7 @@ const ActivityLogsPage: React.FC = () => {
           </table>
         </div>
 
-        <div className="flex items-center justify-between px-3 py-2 border-t border-slate-200 text-xs text-slate-600">
+        <div className="flex items-center justify-between px-3 py-2 border-t border-slate-200 text-xs text-slate-600 dark:border-surface-400 dark:text-slate-400">
           <div>
             Page {page}
             {lastPage ? ` / ${lastPage}` : ""}

@@ -13,6 +13,17 @@ import {
   type AdminOffice,
 } from "../../services/admin";
 
+const inputCls = [
+  "w-full rounded-md border px-3 py-2 text-sm outline-none transition",
+  "border-slate-300 bg-white text-slate-900",
+  "focus:border-sky-500 focus:ring-2 focus:ring-sky-200",
+  "dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200",
+  "disabled:bg-slate-50 disabled:opacity-60 dark:disabled:bg-surface-600",
+].join(" ");
+
+const labelCls =
+  "block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5";
+
 type Props = {
   open: boolean;
   mode: "edit" | "create";
@@ -44,7 +55,6 @@ export default function OfficeEditModal({
 
   useEffect(() => {
     if (!open) return;
-
     setError(null);
 
     if (!isEdit) {
@@ -69,10 +79,8 @@ export default function OfficeEditModal({
     if (!open) return false;
     if (isEdit && !office) return false;
     if (isDisabled) return false;
-
     if (!name.trim()) return false;
     if (!code.trim()) return false;
-
     return true;
   }, [open, isEdit, office, isDisabled, name, code]);
 
@@ -90,14 +98,12 @@ export default function OfficeEditModal({
           cluster_kind: clusterKind ? clusterKind : null,
           parent_office_id: parentOfficeId,
         });
-
         onSaved?.(res.office);
         onClose();
         return;
       }
 
       if (!office) return;
-
       const res = await updateAdminOffice(office.id, {
         name: name.trim(),
         code: code.trim(),
@@ -106,7 +112,6 @@ export default function OfficeEditModal({
         cluster_kind: clusterKind ? clusterKind : null,
         parent_office_id: parentOfficeId,
       });
-
       onSaved?.(res.office);
       onClose();
     } catch (e: any) {
@@ -119,7 +124,6 @@ export default function OfficeEditModal({
   const handleDisable = async () => {
     if (!office) return;
     if (!confirm(`Disable office ${office.name} (${office.code})?`)) return;
-
     try {
       setActing("disable");
       setError(null);
@@ -138,7 +142,6 @@ export default function OfficeEditModal({
   const handleRestore = async () => {
     if (!office) return;
     if (!confirm(`Restore office ${office.name} (${office.code})?`)) return;
-
     try {
       setActing("restore");
       setError(null);
@@ -174,11 +177,11 @@ export default function OfficeEditModal({
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
+          <label className={labelCls}>
             Name <span className="text-rose-500">*</span>
           </label>
           <input
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none disabled:bg-slate-50"
+            className={inputCls}
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={saving || !!acting || isDisabled}
@@ -186,27 +189,25 @@ export default function OfficeEditModal({
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
+          <label className={labelCls}>
             Code <span className="text-rose-500">*</span>
           </label>
           <input
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-mono text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none disabled:bg-slate-50"
+            className={inputCls + " font-mono"}
             value={code}
             onChange={(e) => setCode(e.target.value)}
             disabled={saving || !!acting || isDisabled}
             placeholder="e.g. IT, HR, QA"
           />
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Backend will normalize to uppercase and enforce uniqueness.
           </p>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
-            Type
-          </label>
+          <label className={labelCls}>Type</label>
           <input
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none disabled:bg-slate-50"
+            className={inputCls}
             value={type}
             onChange={(e) => setType(e.target.value)}
             disabled={saving || !!acting || isDisabled}
@@ -215,11 +216,9 @@ export default function OfficeEditModal({
         </div>
 
         <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
-            Description
-          </label>
+          <label className={labelCls}>Description</label>
           <textarea
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none disabled:bg-slate-50"
+            className={inputCls}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             disabled={saving || !!acting || isDisabled}
@@ -228,11 +227,9 @@ export default function OfficeEditModal({
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
-            Cluster kind
-          </label>
+          <label className={labelCls}>Cluster kind</label>
           <select
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none disabled:bg-slate-50"
+            className={inputCls}
             value={clusterKind}
             onChange={(e) => setClusterKind(e.target.value as any)}
             disabled={saving || !!acting || isDisabled}
@@ -253,7 +250,7 @@ export default function OfficeEditModal({
             excludeOfficeIds={office ? [office.id] : []}
             autoLoad={true}
           />
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Used for default routing/reporting lines.
           </p>
         </div>
@@ -286,9 +283,8 @@ export default function OfficeEditModal({
               )}
             </>
           )}
-
           {isDisabled && (
-            <div className="text-xs text-slate-500">
+            <div className="text-xs text-slate-500 dark:text-slate-400">
               This office is disabled and cannot be modified until restored.
             </div>
           )}
@@ -304,7 +300,6 @@ export default function OfficeEditModal({
           >
             Cancel
           </Button>
-
           <Button
             type="button"
             variant="primary"

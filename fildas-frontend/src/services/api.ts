@@ -1,10 +1,15 @@
 import axios from "axios";
 import { clearAuthAndRedirect } from "../lib/auth";
 
+// Automatically uses local URL in development, production URL when deployed
+const BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string) ||
+  (import.meta.env.PROD
+    ? "https://fildas-v2.onrender.com/api"
+    : "http://127.0.0.1:8001/api");
+
 const api = axios.create({
-  baseURL:
-    (import.meta.env.VITE_API_BASE_URL as string) ||
-    "https://fildas-v2.onrender.com/api",
+  baseURL: BASE_URL,
 });
 
 const pendingGet = new Map<string, AbortController>();
@@ -14,7 +19,6 @@ function getKey(config: any) {
   const params = config.params ? JSON.stringify(config.params) : "";
   return `GET ${url}?${params}`;
 }
-
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("auth_token");
@@ -42,7 +46,6 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => {
-    // clear pending GET key
     if ((response.config.method ?? "get").toLowerCase() === "get") {
       const key = getKey(response.config);
       pendingGet.delete(key);
@@ -50,7 +53,6 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    // clear pending GET key (if we can compute it)
     const cfg = error?.config;
     if (cfg && (cfg.method ?? "get").toLowerCase() === "get") {
       const key = getKey(cfg);
@@ -68,7 +70,6 @@ api.interceptors.response.use(
 );
 
 export async function ensureCsrfCookie() {
-  // Sanctum requires this before login when using cookie-based SPA auth
   await axios.get("/sanctum/csrf-cookie", { withCredentials: true });
 }
 

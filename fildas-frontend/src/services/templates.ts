@@ -1,0 +1,133 @@
+import api from "./api";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export type TemplateOffice = {
+  id: number;
+  name: string;
+  code: string;
+};
+
+export type TemplateUploader = {
+  id: number;
+  name: string;
+};
+
+export type DocumentTemplate = {
+  id: number;
+  name: string;
+  description: string | null;
+  original_filename: string;
+  file_size: number;
+  file_size_label: string;
+  mime_type: string;
+  is_global: boolean;
+  office: TemplateOffice | null;
+  uploaded_by: TemplateUploader | null;
+  can_delete: boolean;
+  created_at: string;
+};
+
+export type UploadTemplatePayload = {
+  name: string;
+  description?: string;
+  file: File;
+};
+
+// ── API calls ─────────────────────────────────────────────────────────────────
+
+/**
+ * List templates visible to the current user.
+ * Pass q to search by name / description / filename.
+ */
+export async function listTemplates(opts?: {
+  q?: string;
+}): Promise<DocumentTemplate[]> {
+  const res = await api.get("/templates", {
+    params: opts?.q?.trim() ? { q: opts.q.trim() } : undefined,
+  });
+  return (res.data?.data ?? []) as DocumentTemplate[];
+}
+
+/**
+ * Upload a new template.
+ */
+export async function uploadTemplate(
+  payload: UploadTemplatePayload,
+): Promise<DocumentTemplate> {
+  const form = new FormData();
+  form.append("name", payload.name.trim());
+  if (payload.description?.trim()) {
+    form.append("description", payload.description.trim());
+  }
+  form.append("file", payload.file);
+
+  const res = await api.post("/templates", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return res.data.template as DocumentTemplate;
+}
+
+/**
+ * Delete a template by id.
+ */
+export async function deleteTemplate(id: number): Promise<void> {
+  await api.delete(`/templates/${id}`);
+}
+
+/**
+ * Trigger a file download for a template.
+ * Fetches a blob and creates a temporary <a> link.
+ */
+export async function downloadTemplate(
+  id: number,
+  filename: string,
+): Promise<void> {
+  const res = await api.get(`/templates/${id}/download`, {
+    responseType: "blob",
+  });
+
+  const url = URL.createObjectURL(res.data as Blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Returns a short label based on mime type. */
+export function templateFileTypeLabel(mimeType: string): string {
+  const map: Record<string, string> = {
+    "application/pdf": "PDF",
+    "application/msword": "DOC",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+      "DOCX",
+    "application/vnd.ms-excel": "XLS",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "XLSX",
+    "application/vnd.ms-powerpoint": "PPT",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+      "PPTX",
+  };
+  return map[mimeType] ?? "FILE";
+}
+
+/** Color classes per file type for badges. */
+export function templateFileTypeColor(mimeType: string): string {
+  if (mimeType.includes("pdf")) {
+    return "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800";
+  }
+  if (mimeType.includes("word") || mimeType.includes("msword")) {
+    return "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800";
+  }
+  if (mimeType.includes("excel") || mimeType.includes("spreadsheet")) {
+    return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800";
+  }
+  if (mimeType.includes("powerpoint") || mimeType.includes("presentation")) {
+    return "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800";
+  }
+  return "bg-slate-50 text-slate-700 border-slate-200 dark:bg-surface-400 dark:text-slate-300 dark:border-surface-400";
+}

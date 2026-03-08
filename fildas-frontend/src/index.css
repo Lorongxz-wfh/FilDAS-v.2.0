@@ -1,1 +1,51 @@
 @import "tailwindcss";
+
+@theme {
+  /* Primary */
+  --color-primary-50: #e9eefd;
+  --color-primary-100: #b3c5fa;
+  --color-primary-200: #759df6;
+  --color-primary-300: #2d77e3;
+  --color-primary-400: #1e55a5;
+  --color-primary-500: #10356b;
+  --color-primary-600: #041736;
+
+  /* Brand */
+  --color-brand-50: #fcfdff;
+  --color-brand-100: #bdd6ff;
+  --color-brand-200: #6eb0ff;
+  --color-brand-300: #008ce5;
+  --color-brand-400: #0067ab;
+  --color-brand-500: #004474;
+  --color-brand-600: #002441;
+
+  /* GitHub-style dark surface tokens */
+  --color-surface-50: #b1bac4;
+  --color-surface-100: #8b949e;
+  --color-surface-200: #6e7681;
+  --color-surface-300: #30363d;
+  --color-surface-400: #21262d;
+  --color-surface-500: #161b22;
+  --color-surface-600: #0d1117;
+
+  /* Neutral */
+  --color-neutral-50: #eeeeef;
+  --color-neutral-100: #c4c6ca;
+  --color-neutral-200: #9d9fa6;
+  --color-neutral-300: #777a81;
+  --color-neutral-400: #55575c;
+  --color-neutral-500: #35363a;
+  --color-neutral-600: #18181a;
+}
+
+@variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+}

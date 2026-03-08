@@ -15,6 +15,26 @@ import {
   updateAdminUser,
 } from "../../services/admin";
 
+// Reusable admin input class
+const inputCls = [
+  "w-full rounded-md border px-3 py-2 text-sm outline-none transition",
+  "border-slate-300 bg-white text-slate-900",
+  "focus:border-sky-500 focus:ring-2 focus:ring-sky-200",
+  "dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200 dark:placeholder-slate-500",
+  "disabled:bg-slate-50 disabled:opacity-60 dark:disabled:bg-surface-600",
+].join(" ");
+
+const selectCls = [
+  "w-full rounded-md border px-3 py-2 text-sm outline-none transition",
+  "border-slate-300 bg-white text-slate-900",
+  "focus:border-sky-500 focus:ring-2 focus:ring-sky-200",
+  "dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200",
+  "disabled:bg-slate-50 disabled:opacity-60 dark:disabled:bg-surface-600",
+].join(" ");
+
+const labelCls =
+  "block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5";
+
 type Props = {
   open: boolean;
   mode: "edit" | "create";
@@ -39,7 +59,6 @@ const UserEditModal: React.FC<Props> = ({
     null,
   );
 
-  // Form state
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -51,7 +70,6 @@ const UserEditModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (!open) return;
-
     setError(null);
 
     if (mode === "create") {
@@ -66,7 +84,6 @@ const UserEditModal: React.FC<Props> = ({
       return;
     }
 
-    // mode === "edit"
     setFirstName(user?.first_name ?? "");
     setMiddleName(user?.middle_name ?? "");
     setLastName(user?.last_name ?? "");
@@ -79,7 +96,6 @@ const UserEditModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (!open) return;
-
     let alive = true;
     const loadRoles = async () => {
       try {
@@ -95,7 +111,6 @@ const UserEditModal: React.FC<Props> = ({
         setLoadingRoles(false);
       }
     };
-
     loadRoles();
     return () => {
       alive = false;
@@ -115,7 +130,6 @@ const UserEditModal: React.FC<Props> = ({
   const handleDisable = async () => {
     if (!user) return;
     if (!confirm(`Disable ${user.full_name}?`)) return;
-
     try {
       setActing("disable");
       setError(null);
@@ -132,7 +146,6 @@ const UserEditModal: React.FC<Props> = ({
   const handleEnable = async () => {
     if (!user) return;
     if (!confirm(`Enable ${user.full_name}?`)) return;
-
     try {
       setActing("enable");
       setError(null);
@@ -149,16 +162,14 @@ const UserEditModal: React.FC<Props> = ({
   const handleDelete = async () => {
     if (!user) return;
     const ok = confirm(
-      `Soft delete ${user.full_name}?\n\nThis hides the account and blocks access. You can show deleted users via filter later.`,
+      `Soft delete ${user.full_name}?\n\nThis hides the account and blocks access.`,
     );
     if (!ok) return;
-
     try {
       setActing("delete");
       setError(null);
       await deleteAdminUser(user.id);
       onClose();
-      // Tell parent to refetch (we don't have the deleted user object anymore)
       onSaved?.({ ...user, deleted_at: new Date().toISOString() });
     } catch (e: any) {
       setError(e?.message ?? "Failed to delete user");
@@ -171,7 +182,6 @@ const UserEditModal: React.FC<Props> = ({
     try {
       setSaving(true);
       setError(null);
-
       const effectiveOfficeId = roleDisablesOffice ? null : officeId;
 
       if (mode === "create") {
@@ -181,18 +191,16 @@ const UserEditModal: React.FC<Props> = ({
           last_name: lastName.trim(),
           suffix: suffix.trim() || null,
           email: email.trim(),
-          password: password,
+          password,
           role_id: roleId,
           office_id: effectiveOfficeId,
         });
-
         onSaved?.(res.user);
         onClose();
         return;
       }
 
       if (!user) return;
-
       const res = await updateAdminUser(user.id, {
         first_name: firstName.trim() || null,
         middle_name: middleName.trim() || null,
@@ -202,7 +210,6 @@ const UserEditModal: React.FC<Props> = ({
         role_id: roleId,
         office_id: effectiveOfficeId,
       });
-
       onSaved?.(res.user);
       onClose();
     } catch (e: any) {
@@ -224,6 +231,7 @@ const UserEditModal: React.FC<Props> = ({
 
   const roleDisablesOffice =
     selectedRoleName === "admin" || selectedRoleName === "auditor";
+
   useEffect(() => {
     if (!open) return;
     if (!roleDisablesOffice) return;
@@ -231,7 +239,6 @@ const UserEditModal: React.FC<Props> = ({
   }, [open, roleDisablesOffice]);
 
   const roleOptionsDisabled = loadingRoles || roles.length === 0;
-
   const isDeleted = mode === "edit" && !!user?.deleted_at;
 
   return (
@@ -254,11 +261,11 @@ const UserEditModal: React.FC<Props> = ({
 
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
+          <label className={labelCls}>
             First name <span className="text-rose-500">*</span>
           </label>
           <input
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none"
+            className={inputCls}
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             disabled={saving}
@@ -266,11 +273,9 @@ const UserEditModal: React.FC<Props> = ({
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
-            Middle name
-          </label>
+          <label className={labelCls}>Middle name</label>
           <input
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none"
+            className={inputCls}
             value={middleName}
             onChange={(e) => setMiddleName(e.target.value)}
             disabled={saving}
@@ -278,11 +283,11 @@ const UserEditModal: React.FC<Props> = ({
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
+          <label className={labelCls}>
             Last name <span className="text-rose-500">*</span>
           </label>
           <input
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none"
+            className={inputCls}
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             disabled={saving}
@@ -290,11 +295,9 @@ const UserEditModal: React.FC<Props> = ({
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
-            Suffix
-          </label>
+          <label className={labelCls}>Suffix</label>
           <input
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none"
+            className={inputCls}
             value={suffix}
             onChange={(e) => setSuffix(e.target.value)}
             disabled={saving}
@@ -302,12 +305,12 @@ const UserEditModal: React.FC<Props> = ({
         </div>
 
         <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
+          <label className={labelCls}>
             Email <span className="text-rose-500">*</span>
           </label>
           <input
             type="email"
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none"
+            className={inputCls}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={saving}
@@ -316,12 +319,12 @@ const UserEditModal: React.FC<Props> = ({
 
         {mode === "create" && (
           <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-slate-700 mb-1.5">
+            <label className={labelCls}>
               Password <span className="text-rose-500">*</span>
             </label>
             <input
               type="password"
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none"
+              className={inputCls}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={saving}
@@ -331,12 +334,10 @@ const UserEditModal: React.FC<Props> = ({
         )}
 
         <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">
-            Role
-          </label>
+          <label className={labelCls}>Role</label>
           <div className="relative">
             <select
-              className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none disabled:bg-slate-50"
+              className={selectCls}
               value={roleId ?? ""}
               onChange={(e) =>
                 setRoleId(e.target.value ? Number(e.target.value) : null)
@@ -350,7 +351,6 @@ const UserEditModal: React.FC<Props> = ({
                 </option>
               ))}
             </select>
-
             {loadingRoles && (
               <div className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400">
                 <InlineSpinner className="h-4 w-4 border-2" />
@@ -372,9 +372,8 @@ const UserEditModal: React.FC<Props> = ({
                 : "Office / Department"
             }
           />
-
           {roleDisablesOffice && (
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Office is disabled for Admin/Auditor accounts.
             </p>
           )}
@@ -384,7 +383,7 @@ const UserEditModal: React.FC<Props> = ({
       <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           {isDeleted && (
-            <div className="text-xs text-slate-500">
+            <div className="text-xs text-slate-500 dark:text-slate-400">
               This user is deleted and cannot be modified.
             </div>
           )}
@@ -402,7 +401,6 @@ const UserEditModal: React.FC<Props> = ({
                   >
                     {acting === "enable" ? "Enabling..." : "Enable"}
                   </Button>
-
                   <Button
                     type="button"
                     variant="danger"
@@ -438,7 +436,6 @@ const UserEditModal: React.FC<Props> = ({
           >
             Cancel
           </Button>
-
           <Button
             type="button"
             variant="primary"

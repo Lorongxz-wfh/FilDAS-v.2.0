@@ -59,7 +59,7 @@ const DocumentPreviewPanel: React.FC<Props> = ({
 
   return (
     <div className="space-y-3">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 flex items-center justify-between">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center justify-between">
         Document preview
       </h2>
 
@@ -71,8 +71,8 @@ const DocumentPreviewPanel: React.FC<Props> = ({
         }}
         className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ml-2 ${
           !previewPath
-            ? "bg-slate-50 text-slate-400 cursor-not-allowed"
-            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+            ? "bg-slate-50 text-slate-400 cursor-not-allowed dark:bg-surface-600 dark:text-slate-600"
+            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-surface-400 dark:text-slate-300 dark:hover:bg-surface-300"
         }`}
       >
         Open preview
@@ -81,8 +81,8 @@ const DocumentPreviewPanel: React.FC<Props> = ({
       <div
         className={`relative h-150 w-full overflow-hidden rounded-xl border-2 transition-all ${
           filePath
-            ? "border-slate-200 bg-white cursor-pointer hover:border-sky-300 hover:shadow-md"
-            : "border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-sky-400 hover:bg-sky-50"
+            ? "border-slate-200 bg-white cursor-pointer hover:border-sky-300 hover:shadow-md dark:border-surface-400 dark:bg-surface-500"
+            : "border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-sky-400 hover:bg-sky-50 dark:border-surface-400 dark:bg-surface-600 dark:hover:border-sky-700 dark:hover:bg-sky-950/20"
         }`}
         onClick={() => {
           if (isUploading) return;
@@ -110,9 +110,9 @@ const DocumentPreviewPanel: React.FC<Props> = ({
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center p-8 text-center text-sm">
-            <div className="mb-3 h-12 w-12 rounded-full bg-slate-200 flex items-center justify-center">
+            <div className="mb-3 h-12 w-12 rounded-full bg-slate-200 dark:bg-surface-400 flex items-center justify-center">
               <svg
-                className="h-6 w-6 text-slate-400"
+                className="h-6 w-6 text-slate-400 dark:text-slate-500"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -125,16 +125,16 @@ const DocumentPreviewPanel: React.FC<Props> = ({
                 />
               </svg>
             </div>
-            <p className="mb-1 font-medium text-slate-900">
+            <p className="mb-1 font-medium text-slate-900 dark:text-slate-100">
               {filePath ? "Click to replace document" : "Upload new document"}
             </p>
-            <p className="text-slate-500 mb-4">
+            <p className="text-slate-500 dark:text-slate-400 mb-4">
               {filePath
                 ? "Drag & drop or click to replace the current file"
                 : "Drag & drop PDF, Word, Excel, PowerPoint, or click to browse (max 10MB)"}
             </p>
             {!!filePath && (
-              <p className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+              <p className="text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-surface-400 px-2 py-0.5 rounded-full">
                 {originalFilename ?? ""}
               </p>
             )}
@@ -142,9 +142,9 @@ const DocumentPreviewPanel: React.FC<Props> = ({
         )}
 
         {isUploading && (
-          <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center">
-            <div className="w-full max-w-sm rounded-xl bg-white p-4 shadow-md">
-              <p className="mb-3 text-sm font-medium text-slate-700">
+          <div className="absolute inset-0 bg-white/90 dark:bg-surface-500/90 backdrop-blur-sm flex items-center justify-center">
+            <div className="w-full max-w-sm rounded-xl bg-white dark:bg-surface-600 p-4 shadow-md">
+              <p className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">
                 {uploadProgress >= 100 ? "Processing..." : "Uploading..."}
               </p>
               <UploadProgress value={uploadProgress} />
@@ -153,7 +153,7 @@ const DocumentPreviewPanel: React.FC<Props> = ({
         )}
 
         {isPreviewLoading && (
-          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="absolute inset-0 bg-white/80 dark:bg-surface-500/80 backdrop-blur-sm flex items-center justify-center">
             <InlineSpinner className="h-8 w-8 border-2" />
           </div>
         )}

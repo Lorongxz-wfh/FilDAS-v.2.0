@@ -45,6 +45,8 @@ const LoginPage: React.FC = () => {
     }
   };
 
+  console.log("API_BASE:", API_BASE);
+
   return (
     <main className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background image */}

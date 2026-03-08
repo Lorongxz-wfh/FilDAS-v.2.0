@@ -1,12 +1,13 @@
 import React from "react";
-import { Link } from "react-router-dom";
 import PageFrame from "../components/layout/PageFrame.tsx";
 import Button from "../components/ui/Button.tsx";
 import {
   listDocumentRequestInbox,
   listDocumentRequests,
 } from "../services/documentRequests";
+import { Link } from "react-router-dom";
 import { getAuthUser } from "../lib/auth.ts";
+import CreateDocumentRequestModal from "../components/documentRequests/CreateDocumentRequestModal";
 
 function roleLower(me: any) {
   const raw =
@@ -52,6 +53,7 @@ export default function DocumentRequestListPage() {
   const [perPage, setPerPage] = React.useState(25);
 
   const [loading, setLoading] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(false);
   const [result, setResult] = React.useState<Paginator<any> | null>(null);
   const [rows, setRows] = React.useState<any[]>([]);
   const [error, setError] = React.useState<string | null>(null);
@@ -109,12 +111,14 @@ export default function DocumentRequestListPage() {
       title="Document requests"
       right={
         isQaAdmin ? (
-          <Link
-            to="/document-requests/create"
-            className="rounded-md bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-700"
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={() => setCreateOpen(true)}
           >
             Create request
-          </Link>
+          </Button>
         ) : null
       }
     >
@@ -124,14 +128,14 @@ export default function DocumentRequestListPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search title/description…"
-            className="w-72 rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-72 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500"
           />
 
           {isQaAdmin ? (
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as any)}
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
             >
               <option value="">All status</option>
               <option value="open">Open</option>
@@ -143,7 +147,7 @@ export default function DocumentRequestListPage() {
           <select
             value={perPage}
             onChange={(e) => setPerPage(Number(e.target.value))}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
           >
             <option value={10}>10 / page</option>
             <option value={25}>25 / page</option>
@@ -178,7 +182,7 @@ export default function DocumentRequestListPage() {
               Prev
             </Button>
 
-            <span className="text-xs text-slate-600">
+            <span className="text-xs text-slate-600 dark:text-slate-400">
               Page {result?.current_page ?? page} / {result?.last_page ?? "?"}
             </span>
 
@@ -207,8 +211,8 @@ export default function DocumentRequestListPage() {
           ) : null}
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white">
-          <div className="grid grid-cols-12 gap-2 border-b border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500">
+        <div className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
+          <div className="grid grid-cols-12 gap-2 border-b border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 dark:border-surface-400 dark:text-slate-400">
             <div className="col-span-1">ID</div>
             <div className="col-span-6">Title</div>
             <div className="col-span-2">Status</div>
@@ -224,7 +228,7 @@ export default function DocumentRequestListPage() {
               <Link
                 key={r.id}
                 to={`/document-requests/${r.id}`}
-                className="grid grid-cols-12 gap-2 px-4 py-2 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-b-0"
+                className="grid grid-cols-12 gap-2 px-4 py-2 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-b-0 dark:border-surface-400 dark:hover:bg-surface-400"
               >
                 <div className="col-span-1 text-slate-700">{r.id}</div>
                 <div className="col-span-6 font-medium text-slate-900">
@@ -239,6 +243,10 @@ export default function DocumentRequestListPage() {
           )}
         </div>
       </div>
+      <CreateDocumentRequestModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+      />
     </PageFrame>
   );
 }

@@ -8,7 +8,7 @@ const Skeleton: React.FC<Props> = ({ className = "" }) => {
   return (
     <div
       className={[
-        "animate-pulse rounded-md bg-slate-100 border border-slate-200",
+        "animate-pulse rounded-md bg-slate-200 border border-slate-300 dark:bg-surface-400 dark:border-surface-300",
         className,
       ].join(" ")}
     />

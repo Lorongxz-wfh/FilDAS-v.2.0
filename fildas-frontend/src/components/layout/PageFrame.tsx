@@ -5,13 +5,9 @@ type Props = {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   right?: React.ReactNode;
-
-  /** Optional: adds padding around the scroll content */
+  onBack?: () => void;
   contentClassName?: string;
-
-  /** Optional: extra classes for the outer wrapper */
   className?: string;
-
   children: React.ReactNode;
 };
 
@@ -19,25 +15,59 @@ export default function PageFrame({
   title,
   subtitle,
   right,
+  onBack,
   contentClassName = "",
   className = "",
   children,
 }: Props) {
   return (
     <div
-      className={`min-h-0 flex flex-1 flex-col overflow-hidden ${className}`}
+      className={[
+        "min-h-0 flex flex-1 flex-col overflow-hidden",
+        className,
+      ].join(" ")}
     >
-      {/* Fixed page header */}
-      <div className="shrink-0 border-b border-slate-200 bg-slate-50/80 backdrop-blur">
+      <div className="shrink-0 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-surface-400 dark:bg-surface-600/80">
         <div className="px-6 py-4">
-          <PageHeading title={title} subtitle={subtitle} right={right} />
+          <div className="flex items-center justify-between gap-4">
+            {/* Left: back arrow + title */}
+            <div className="flex items-center gap-3 min-w-0">
+              {onBack && (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-surface-400 dark:hover:text-slate-200 transition"
+                  aria-label="Go back"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                </button>
+              )}
+              <PageHeading title={title} subtitle={subtitle} />
+            </div>
+
+            {/* Right: action buttons */}
+            {right && (
+              <div className="flex shrink-0 items-center gap-2">{right}</div>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* The only scroll owner for normal pages */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* Put padding INSIDE the scroll container */}
-        <div className={`px-6 py-5 ${contentClassName}`}>{children}</div>
+        <div className={["px-6 py-5", contentClassName].join(" ")}>
+          {children}
+        </div>
       </div>
     </div>
   );

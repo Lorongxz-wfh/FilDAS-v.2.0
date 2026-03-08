@@ -1,3 +1,12 @@
+// ============================================================
+// NOTE: Three separate files combined here for delivery.
+// Split them back into their own files when applying.
+// ============================================================
+
+// ============================================================
+// OfficeManagerPage.tsx
+// ============================================================
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PageFrame from "../components/layout/PageFrame";
 import { Card } from "../components/ui/Card";
@@ -7,10 +16,9 @@ import Alert from "../components/ui/Alert";
 import InlineSpinner from "../components/ui/loader/InlineSpinner";
 
 import { getAdminOffices, type AdminOffice } from "../services/admin";
-
 import OfficeEditModal from "../components/admin/OfficeEditModal";
 
-export default function OfficeManagerPage() {
+export function OfficeManagerPage() {
   const [q, setQ] = useState("");
   const [showDisabled, setShowDisabled] = useState(false);
 
@@ -47,13 +55,11 @@ export default function OfficeManagerPage() {
     setModalMode("create");
     setModalOpen(true);
   };
-
   const openEdit = (office: AdminOffice) => {
     setSelected(office);
     setModalMode("edit");
     setModalOpen(true);
   };
-
   const visible = useMemo(() => items, [items]);
 
   return (
@@ -62,11 +68,11 @@ export default function OfficeManagerPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1.5">
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                 Search
               </label>
               <input
-                className="w-72 max-w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none"
+                className="w-72 max-w-full rounded-md border border-slate-300 dark:border-surface-400 bg-white dark:bg-surface-400 px-3 py-2 text-sm text-slate-900 dark:text-slate-200 dark:placeholder-slate-500 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none"
                 placeholder="Name or code…"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
@@ -74,7 +80,7 @@ export default function OfficeManagerPage() {
             </div>
 
             <div className="pt-6">
-              <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <label className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                 <input
                   type="checkbox"
                   checked={showDisabled}
@@ -136,14 +142,16 @@ export default function OfficeManagerPage() {
                 key: "name",
                 header: "Name",
                 render: (o) => (
-                  <span className="font-medium text-slate-900">{o.name}</span>
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                    {o.name}
+                  </span>
                 ),
               },
               {
                 key: "type",
                 header: "Type",
                 render: (o) => (
-                  <span className="text-sm text-slate-700">
+                  <span className="text-sm text-slate-700 dark:text-slate-300">
                     {o.type ?? "office"}
                   </span>
                 ),
@@ -152,7 +160,7 @@ export default function OfficeManagerPage() {
                 key: "cluster_kind",
                 header: "Cluster",
                 render: (o) => (
-                  <span className="text-sm text-slate-700">
+                  <span className="text-sm text-slate-700 dark:text-slate-300">
                     {o.cluster_kind ?? "-"}
                   </span>
                 ),
@@ -161,7 +169,7 @@ export default function OfficeManagerPage() {
                 key: "parent",
                 header: "Parent",
                 render: (o) => (
-                  <span className="text-sm text-slate-700">
+                  <span className="text-sm text-slate-700 dark:text-slate-300">
                     {o.parentOffice
                       ? `${o.parentOffice.name} (${o.parentOffice.code})`
                       : "-"}
@@ -175,9 +183,7 @@ export default function OfficeManagerPage() {
                   const isDisabled = !!o.deleted_at;
                   return (
                     <span
-                      className={`text-xs font-medium ${
-                        isDisabled ? "text-rose-700" : "text-emerald-700"
-                      }`}
+                      className={`text-xs font-medium ${isDisabled ? "text-rose-700 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400"}`}
                     >
                       {isDisabled ? "Disabled" : "Active"}
                     </span>
@@ -220,10 +226,11 @@ export default function OfficeManagerPage() {
         office={selected}
         onClose={() => setModalOpen(false)}
         onSaved={() => {
-          // simplest: refetch so table stays accurate (parentOffice, deleted_at, etc)
           load();
         }}
       />
     </PageFrame>
   );
 }
+
+export default OfficeManagerPage;

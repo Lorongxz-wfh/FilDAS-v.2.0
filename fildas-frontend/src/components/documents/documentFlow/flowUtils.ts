@@ -1,46 +1,9 @@
 // src/components/documents/documentFlow/flowUtils.ts
-import type { Office, WorkflowActionCode } from "../../../services/documents";
+import type { Office } from "../../../services/documents";
 import type { DocumentRouteStep } from "../../../services/documents";
 import type { FlowStep, PhaseId } from "./flowConfig";
 
-export function toWorkflowAction(toStatus: string): WorkflowActionCode | null {
-  switch (toStatus) {
-    case "For Office Review":
-      return "SENDTOOFFICEREVIEW";
-    case "For Office Head Review":
-      return "FORWARDTOOFFICEHEADREVIEW";
-    case "For VP Review":
-    case "For VP Review (Office)":
-      return "FORWARDTOVPREVIEW";
-    case "For QA Final Check":
-      return "VPSENDBACKTOQAFINALCHECK";
-    case "For QA Approval (Office)":
-      return "VPFORWARDTOQAAPPROVAL";
-    case "For Office Approval":
-    case "For Office Approval (Office)":
-      return "STARTOFFICEAPPROVAL";
-    case "For VP Approval":
-    case "For VP Approval (Office)":
-      return "FORWARDTOVPAPPROVAL";
-    case "For President Approval":
-    case "For President Approval (Office)":
-      return "FORWARDTOPRESIDENTAPPROVAL";
-    case "For QA Registration":
-    case "For QA Registration (Office)":
-      return "FORWARDTOQAREGISTRATION";
-    case "For QA Distribution":
-    case "For QA Distribution (Office)":
-      return "FORWARDTOQADISTRIBUTION";
-    case "Distributed":
-      return "MARKDISTRIBUTED";
-    case "QA_EDIT":
-      return "RETURNTOQAEDIT";
-    case "OFFICE_EDIT":
-      return "RETURNTOOFFICEEDIT";
-    default:
-      return null;
-  }
-}
+// Removed: toWorkflowAction() — actions are now driven by backend /available-actions endpoint
 
 export function officeIdByCode(
   offices: Office[] | null | undefined,
@@ -209,7 +172,7 @@ export function buildCustomFlowSteps(opts: {
     ...ordered.map((s) => ({
       id: `custom_review_office:${Number(s.office_id)}`,
       label: `${officeLabelById(offices, s.office_id)} Review`,
-      statusValue: "For Office Review",
+      statusValue: `For ${officeLabelById(offices, s.office_id)} Review`,
       phase: "review" as const,
     })),
   );
@@ -225,7 +188,7 @@ export function buildCustomFlowSteps(opts: {
     ...ordered.map((s) => ({
       id: `custom_approval_office:${Number(s.office_id)}`,
       label: `${officeLabelById(offices, s.office_id)} Approval`,
-      statusValue: "For Office Approval",
+      statusValue: `For ${officeLabelById(offices, s.office_id)} Approval`,
       phase: "approval" as const,
     })),
   );

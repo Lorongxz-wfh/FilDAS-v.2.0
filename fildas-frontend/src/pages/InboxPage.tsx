@@ -100,7 +100,7 @@ const InboxPage: React.FC = () => {
         </div>
       }
     >
-      <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 p-5">
+      <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 p-5 dark:border-surface-400 dark:bg-surface-500/80">
         {loading ? (
           <Alert variant="warning">Loading…</Alert>
         ) : error ? (
@@ -118,8 +118,8 @@ const InboxPage: React.FC = () => {
                   className={[
                     "w-full rounded-xl border px-4 py-3 text-left transition",
                     isUnread
-                      ? "border-sky-200 bg-sky-50 hover:bg-sky-100"
-                      : "border-slate-200 bg-white hover:bg-slate-50",
+                      ? "border-sky-200 bg-sky-50 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:hover:bg-sky-900/40"
+                      : "border-slate-200 bg-white hover:bg-slate-50 dark:border-surface-400 dark:bg-surface-500 dark:hover:bg-surface-400",
                   ].join(" ")}
                   onClick={async () => {
                     try {
@@ -133,15 +133,15 @@ const InboxPage: React.FC = () => {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-slate-900 truncate">
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                         {n.title}
                       </div>
                       {n.body ? (
-                        <div className="mt-1 text-xs text-slate-600 whitespace-pre-wrap">
+                        <div className="mt-1 text-xs text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
                           {n.body}
                         </div>
                       ) : null}
-                      <div className="mt-2 text-[11px] text-slate-500">
+                      <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-500">
                         {new Date(n.created_at).toLocaleString()}
                       </div>
                     </div>

@@ -30,6 +30,7 @@ const CreateDocumentRequestPage = React.lazy(
 const DocumentRequestPage = React.lazy(
   () => import("./pages/DocumentRequestPage"),
 );
+const TemplatesPage = React.lazy(() => import("./pages/TemplatesPage"));
 
 import ProtectedLayout from "./lib/guards/ProtectedLayout";
 import RequireRole from "./lib/guards/RequireRole";
@@ -124,6 +125,9 @@ export default function App() {
             <Route path="/user-manager" element={<UserManagerPage />} />
             <Route path="/office-manager" element={<OfficeManagerPage />} />
           </Route>
+
+          {/* Templates — all authenticated users */}
+          <Route path="/templates" element={<TemplatesPage />} />
 
           {/* Archive is authenticated */}
           <Route path="/archive" element={<ArchivePage />} />

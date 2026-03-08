@@ -44,18 +44,8 @@ export default function ProtectedLayout() {
     window.location.href = "/login";
   };
 
-  // Pages that manage their own padding/scroll containers
-  const isSelfManaged =
-    location.pathname === "/dashboard" ||
-    location.pathname === "/work-queue" ||
-    location.pathname.startsWith("/documents");
-
   return (
-    <MainLayout
-      onLogout={handleLogout}
-      noMainPadding={isSelfManaged}
-      noBodyScroll={true}
-    >
+    <MainLayout onLogout={handleLogout} noBodyScroll={true}>
       <Outlet />
     </MainLayout>
   );

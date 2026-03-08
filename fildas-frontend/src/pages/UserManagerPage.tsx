@@ -12,7 +12,6 @@ const UserManagerPage: React.FC = () => {
   const me = getAuthUser();
   const isAdmin = me?.role === "admin";
 
-  // States for users table
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [meta, setMeta] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -31,12 +30,7 @@ const UserManagerPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-
-        const res = await getAdminUsers({
-          page,
-          q: search || undefined,
-        });
-
+        const res = await getAdminUsers({ page, q: search || undefined });
         if (cancelled) return;
         setUsers(res.data);
         setMeta(res.meta);
@@ -50,7 +44,6 @@ const UserManagerPage: React.FC = () => {
     };
 
     load();
-
     return () => {
       cancelled = true;
     };
@@ -61,15 +54,12 @@ const UserManagerPage: React.FC = () => {
     setSelectedUser(u);
     setIsEditOpen(true);
   };
-
   const openCreate = () => {
     setEditMode("create");
     setSelectedUser(null);
     setIsEditOpen(true);
   };
-
   const handleSaved = (_saved: AdminUser) => {
-    // Always refetch so disable/enable/delete updates the table correctly.
     setPage(1);
     setReloadTick((t) => t + 1);
   };
@@ -80,19 +70,25 @@ const UserManagerPage: React.FC = () => {
         key: "name",
         header: "Name",
         render: (u) => (
-          <div className="font-medium text-slate-900">{u.full_name}</div>
+          <div className="font-medium text-slate-900 dark:text-slate-100">
+            {u.full_name}
+          </div>
         ),
       },
       {
         key: "email",
         header: "Email",
-        render: (u) => <div className="text-slate-700">{u.email}</div>,
+        render: (u) => (
+          <div className="text-slate-700 dark:text-slate-300">{u.email}</div>
+        ),
       },
       {
         key: "office",
         header: "Office",
         render: (u) => (
-          <div className="text-slate-700">{u.office?.name ?? "-"}</div>
+          <div className="text-slate-700 dark:text-slate-300">
+            {u.office?.name ?? "-"}
+          </div>
         ),
       },
       {
@@ -106,8 +102,8 @@ const UserManagerPage: React.FC = () => {
               className={[
                 "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
                 isAdminRole
-                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border border-slate-200 bg-slate-50 text-slate-700",
+                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400"
+                  : "border border-slate-200 bg-slate-50 text-slate-700 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-300",
               ].join(" ")}
             >
               {role}
@@ -155,7 +151,6 @@ const UserManagerPage: React.FC = () => {
           >
             New user
           </Button>
-
           <Button
             type="button"
             variant="outline"
@@ -175,15 +170,17 @@ const UserManagerPage: React.FC = () => {
         <CardBody>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="text-sm font-semibold text-slate-900">Users</div>
-              <div className="text-xs text-slate-600">
+              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Users
+              </div>
+              <div className="text-xs text-slate-600 dark:text-slate-400">
                 {meta?.total != null ? `${meta.total} total` : " "}
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               <input
-                className="w-full sm:w-80 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                className="w-full sm:w-80 rounded-md border border-slate-300 dark:border-surface-400 bg-white dark:bg-surface-400 px-3 py-2 text-sm text-slate-900 dark:text-slate-200 dark:placeholder-slate-500 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
                 placeholder="Search name/email…"
                 value={search}
                 onChange={(e) => {
@@ -208,7 +205,6 @@ const UserManagerPage: React.FC = () => {
 
           <div className="mt-4">
             {error && <Alert variant="danger">{error}</Alert>}
-
             <Table<AdminUser>
               columns={columns}
               rows={users}
@@ -223,10 +219,9 @@ const UserManagerPage: React.FC = () => {
           </div>
 
           <div className="mt-4 flex items-center justify-between gap-3">
-            <div className="text-xs text-slate-600">
+            <div className="text-xs text-slate-600 dark:text-slate-400">
               Page {meta?.current_page ?? page} of {meta?.last_page ?? 1}
             </div>
-
             <div className="flex items-center gap-2">
               <Button
                 type="button"
@@ -258,7 +253,9 @@ const UserManagerPage: React.FC = () => {
 
       <Card>
         <CardBody>
-          <div className="text-sm font-semibold text-slate-900">Roles</div>
+          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            Roles
+          </div>
           <UserEditModal
             open={isEditOpen}
             mode={editMode}
@@ -269,7 +266,9 @@ const UserManagerPage: React.FC = () => {
             }}
             onSaved={handleSaved}
           />
-          <div className="mt-2 text-sm text-slate-600">Roles coming soon.</div>
+          <div className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            Roles coming soon.
+          </div>
         </CardBody>
       </Card>
     </PageFrame>

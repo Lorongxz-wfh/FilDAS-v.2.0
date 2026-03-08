@@ -217,7 +217,7 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
             placeholder="Search title, code, office..."
             // keep input usable while fetching
             disabled={false}
-            className="w-64 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-60"
+            className="w-64 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-60 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500"
           />
         </div>
 
@@ -227,7 +227,7 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             disabled={false}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 disabled:opacity-60"
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 disabled:opacity-60 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
           >
             {statusOptions.map((s) => (
               <option key={s} value={s}>
@@ -243,7 +243,7 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
             disabled={false}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 disabled:opacity-60"
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 disabled:opacity-60 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
           >
             <option value="ALL">All types</option>
             <option value="internal">internal</option>
@@ -258,7 +258,7 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
             value={scopeFilter}
             onChange={(e) => setScopeFilter(e.target.value as any)}
             disabled={false}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 disabled:opacity-60"
+            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 disabled:opacity-60 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
           >
             <option value="all">All</option>
             <option value="assigned">Assigned</option>
@@ -300,7 +300,7 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
                     {d.tags.slice(0, 4).map((t) => (
                       <span
                         key={t}
-                        className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-700"
+                        className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-700 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-300"
                         title={t}
                       >
                         {t}
@@ -365,7 +365,11 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
               columns={columns}
               rows={filteredRows}
               rowKey={(d) => d.id}
-              onRowClick={(d) => navigate(`/documents/${d.id}`)}
+              onRowClick={(d) =>
+                navigate(`/documents/${d.id}`, {
+                  state: { from: "/documents" },
+                })
+              }
               loading={loading}
               loadingStyle="skeleton"
               error={error}

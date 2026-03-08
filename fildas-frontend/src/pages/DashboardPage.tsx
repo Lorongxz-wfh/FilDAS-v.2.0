@@ -9,14 +9,14 @@ import {
 import type { Document } from "../services/documents";
 import Alert from "../components/ui/Alert";
 import Button from "../components/ui/Button";
-import { Card, CardBody } from "../components/ui/Card";
-import InlineSpinner from "../components/ui/loader/InlineSpinner";
+import { Card, CardBody, CardHeader } from "../components/ui/Card";
 import SkeletonList from "../components/ui/loader/SkeletonList";
+import StatCard from "../components/ui/StatCard";
+import DocListItem from "../components/ui/DocListItem";
 import PageFrame from "../components/layout/PageFrame";
 import ComplianceClusterBarChart, {
   type ComplianceClusterDatum,
 } from "../components/charts/ComplianceClusterBarChart";
-
 import {
   getUserRole,
   isQA,
@@ -32,7 +32,6 @@ const DashboardPage: React.FC = () => {
   const [assigned, setAssigned] = useState<WorkQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [clusterData, setClusterData] = useState<ComplianceClusterDatum[]>([]);
 
   useEffect(() => {
@@ -70,34 +69,35 @@ const DashboardPage: React.FC = () => {
     load();
   }, []);
 
-  const pending = useMemo<WorkQueueItem[]>(() => {
-    // Only items the user can act on (assigned to their office)
-    return (assigned ?? []).filter((x) => x?.can_act);
-  }, [assigned]);
-
+  const pending = useMemo(
+    () => (assigned ?? []).filter((x) => x?.can_act),
+    [assigned],
+  );
   const officialCount = useMemo(
     () => docs.filter((d) => d.status === "Distributed").length,
     [docs],
   );
+  const recentOfficial = useMemo(
+    () =>
+      docs
+        .filter((d) => d.status === "Distributed")
+        .sort((a, b) =>
+          String(b.updated_at).localeCompare(String(a.updated_at)),
+        )
+        .slice(0, 5),
+    [docs],
+  );
+  const recentActive = useMemo(
+    () =>
+      [...docs]
+        .sort((a, b) =>
+          String(b.updated_at).localeCompare(String(a.updated_at)),
+        )
+        .slice(0, 5),
+    [docs],
+  );
 
-  const pendingCount = useMemo(() => pending.length, [pending]);
-
-  const totalDocsCount = useMemo(() => docs.length, [docs]);
-
-  const recentOfficial = useMemo(() => {
-    return docs
-      .filter((d) => d.status === "Distributed")
-      .slice()
-      .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))
-      .slice(0, 5);
-  }, [docs]);
-
-  const recentActive = useMemo(() => {
-    return docs
-      .slice()
-      .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))
-      .slice(0, 5);
-  }, [docs]);
+  const canCreate = isQA(role) || isOfficeStaff(role) || isOfficeHead(role);
 
   return (
     <PageFrame
@@ -105,119 +105,76 @@ const DashboardPage: React.FC = () => {
       right={
         <div className="flex flex-wrap gap-2">
           <Button
-            type="button"
             variant="outline"
             size="sm"
             onClick={() => navigate("/work-queue")}
           >
-            Go to work queue
+            Work queue
           </Button>
-
           <Button
-            type="button"
             variant="outline"
             size="sm"
             onClick={() => navigate("/documents")}
           >
-            Open document library
+            Library
           </Button>
-
           {isQA(role) && (
             <Button
-              type="button"
               variant="outline"
               size="sm"
               onClick={() => navigate("/reports")}
             >
-              Open reports
+              Reports
             </Button>
           )}
-
-          {isQA(role) ? (
+          {canCreate && (
             <Button
-              type="button"
               variant="primary"
               size="sm"
               onClick={() => navigate("/documents/create")}
             >
-              Create document
+              + Create document
             </Button>
-          ) : isOfficeStaff(role) || isOfficeHead(role) ? (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => navigate("/documents/create")}
-            >
-              Create document
-            </Button>
-          ) : null}
+          )}
         </div>
       }
       contentClassName="space-y-6"
     >
       {error && <Alert variant="danger">{error}</Alert>}
 
+      {/* QA: Stats + Chart */}
       {isQA(role) && (
         <div className="flex flex-col gap-6 sm:flex-row sm:items-stretch">
-          {/* Left: Stats box */}
-          <Card className="overflow-hidden sm:w-60 sm:flex-none">
-            <CardBody className="bg-white p-0">
-              <div className="grid grid-cols-1 divide-y divide-slate-100">
-                <div className="text-center py-4">
-                  <div className="text-3xl font-semibold text-sky-700 tabular-nums">
-                    {loading ? (
-                      <InlineSpinner className="h-5 w-5 border-2" />
-                    ) : (
-                      pendingCount
-                    )}
-                  </div>
-                  <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
-                    Pending actions
-                  </div>
-                </div>
-
-                <div className="text-center py-4">
-                  <div className="text-3xl font-semibold text-slate-900 tabular-nums">
-                    {loading ? (
-                      <InlineSpinner className="h-5 w-5 border-2" />
-                    ) : (
-                      totalDocsCount
-                    )}
-                  </div>
-                  <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
-                    Total documents
-                  </div>
-                </div>
-
-                <div className="text-center py-4">
-                  <div className="text-3xl font-semibold text-emerald-700 tabular-nums">
-                    {loading ? (
-                      <InlineSpinner className="h-5 w-5 border-2" />
-                    ) : (
-                      officialCount
-                    )}
-                  </div>
-                  <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
-                    Official
-                  </div>
-                </div>
-              </div>
-            </CardBody>
+          <Card className="sm:w-56 sm:flex-none overflow-hidden">
+            <div className="divide-y divide-slate-100 dark:divide-surface-400">
+              <StatCard
+                label="Pending actions"
+                value={pending.length}
+                loading={loading}
+                valueClassName="text-brand-300"
+              />
+              <StatCard
+                label="Total documents"
+                value={docs.length}
+                loading={loading}
+                valueClassName="text-slate-900 dark:text-slate-100"
+              />
+              <StatCard
+                label="Official"
+                value={officialCount}
+                loading={loading}
+                valueClassName="text-emerald-600 dark:text-emerald-400"
+              />
+            </div>
           </Card>
 
-          {/* Right: Graph bars */}
           <Card className="sm:flex-1 min-w-0">
-            <CardBody>
+            <CardHeader>
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-m font-semibold text-slate-900">
-                    Workflow snapshot
-                  </div>
-                </div>
-
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  Workflow snapshot
+                </span>
                 <Button
-                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => navigate("/reports")}
@@ -225,10 +182,9 @@ const DashboardPage: React.FC = () => {
                   View reports
                 </Button>
               </div>
-
-              <div className="mt-4 w-full min-w-0">
-                <ComplianceClusterBarChart height={260} data={clusterData} />
-              </div>
+            </CardHeader>
+            <CardBody>
+              <ComplianceClusterBarChart height={240} data={clusterData} />
             </CardBody>
           </Card>
         </div>
@@ -236,19 +192,17 @@ const DashboardPage: React.FC = () => {
 
       {/* Pending actions */}
       <Card>
-        <CardBody>
+        <CardHeader>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold text-slate-900">
+              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 Pending actions
               </div>
-              <div className="text-xs text-slate-600">
+              <div className="text-xs text-slate-500 dark:text-slate-400">
                 Top items requiring your action.
               </div>
             </div>
-
             <Button
-              type="button"
               variant="outline"
               size="sm"
               onClick={() => navigate("/work-queue")}
@@ -256,36 +210,30 @@ const DashboardPage: React.FC = () => {
               View all
             </Button>
           </div>
-
-          <div className="mt-3 space-y-2 relative min-h-24">
+        </CardHeader>
+        <CardBody>
+          <div className="space-y-2 min-h-24">
             {loading ? (
               <SkeletonList rows={5} rowClassName="h-10" />
+            ) : pending.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                No pending actions right now.
+              </p>
             ) : (
-              <>
-                {pending.slice(0, 5).map((x) => (
-                  <button
+              pending
+                .slice(0, 5)
+                .map((x) => (
+                  <DocListItem
                     key={x.version.id}
-                    type="button"
+                    title={x.document.title}
+                    subtitle={x.version.status}
                     onClick={() =>
                       navigate(
                         `/documents/${x.document.id}?version_id=${x.version.id}`,
                       )
                     }
-                    className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-50"
-                  >
-                    <div className="font-medium">{x.document.title}</div>
-                    <div className="text-xs text-slate-500">
-                      {x.version.status}
-                    </div>
-                  </button>
-                ))}
-
-                {pending.length === 0 && (
-                  <div className="text-sm text-slate-600">
-                    No pending actions right now.
-                  </div>
-                )}
-              </>
+                  />
+                ))
             )}
           </div>
         </CardBody>
@@ -293,21 +241,18 @@ const DashboardPage: React.FC = () => {
 
       {/* Recent cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {/* Recent official versions */}
         <Card>
-          <CardBody>
+          <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold text-slate-900">
-                  Recent official versions
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  Recent official
                 </div>
-                <div className="text-xs text-slate-600">
+                <div className="text-xs text-slate-500 dark:text-slate-400">
                   Recently distributed documents.
                 </div>
               </div>
-
               <Button
-                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => navigate("/documents")}
@@ -315,111 +260,79 @@ const DashboardPage: React.FC = () => {
                 Open library
               </Button>
             </div>
-
-            <div className="mt-3 space-y-2 relative min-h-24">
+          </CardHeader>
+          <CardBody>
+            <div className="space-y-2 min-h-24">
               {loading ? (
                 <SkeletonList rows={4} rowClassName="h-10" />
+              ) : recentOfficial.length === 0 ? (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No official versions yet.
+                </p>
               ) : (
-                <>
-                  {recentOfficial.length === 0 && (
-                    <div className="text-sm text-slate-600">
-                      No official versions yet.
-                    </div>
-                  )}
-
-                  {recentOfficial.map((d) => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => navigate(`/documents/${d.id}`)}
-                      className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-50"
-                    >
-                      <div className="font-medium">{d.title}</div>
-                      <div className="text-xs text-slate-500">
-                        {d.code ?? "—"}
-                      </div>
-                    </button>
-                  ))}
-                </>
+                recentOfficial.map((d) => (
+                  <DocListItem
+                    key={d.id}
+                    title={d.title}
+                    subtitle={d.code ?? "—"}
+                    onClick={() => navigate(`/documents/${d.id}`)}
+                  />
+                ))
               )}
             </div>
           </CardBody>
         </Card>
 
-        {/* Recent activity */}
         <Card>
-          <CardBody>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">
-                  Recent activity
-                </div>
-                <div className="text-xs text-slate-600">
-                  Latest updated documents (for quick access).
-                </div>
-              </div>
+          <CardHeader>
+            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Recent activity
             </div>
-
-            <div className="mt-3 space-y-2 relative min-h-24">
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Latest updated documents.
+            </div>
+          </CardHeader>
+          <CardBody>
+            <div className="space-y-2 min-h-24">
               {loading ? (
                 <SkeletonList rows={4} rowClassName="h-10" />
+              ) : recentActive.length === 0 ? (
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No documents yet.
+                </p>
               ) : (
-                <>
-                  {recentActive.length === 0 && (
-                    <div className="text-sm text-slate-600">
-                      No documents yet.
-                    </div>
-                  )}
-
-                  {recentActive.map((d) => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => navigate(`/documents/${d.id}`)}
-                      className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-50"
-                    >
-                      <div className="font-medium">{d.title}</div>
-                      <div className="text-xs text-slate-500">{d.status}</div>
-                    </button>
-                  ))}
-                </>
+                recentActive.map((d) => (
+                  <DocListItem
+                    key={d.id}
+                    title={d.title}
+                    subtitle={d.status}
+                    onClick={() => navigate(`/documents/${d.id}`)}
+                  />
+                ))
               )}
             </div>
           </CardBody>
         </Card>
 
-        {/* Recent comments (husk only) */}
         <Card>
-          <CardBody>
+          <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold text-slate-900">
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                   Recent comments
                 </div>
-                <div className="text-xs text-slate-600">
-                  Latest notes across documents (coming soon).
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Coming soon.
                 </div>
               </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled
-                title="Coming soon"
-              >
+              <Button variant="outline" size="sm" disabled>
                 View all
               </Button>
             </div>
-
-            <div className="mt-3 relative min-h-24">
-              {loading ? (
-                <SkeletonList rows={3} rowClassName="h-10" />
-              ) : (
-                <div className="flex items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-sm text-slate-600">
-                  No comments to show yet.
-                </div>
-              )}
+          </CardHeader>
+          <CardBody>
+            <div className="flex items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-8 text-sm text-slate-500 dark:border-surface-400 dark:bg-surface-600 dark:text-slate-400">
+              No comments yet.
             </div>
           </CardBody>
         </Card>

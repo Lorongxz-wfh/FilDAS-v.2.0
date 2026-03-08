@@ -6,8 +6,6 @@ interface OfficeDropdownProps {
   value: number | null;
   onChange: (officeId: number) => void;
   error?: string;
-
-  // Optional: prevent picking offices that are already selected elsewhere
   excludeOfficeIds?: number[];
 }
 
@@ -48,7 +46,7 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
 
   return (
     <div className="relative">
-      <label className="block text-xs font-medium text-slate-700 mb-1.5">
+      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
         Office / Department <span className="text-rose-500">*</span>
       </label>
 
@@ -59,15 +57,15 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
           value={isOpen ? search : selected?.name || ""}
           onChange={(e) => setSearch(e.target.value)}
           onFocus={() => setIsOpen(true)}
-          className={`block w-full rounded-md border px-3 py-2 text-sm text-slate-900 shadow-xs outline-none transition ${
+          className={`block w-full rounded-md border px-3 py-2 text-sm text-slate-900 shadow-xs outline-none transition dark:text-slate-200 dark:placeholder-slate-500 ${
             error
-              ? "border-rose-300 focus:border-rose-500 focus:ring-rose-200"
-              : "border-slate-300 focus:border-sky-500 focus:ring-sky-200"
+              ? "border-rose-300 focus:border-rose-500 focus:ring-rose-200 dark:border-rose-700"
+              : "border-slate-300 focus:border-sky-500 focus:ring-sky-200 dark:border-surface-400 dark:bg-surface-400"
           } focus:ring-2`}
         />
         <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
           <svg
-            className={`h-4 w-4 text-slate-400 transition ${
+            className={`h-4 w-4 text-slate-400 dark:text-slate-500 transition ${
               isOpen ? "rotate-180" : ""
             }`}
             fill="none"
@@ -85,12 +83,14 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
       </div>
 
       {isOpen && (
-        <div className="absolute z-10 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg">
+        <div className="absolute z-10 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg dark:border-surface-400 dark:bg-surface-500">
           <ul className="max-h-48 overflow-y-auto">
             {loading ? (
-              <li className="px-3 py-2 text-xs text-slate-500">Loading...</li>
+              <li className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                Loading...
+              </li>
             ) : filtered.length === 0 ? (
-              <li className="px-3 py-2 text-xs text-slate-500">
+              <li className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
                 No offices found
               </li>
             ) : (
@@ -106,10 +106,10 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
                       aria-disabled={isExcluded}
                       className={`w-full text-left px-3 py-2 text-sm transition ${
                         value === office.id
-                          ? "bg-sky-50 text-sky-700 font-medium"
+                          ? "bg-sky-50 text-sky-700 font-medium dark:bg-sky-950/40 dark:text-sky-400"
                           : isExcluded
-                            ? "text-slate-400 cursor-not-allowed"
-                            : "text-slate-700 hover:bg-slate-50"
+                            ? "text-slate-400 cursor-not-allowed dark:text-slate-600"
+                            : "text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-surface-400"
                       }`}
                       onClick={() => {
                         if (isExcluded) return;
@@ -119,7 +119,7 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
                       }}
                     >
                       <span className="font-medium">{office.name}</span>
-                      <span className="text-xs text-slate-500 ml-2">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">
                         ({office.code})
                       </span>
                     </button>
@@ -131,7 +131,9 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
         </div>
       )}
 
-      {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+      {error && (
+        <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{error}</p>
+      )}
     </div>
   );
 };

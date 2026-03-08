@@ -1,6 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getAdminOffices, type AdminOffice } from "../../services/admin";
 
+// Shared input classes for admin forms
+export const adminInputCls = [
+  "w-full rounded-md border px-3 py-2 text-sm outline-none transition",
+  "border-slate-300 bg-white text-slate-900",
+  "focus:border-sky-500 focus:ring-2 focus:ring-sky-200",
+  "dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200",
+  "disabled:bg-slate-50 disabled:opacity-60 dark:disabled:bg-surface-600",
+].join(" ");
+
 type Props = {
   value: number | null;
   onChange: (officeId: number | null) => void;
@@ -59,12 +68,10 @@ const AdminOfficeDropdown: React.FC<Props> = ({
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return offices;
-
-    return offices.filter((o) => {
-      return (
-        o.name.toLowerCase().includes(q) || o.code.toLowerCase().includes(q)
-      );
-    });
+    return offices.filter(
+      (o) =>
+        o.name.toLowerCase().includes(q) || o.code.toLowerCase().includes(q),
+    );
   }, [offices, search]);
 
   const selected = useMemo(
@@ -74,7 +81,7 @@ const AdminOfficeDropdown: React.FC<Props> = ({
 
   return (
     <div className="relative">
-      <label className="block text-xs font-medium text-slate-700 mb-1.5">
+      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
         {label} {required ? <span className="text-rose-500">*</span> : null}
       </label>
 
@@ -92,17 +99,20 @@ const AdminOfficeDropdown: React.FC<Props> = ({
             window.setTimeout(() => setIsOpen(false), 120);
           }}
           disabled={disabled}
-          className={`block w-full rounded-md border px-3 py-2 text-sm shadow-xs outline-none transition ${
-            disabled ? "bg-slate-50 text-slate-500" : "bg-white text-slate-900"
-          } ${
+          className={[
+            "block w-full rounded-md border px-3 py-2 text-sm shadow-xs outline-none transition",
+            disabled
+              ? "bg-slate-50 text-slate-500 dark:bg-surface-600 dark:text-slate-500"
+              : "bg-white text-slate-900 dark:bg-surface-400 dark:text-slate-200",
             error
-              ? "border-rose-300 focus:border-rose-500 focus:ring-rose-200"
-              : "border-slate-300 focus:border-sky-500 focus:ring-sky-200"
-          } focus:ring-2`}
+              ? "border-rose-300 focus:border-rose-500 focus:ring-rose-200 dark:border-rose-700"
+              : "border-slate-300 focus:border-sky-500 focus:ring-sky-200 dark:border-surface-400",
+            "focus:ring-2",
+          ].join(" ")}
         />
         <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
           <svg
-            className={`h-4 w-4 text-slate-400 transition ${isOpen ? "rotate-180" : ""}`}
+            className={`h-4 w-4 text-slate-400 dark:text-slate-500 transition ${isOpen ? "rotate-180" : ""}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -118,12 +128,14 @@ const AdminOfficeDropdown: React.FC<Props> = ({
       </div>
 
       {isOpen && !disabled && (
-        <div className="absolute z-10 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg">
+        <div className="absolute z-10 mt-1 w-full rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 shadow-lg">
           <ul className="max-h-56 overflow-y-auto">
             {loading ? (
-              <li className="px-3 py-2 text-xs text-slate-500">Loading...</li>
+              <li className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                Loading...
+              </li>
             ) : filtered.length === 0 ? (
-              <li className="px-3 py-2 text-xs text-slate-500">
+              <li className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
                 No offices found
               </li>
             ) : (
@@ -139,10 +151,10 @@ const AdminOfficeDropdown: React.FC<Props> = ({
                       aria-disabled={isExcluded}
                       className={`w-full text-left px-3 py-2 text-sm transition ${
                         value === office.id
-                          ? "bg-sky-50 text-sky-700 font-medium"
+                          ? "bg-sky-50 text-sky-700 font-medium dark:bg-sky-950/40 dark:text-sky-400"
                           : isExcluded
-                            ? "text-slate-400 cursor-not-allowed"
-                            : "text-slate-700 hover:bg-slate-50"
+                            ? "text-slate-400 cursor-not-allowed dark:text-slate-600"
+                            : "text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-surface-400"
                       }`}
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
@@ -153,7 +165,7 @@ const AdminOfficeDropdown: React.FC<Props> = ({
                       }}
                     >
                       <span className="font-medium">{office.name}</span>
-                      <span className="text-xs text-slate-500 ml-2">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">
                         ({office.code})
                       </span>
                     </button>
@@ -163,10 +175,10 @@ const AdminOfficeDropdown: React.FC<Props> = ({
             )}
 
             {!loading && (
-              <li className="border-t border-slate-100">
+              <li className="border-t border-slate-100 dark:border-surface-400">
                 <button
                   type="button"
-                  className="w-full text-left px-3 py-2 text-xs text-slate-600 hover:bg-slate-50"
+                  className="w-full text-left px-3 py-2 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     onChange(null);
@@ -182,7 +194,9 @@ const AdminOfficeDropdown: React.FC<Props> = ({
         </div>
       )}
 
-      {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+      {error && (
+        <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{error}</p>
+      )}
     </div>
   );
 };
