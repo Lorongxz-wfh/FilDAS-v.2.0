@@ -205,74 +205,49 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
           </Button>
         ) : null
       }
-      contentClassName="min-h-0 flex flex-col gap-4"
+      contentClassName="flex flex-col min-h-0 gap-4"
     >
       {/* Filters */}
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">Search</label>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search title, code, office..."
-            // keep input usable while fetching
-            disabled={false}
-            className="w-64 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-60 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">Status</label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            disabled={false}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 disabled:opacity-60 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
-          >
-            {statusOptions.map((s) => (
-              <option key={s} value={s}>
-                {s === "ALL" ? "All statuses" : s}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">Type</label>
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            disabled={false}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 disabled:opacity-60 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
-          >
-            <option value="ALL">All types</option>
-            <option value="internal">internal</option>
-            <option value="external">external</option>
-            <option value="forms">forms</option>
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-slate-600">Library</label>
-          <select
-            value={scopeFilter}
-            onChange={(e) => setScopeFilter(e.target.value as any)}
-            disabled={false}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 disabled:opacity-60 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
-          >
-            <option value="all">All</option>
-            <option value="assigned">Assigned</option>
-            <option value="owned">Owned</option>
-            <option value="shared">Shared</option>
-          </select>
-        </div>
-
-        <div className="flex-1" />
-
-        <Button
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search title, code, office…"
+          className="w-72 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500"
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
+        >
+          {statusOptions.map((s) => (
+            <option key={s} value={s}>
+              {s === "ALL" ? "All statuses" : s}
+            </option>
+          ))}
+        </select>
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
+        >
+          <option value="ALL">All types</option>
+          <option value="internal">Internal</option>
+          <option value="external">External</option>
+          <option value="forms">Forms</option>
+        </select>
+        <select
+          value={scopeFilter}
+          onChange={(e) => setScopeFilter(e.target.value as any)}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
+        >
+          <option value="all">All</option>
+          <option value="assigned">Assigned</option>
+          <option value="owned">Owned</option>
+          <option value="shared">Shared</option>
+        </select>
+        <button
           type="button"
-          variant="outline"
-          size="sm"
           onClick={() => {
             setQ("");
             setStatusFilter("ALL");
@@ -280,12 +255,13 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
             setScopeFilter("all");
             setPage(1);
           }}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300 dark:hover:bg-surface-400 transition-colors"
         >
           Clear
-        </Button>
+        </button>
       </div>
 
-      {/* Table area (Table owns the scrolling) */}
+      {/* Table */}
       {(() => {
         const columns: TableColumn<Document>[] = [
           {
@@ -359,8 +335,12 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
         ];
 
         return (
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div
+            className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden"
+            style={{ height: "calc(100vh - 210px)" }}
+          >
             <Table<Document>
+              bare
               className="h-full"
               columns={columns}
               rows={filteredRows}
@@ -371,23 +351,12 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
                 })
               }
               loading={loading}
-              loadingStyle="skeleton"
+              initialLoading={loading && filteredRows.length === 0}
               error={error}
-              emptyMessage='There are no documents yet. Try creating one from the "Create document" page.'
+              emptyMessage="No documents found."
+              hasMore={hasMore}
+              onLoadMore={!documents ? () => setPage((p) => p + 1) : undefined}
             />
-            {!documents && !error && (
-              <div className="flex justify-center pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={loading || !hasMore}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  {hasMore ? "Load more" : "No more results"}
-                </Button>
-              </div>
-            )}
           </div>
         );
       })()}

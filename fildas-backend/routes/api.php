@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\DocumentTemplateController;
 use App\Http\Controllers\Api\ReportsController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AdminOfficeController;
+use App\Http\Controllers\Api\DocumentRequestMessageController;
 
 // ── Public ─────────────────────────────────────────────────────────────────
 Route::post('/login', [AuthController::class, 'login']);
@@ -114,6 +115,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reports/compliance',  [ReportsController::class, 'compliance']);
 
     // ── Document Requests ──────────────────────────────────────────────────
+    Route::get('/document-requests/{request}/messages',  [DocumentRequestMessageController::class, 'index']);
+    Route::post('/document-requests/{request}/messages', [DocumentRequestMessageController::class, 'store']);
     Route::get('/document-requests',         [DocumentRequestController::class, 'index']);
     Route::post('/document-requests',        [DocumentRequestController::class, 'store']);
     Route::get('/document-requests/inbox',   [DocumentRequestController::class, 'inbox']);

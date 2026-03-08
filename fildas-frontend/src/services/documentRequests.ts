@@ -157,6 +157,37 @@ export async function getDocumentRequestSubmissionFileDownloadLink(
   return res.data as { url: string; expires_in_minutes: number };
 }
 
+export type DocumentRequestMessageRow = {
+  id: number;
+  document_request_id: number;
+  sender_user_id: number;
+  type: "comment" | "system";
+  message: string;
+  created_at?: string;
+  updated_at?: string;
+  sender: {
+    id: number;
+    name: string;
+    profile_photo_path?: string | null;
+    role?: string | null;
+  };
+};
+
+export async function getDocumentRequestMessages(requestId: number) {
+  const res = await api.get(`/document-requests/${requestId}/messages`);
+  return res.data as DocumentRequestMessageRow[];
+}
+
+export async function postDocumentRequestMessage(
+  requestId: number,
+  message: string,
+) {
+  const res = await api.post(`/document-requests/${requestId}/messages`, {
+    message,
+  });
+  return res.data as DocumentRequestMessageRow;
+}
+
 export async function reviewDocumentRequestSubmission(input: {
   submission_id: number;
   decision: "accepted" | "rejected";

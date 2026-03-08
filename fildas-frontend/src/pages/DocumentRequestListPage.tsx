@@ -5,9 +5,36 @@ import {
   listDocumentRequestInbox,
   listDocumentRequests,
 } from "../services/documentRequests";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { getAuthUser } from "../lib/auth.ts";
 import CreateDocumentRequestModal from "../components/documentRequests/CreateDocumentRequestModal";
+import Table, { type TableColumn } from "../components/ui/Table";
+
+function formatDate(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const s = String(status).toLowerCase();
+  const map: Record<string, string> = {
+    open: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800",
+    closed:
+      "bg-slate-100 text-slate-600 border-slate-200 dark:bg-surface-400 dark:text-slate-400 dark:border-surface-300",
+    cancelled:
+      "bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800",
+    pending:
+      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800",
+  };
+  const cls = map[s] ?? "bg-slate-100 text-slate-600 border-slate-200";
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold tracking-wide ${cls}`}
+    >
+      {String(status).toUpperCase()}
+    </span>
+  );
+}
 
 function roleLower(me: any) {
   const raw =
@@ -19,96 +46,92 @@ function roleLower(me: any) {
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = React.useState(value);
-
   React.useEffect(() => {
     const t = window.setTimeout(() => setDebounced(value), delayMs);
     return () => window.clearTimeout(t);
   }, [value, delayMs]);
-
   return debounced;
 }
-
-type Paginator<T> = {
-  data: T[];
-  current_page?: number;
-  last_page?: number;
-  per_page?: number;
-  total?: number;
-  from?: number | null;
-  to?: number | null;
-};
 
 export default function DocumentRequestListPage() {
   const me = getAuthUser();
   const role = roleLower(me);
-
   const isQaAdmin = ["qa", "sysadmin", "admin"].includes(role);
 
   const [q, setQ] = React.useState("");
   const [status, setStatus] = React.useState<
     "" | "open" | "closed" | "cancelled"
   >("");
-
-  const [page, setPage] = React.useState(1);
-  const [perPage, setPerPage] = React.useState(25);
-
-  const [loading, setLoading] = React.useState(false);
   const [createOpen, setCreateOpen] = React.useState(false);
-  const [result, setResult] = React.useState<Paginator<any> | null>(null);
+
   const [rows, setRows] = React.useState<any[]>([]);
+  const [page, setPage] = React.useState(1);
+  const [hasMore, setHasMore] = React.useState(true);
+  const [loading, setLoading] = React.useState(false);
+  const [initialLoading, setInitialLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   const qDebounced = useDebouncedValue(q, 400);
+  // scroll/sentinel handled by Table component
 
-  const load = React.useCallback(
-    async (opts?: { page?: number }) => {
-      const targetPage = opts?.page ?? page;
+  const navigate = useNavigate();
 
+  // Reset when filters change
+  React.useEffect(() => {
+    setRows([]);
+    setPage(1);
+    setHasMore(true);
+    setInitialLoading(true);
+  }, [qDebounced, status, isQaAdmin]);
+
+  // Load data
+  React.useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      if (!hasMore && page > 1) return;
       setLoading(true);
       setError(null);
-
       try {
-        if (isQaAdmin) {
-          const data = await listDocumentRequests({
-            q: qDebounced.trim() || undefined,
-            status: status || undefined,
-            per_page: perPage,
-            page: targetPage,
-          } as any);
-          setResult(data ?? null);
-          setRows(Array.isArray(data?.data) ? data.data : []);
-        } else {
-          const data = await listDocumentRequestInbox({
-            q: qDebounced.trim() || undefined,
-            per_page: perPage,
-            page: targetPage,
-          } as any);
-          setResult(data ?? null);
-          setRows(Array.isArray(data?.data) ? data.data : []);
-        }
+        const params: any = {
+          q: qDebounced.trim() || undefined,
+          per_page: 25,
+          page,
+        };
+        if (isQaAdmin) params.status = status || undefined;
+
+        const data = isQaAdmin
+          ? await listDocumentRequests(params)
+          : await listDocumentRequestInbox(params);
+
+        if (!alive) return;
+
+        const incoming = Array.isArray(data?.data) ? data.data : [];
+        setRows((prev) => (page === 1 ? incoming : [...prev, ...incoming]));
+        setHasMore(
+          data?.current_page != null &&
+            data?.last_page != null &&
+            data.current_page < data.last_page,
+        );
       } catch (e: any) {
+        if (!alive) return;
         setError(e?.response?.data?.message ?? e?.message ?? "Failed to load.");
-        setResult(null);
-        setRows([]);
       } finally {
+        if (!alive) return;
         setLoading(false);
+        setInitialLoading(false);
       }
-    },
-    [page, perPage, qDebounced, status, isQaAdmin],
-  );
+    };
+    load();
+    return () => {
+      alive = false;
+    };
+  }, [page, qDebounced, status, isQaAdmin, hasMore]);
 
-  React.useEffect(() => {
-    // reset to page 1 when filters change
-    setPage(1);
-  }, [qDebounced, status, perPage]);
-
-  React.useEffect(() => {
-    load({ page }).catch(() => {});
-  }, [load, page]);
+  // infinite scroll handled by Table component via onLoadMore
 
   return (
     <PageFrame
-      title="Document requests"
+      title="Document Requests"
       right={
         isQaAdmin ? (
           <Button
@@ -121,128 +144,109 @@ export default function DocumentRequestListPage() {
           </Button>
         ) : null
       }
+      contentClassName="flex flex-col min-h-0 gap-4"
     >
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search title/description…"
-            className="w-72 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500"
-          />
-
-          {isQaAdmin ? (
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as any)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
-            >
-              <option value="">All status</option>
-              <option value="open">Open</option>
-              <option value="closed">Closed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          ) : null}
-
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search title/description…"
+          className="w-72 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500"
+        />
+        {isQaAdmin && (
           <select
-            value={perPage}
-            onChange={(e) => setPerPage(Number(e.target.value))}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as any)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
           >
-            <option value={10}>10 / page</option>
-            <option value={25}>25 / page</option>
-            <option value={50}>50 / page</option>
+            <option value="">All statuses</option>
+            <option value="open">Open</option>
+            <option value="closed">Closed</option>
+            <option value="cancelled">Cancelled</option>
           </select>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => load({ page })}
-            disabled={loading}
-          >
-            Refresh
-          </Button>
-
-          <div className="ml-auto flex items-center gap-2">
-            {typeof result?.from !== "undefined" ? (
-              <span className="text-xs text-slate-500">
-                Showing {result?.from ?? 0}–{result?.to ?? 0} of{" "}
-                {result?.total ?? 0}
-              </span>
-            ) : null}
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={loading || (result?.current_page ?? page) <= 1}
-            >
-              Prev
-            </Button>
-
-            <span className="text-xs text-slate-600 dark:text-slate-400">
-              Page {result?.current_page ?? page} / {result?.last_page ?? "?"}
-            </span>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setPage((p) => Math.min(result?.last_page ?? p + 1, p + 1))
-              }
-              disabled={
-                loading ||
-                (result?.last_page != null &&
-                  (result?.current_page ?? page) >= result.last_page)
-              }
-            >
-              Next
-            </Button>
-          </div>
-
-          {loading ? (
-            <span className="text-xs text-slate-500">Loading…</span>
-          ) : null}
-          {error ? (
-            <span className="text-xs text-rose-600">{error}</span>
-          ) : null}
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
-          <div className="grid grid-cols-12 gap-2 border-b border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 dark:border-surface-400 dark:text-slate-400">
-            <div className="col-span-1">ID</div>
-            <div className="col-span-6">Title</div>
-            <div className="col-span-2">Status</div>
-            <div className="col-span-3">Due</div>
-          </div>
-
-          {rows.length === 0 ? (
-            <div className="px-4 py-4 text-sm text-slate-600">
-              No requests found.
-            </div>
-          ) : (
-            rows.map((r) => (
-              <Link
-                key={r.id}
-                to={`/document-requests/${r.id}`}
-                className="grid grid-cols-12 gap-2 px-4 py-2 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-b-0 dark:border-surface-400 dark:hover:bg-surface-400"
-              >
-                <div className="col-span-1 text-slate-700">{r.id}</div>
-                <div className="col-span-6 font-medium text-slate-900">
-                  {r.title}
-                </div>
-                <div className="col-span-2 text-slate-700">{r.status}</div>
-                <div className="col-span-3 text-slate-600">
-                  {r.due_at ? new Date(r.due_at).toLocaleString() : "-"}
-                </div>
-              </Link>
-            ))
-          )}
-        </div>
+        )}
+        {error && <span className="text-xs text-rose-500">{error}</span>}
       </div>
+
+      {/* Table */}
+      {(() => {
+        const columns: TableColumn<any>[] = [
+          {
+            key: "id",
+            header: "#",
+            render: (r) => (
+              <span className="text-xs font-mono text-slate-400 dark:text-slate-500">
+                #{r.id}
+              </span>
+            ),
+          },
+          {
+            key: "title",
+            header: "Title",
+            render: (r) => (
+              <span className="font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                {r.title}
+              </span>
+            ),
+          },
+          ...(isQaAdmin
+            ? [
+                {
+                  key: "office",
+                  header: "Office",
+                  render: (r: any) => (
+                    <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                      {r.office_name ?? "—"}
+                      {r.office_code && (
+                        <span className="ml-1 text-slate-400 dark:text-slate-500">
+                          ({r.office_code})
+                        </span>
+                      )}
+                    </span>
+                  ),
+                },
+              ]
+            : []),
+          {
+            key: "status",
+            header: "Status",
+            render: (r) => <StatusBadge status={r.status} />,
+          },
+          {
+            key: "due",
+            header: "Due",
+            render: (r) => (
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {formatDate(r.due_at)}
+              </span>
+            ),
+          },
+        ];
+
+        return (
+          <div
+            className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden"
+            style={{ height: "calc(100vh - 210px)" }}
+          >
+            <Table
+              bare
+              className="h-full"
+              columns={columns}
+              rows={rows}
+              rowKey={(r) => r.id}
+              onRowClick={(r) => navigate(`/document-requests/${r.id}`)}
+              loading={loading}
+              initialLoading={initialLoading}
+              error={error}
+              emptyMessage="No requests found."
+              hasMore={hasMore}
+              onLoadMore={() => setPage((p) => p + 1)}
+            />
+          </div>
+        );
+      })()}
+
       <CreateDocumentRequestModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}

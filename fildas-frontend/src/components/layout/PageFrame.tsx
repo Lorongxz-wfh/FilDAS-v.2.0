@@ -64,8 +64,10 @@ export default function PageFrame({
           </div>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className={["px-6 py-5", contentClassName].join(" ")}>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <div
+          className={["px-6 py-5 h-full min-h-0", contentClassName].join(" ")}
+        >
           {children}
         </div>
       </div>

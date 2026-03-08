@@ -53,7 +53,7 @@ class ActivityLogController extends Controller
         $userOfficeId = (int) ($user?->office_id ?? 0);
 
         $data = $request->validate([
-            'scope' => 'nullable|in:office,mine,document,all',
+            'scope' => 'nullable|in:office,mine,document,request,all',
             'document_id' => 'nullable|integer|exists:documents,id',
             'document_version_id' => 'nullable|integer|exists:document_versions,id',
             'per_page' => 'nullable|integer|min:1|max:50',
@@ -109,6 +109,30 @@ class ActivityLogController extends Controller
             } else {
                 return response()->json(['message' => 'document_id or document_version_id is required for scope=document'], 422);
             }
+        } elseif ($scope === 'request') {
+            if (empty($data['document_id'])) {
+                return response()->json(['message' => 'request_id is required for scope=request'], 422);
+            }
+
+            // Access check: QA/admin sees all, office user must be a recipient
+            $roleName = strtolower(trim((string) ($user?->role?->name ?? '')));
+            $isQa = in_array($roleName, ['qa', 'sysadmin', 'admin'], true);
+
+            if (!$isQa) {
+                $isRecipient = \Illuminate\Support\Facades\DB::table('document_request_recipients')
+                    ->where('request_id', (int) $data['document_id'])
+                    ->where('office_id', $userOfficeId)
+                    ->exists();
+
+                if (!$isRecipient) {
+                    return response()->json(['message' => 'Forbidden.'], 403);
+                }
+            }
+
+            // Fetch activity logs where meta->document_request_id matches
+            $q->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(meta, '$.document_request_id')) = ?", [
+                (string) (int) $data['document_id']
+            ]);
         } elseif ($scope === 'office') {
             if (!$userOfficeId) {
                 return response()->json(['message' => 'Your account has no office assigned. Use scope=all or scope=mine.'], 422);
@@ -122,6 +146,15 @@ class ActivityLogController extends Controller
             // scope=all => no additional constraints
         }
 
-        return response()->json($q->paginate($perPage));
+        $paginated = $q->with([
+            'actorUser' => function ($query) {
+                $query->withTrashed();
+            },
+            'actorOffice:id,name,code',
+            'targetOffice:id,name,code',
+            'document:id,title,code',
+        ])->paginate($perPage);
+
+        return response()->json($paginated);
     }
 }

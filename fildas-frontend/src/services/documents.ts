@@ -79,16 +79,24 @@ export type Paginated<T> = {
 };
 
 function normalizePaginated<T>(payload: any): Paginated<T> {
-  // Laravel paginated ResourceCollection shape: { data, links, meta }
   if (payload && Array.isArray(payload.data)) {
+    // Laravel ResourceCollection has { data, links, meta }
+    // Laravel default paginator has current_page, last_page etc. at root
+    const meta = payload.meta ?? {
+      current_page: payload.current_page,
+      last_page: payload.last_page,
+      per_page: payload.per_page,
+      total: payload.total,
+      from: payload.from,
+      to: payload.to,
+    };
     return {
       data: payload.data as T[],
-      meta: payload.meta,
+      meta,
       links: payload.links,
     };
   }
 
-  // Legacy / non-paginated: plain array
   if (Array.isArray(payload)) {
     return { data: payload as T[] };
   }

@@ -3,50 +3,63 @@ import React from "react";
 type Props = {
   rows?: number;
   cols?: number;
+  gridTemplateColumns?: string;
   showHeader?: boolean;
+  bare?: boolean; // when true, no outer border/bg wrapper — for use inside existing table containers
 };
 
 const TableSkeleton: React.FC<Props> = ({
   rows = 8,
-  cols = 6,
+  cols,
+  gridTemplateColumns,
   showHeader = true,
+  bare = false,
 }) => {
-  return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
+  const colCount =
+    cols ?? (gridTemplateColumns ? gridTemplateColumns.split(" ").length : 4);
+  const colTemplate =
+    gridTemplateColumns ?? `repeat(${colCount}, minmax(0, 1fr))`;
+
+  const content = (
+    <>
       {showHeader && (
         <div
-          className="grid gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-surface-400 dark:bg-surface-600"
-          style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+          className="grid gap-3 border-b border-slate-200 bg-slate-50 px-5 py-2.5 dark:border-surface-400 dark:bg-surface-600"
+          style={{ gridTemplateColumns: colTemplate }}
         >
-          {Array.from({ length: cols }).map((_, i) => (
+          {Array.from({ length: colCount }).map((_, i) => (
             <div
               key={i}
-              className="h-3 rounded bg-slate-200/80 animate-pulse dark:bg-surface-400"
+              className="h-2.5 rounded-full bg-slate-200 animate-pulse dark:bg-surface-400"
             />
           ))}
         </div>
       )}
-
-      {/* rows */}
-      <div className="divide-y divide-slate-100 dark:divide-surface-400">
+      <div className="divide-y divide-slate-100 dark:divide-surface-400 px-2 py-1">
         {Array.from({ length: rows }).map((_, r) => (
           <div
             key={r}
-            className="grid gap-3 px-4 py-3"
-            style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+            className="grid gap-3 items-center px-3 py-3 rounded-lg"
+            style={{ gridTemplateColumns: colTemplate }}
           >
-            {Array.from({ length: cols }).map((_, c) => (
+            {Array.from({ length: colCount }).map((_, c) => (
               <div
                 key={c}
-                className={[
-                  "h-3 rounded bg-slate-100 border border-slate-200/70 animate-pulse dark:bg-surface-400 dark:border-surface-300",
-                  c === 0 ? "col-span-2" : "",
-                ].join(" ")}
+                className="h-3 rounded-full animate-pulse bg-slate-100 dark:bg-surface-400"
+                style={{ width: c === 1 ? "60%" : c === 0 ? "50%" : "75%" }}
               />
             ))}
           </div>
         ))}
       </div>
+    </>
+  );
+
+  if (bare) return <>{content}</>;
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
+      {content}
     </div>
   );
 };
