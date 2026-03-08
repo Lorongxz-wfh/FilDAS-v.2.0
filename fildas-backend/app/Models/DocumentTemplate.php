@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class DocumentTemplate extends Model
+{
+    use SoftDeletes;
+
+    protected $fillable = [
+        'name',
+        'description',
+        'original_filename',
+        'file_path',
+        'file_size',
+        'mime_type',
+        'uploaded_by',
+        'office_id',
+    ];
+
+    protected $casts = [
+        'file_size' => 'integer',
+        'office_id' => 'integer',
+    ];
+
+    // ── Relationships ────────────────────────────────────────
+
+    public function uploader(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function office(): BelongsTo
+    {
+        return $this->belongsTo(Office::class);
+    }
+
+    // ── Helpers ──────────────────────────────────────────────
+
+    /**
+     * True when this template is visible to all offices.
+     */
+    public function isGlobal(): bool
+    {
+        return is_null($this->office_id);
+    }
+
+    /**
+     * Human-readable file size, e.g. "1.2 MB".
+     */
+    public function formattedSize(): string
+    {
+        $bytes = $this->file_size;
+
+        if ($bytes >= 1_048_576) {
+            return round($bytes / 1_048_576, 1) . ' MB';
+        }
+
+        if ($bytes >= 1_024) {
+            return round($bytes / 1_024, 1) . ' KB';
+        }
+
+        return $bytes . ' B';
+    }
+}

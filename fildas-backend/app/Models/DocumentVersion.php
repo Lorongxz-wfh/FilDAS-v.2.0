@@ -14,21 +14,24 @@ class DocumentVersion extends Model
         'version_number',
         'status',
         'workflow_type',
+        'routing_mode',
 
         'file_path',
         'preview_path',
         'original_filename',
         'description',
+        'effective_date',
         'distributed_at',
         'superseded_at',
         'cancelled_at',
     ];
-    
+
     protected $casts = [
         'workflow_type' => 'string',
+        'routing_mode'  => 'string',
         'distributed_at' => 'datetime',
-        'superseded_at' => 'datetime',
-        'cancelled_at' => 'datetime',
+        'superseded_at'  => 'datetime',
+        'cancelled_at'   => 'datetime',
     ];
 
     public function document()

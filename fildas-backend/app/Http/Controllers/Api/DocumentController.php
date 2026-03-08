@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use App\Models\ActivityLog;
 use App\Models\Tag;
+use App\Services\WorkflowSteps;
 
 class DocumentController extends Controller
 {
@@ -406,11 +407,12 @@ class DocumentController extends Controller
 
         // Create v0 version with correct starter status + workflow_type
         $version = DocumentVersion::create([
-            'document_id' => $doc->id,
+            'document_id'    => $doc->id,
             'version_number' => 0,
-            'status' => $initialStatus,
-            'workflow_type' => $flow,
-            'description' => $data['description'] ?? null,
+            'status'         => $initialStatus,
+            'workflow_type'  => $flow,
+            'routing_mode'   => $routingMode,
+            'description'    => $data['description'] ?? null,
             'effective_date' => $data['effective_date'] ?? null,
         ]);
 
@@ -606,45 +608,88 @@ class DocumentController extends Controller
             $nextVersionNumber = (int) $latestCancelled->version_number;
         }
 
+        // Inherit flow + routing from the latest official version
+        $inheritedFlow    = $latestOfficial->workflow_type ?? 'qa';
+        $inheritedRouting = $latestOfficial->routing_mode  ?? 'default';
+
+        $isOfficeFlow = ($inheritedFlow === 'office');
+
+        $qaOfficeId    = (int) Office::where('code', 'QA')->value('id');
+        $ownerOfficeId = (int) ($document->owner_office_id ?? 0);
+
+        $draftStatus      = $isOfficeFlow ? 'Office Draft' : 'Draft';
+        $draftStep        = $isOfficeFlow ? WorkflowSteps::STEP_OFFICE_DRAFT : WorkflowSteps::STEP_QA_DRAFT;
+        $assignedOfficeId = $isOfficeFlow ? $ownerOfficeId : $qaOfficeId;
+
+        if ($inheritedRouting === 'custom') {
+            $draftStep        = WorkflowSteps::STEP_CUSTOM_DRAFT;
+            $assignedOfficeId = $ownerOfficeId ?: $qaOfficeId;
+            $draftStatus      = 'Draft';
+        }
+
         if ($latestCancelled && (int) $latestCancelled->version_number === $nextVersionNumber) {
             // Re-open the cancelled version instead of creating a new row
             $revision = $latestCancelled;
-            $revision->status = 'Draft';
-            $revision->cancelled_at = null;
+            $revision->status       = $draftStatus;
+            $revision->workflow_type = $inheritedFlow;
+            $revision->routing_mode  = $inheritedRouting;
+            $revision->cancelled_at  = null;
             $revision->save();
         } else {
             $revision = DocumentVersion::create([
-                'document_id' => $document->id,
+                'document_id'    => $document->id,
                 'version_number' => $nextVersionNumber,
-                'status' => 'Draft',
+                'status'         => $draftStatus,
+                'workflow_type'  => $inheritedFlow,
+                'routing_mode'   => $inheritedRouting,
             ]);
         }
 
+        // For custom flow revisions — re-seed route steps from the previous version
+        if ($inheritedRouting === 'custom') {
+            $prevSteps = DB::table('document_route_steps')
+                ->where('document_version_id', $latestOfficial->id)
+                ->orderBy('phase')
+                ->orderBy('step_order')
+                ->get(['phase', 'step_order', 'office_id']);
 
-        // Create initial workflow task for this revision draft (owned by QA)
+            $now = now();
+            foreach ($prevSteps as $s) {
+                DB::table('document_route_steps')->insert([
+                    'document_version_id' => $revision->id,
+                    'phase'               => $s->phase,
+                    'step_order'          => $s->step_order,
+                    'office_id'           => $s->office_id,
+                    'created_at'          => $now,
+                    'updated_at'          => $now,
+                ]);
+            }
+        }
+
         WorkflowTask::create([
             'document_version_id' => $revision->id,
-            'phase' => 'review',
-            'step' => 'draft',
-            'status' => 'open',
-            'opened_at' => now(),
-            'assigned_office_id' => Office::where('code', 'QA')->value('id'),
-
+            'phase'               => 'review',
+            'step'                => $draftStep,
+            'status'              => 'open',
+            'opened_at'           => now(),
+            'assigned_office_id'  => $assignedOfficeId,
         ]);
 
         ActivityLog::create([
-            'document_id' => $document->id,
+            'document_id'         => $document->id,
             'document_version_id' => $revision->id,
-            'actor_user_id' => $request->user()?->id,
-            'actor_office_id' => $request->user()?->office_id,
-            'target_office_id' => Office::where('code', 'QA')->value('id'),
-            'event' => 'version.revision_created',
-            'label' => 'Started a revision draft',
-            'meta' => [
-                'version_number' => $revision->version_number,
-                'status' => $revision->status,
+            'actor_user_id'       => $request->user()?->id,
+            'actor_office_id'     => $request->user()?->office_id,
+            'target_office_id'    => $assignedOfficeId,
+            'event'               => 'version.revision_created',
+            'label'               => 'Started a revision draft',
+            'meta'                => [
+                'version_number'          => $revision->version_number,
+                'status'                  => $revision->status,
+                'workflow_type'           => $inheritedFlow,
+                'routing_mode'            => $inheritedRouting,
                 'based_on_version_number' => $latestOfficial->version_number,
-                'based_on_status' => $latestOfficial->status,
+                'based_on_status'         => $latestOfficial->status,
             ],
         ]);
 

@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('document_version_id')->constrained('document_versions')->cascadeOnDelete();
             $table->foreignId('sender_user_id')->constrained('users')->restrictOnDelete();
 
-            $table->enum('type', ['comment', 'return_note', 'approval_note', 'system'])->default('comment');
+            $table->enum('type', ['comment', 'return_note', 'reject_note', 'approval_note', 'system'])->default('comment');
             $table->text('message');
 
             $table->timestamps();

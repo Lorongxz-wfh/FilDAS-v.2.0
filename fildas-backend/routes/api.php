@@ -2,149 +2,35 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DocumentController;
-use App\Http\Controllers\Api\OfficeController;
 use App\Http\Controllers\Api\WorkflowController;
 use App\Http\Controllers\Api\DocumentMessageController;
 use App\Http\Controllers\Api\PreviewController;
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\OfficeController;
 use App\Http\Controllers\Api\DocumentRequestController;
 use App\Http\Controllers\Api\DocumentRequestFileController;
+use App\Http\Controllers\Api\DocumentTemplateController;
+use App\Http\Controllers\Api\ReportsController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\AdminOfficeController;
 
-
-
-
-// Auth
+// ── Public ─────────────────────────────────────────────────────────────────
 Route::post('/login', [AuthController::class, 'login']);
-
-Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout']);
-
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
-
-    // Workflow
-    Route::get('/document-versions/{version}/tasks', [WorkflowController::class, 'tasks']);
-    Route::post('/document-versions/{version}/actions', [WorkflowController::class, 'action']);
-    Route::get('/work-queue', [WorkflowController::class, 'workQueue']);
-    Route::get('/document-versions/{version}/route-steps', [WorkflowController::class, 'routeSteps']);
-
-
-    // Messages / comments
-    Route::get('/document-versions/{version}/messages', [DocumentMessageController::class, 'index']);
-    Route::post('/document-versions/{version}/messages', [DocumentMessageController::class, 'store']);
-
-    Route::patch('document-versions/{version}', [DocumentController::class, 'updateVersion'])
-        ->middleware('can:updateDraft,version');
-
-    // Activity logging (read actions)
-    Route::post('/activity/opened-version', [ActivityLogController::class, 'openedVersion']);
-
-    // Activity history feed
-    Route::get('/activity', [ActivityLogController::class, 'index']);
-
-    // Reports (QA only for now)
-    Route::get('/reports/approval', [\App\Http\Controllers\Api\ReportsController::class, 'approval']);
-
-    // Legacy: "compliance" (kept for backward compatibility)
-    Route::get('/reports/compliance', [\App\Http\Controllers\Api\ReportsController::class, 'compliance']);
-
-    // ADMIN routes
-    Route::middleware('admin')->group(function () {
-        Route::get('/admin/users', [\App\Http\Controllers\Api\UserController::class, 'index']);
-        Route::post('/admin/users', [\App\Http\Controllers\Api\UserController::class, 'store']);
-        Route::patch('/admin/users/{user}', [\App\Http\Controllers\Api\UserController::class, 'update']);
-
-        Route::patch('/admin/users/{user}/disable', [\App\Http\Controllers\Api\UserController::class, 'disable']);
-        Route::patch('/admin/users/{user}/enable', [\App\Http\Controllers\Api\UserController::class, 'enable']);
-        Route::delete('/admin/users/{user}', [\App\Http\Controllers\Api\UserController::class, 'destroy']);
-
-        Route::get('/admin/roles', [\App\Http\Controllers\Api\UserController::class, 'roles']);
-        Route::get('/admin/offices', [\App\Http\Controllers\Api\AdminOfficeController::class, 'index']);
-        Route::post('/admin/offices', [\App\Http\Controllers\Api\AdminOfficeController::class, 'store']);
-        Route::patch('/admin/offices/{office}', [\App\Http\Controllers\Api\AdminOfficeController::class, 'update']);
-        Route::delete('/admin/offices/{office}', [\App\Http\Controllers\Api\AdminOfficeController::class, 'destroy']);
-        Route::patch('/admin/offices/{office}/restore', [\App\Http\Controllers\Api\AdminOfficeController::class, 'restore']);
-    });
-
-    // Notifications
-    Route::get('/notifications', [NotificationController::class, 'index']);
-
-    // Document requests (QA creates; offices submit; QA reviews)
-    Route::get('/document-requests', [DocumentRequestController::class, 'index']); // QA/SYSADMIN/ADMIN (controller enforces)
-    Route::post('/document-requests', [DocumentRequestController::class, 'store']); // QA/SYSADMIN/ADMIN
-    Route::get('/document-requests/inbox', [DocumentRequestController::class, 'inbox']); // office users
-    Route::get('/document-requests/{request}', [DocumentRequestController::class, 'show']); // QA/SYSADMIN/ADMIN or recipient office
-    Route::post('/document-requests/{request}/recipients/{recipient}/submit', [DocumentRequestController::class, 'submit']); // recipient office
-    Route::post('/document-request-submissions/{submission}/review', [DocumentRequestController::class, 'review']); // QA/SYSADMIN/ADMIN
-
-    // Document request file signed links (AUTHENTICATED -> returns signed URL)
-    Route::get('/document-requests/{request}/example/preview-link', [DocumentRequestFileController::class, 'requestExamplePreviewLink']);
-    Route::get('/document-requests/{request}/example/download-link', [DocumentRequestFileController::class, 'requestExampleDownloadLink']);
-
-    Route::get('/document-request-submission-files/{file}/preview-link', [DocumentRequestFileController::class, 'submissionFilePreviewLink']);
-    Route::get('/document-request-submission-files/{file}/download-link', [DocumentRequestFileController::class, 'submissionFileDownloadLink']);
-
-
-    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
-    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
-    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
-
-    Route::get('/documents/{document}/tags', [DocumentController::class, 'getTags']);
-    Route::put('/documents/{document}/tags', [DocumentController::class, 'setTags']);
-});
-
-// Public reads
 Route::get('/offices', [OfficeController::class, 'index']);
 
-Route::middleware('auth:sanctum')->group(function () {
-    Route::controller(DocumentController::class)->group(function () {
-        // Reads (AUTHENTICATED)
-        Route::get('/documents/stats', 'stats');
-        Route::get('/documents', 'index');
-        Route::get('/documents/{document}', 'show');
-
-        Route::get('/documents/{document}/versions', 'versions');
-        Route::get('/document-versions/{version}', 'showVersion');
-        Route::get('/document-versions/{version}/preview-link', 'previewLink')
-            ->middleware('can:preview,version');
-
-        // Public but signature-protected: iframe loads this URL directly.
-        Route::get('/document-versions/{version}/download', 'downloadVersion')
-            ->middleware('can:download,version');
-
-        // Writes
-        Route::post('/documents', 'store');
-        Route::patch('/documents/{document}', 'update');
-        Route::post('/document-versions/{version}/replace-file', 'replaceFile')
-            ->middleware('can:replaceFile,version');
-        Route::post('/documents/{document}/revision', 'createRevision');
-        Route::post('/document-versions/{version}/cancel', 'cancelRevision')
-            ->middleware('can:cancel,version');
-        Route::delete('/document-versions/{version}', 'destroyVersion')
-            ->middleware('can:destroy,version');
-
-        Route::get('/documents/{document}/shares', 'getShares');
-        Route::post('/documents/{document}/shares', 'setShares');
-    });
-
-    // Temp previews (AUTHENTICATED)
-    Route::post('/previews', [PreviewController::class, 'store']);
-    Route::delete('/previews/{year}/{preview}', [PreviewController::class, 'destroy']);
-});
-
+// ── Signed URLs (no auth middleware — signature is the guard) ──────────────
 Route::get('/document-versions/{version}/preview', [DocumentController::class, 'previewSigned'])
     ->name('document-versions.preview')
-    ->middleware('signed'); // signed URL includes uid; access is checked in controller via policy
+    ->middleware('signed');
 
 Route::get('/previews/{year}/{preview}/preview', [PreviewController::class, 'previewSigned'])
     ->name('previews.preview')
     ->middleware('signed');
 
-// New naming (signed)
 Route::get('/document-requests/{request}/example/preview', [DocumentRequestFileController::class, 'requestExamplePreviewSigned'])
     ->name('document-requests.example.preview')
     ->middleware('signed');
@@ -160,3 +46,127 @@ Route::get('/document-request-submission-files/{file}/preview', [DocumentRequest
 Route::get('/document-request-submission-files/{file}/download', [DocumentRequestFileController::class, 'submissionFileDownloadSigned'])
     ->name('document-request-submission-files.download')
     ->middleware('signed');
+
+// ── Authenticated ──────────────────────────────────────────────────────────
+Route::middleware('auth:sanctum')->group(function () {
+
+    // ── Auth ───────────────────────────────────────────────────────────────
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/user', fn(Request $r) => $r->user());
+
+    // ── Workflow ───────────────────────────────────────────────────────────
+    Route::prefix('document-versions/{version}')->group(function () {
+        Route::get('/tasks',             [WorkflowController::class, 'tasks']);
+        Route::get('/route-steps',       [WorkflowController::class, 'routeSteps']);
+        Route::get('/available-actions', [WorkflowController::class, 'availableActions']);
+        Route::post('/actions',          [WorkflowController::class, 'action']);
+    });
+    Route::get('/work-queue', [WorkflowController::class, 'workQueue']);
+
+    // ── Documents ──────────────────────────────────────────────────────────
+    Route::get('/documents/stats',  [DocumentController::class, 'stats']);
+    Route::get('/documents',        [DocumentController::class, 'index']);
+    Route::post('/documents',       [DocumentController::class, 'store']);
+    Route::get('/documents/{document}',         [DocumentController::class, 'show']);
+    Route::patch('/documents/{document}',       [DocumentController::class, 'update']);
+    Route::get('/documents/{document}/versions', [DocumentController::class, 'versions']);
+    Route::get('/documents/{document}/tags',    [DocumentController::class, 'getTags']);
+    Route::put('/documents/{document}/tags',    [DocumentController::class, 'setTags']);
+    Route::get('/documents/{document}/shares',  [DocumentController::class, 'getShares']);
+    Route::post('/documents/{document}/shares', [DocumentController::class, 'setShares']);
+    Route::post('/documents/{document}/revision', [DocumentController::class, 'createRevision']);
+
+    // ── Document Versions ──────────────────────────────────────────────────
+    Route::get('/document-versions/{version}',              [DocumentController::class, 'showVersion']);
+    Route::patch('/document-versions/{version}',            [DocumentController::class, 'updateVersion'])
+        ->middleware('can:updateDraft,version');
+    Route::post('/document-versions/{version}/replace-file', [DocumentController::class, 'replaceFile'])
+        ->middleware('can:replaceFile,version');
+    Route::post('/document-versions/{version}/cancel',      [DocumentController::class, 'cancelRevision'])
+        ->middleware('can:cancel,version');
+    Route::delete('/document-versions/{version}',           [DocumentController::class, 'destroyVersion'])
+        ->middleware('can:destroy,version');
+    Route::get('/document-versions/{version}/preview-link', [DocumentController::class, 'previewLink'])
+        ->middleware('can:preview,version');
+    Route::get('/document-versions/{version}/download',     [DocumentController::class, 'downloadVersion'])
+        ->middleware('can:download,version');
+
+    // ── Messages ───────────────────────────────────────────────────────────
+    Route::get('/document-versions/{version}/messages',  [DocumentMessageController::class, 'index']);
+    Route::post('/document-versions/{version}/messages', [DocumentMessageController::class, 'store']);
+
+    // ── Previews (temp) ────────────────────────────────────────────────────
+    Route::post('/previews',                      [PreviewController::class, 'store']);
+    Route::delete('/previews/{year}/{preview}',   [PreviewController::class, 'destroy']);
+
+    // ── Notifications ──────────────────────────────────────────────────────
+    Route::get('/notifications',                          [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count',             [NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/{notification}/read',     [NotificationController::class, 'markRead']);
+    Route::post('/notifications/read-all',                [NotificationController::class, 'markAllRead']);
+
+    // ── Activity ───────────────────────────────────────────────────────────
+    Route::post('/activity/opened-version', [ActivityLogController::class, 'openedVersion']);
+    Route::get('/activity',                 [ActivityLogController::class, 'index']);
+
+    // ── Reports ────────────────────────────────────────────────────────────
+    Route::get('/reports/approval',    [ReportsController::class, 'approval']);
+    Route::get('/reports/compliance',  [ReportsController::class, 'compliance']);
+
+    // ── Document Requests ──────────────────────────────────────────────────
+    Route::get('/document-requests',         [DocumentRequestController::class, 'index']);
+    Route::post('/document-requests',        [DocumentRequestController::class, 'store']);
+    Route::get('/document-requests/inbox',   [DocumentRequestController::class, 'inbox']);
+    Route::get('/document-requests/{request}', [DocumentRequestController::class, 'show']);
+    Route::post(
+        '/document-requests/{request}/recipients/{recipient}/submit',
+        [DocumentRequestController::class, 'submit']
+    );
+    Route::post(
+        '/document-request-submissions/{submission}/review',
+        [DocumentRequestController::class, 'review']
+    );
+
+    // Document request signed link helpers
+    Route::get(
+        '/document-requests/{request}/example/preview-link',
+        [DocumentRequestFileController::class, 'requestExamplePreviewLink']
+    );
+    Route::get(
+        '/document-requests/{request}/example/download-link',
+        [DocumentRequestFileController::class, 'requestExampleDownloadLink']
+    );
+    Route::get(
+        '/document-request-submission-files/{file}/preview-link',
+        [DocumentRequestFileController::class, 'submissionFilePreviewLink']
+    );
+    Route::get(
+        '/document-request-submission-files/{file}/download-link',
+        [DocumentRequestFileController::class, 'submissionFileDownloadLink']
+    );
+
+    // ── Templates ──────────────────────────────────────────────────────────
+    Route::prefix('templates')->group(function () {
+        Route::get('/',                    [DocumentTemplateController::class, 'index']);
+        Route::post('/',                   [DocumentTemplateController::class, 'store']);
+        Route::delete('/{template}',       [DocumentTemplateController::class, 'destroy']);
+        Route::get('/{template}/download', [DocumentTemplateController::class, 'download']);
+    });
+
+    // ── Admin ──────────────────────────────────────────────────────────────
+    Route::middleware('admin')->prefix('admin')->group(function () {
+        Route::get('/users',                  [UserController::class, 'index']);
+        Route::post('/users',                 [UserController::class, 'store']);
+        Route::patch('/users/{user}',         [UserController::class, 'update']);
+        Route::patch('/users/{user}/disable', [UserController::class, 'disable']);
+        Route::patch('/users/{user}/enable',  [UserController::class, 'enable']);
+        Route::delete('/users/{user}',        [UserController::class, 'destroy']);
+        Route::get('/roles',                  [UserController::class, 'roles']);
+
+        Route::get('/offices',                    [AdminOfficeController::class, 'index']);
+        Route::post('/offices',                   [AdminOfficeController::class, 'store']);
+        Route::patch('/offices/{office}',         [AdminOfficeController::class, 'update']);
+        Route::delete('/offices/{office}',        [AdminOfficeController::class, 'destroy']);
+        Route::patch('/offices/{office}/restore', [AdminOfficeController::class, 'restore']);
+    });
+});

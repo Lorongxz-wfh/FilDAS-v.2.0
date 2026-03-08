@@ -11,11 +11,13 @@ use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvid
 use Illuminate\Support\Facades\Log;
 
 
+
 class AuthServiceProvider extends ServiceProvider
 {
     protected $policies = [
         WorkflowTask::class => WorkflowTaskPolicy::class,
         DocumentVersion::class => DocumentVersionPolicy::class,
+        \App\Models\DocumentTemplate::class => \App\Policies\DocumentTemplatePolicy::class,
     ];
 
     public function boot(): void

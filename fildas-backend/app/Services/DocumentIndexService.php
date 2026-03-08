@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Cache;
 
 class DocumentIndexService
 {
+
     private function vpRoleToOfficeCode(?string $roleName): ?string
     {
         $roleName = $roleName ? strtolower(trim($roleName)) : null;
