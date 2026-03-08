@@ -155,6 +155,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Admin ──────────────────────────────────────────────────────────────
     Route::middleware('admin')->prefix('admin')->group(function () {
+        Route::get('/dashboard-stats', [\App\Http\Controllers\Api\AdminDashboardController::class, 'stats']);
         Route::get('/users',                  [UserController::class, 'index']);
         Route::post('/users',                 [UserController::class, 'store']);
         Route::patch('/users/{user}',         [UserController::class, 'update']);
