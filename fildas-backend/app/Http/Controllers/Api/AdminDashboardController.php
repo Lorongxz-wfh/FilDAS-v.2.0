@@ -73,10 +73,15 @@ class AdminDashboardController extends Controller
             ]);
 
         // Activity volume — last 6 months (monthly counts)
+        $driver = config('database.default');
+        $dateTrunc = $driver === 'pgsql'
+            ? "TO_CHAR(created_at, 'YYYY-MM')"
+            : "DATE_FORMAT(created_at, '%Y-%m')";
+
         $activitySeries = ActivityLog::query()
-            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as label, COUNT(*) as count")
+            ->selectRaw("{$dateTrunc} as label, COUNT(*) as count")
             ->where('created_at', '>=', now()->subMonths(6)->startOfMonth())
-            ->groupByRaw("DATE_FORMAT(created_at, '%Y-%m')")
+            ->groupByRaw("{$dateTrunc}")
             ->orderBy('label')
             ->get()
             ->map(fn($r) => ['label' => $r->label, 'count' => (int) $r->count])
