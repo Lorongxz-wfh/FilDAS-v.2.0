@@ -12,12 +12,32 @@ import {
 } from "../services/previews";
 import OfficeDropdown from "../components/OfficeDropdown";
 import PageFrame from "../components/layout/PageFrame";
-import Button from "../components/ui/Button";
 import TemplatesBrowserPanel from "../components/templates/TemplatesBrowserPanel";
+
+// ── Field wrapper ──────────────────────────────────────────────────────────────
+const Field: React.FC<{
+  label: string;
+  required?: boolean;
+  hint?: string;
+  children: React.ReactNode;
+}> = ({ label, required, hint, children }) => (
+  <div className="flex flex-col gap-1.5">
+    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide">
+      {label} {required && <span className="text-rose-500 normal-case">*</span>}
+    </label>
+    {children}
+    {hint && (
+      <p className="text-[11px] text-slate-400 dark:text-slate-500">{hint}</p>
+    )}
+  </div>
+);
+
+const inputCls =
+  "w-full rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:focus:ring-sky-900/30 transition";
+const selectCls = inputCls + " cursor-pointer";
 
 const CreateDocumentPage: React.FC = () => {
   const navigate = useNavigate();
-
   const me = getAuthUser();
   if (!me) return <Navigate to="/login" replace />;
 
@@ -25,86 +45,47 @@ const CreateDocumentPage: React.FC = () => {
     typeof (me as any).role === "string"
       ? (me as any).role
       : (me as any).role?.name;
-
   const roleName = String(rawRole ?? "").toLowerCase();
   const allowed = new Set(["qa", "office_staff", "office_head"]);
   if (!allowed.has(roleName)) return <Navigate to="/work-queue" replace />;
 
   const isQA = roleName === "qa";
+  const MAX_CUSTOM = 5;
 
   const [step, setStep] = useState<1 | 2>(1);
-
   const [routingMode, setRoutingMode] = useState<"default" | "custom">(
     "default",
   );
   const [customReviewOfficeIds, setCustomReviewOfficeIds] = useState<number[]>([
     0,
   ]);
-
-  const MAX_CUSTOM = 5;
-
-  const customSelectedIds = useMemo(
-    () => customReviewOfficeIds.filter((x) => x > 0),
-    [customReviewOfficeIds],
-  );
-
-  const addCustomRecipient = () => {
-    setCustomReviewOfficeIds((prev) => {
-      if (prev.length >= MAX_CUSTOM) return prev;
-      return [...prev, 0];
-    });
-  };
-
-  const removeCustomRecipient = (idx: number) => {
-    setCustomReviewOfficeIds((prev) => {
-      const next = prev.filter((_, i) => i !== idx);
-      return next.length ? next : [0];
-    });
-  };
-
-  const updateCustomRecipient = (idx: number, officeId: number | null) => {
-    setCustomReviewOfficeIds((prev) => {
-      const next = [...prev];
-      next[idx] = officeId ?? 0;
-      const seen = new Set<number>();
-      return next.map((id) => {
-        if (!id) return 0;
-        if (seen.has(id)) return 0;
-        seen.add(id);
-        return id;
-      });
-    });
-  };
-
-  const validateStep1 = (): string | null => {
-    if (routingMode === "default") {
-      if (isQA && !reviewOfficeId) return "Please select a reviewer office.";
-      return null;
-    }
-    if (customSelectedIds.length < 1)
-      return "Please add at least 1 recipient office.";
-    if (customReviewOfficeIds.some((x) => x === 0))
-      return "Please select an office for each recipient row.";
-    if (customSelectedIds.length > MAX_CUSTOM)
-      return `Custom flow can only have up to ${MAX_CUSTOM} recipient offices.`;
-    return null;
-  };
-
-  const [title, setTitle] = useState("");
   const [reviewOfficeId, setReviewOfficeId] = useState<number | null>(null);
+  const [title, setTitle] = useState("");
   const [doctype, setDoctype] = useState<"internal" | "external" | "forms">(
     "internal",
   );
   const [description, setDescription] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  const [effectiveDate, setEffectiveDate] = useState<string>("");
-
+  const [effectiveDate, setEffectiveDate] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [tempPreview, setTempPreview] = useState<TempPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [templatesPanelOpen, setTemplatesPanelOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<
+    string,
+    string[]
+  > | null>(null);
+  const [uploadPct, setUploadPct] = useState(0);
   const previewSeqRef = React.useRef(0);
+
+  const customSelectedIds = useMemo(
+    () => customReviewOfficeIds.filter((x) => x > 0),
+    [customReviewOfficeIds],
+  );
 
   const cleanupTempPreview = (p: TempPreview | null) => {
     if (!p) return;
@@ -127,23 +108,19 @@ const CreateDocumentPage: React.FC = () => {
       setPreviewLoading(false);
       setPreviewError(null);
       setTempPreview((prev) => {
-        if (prev) cleanupTempPreview(prev);
+        cleanupTempPreview(prev);
         return null;
       });
       return;
     }
-
     previewSeqRef.current += 1;
     const seq = previewSeqRef.current;
-
     setTempPreview((prev) => {
-      if (prev) cleanupTempPreview(prev);
+      cleanupTempPreview(prev);
       return null;
     });
-
     setPreviewLoading(true);
     setPreviewError(null);
-
     (async () => {
       try {
         const result = await createTempPreview(file);
@@ -159,38 +136,62 @@ const CreateDocumentPage: React.FC = () => {
     })();
   }, [file]);
 
-  const [templatesPanelOpen, setTemplatesPanelOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<
-    string,
-    string[]
-  > | null>(null);
-  const [uploadPct, setUploadPct] = useState(0);
+  const addCustomRecipient = () => {
+    setCustomReviewOfficeIds((p) => (p.length >= MAX_CUSTOM ? p : [...p, 0]));
+  };
+
+  const removeCustomRecipient = (idx: number) => {
+    setCustomReviewOfficeIds((p) => {
+      const next = p.filter((_, i) => i !== idx);
+      return next.length ? next : [0];
+    });
+  };
+
+  const updateCustomRecipient = (idx: number, officeId: number | null) => {
+    setCustomReviewOfficeIds((p) => {
+      const next = [...p];
+      next[idx] = officeId ?? 0;
+      const seen = new Set<number>();
+      return next.map((id) => {
+        if (!id) return 0;
+        if (seen.has(id)) return 0;
+        seen.add(id);
+        return id;
+      });
+    });
+  };
+
+  const validateStep1 = (): string | null => {
+    if (routingMode === "default") {
+      if (isQA && !reviewOfficeId) return "Please select a reviewer office.";
+      return null;
+    }
+    if (customSelectedIds.length < 1)
+      return "Please add at least 1 recipient office.";
+    if (customReviewOfficeIds.some((x) => x === 0))
+      return "Please select an office for each recipient row.";
+    if (customSelectedIds.length > MAX_CUSTOM)
+      return `Maximum ${MAX_CUSTOM} recipient offices.`;
+    return null;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage(null);
     setError(null);
     setFieldErrors(null);
-
     try {
       setUploadPct(0);
-
       const step1Err = validateStep1();
       if (step1Err) {
         setError(step1Err);
         setStep(1);
         return;
       }
-
       if (!file) {
         setError("Please attach a file.");
         return;
       }
-
       const result = await createDocumentWithProgress(
         {
           title,
@@ -210,36 +211,63 @@ const CreateDocumentPage: React.FC = () => {
         },
         (pct) => setUploadPct(pct),
       );
-
       if (tags.length > 0) {
         try {
           await setDocumentTags(result.id, tags);
-        } catch (e) {
-          setMessage(
-            "Document created, but tags failed to save (you can try again later).",
-          );
+        } catch {
+          /* non-fatal */
         }
       }
-
-      if (!tags.length) {
-        setMessage("Document created successfully.");
-      } else {
-        setMessage((prev) => prev ?? "Document created successfully.");
-      }
-
       cleanupTempPreview(tempPreview);
       navigate(`/documents/${result.id}`);
     } catch (err: any) {
-      const message = err?.message ?? "Failed to create document";
-      setError(message);
-      if (err?.details && typeof err.details === "object") {
-        setFieldErrors(err.details);
-      }
+      setError(err?.message ?? "Failed to create document");
+      if (err?.details) setFieldErrors(err.details);
     } finally {
       setLoading(false);
       setUploadPct(0);
     }
   };
+
+  // ── Step indicator ───────────────────────────────────────────────────────────
+  const StepBar = () => (
+    <div className="flex items-center gap-2 shrink-0">
+      {[
+        { num: 1, label: "Flow setup" },
+        { num: 2, label: "Document details" },
+      ].map((s, i) => (
+        <React.Fragment key={s.num}>
+          {i > 0 && (
+            <div
+              className={`h-px w-10 transition-colors ${step > 1 ? "bg-sky-400" : "bg-slate-200 dark:bg-surface-400"}`}
+            />
+          )}
+          <div
+            className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium border transition-all ${
+              step === s.num
+                ? "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-400"
+                : step > s.num
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400"
+                  : "border-slate-200 bg-white text-slate-400 dark:border-surface-400 dark:bg-surface-500"
+            }`}
+          >
+            <span
+              className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${
+                step > s.num
+                  ? "bg-emerald-500 text-white"
+                  : step === s.num
+                    ? "bg-sky-500 text-white"
+                    : "bg-slate-200 dark:bg-surface-400 text-slate-500"
+              }`}
+            >
+              {step > s.num ? "✓" : s.num}
+            </span>
+            {s.label}
+          </div>
+        </React.Fragment>
+      ))}
+    </div>
+  );
 
   return (
     <PageFrame
@@ -248,284 +276,204 @@ const CreateDocumentPage: React.FC = () => {
         cleanupTempPreview(tempPreview);
         navigate(-1);
       }}
+      contentClassName="flex flex-col gap-5 h-full"
       right={
-        <Button
+        <button
           type="button"
-          variant="outline"
-          size="sm"
           onClick={() => setTemplatesPanelOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
         >
           📄 Templates
-        </Button>
+        </button>
       }
     >
-      {/* Step indicator */}
-      <div className="mb-4 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-        <span
-          className={
-            "inline-flex items-center gap-2 rounded-full px-3 py-1 border " +
-            (step === 1
-              ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-400"
-              : "border-slate-200 bg-white text-slate-600 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-400")
-          }
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-          Step 1: Flow setup
-        </span>
+      <StepBar />
 
-        <span className="text-slate-400 dark:text-slate-500">→</span>
-
-        <span
-          className={
-            "inline-flex items-center gap-2 rounded-full px-3 py-1 border " +
-            (step === 2
-              ? "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-400"
-              : "border-slate-200 bg-white text-slate-600 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-400")
-          }
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-          Step 2: Document details
-        </span>
-      </div>
-
-      {/* STEP 1 */}
+      {/* ── STEP 1 ──────────────────────────────────────────────────────────── */}
       {step === 1 && (
-        <div className="max-w-3xl">
-          <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 dark:border-surface-400 dark:bg-surface-500/80">
-            <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/70 dark:border-surface-400 dark:bg-surface-600/70">
-              <div className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                Choose workflow
+        <div className="flex justify-center">
+          <div className="w-full max-w-lg">
+            <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-200 dark:border-surface-400">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  Choose workflow
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Set how this document will be routed for review and approval.
+                </p>
               </div>
-              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Select default routing or build a custom recipient sequence.
-              </div>
-            </div>
 
-            <div className="px-6 py-5 space-y-5">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                    Flow option <span className="text-rose-500">*</span>
-                  </label>
+              <div className="px-6 py-5 flex flex-col gap-5">
+                {/* Flow option */}
+                <Field label="Flow option" required>
                   <select
                     value={routingMode}
                     onChange={(e) => {
                       const v = e.target.value as "default" | "custom";
                       setRoutingMode(v);
                       setError(null);
-                      if (
-                        v === "custom" &&
-                        customReviewOfficeIds.length === 0
-                      ) {
+                      if (v === "default") setCustomReviewOfficeIds([0]);
+                      if (v === "custom" && customReviewOfficeIds.length === 0)
                         setCustomReviewOfficeIds([0]);
-                      }
-                      if (v === "default") {
-                        setCustomReviewOfficeIds([0]);
-                      }
                     }}
-                    className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-xs outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200"
+                    className={selectCls}
                   >
                     <option value="default">
                       {isQA ? "Default QA Flow" : "Default Office Flow"}
                     </option>
                     <option value="custom">Custom Flow</option>
                   </select>
-
-                  {routingMode === "default" ? (
-                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      {isQA
-                        ? "Default: QA → Office → VP → QA → Office → VP → President → QA."
-                        : "Default: Your Office → Office Head → VP → QA."}
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      Custom: Choose 1–5 offices in the exact order they will
-                      receive the document.
-                    </p>
-                  )}
-                </div>
-
-                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-surface-400 dark:bg-surface-600 dark:text-slate-400">
-                  This step only sets routing. You will add the file and details
-                  in Step 2.
-                </div>
-              </div>
-
-              {routingMode === "default" && isQA && (
-                <div>
-                  <OfficeDropdown
-                    value={reviewOfficeId}
-                    onChange={setReviewOfficeId}
-                    error={fieldErrors?.review_office_id?.[0]}
-                  />
-                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                    Required for Default QA Flow.
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                    {routingMode === "default"
+                      ? isQA
+                        ? "QA → Office → VP → QA → Office → VP → President → QA"
+                        : "Your Office → Office Head → VP → QA"
+                      : "You choose 1–5 offices in order. They receive the document sequentially."}
                   </p>
-                </div>
-              )}
+                </Field>
 
-              {routingMode === "default" && !isQA && (
-                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-surface-400 dark:bg-surface-600 dark:text-slate-400">
-                  Reviewer office is not needed for Office-created drafts (it
-                  will route to Office Head → VP → QA).
-                </div>
-              )}
+                {/* Default QA: reviewer office */}
+                {routingMode === "default" && isQA && (
+                  <Field
+                    label="Reviewer office"
+                    required
+                    hint="The first office that will review this document."
+                  >
+                    <OfficeDropdown
+                      value={reviewOfficeId}
+                      onChange={setReviewOfficeId}
+                      error={fieldErrors?.review_office_id?.[0]}
+                    />
+                  </Field>
+                )}
 
-              {routingMode === "custom" && (
-                <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-surface-400 dark:bg-surface-600/60">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
-                        Custom recipients
-                      </div>
-                      <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                        Order matters. First is the first receiver.
-                      </div>
-                    </div>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addCustomRecipient}
-                      disabled={
-                        loading || customReviewOfficeIds.length >= MAX_CUSTOM
-                      }
-                    >
-                      + Add recipient
-                    </Button>
-                  </div>
-
-                  <div className="mt-3 space-y-3">
-                    {customReviewOfficeIds.map((val, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-3 dark:border-surface-400 dark:bg-surface-500"
-                      >
-                        <div className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400 w-6">
-                          {idx + 1}.
+                {/* Custom flow: recipients */}
+                {routingMode === "custom" && (
+                  <Field
+                    label="Recipients"
+                    required
+                    hint={`Ordered list of offices. Min 1, max ${MAX_CUSTOM}.`}
+                  >
+                    <div className="flex flex-col gap-2">
+                      {customReviewOfficeIds.map((val, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <span className="w-5 shrink-0 text-center text-xs font-semibold text-slate-400">
+                            {idx + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <OfficeDropdown
+                              value={val > 0 ? val : null}
+                              onChange={(id) => updateCustomRecipient(idx, id)}
+                              excludeOfficeIds={customSelectedIds.filter(
+                                (id) => id !== val,
+                              )}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeCustomRecipient(idx)}
+                            className="shrink-0 rounded-lg border border-slate-200 dark:border-surface-400 px-2.5 py-2 text-xs text-slate-500 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+                          >
+                            ✕
+                          </button>
                         </div>
-
-                        <div className="flex-1 min-w-0">
-                          <OfficeDropdown
-                            value={val > 0 ? val : null}
-                            onChange={(id) => updateCustomRecipient(idx, id)}
-                            excludeOfficeIds={customSelectedIds.filter(
-                              (id) => id !== val,
-                            )}
-                          />
-                        </div>
-
-                        <Button
+                      ))}
+                      {customReviewOfficeIds.length < MAX_CUSTOM && (
+                        <button
                           type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeCustomRecipient(idx)}
-                          disabled={loading}
+                          onClick={addCustomRecipient}
+                          className="mt-1 rounded-lg border border-dashed border-slate-300 dark:border-surface-400 py-2 text-xs font-medium text-slate-500 dark:text-slate-400 hover:border-sky-400 hover:text-sky-600 dark:hover:text-sky-400 transition"
                         >
-                          Remove
-                        </Button>
-                      </div>
-                    ))}
+                          + Add recipient
+                        </button>
+                      )}
+                    </div>
+                  </Field>
+                )}
+
+                {error && (
+                  <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-xs text-rose-700 dark:text-rose-400">
+                    {error}
                   </div>
+                )}
 
-                  <p className="mt-3 text-[11px] text-slate-500 dark:text-slate-400">
-                    Minimum 1 recipient. Maximum {MAX_CUSTOM}.
-                  </p>
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => navigate(-1)}
+                    className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const err = validateStep1();
+                      if (err) {
+                        setError(err);
+                        return;
+                      }
+                      setError(null);
+                      setStep(2);
+                    }}
+                    className="rounded-lg bg-sky-500 hover:bg-sky-600 px-5 py-2 text-sm font-semibold text-white transition"
+                  >
+                    Next →
+                  </button>
                 </div>
-              )}
-
-              {error && (
-                <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
-                  <p className="font-medium">{error}</p>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(-1)}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={() => {
-                    const err = validateStep1();
-                    if (err) {
-                      setError(err);
-                      return;
-                    }
-                    setError(null);
-                    setStep(2);
-                  }}
-                  disabled={loading}
-                >
-                  Next →
-                </Button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* STEP 2 */}
+      {/* ── STEP 2 ──────────────────────────────────────────────────────────── */}
       {step === 2 && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 min-h-0">
-          {/* Left: form */}
-          <div className="lg:col-span-7 min-w-0">
-            <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 dark:border-surface-400 dark:bg-surface-500/80">
-              <form onSubmit={handleSubmit} className="space-y-4 px-5 py-5">
-                {/* Back to Step 1 */}
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    Flow:{" "}
-                    <span className="font-semibold text-slate-700 dark:text-slate-200">
-                      {routingMode === "default"
-                        ? isQA
-                          ? "Default QA Flow"
-                          : "Default Office Flow"
-                        : "Custom Flow"}
-                    </span>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setStep(1)}
-                    disabled={loading}
-                  >
-                    ← Back to flow setup
-                  </Button>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                    Title <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-xs outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200 dark:placeholder-slate-500"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. QA Manual – Document Control Procedure"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 flex-1 min-h-0">
+          {/* Left: form — 3 cols */}
+          <div className="lg:col-span-3 overflow-y-auto">
+            <form onSubmit={handleSubmit}>
+              <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-surface-400">
                   <div>
-                    <label className="block mb-4.5 text-xs font-medium text-slate-700 dark:text-slate-300">
-                      Document Type <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="flex gap-4 items-center mt-1.5">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Document details
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Flow:{" "}
+                      <span className="font-medium text-slate-700 dark:text-slate-300">
+                        {routingMode === "default"
+                          ? isQA
+                            ? "Default QA Flow"
+                            : "Default Office Flow"
+                          : "Custom Flow"}
+                      </span>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="text-xs font-medium text-sky-600 dark:text-sky-400 hover:underline"
+                  >
+                    ← Change flow
+                  </button>
+                </div>
+
+                <div className="px-6 py-5 flex flex-col gap-5">
+                  <Field label="Title" required>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="e.g. QA Manual – Document Control Procedure"
+                      required
+                      className={inputCls}
+                    />
+                  </Field>
+
+                  <Field label="Document type" required>
+                    <div className="flex gap-5">
                       {(["internal", "external", "forms"] as const).map(
                         (type) => (
                           <label
@@ -537,7 +485,7 @@ const CreateDocumentPage: React.FC = () => {
                               value={type}
                               checked={doctype === type}
                               onChange={() => setDoctype(type)}
-                              className="w-4 h-4"
+                              className="accent-sky-500"
                             />
                             <span className="text-sm text-slate-700 dark:text-slate-300 capitalize">
                               {type}
@@ -546,233 +494,225 @@ const CreateDocumentPage: React.FC = () => {
                         ),
                       )}
                     </div>
-                  </div>
+                  </Field>
 
-                  <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-surface-400 dark:bg-surface-600 dark:text-slate-400">
-                    Participants are already set in Step 1. You can go back if
-                    needed.
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                    Description
-                  </label>
-                  <textarea
-                    rows={3}
-                    className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-xs outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200 dark:placeholder-slate-500"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Short summary of what this document is for (shown in Library later)."
-                  />
-                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                    This is not comments; comments will live in DocumentFlow.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                      Effective date
-                    </label>
-                    <input
-                      type="date"
-                      value={effectiveDate}
-                      onChange={(e) => setEffectiveDate(e.target.value)}
-                      disabled={!isQA}
-                      className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none disabled:bg-slate-50 disabled:opacity-60 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200 dark:disabled:bg-surface-600"
-                    />
-                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      {isQA
-                        ? "QA can set this on draft creation."
-                        : "Only QA can set effective date."}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                      Tags
-                    </label>
-
-                    <div className="flex gap-2">
-                      <input
-                        value={tagsInput}
-                        onChange={(e) => setTagsInput(e.target.value)}
-                        placeholder="Type a tag and press Add (e.g., SOP, QMS, HR)"
-                        className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-xs outline-none ring-0 transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200 dark:placeholder-slate-500"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const t = tagsInput.trim();
-                          if (!t) return;
-                          if (
-                            tags.some(
-                              (x) => x.toLowerCase() === t.toLowerCase(),
-                            )
-                          )
-                            return;
-                          setTags((prev) => [...prev, t]);
-                          setTagsInput("");
-                        }}
-                      >
-                        Add
-                      </Button>
-                    </div>
-
-                    {tags.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {tags.map((t) => (
-                          <button
-                            key={t}
-                            type="button"
-                            className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-300 dark:hover:bg-surface-300"
-                            title="Remove tag"
-                            onClick={() =>
-                              setTags((prev) => prev.filter((x) => x !== t))
-                            }
-                          >
-                            {t} ×
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      UI only for now; we'll connect this to document_tag later.
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                    Attach file <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="file"
-                      required
-                      disabled={loading}
-                      className="block w-full text-sm text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-sky-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-sky-700 hover:file:bg-sky-100 disabled:opacity-60 dark:file:bg-sky-950/40 dark:file:text-sky-400"
-                      onChange={(e) => {
-                        const selected = e.target.files?.[0] ?? null;
-                        setFile(selected);
-                      }}
-                    />
-
-                    {loading && (
-                      <div className="w-28 shrink-0">
-                        <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-surface-400 overflow-hidden">
-                          <div
-                            className="h-2 bg-sky-600 transition-[width]"
-                            style={{ width: `${Math.max(2, uploadPct)}%` }}
-                          />
-                        </div>
-                        <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 text-right">
-                          {uploadPct}%
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                    Accepts Word, Excel, PowerPoint, or PDF (up to 10 MB).
-                  </p>
-                </div>
-
-                {message && (
-                  <div className="mt-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2 dark:border-green-800 dark:bg-green-950/40 dark:text-green-400">
-                    {message}
-                  </div>
-                )}
-
-                {error && (
-                  <div className="mt-1 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-3 py-2 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
-                    <p className="font-medium">{error}</p>
-                    {fieldErrors && (
-                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                        {Object.entries(fieldErrors).map(
-                          ([field, messages]) => (
-                            <li key={field}>
-                              <span className="font-semibold">{field}</span>
-                              {": "}
-                              {messages.join(" ")}
-                            </li>
-                          ),
-                        )}
-                      </ul>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-3">
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Saved documents will appear in your Document Library.
-                  </p>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="inline-flex items-center gap-1 rounded-md bg-sky-600 px-4 py-2 text-xs font-medium text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700 disabled:opacity-60"
+                  <Field
+                    label="Description"
+                    hint="Short summary shown in the Library. Not for comments."
                   >
-                    {loading ? "Saving…" : "Save document"}
-                  </button>
+                    <textarea
+                      rows={3}
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="What is this document for?"
+                      className={inputCls}
+                    />
+                  </Field>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field
+                      label="Effective date"
+                      hint={
+                        isQA
+                          ? "Set the date this document takes effect."
+                          : "Only QA can set this."
+                      }
+                    >
+                      <input
+                        type="date"
+                        value={effectiveDate}
+                        onChange={(e) => setEffectiveDate(e.target.value)}
+                        disabled={!isQA}
+                        className={
+                          inputCls +
+                          " disabled:opacity-50 disabled:cursor-not-allowed"
+                        }
+                      />
+                    </Field>
+
+                    <Field
+                      label="Tags"
+                      hint="Click Add or press Enter to add a tag."
+                    >
+                      <div className="flex gap-2">
+                        <input
+                          value={tagsInput}
+                          onChange={(e) => setTagsInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const t = tagsInput.trim();
+                              if (
+                                !t ||
+                                tags.some(
+                                  (x) => x.toLowerCase() === t.toLowerCase(),
+                                )
+                              )
+                                return;
+                              setTags((p) => [...p, t]);
+                              setTagsInput("");
+                            }
+                          }}
+                          placeholder="e.g. SOP, QMS"
+                          className={inputCls}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const t = tagsInput.trim();
+                            if (
+                              !t ||
+                              tags.some(
+                                (x) => x.toLowerCase() === t.toLowerCase(),
+                              )
+                            )
+                              return;
+                            setTags((p) => [...p, t]);
+                            setTagsInput("");
+                          }}
+                          className="shrink-0 rounded-lg border border-slate-200 dark:border-surface-400 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      {tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {tags.map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() =>
+                                setTags((p) => p.filter((x) => x !== t))
+                              }
+                              className="inline-flex items-center gap-1 rounded-full border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-2.5 py-0.5 text-[11px] text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-surface-400 transition"
+                            >
+                              {t} ×
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </Field>
+                  </div>
+
+                  <Field
+                    label="Attach file"
+                    required
+                    hint="Accepts Word, Excel, PowerPoint, or PDF (max 10 MB)."
+                  >
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="file"
+                        required
+                        disabled={loading}
+                        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                        className="block w-full text-sm text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-sky-50 dark:file:bg-sky-950/40 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-sky-700 dark:file:text-sky-400 hover:file:bg-sky-100 disabled:opacity-60"
+                      />
+                      {loading && (
+                        <div className="w-24 shrink-0">
+                          <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-surface-400 overflow-hidden">
+                            <div
+                              className="h-full bg-sky-500 transition-[width]"
+                              style={{ width: `${Math.max(2, uploadPct)}%` }}
+                            />
+                          </div>
+                          <p className="mt-0.5 text-[11px] text-slate-400 text-right">
+                            {uploadPct}%
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </Field>
+
+                  {error && (
+                    <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-xs text-rose-700 dark:text-rose-400">
+                      <p className="font-medium">{error}</p>
+                      {fieldErrors && (
+                        <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                          {Object.entries(fieldErrors).map(
+                            ([field, messages]) => (
+                              <li key={field}>
+                                <span className="font-semibold">{field}</span>:{" "}
+                                {messages.join(" ")}
+                              </li>
+                            ),
+                          )}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => navigate(-1)}
+                      disabled={loading}
+                      className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-50 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="rounded-lg bg-sky-500 hover:bg-sky-600 disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white transition"
+                    >
+                      {loading ? `Saving… ${uploadPct}%` : "Save document"}
+                    </button>
+                  </div>
                 </div>
-              </form>
-            </div>
+              </div>
+            </form>
           </div>
 
-          {/* Right: preview */}
-          <aside className="lg:col-span-5 min-w-0">
-            <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 overflow-hidden dark:border-surface-400 dark:bg-surface-500/80">
-              <div className="border-b border-slate-200 px-5 py-4 bg-slate-50/80 dark:border-surface-400 dark:bg-surface-600/80">
-                <div className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+          {/* Right: preview — 2 cols */}
+          <div className="lg:col-span-2 flex flex-col min-h-0">
+            <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex flex-col flex-1">
+              <div className="px-5 py-4 border-b border-slate-200 dark:border-surface-400">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                   Preview
-                </div>
-                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Preview is generated on upload (PDF is quick; Office converts
-                  to PDF).
-                </div>
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  PDF is instant · Office files convert first
+                </p>
               </div>
-
-              <div className="p-5">
+              <div className="flex-1 p-4 min-h-0">
                 {!file ? (
-                  <div className="rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-sm text-slate-600 text-center dark:border-surface-400 dark:bg-surface-600 dark:text-slate-400">
-                    Choose a file to generate a preview.
+                  <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-slate-200 dark:border-surface-400">
+                    <p className="text-sm text-slate-400 dark:text-slate-500">
+                      Attach a file to preview it here
+                    </p>
                   </div>
                 ) : previewLoading ? (
-                  <div className="rounded-md border border-slate-200 bg-white px-4 py-4 text-sm text-slate-700 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300">
-                    Generating preview…
-                    <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                      Office files may take a few seconds to convert.
-                    </div>
+                  <div className="flex h-full items-center justify-center">
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      Generating preview…
+                    </p>
                   </div>
                 ) : previewError ? (
-                  <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
+                  <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 p-4 text-xs text-rose-700 dark:text-rose-400">
                     {previewError}
-                    <div className="mt-2 text-xs text-rose-700 dark:text-rose-500">
-                      You can still save the document even if preview fails.
-                    </div>
+                    <p className="mt-1 opacity-70">
+                      You can still save without a preview.
+                    </p>
                   </div>
                 ) : tempPreview?.url ? (
-                  <div className="h-[70vh] min-h-105 w-full overflow-hidden rounded-md border border-slate-200 bg-white dark:border-surface-400">
-                    <iframe
-                      title="Document preview"
-                      src={tempPreview.url}
-                      className="h-full w-full"
-                    />
-                  </div>
+                  <iframe
+                    title="Document preview"
+                    src={tempPreview.url}
+                    className="h-full w-full rounded-lg border border-slate-200 dark:border-surface-400"
+                  />
                 ) : (
-                  <div className="rounded-md border border-slate-200 bg-white px-4 py-4 text-sm text-slate-700 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300">
-                    Preview not available yet.
+                  <div className="flex h-full items-center justify-center">
+                    <p className="text-sm text-slate-400 dark:text-slate-500">
+                      Preview not available.
+                    </p>
                   </div>
                 )}
               </div>
             </div>
-          </aside>
+          </div>
         </div>
       )}
+
       <TemplatesBrowserPanel
         open={templatesPanelOpen}
         onClose={() => setTemplatesPanelOpen(false)}

@@ -1,5 +1,5 @@
 import React from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { getAuthUser } from "../lib/auth";
 import PageFrame from "../components/layout/PageFrame";
 import Table, { type TableColumn } from "../components/ui/Table";
@@ -103,6 +103,8 @@ function ActivityModal({ row, onClose }: { row: any; onClose: () => void }) {
 const ActivityLogsPage: React.FC = () => {
   const me = getAuthUser();
   if (!me) return <Navigate to="/login" replace />;
+
+  const navigate = useNavigate();
 
   const [scope, setScope] = React.useState<Scope>("all");
   const [q, setQ] = React.useState("");
@@ -222,15 +224,24 @@ const ActivityLogsPage: React.FC = () => {
 
   return (
     <PageFrame
-      title="Audit Logs"
+      title="Activity Logs"
       contentClassName="flex flex-col min-h-0 gap-4"
+      right={
+        <button
+          type="button"
+          onClick={() => navigate("/my-activity")}
+          className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+        >
+          My activity →
+        </button>
+      }
     >
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 shrink-0">
         <select
           value={scope}
           onChange={(e) => setScope(e.target.value as Scope)}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 transition"
         >
           <option value="all">All</option>
           <option value="office">My office</option>
@@ -258,7 +269,7 @@ const ActivityLogsPage: React.FC = () => {
       {/* Table */}
       <div
         className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden"
-        style={{ height: "calc(100vh - 190px)" }}
+        style={{ height: "calc(100vh - 223px)" }}
       >
         <Table
           bare

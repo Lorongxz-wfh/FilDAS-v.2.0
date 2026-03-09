@@ -65,7 +65,9 @@ class ReportsController extends Controller
         $qaOfficeId = (int) ($this->officeIdByCode('QA') ?? 0);
         $isQA = ($roleName === 'qa') || ($qaOfficeId && $userOfficeId === $qaOfficeId);
 
-        if (!$isQA) {
+        $isAdmin = in_array($roleName, ['admin', 'sysadmin'], true);
+
+        if (!$isQA && !$isAdmin) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
         $data = $request->validate([

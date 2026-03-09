@@ -7,6 +7,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Facades\Storage;
+
 
 class User extends Authenticatable
 {
@@ -45,7 +47,13 @@ class User extends Authenticatable
     ];
 
 
-    protected $appends = ['full_name'];
+    protected $appends = ['full_name', 'profile_photo_url'];
+
+    public function getProfilePhotoUrlAttribute(): ?string
+    {
+        if (!$this->profile_photo_path) return null;
+        return asset('storage/' . $this->profile_photo_path);
+    }
 
     /**
      * Get the attributes that should be cast.

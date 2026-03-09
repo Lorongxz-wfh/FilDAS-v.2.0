@@ -15,6 +15,7 @@ const CreateDocumentPage = React.lazy(
 const InboxPage = React.lazy(() => import("./pages/InboxPage"));
 const ArchivePage = React.lazy(() => import("./pages/ArchivePage"));
 const ReportsPage = React.lazy(() => import("./pages/ReportsPage"));
+const ReportExportPage = React.lazy(() => import("./pages/ReportExportPage"));
 const MyActivityPage = React.lazy(() => import("./pages/MyActivityPage"));
 const UserManagerPage = React.lazy(() => import("./pages/UserManagerPage"));
 const OfficeManagerPage = React.lazy(() => import("./pages/OfficeManagerPage"));
@@ -115,6 +116,7 @@ export default function App() {
             }
           >
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/reports/export" element={<ReportExportPage />} />
           </Route>
 
           <Route element={<RequireRole allow={["QA", "SYSADMIN", "ADMIN"]} />}>

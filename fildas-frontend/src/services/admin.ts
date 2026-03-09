@@ -9,6 +9,7 @@ export interface AdminUser {
   suffix?: string | null;
   email: string;
   profile_photo_path?: string | null;
+  profile_photo_url?: string | null;
   role_id: number | null;
   office_id: number | null;
 
@@ -181,4 +182,23 @@ export async function deleteAdminUser(
 ): Promise<{ message: string }> {
   const res = await api.delete(`/admin/users/${userId}`);
   return res.data as { message: string };
+}
+
+export async function uploadAdminUserPhoto(
+  userId: number,
+  file: File,
+): Promise<{ user: AdminUser }> {
+  const formData = new FormData();
+  formData.append("photo", file);
+  const res = await api.post(`/admin/users/${userId}/photo`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return res.data as { user: AdminUser };
+}
+
+export async function removeAdminUserPhoto(
+  userId: number,
+): Promise<{ user: AdminUser }> {
+  const res = await api.delete(`/admin/users/${userId}/photo`);
+  return res.data as { user: AdminUser };
 }

@@ -114,7 +114,7 @@ const Navbar: React.FC<NavbarProps> = ({ onThemeToggle, theme = "light" }) => {
 
   return (
     <header className="relative z-50 border-b border-slate-200 bg-white/80 backdrop-blur-sm dark:border-surface-400 dark:bg-surface-500/80">
-      <div className="flex items-center justify-end px-4 py-2.5">
+      <div className="flex items-center justify-end px-4 py-3">
         <div className="flex items-center gap-3">
           {/* Theme toggle */}
           <button

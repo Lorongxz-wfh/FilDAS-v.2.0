@@ -25,6 +25,7 @@ export type DocumentTemplate = {
   office: TemplateOffice | null;
   uploaded_by: TemplateUploader | null;
   can_delete: boolean;
+  thumbnail_url: string | null;
   created_at: string;
 };
 

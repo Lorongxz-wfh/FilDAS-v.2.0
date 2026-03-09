@@ -11,8 +11,11 @@ import {
 } from "../services/templates";
 
 import TemplateList from "../components/templates/TemplateList";
+import TemplateGridCard from "../components/templates/TemplateGridCard";
 import TemplateUploadForm from "../components/templates/TemplateUploadForm";
 import TemplateDetailPanel from "../components/templates/TemplateDetailPanel";
+
+type ViewMode = "list" | "grid";
 
 const TemplatesPage: React.FC = () => {
   const { push } = useToast();
@@ -24,6 +27,14 @@ const TemplatesPage: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] =
     useState<DocumentTemplate | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    return (localStorage.getItem("templates_view") as ViewMode) ?? "grid";
+  });
+
+  const setView = (mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem("templates_view", mode);
+  };
 
   // ── Fetch ──────────────────────────────────────────────────
 
@@ -80,14 +91,69 @@ const TemplatesPage: React.FC = () => {
       <PageFrame
         title="Document Templates"
         right={
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={() => setModalOpen(true)}
-          >
-            + Upload template
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* List/Grid toggle */}
+            <div className="flex items-center rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-1 gap-0.5">
+              <button
+                type="button"
+                onClick={() => setView("list")}
+                title="List view"
+                className={[
+                  "rounded-md p-1.5 transition",
+                  viewMode === "list"
+                    ? "bg-slate-100 dark:bg-surface-400 text-slate-800 dark:text-slate-100"
+                    : "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300",
+                ].join(" ")}
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("grid")}
+                title="Grid view"
+                className={[
+                  "rounded-md p-1.5 transition",
+                  viewMode === "grid"
+                    ? "bg-slate-100 dark:bg-surface-400 text-slate-800 dark:text-slate-100"
+                    : "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300",
+                ].join(" ")}
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
+                  />
+                </svg>
+              </button>
+            </div>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setModalOpen(true)}
+            >
+              + Upload template
+            </Button>
+          </div>
         }
       >
         {/* Full-width list card */}
@@ -125,6 +191,38 @@ const TemplatesPage: React.FC = () => {
                   Retry
                 </button>
               </div>
+            ) : viewMode === "grid" ? (
+              loading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl bg-slate-100 dark:bg-surface-600 animate-pulse aspect-3/4"
+                    />
+                  ))}
+                </div>
+              ) : templates.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-6 py-10 text-center">
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    No templates yet.
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Upload the first template using the button above.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {templates.map((t) => (
+                    <TemplateGridCard
+                      key={t.id}
+                      template={t}
+                      onSelect={setSelectedTemplate}
+                      onDeleteClick={handleDeleteClick}
+                      isDeleting={deletingId === t.id}
+                    />
+                  ))}
+                </div>
+              )
             ) : (
               <TemplateList
                 templates={templates}

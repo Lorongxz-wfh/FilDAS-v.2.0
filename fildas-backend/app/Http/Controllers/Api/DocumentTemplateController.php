@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\ThumbnailService;
 
 class DocumentTemplateController extends Controller
 {
@@ -66,16 +67,37 @@ class DocumentTemplateController extends Controller
         $disk = config('filesystems.default');
         $path = $file->store('document_templates', $disk);
 
+        $mimeType = $file->getMimeType() ?? $file->getClientMimeType();
+
         $template = DocumentTemplate::create([
             'name'              => trim($request->input('name')),
             'description'       => trim($request->input('description', '')) ?: null,
             'original_filename' => $file->getClientOriginalName(),
             'file_path'         => $path,
             'file_size'         => $file->getSize(),
-            'mime_type'         => $file->getMimeType() ?? $file->getClientMimeType(),
+            'mime_type'         => $mimeType,
             'uploaded_by'       => $user->id,
             'office_id'         => $officeId,
         ]);
+
+        // Generate thumbnail in the background (best-effort)
+        try {
+            $thumbnailService = app(ThumbnailService::class);
+            $storagePath = Storage::disk('public')->path($path);
+            // Copy file to public disk if on a different disk
+            if ($disk !== 'public') {
+                $contents = Storage::disk($disk)->get($path);
+                Storage::disk('public')->put($path, $contents);
+                $storagePath = Storage::disk('public')->path($path);
+            }
+            $thumbPath = $thumbnailService->generateForTemplate($path, $mimeType);
+            if ($thumbPath) {
+                $template->thumbnail_path = $thumbPath;
+                $template->save();
+            }
+        } catch (\Throwable $e) {
+            // Never fail the upload due to thumbnail error
+        }
 
         $template->load(['uploader:id,first_name,last_name', 'office:id,name,code']);
 
@@ -93,6 +115,11 @@ class DocumentTemplateController extends Controller
 
         if ($template->file_path && Storage::disk($disk)->exists($template->file_path)) {
             Storage::disk($disk)->delete($template->file_path);
+        }
+
+        // Delete thumbnail
+        if ($template->thumbnail_path) {
+            Storage::disk('public')->delete($template->thumbnail_path);
         }
 
         $template->forceDelete(); // hard delete; use delete() if you want soft-delete history
@@ -144,8 +171,9 @@ class DocumentTemplateController extends Controller
                 'id'   => $t->uploader->id,
                 'name' => trim("{$t->uploader->first_name} {$t->uploader->last_name}"),
             ] : null,
-            'can_delete'  => $canDelete,
-            'created_at'  => $t->created_at?->toISOString(),
+            'can_delete'      => $canDelete,
+            'thumbnail_url'   => $t->thumbnail_path ? asset('storage/' . $t->thumbnail_path) : null,
+            'created_at'      => $t->created_at?->toISOString(),
         ];
     }
 }

@@ -165,6 +165,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/users/{user}/disable', [UserController::class, 'disable']);
         Route::patch('/users/{user}/enable',  [UserController::class, 'enable']);
         Route::delete('/users/{user}',        [UserController::class, 'destroy']);
+        Route::post('/users/{user}/photo',    [UserController::class, 'uploadPhoto']);
+        Route::delete('/users/{user}/photo',  [UserController::class, 'removePhoto']);
         Route::get('/roles',                  [UserController::class, 'roles']);
 
         Route::get('/offices',                    [AdminOfficeController::class, 'index']);

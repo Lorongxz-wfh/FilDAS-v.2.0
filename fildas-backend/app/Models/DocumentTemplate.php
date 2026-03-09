@@ -15,6 +15,7 @@ class DocumentTemplate extends Model
         'description',
         'original_filename',
         'file_path',
+        'thumbnail_path',
         'file_size',
         'mime_type',
         'uploaded_by',

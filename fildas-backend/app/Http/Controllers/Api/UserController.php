@@ -10,6 +10,7 @@ use App\Actions\Admin\CanModifyUserAction;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
@@ -210,6 +211,39 @@ class UserController extends Controller
         $user->delete();
 
         return response()->json(['message' => 'User deleted.']);
+    }
+
+    // POST /api/admin/users/{user}/photo
+    public function uploadPhoto(Request $request, User $user)
+    {
+        $request->validate([
+            'photo' => ['required', 'image', 'max:2048'],
+        ]);
+
+        // Delete old photo if exists
+        if ($user->profile_photo_path) {
+            Storage::disk('public')->delete($user->profile_photo_path);
+        }
+
+        $path = $request->file('photo')->store('profile-photos', 'public');
+        $user->profile_photo_path = $path;
+        $user->save();
+
+        $user->load(['role', 'office']);
+        return response()->json(['user' => $user]);
+    }
+
+    // DELETE /api/admin/users/{user}/photo
+    public function removePhoto(User $user)
+    {
+        if ($user->profile_photo_path) {
+            Storage::disk('public')->delete($user->profile_photo_path);
+            $user->profile_photo_path = null;
+            $user->save();
+        }
+
+        $user->load(['role', 'office']);
+        return response()->json(['user' => $user]);
     }
 
     // GET /api/admin/offices

@@ -227,7 +227,7 @@ export default function DocumentRequestListPage() {
         return (
           <div
             className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden"
-            style={{ height: "calc(100vh - 210px)" }}
+            style={{ height: "calc(100vh - 217px)" }}
           >
             <Table
               bare

@@ -16,7 +16,8 @@ return new class extends Migration
 
             $table->string('original_filename');            // e.g. "SOP Template.docx"
             $table->string('file_path');                    // storage path
-            $table->unsignedBigInteger('file_size');        // bytes
+            $table->unsignedBigInteger('file_size');
+            $table->string('thumbnail_path')->nullable();        // bytes
             $table->string('mime_type', 100);
 
             // Who uploaded

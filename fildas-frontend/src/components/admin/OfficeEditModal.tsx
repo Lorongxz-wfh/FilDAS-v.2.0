@@ -14,15 +14,15 @@ import {
 } from "../../services/admin";
 
 const inputCls = [
-  "w-full rounded-md border px-3 py-2 text-sm outline-none transition",
-  "border-slate-300 bg-white text-slate-900",
-  "focus:border-sky-500 focus:ring-2 focus:ring-sky-200",
-  "dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200",
-  "disabled:bg-slate-50 disabled:opacity-60 dark:disabled:bg-surface-600",
+  "w-full rounded-lg border px-3 py-2 text-sm outline-none transition",
+  "border-slate-200 bg-white text-slate-900",
+  "focus:border-sky-400 focus:ring-2 focus:ring-sky-100",
+  "dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500",
+  "disabled:opacity-50 dark:disabled:bg-surface-600",
 ].join(" ");
 
 const labelCls =
-  "block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5";
+  "block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5";
 
 type Props = {
   open: boolean;
@@ -160,22 +160,41 @@ export default function OfficeEditModal({
   return (
     <Modal
       open={open}
-      title={
-        mode === "create"
-          ? "New office"
-          : office
-            ? `Edit office: ${office.name}`
-            : "Edit office"
-      }
+      title={mode === "create" ? "New Office" : "Edit Office"}
       onClose={() => {
         if (saving || acting) return;
         onClose();
       }}
       widthClassName="max-w-2xl"
     >
-      {error && <Alert variant="danger">{error}</Alert>}
+      {error && (
+        <Alert variant="danger" className="mb-4">
+          {error}
+        </Alert>
+      )}
 
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* Status badge for edit mode */}
+      {isEdit && office && (
+        <div className="mb-4 flex items-center gap-2">
+          <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            {office.name}
+          </span>
+          <span className="font-mono text-xs text-slate-400 dark:text-slate-500">
+            ({office.code})
+          </span>
+          {isDisabled ? (
+            <span className="ml-auto inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-rose-600 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
+              Disabled
+            </span>
+          ) : (
+            <span className="ml-auto inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-sky-600 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-400">
+              Active
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className={labelCls}>
             Name <span className="text-rose-500">*</span>
@@ -256,7 +275,7 @@ export default function OfficeEditModal({
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 dark:border-surface-400 pt-4">
         <div className="flex flex-wrap items-center gap-2">
           {isEdit && office && (
             <>
@@ -310,8 +329,10 @@ export default function OfficeEditModal({
             {saving ? (
               <span className="inline-flex items-center gap-2">
                 <InlineSpinner className="h-4 w-4 border-2" />
-                Saving
+                Saving…
               </span>
+            ) : mode === "create" ? (
+              "Create office"
             ) : (
               "Save changes"
             )}

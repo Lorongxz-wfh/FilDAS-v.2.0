@@ -2,20 +2,21 @@ import React from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuthUser } from "../hooks/useAuthUser";
 import PageFrame from "../components/layout/PageFrame";
-import Button from "../components/ui/Button";
-import Alert from "../components/ui/Alert";
+import ReportStatCard from "../components/reports/ReportStatCard";
+import ReportChartCard from "../components/reports/ReportChartCard";
 import ComplianceClusterBarChart, {
   type ComplianceClusterDatum,
 } from "../components/charts/ComplianceClusterBarChart";
-
+import VolumeTrendChart from "../components/charts/VolumeTrendChart";
+import StageDelayChart from "../components/charts/StageDelayChart";
 import {
   getComplianceReport,
   type ComplianceSeriesDatum,
   type ComplianceOfficeDatum,
   type ComplianceVolumeSeriesDatum,
   type ComplianceKpis,
+  type ComplianceStageDelayDatum,
 } from "../services/documents";
-
 import {
   ResponsiveContainer,
   BarChart,
@@ -27,41 +28,156 @@ import {
   CartesianGrid,
 } from "recharts";
 
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+type Bucket = "daily" | "weekly" | "monthly" | "yearly" | "total";
+type Parent = "ALL" | "PO" | "VAd" | "VA" | "VF" | "VR";
+type DateField = "completed" | "created";
+type Scope = "clusters" | "offices";
+type Tab = "overview" | "compliance" | "timeline";
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
+
+const selectCls =
+  "rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 transition";
+
+const inputCls =
+  "rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 transition";
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: "overview", label: "Overview" },
+  { key: "compliance", label: "Compliance" },
+  { key: "timeline", label: "Timeline" },
+];
+
+// ── Compliance table ───────────────────────────────────────────────────────────
+
+const ComplianceTable: React.FC<{
+  rows: {
+    key: string;
+    label: string;
+    in_review: number;
+    approved: number;
+    returned: number;
+    approvalRate: number;
+    returnRate: number;
+  }[];
+  colLabel: string;
+}> = ({ rows, colLabel }) => (
+  <div className="overflow-x-auto">
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-slate-200 dark:border-surface-400">
+          {[
+            colLabel,
+            "In review",
+            "Approved",
+            "Approval %",
+            "Returned",
+            "Return %",
+          ].map((h) => (
+            <th
+              key={h}
+              className="pb-3 pr-6 text-left text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500"
+            >
+              {h}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.length === 0 ? (
+          <tr>
+            <td
+              colSpan={6}
+              className="py-8 text-center text-sm text-slate-400 dark:text-slate-500"
+            >
+              No data for selected filters.
+            </td>
+          </tr>
+        ) : (
+          rows.map((x) => (
+            <tr
+              key={x.key}
+              className="border-b border-slate-100 dark:border-surface-400 last:border-0"
+            >
+              <td className="py-3 pr-6 font-semibold text-slate-900 dark:text-slate-100">
+                {x.label}
+              </td>
+              <td className="py-3 pr-6 tabular-nums text-slate-600 dark:text-slate-400">
+                {x.in_review}
+              </td>
+              <td className="py-3 pr-6 tabular-nums font-medium text-emerald-600 dark:text-emerald-400">
+                {x.approved}
+              </td>
+              <td className="py-3 pr-6">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-16 rounded-full bg-slate-100 dark:bg-surface-400 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-emerald-500"
+                      style={{ width: `${x.approvalRate}%` }}
+                    />
+                  </div>
+                  <span className="tabular-nums text-slate-600 dark:text-slate-400 text-xs">
+                    {x.approvalRate}%
+                  </span>
+                </div>
+              </td>
+              <td className="py-3 pr-6 tabular-nums font-medium text-rose-600 dark:text-rose-400">
+                {x.returned}
+              </td>
+              <td className="py-3 pr-6">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-16 rounded-full bg-slate-100 dark:bg-surface-400 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-rose-500"
+                      style={{ width: `${x.returnRate}%` }}
+                    />
+                  </div>
+                  <span className="tabular-nums text-slate-600 dark:text-slate-400 text-xs">
+                    {x.returnRate}%
+                  </span>
+                </div>
+              </td>
+            </tr>
+          ))
+        )}
+      </tbody>
+    </table>
+  </div>
+);
+
+// ── Main Page ──────────────────────────────────────────────────────────────────
+
 const ReportsPage: React.FC = () => {
   const navigate = useNavigate();
-
   const me = useAuthUser();
-  const [dateFrom, setDateFrom] = React.useState<string>("");
-  const [dateTo, setDateTo] = React.useState<string>("");
-  const [bucket, setBucket] = React.useState<
-    "daily" | "weekly" | "monthly" | "yearly" | "total"
-  >("monthly");
-  const [parent, setParent] = React.useState<
-    "ALL" | "PO" | "VAd" | "VA" | "VF" | "VR"
-  >("ALL");
 
-  const [dateField, setDateField] = React.useState<"completed" | "created">(
-    "completed",
-  );
-
-  const [scope, setScope] = React.useState<"clusters" | "offices">("clusters");
+  const [activeTab, setActiveTab] = React.useState<Tab>("overview");
+  const [dateFrom, setDateFrom] = React.useState("");
+  const [dateTo, setDateTo] = React.useState("");
+  const [bucket, setBucket] = React.useState<Bucket>("monthly");
+  const [parent, setParent] = React.useState<Parent>("ALL");
+  const [dateField, setDateField] = React.useState<DateField>("completed");
+  const [scope, setScope] = React.useState<Scope>("clusters");
 
   const [officeData, setOfficeData] = React.useState<ComplianceOfficeDatum[]>(
     [],
   );
-
   const [clusterData, setClusterData] = React.useState<
     ComplianceClusterDatum[]
   >([]);
-
   const [seriesData, setSeriesData] = React.useState<ComplianceSeriesDatum[]>(
     [],
   );
-
   const [volumeSeries, setVolumeSeries] = React.useState<
     ComplianceVolumeSeriesDatum[]
   >([]);
-
+  const [stageDelays, setStageDelays] = React.useState<
+    ComplianceStageDelayDatum[]
+  >([]);
   const [kpis, setKpis] = React.useState<ComplianceKpis>({
     total_created: 0,
     total_approved_final: 0,
@@ -75,14 +191,11 @@ const ReportsPage: React.FC = () => {
 
   React.useEffect(() => {
     let alive = true;
-
     (async () => {
       try {
         if (!me) return;
-
         setLoading(true);
         setLoadError(null);
-
         const report = await getComplianceReport({
           date_from: dateFrom || undefined,
           date_to: dateTo || undefined,
@@ -91,16 +204,12 @@ const ReportsPage: React.FC = () => {
           scope,
           parent,
         });
-
-        const clusters = (report.clusters ?? []) as ComplianceClusterDatum[];
-
         if (!alive) return;
-
-        setClusterData(clusters);
+        setClusterData((report.clusters ?? []) as ComplianceClusterDatum[]);
         setSeriesData(report.series ?? []);
         setOfficeData(report.offices ?? []);
-
         setVolumeSeries(report.volume_series ?? []);
+        setStageDelays(report.stage_delays ?? []);
         setKpis(
           report.kpis ?? {
             total_created: 0,
@@ -118,7 +227,6 @@ const ReportsPage: React.FC = () => {
         setLoading(false);
       }
     })();
-
     return () => {
       alive = false;
     };
@@ -137,417 +245,420 @@ const ReportsPage: React.FC = () => {
     { in_review: 0, sent_to_qa: 0, approved: 0, returned: 0 },
   );
 
-  const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
-
-  const ranked = clusterData
-    .slice()
+  const rankedClusters = clusterData
     .map((x) => ({
-      ...x,
+      key: x.cluster,
+      label: x.cluster,
+      in_review: x.in_review,
+      approved: x.approved,
+      returned: x.returned,
       approvalRate: pct(x.approved, x.in_review),
       returnRate: pct(x.returned, x.in_review),
     }))
     .sort((a, b) => a.approvalRate - b.approvalRate);
 
   const rankedOffices = officeData
-    .slice()
     .map((x) => ({
-      ...x,
+      key: String(x.office_id),
+      label: x.office_code ?? `Office #${x.office_id}`,
+      in_review: x.in_review,
+      approved: x.approved,
+      returned: x.returned,
       approvalRate: pct(x.approved, x.in_review),
       returnRate: pct(x.returned, x.in_review),
     }))
     .sort((a, b) => a.approvalRate - b.approvalRate);
 
+  // ── Render ───────────────────────────────────────────────────────────────────
+
   return (
     <PageFrame
       title="Reports"
+      onBack={() => navigate(-1)}
+      contentClassName="flex flex-col gap-5"
       right={
-        <Button
+        <button
           type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/reports/export")}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
         >
-          ← Back
-        </Button>
+          ↓ Export
+        </button>
       }
     >
-      {loading && <Alert variant="info">Loading approval report…</Alert>}
-      {loadError && <Alert variant="danger">{loadError}</Alert>}
+      {/* Error */}
+      {loadError && (
+        <div className="shrink-0 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-700 dark:text-rose-400">
+          {loadError}
+        </div>
+      )}
 
-      {/* Filters */}
-      <div className="mb-3 flex flex-wrap items-end gap-3">
-        {[
-          {
-            label: "Scope",
-            value: scope,
-            setter: setScope,
-            opts: [
-              ["clusters", "Clusters"],
-              ["offices", "Offices"],
-            ],
-          },
-          {
-            label: "Parent",
-            value: parent,
-            setter: setParent,
-            opts: [
-              ["ALL", "All"],
-              ["PO", "President (PO)"],
-              ["VAd", "VP-Admin (VAd)"],
-              ["VA", "VP-AA (VA)"],
-              ["VF", "VP-Finance (VF)"],
-              ["VR", "VP-REQA (VR)"],
-            ],
-          },
-          {
-            label: "Bucket",
-            value: bucket,
-            setter: setBucket,
-            opts: [
-              ["daily", "Daily"],
-              ["weekly", "Weekly"],
-              ["monthly", "Monthly"],
-              ["yearly", "Yearly"],
-              ["total", "Total"],
-            ],
-          },
-          {
-            label: "Date field",
-            value: dateField,
-            setter: setDateField,
-            opts: [
-              ["completed", "Completed"],
-              ["created", "Created"],
-            ],
-          },
-        ].map(({ label, value, setter, opts }) => (
-          <div key={label}>
-            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              {label}
-            </div>
-            <select
-              value={value}
-              onChange={(e) => (setter as any)(e.target.value)}
-              className="mt-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
-            >
-              {(opts as [string, string][]).map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
-                </option>
-              ))}
-            </select>
-          </div>
-        ))}
-
-        <div>
-          <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-end gap-3 shrink-0">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Scope
+          </label>
+          <select
+            value={scope}
+            onChange={(e) => setScope(e.target.value as Scope)}
+            className={selectCls}
+          >
+            <option value="clusters">Clusters</option>
+            <option value="offices">Offices</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Parent
+          </label>
+          <select
+            value={parent}
+            onChange={(e) => setParent(e.target.value as Parent)}
+            className={selectCls}
+          >
+            <option value="ALL">All clusters</option>
+            <option value="PO">President (PO)</option>
+            <option value="VAd">VP-Admin (VAd)</option>
+            <option value="VA">VP-AA (VA)</option>
+            <option value="VF">VP-Finance (VF)</option>
+            <option value="VR">VP-REQA (VR)</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Bucket
+          </label>
+          <select
+            value={bucket}
+            onChange={(e) => setBucket(e.target.value as Bucket)}
+            className={selectCls}
+          >
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+            <option value="total">Total</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Date field
+          </label>
+          <select
+            value={dateField}
+            onChange={(e) => setDateField(e.target.value as DateField)}
+            className={selectCls}
+          >
+            <option value="completed">Completed date</option>
+            <option value="created">Created date</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">
             From
-          </div>
+          </label>
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="mt-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
+            className={inputCls}
           />
         </div>
-
-        <div>
-          <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-500 dark:text-slate-400">
             To
-          </div>
+          </label>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="mt-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
+            className={inputCls}
           />
         </div>
+        {(dateFrom || dateTo) && (
+          <button
+            type="button"
+            onClick={() => {
+              setDateFrom("");
+              setDateTo("");
+            }}
+            className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition self-end"
+          >
+            Clear
+          </button>
+        )}
+        {loading && (
+          <span className="self-end pb-2.5 text-xs text-slate-400 dark:text-slate-500">
+            Loading…
+          </span>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {/* KPI tiles */}
-        <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
-          <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 p-5 dark:border-surface-400 dark:bg-surface-500/80">
-            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Entered review (Office/VP)
-            </div>
-            <div className="mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
-              {totals.in_review}
-            </div>
+      {/* Tabs */}
+      <div className="flex gap-1 shrink-0 border-b border-slate-200 dark:border-surface-400">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setActiveTab(t.key)}
+            className={`px-4 py-2.5 text-sm font-medium transition border-b-2 -mb-px ${
+              activeTab === t.key
+                ? "border-sky-500 text-sky-600 dark:text-sky-400"
+                : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Tab: Overview ──────────────────────────────────────────────────────── */}
+      {activeTab === "overview" && (
+        <div className="flex flex-col gap-5">
+          {/* KPI row */}
+          <div className="flex flex-wrap gap-3">
+            <ReportStatCard
+              label="Total created"
+              value={kpis.total_created}
+              sub="All versions in period"
+              icon="📄"
+            />
+            <ReportStatCard
+              label="Final distributed"
+              value={kpis.total_approved_final}
+              sub={`${pct(kpis.total_approved_final, kpis.total_created)}% completion rate`}
+              color="emerald"
+              icon="✅"
+            />
+            <ReportStatCard
+              label="In review / returned"
+              value={totals.in_review}
+              sub={`${totals.returned} returned for edits`}
+              color="sky"
+              icon="🔄"
+            />
+            <ReportStatCard
+              label="Avg cycle time"
+              value={`${kpis.cycle_time_avg_days}d`}
+              sub="Draft → distribution (avg)"
+              color="violet"
+              icon="⏱"
+            />
+            <ReportStatCard
+              label="Ping-pong ratio"
+              value={kpis.pingpong_ratio}
+              sub="Returns per version (avg)"
+              color={kpis.pingpong_ratio > 1 ? "rose" : "default"}
+              icon="🏓"
+            />
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 p-5 dark:border-surface-400 dark:bg-surface-500/80">
-            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Final approved (distributed)
-            </div>
-            <div className="mt-1 text-3xl font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
-              {totals.approved}
-            </div>
-            <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-              Final-approval rate: {pct(totals.approved, totals.in_review)}%
-            </div>
-          </div>
+          {/* Volume trend */}
+          <ReportChartCard
+            title={`Document volume — created vs distributed (${bucket})`}
+            subtitle="Tracks how many documents were started vs actually completed each period"
+          >
+            <VolumeTrendChart data={volumeSeries} height={260} />
+          </ReportChartCard>
 
-          <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 p-5 dark:border-surface-400 dark:bg-surface-500/80">
-            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Returned for edits
-            </div>
-            <div className="mt-1 text-3xl font-semibold text-rose-700 dark:text-rose-400 tabular-nums">
-              {totals.returned}
-            </div>
-            <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-              Return rate: {pct(totals.returned, totals.in_review)}%
-            </div>
-          </div>
+          {/* Stage delays */}
+          <ReportChartCard
+            title="Average time per workflow stage"
+            subtitle="Based on distributed documents only — how long each stage took on average (hours)"
+          >
+            {stageDelays.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+                No stage data available for the selected filters.
+              </p>
+            ) : (
+              <StageDelayChart data={stageDelays} height={220} />
+            )}
+          </ReportChartCard>
 
-          <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 p-5 dark:border-surface-400 dark:bg-surface-500/80">
-            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              First-pass yield
+          {/* Definitions */}
+          <ReportChartCard title="Metric definitions">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm text-slate-600 dark:text-slate-400">
+              <p>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                  Total created
+                </span>{" "}
+                — all document versions created in the period.
+              </p>
+              <p>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                  Final distributed
+                </span>{" "}
+                — versions that completed all 5 phases.
+              </p>
+              <p>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                  Avg cycle time
+                </span>{" "}
+                — days from first task opened to distribution (distributed
+                versions only).
+              </p>
+              <p>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                  Ping-pong ratio
+                </span>{" "}
+                — average number of return events per version.
+              </p>
+              <p>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                  First-pass yield
+                </span>{" "}
+                — % of distributed versions that had zero returns.
+              </p>
+              <p>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                  Stage delay
+                </span>{" "}
+                — avg hours a task spent in each stage (Office / VP / QA /
+                Registration).
+              </p>
             </div>
-            <div className="mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
-              {kpis.first_pass_yield_pct}%
-            </div>
-            <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-              Of final approved versions with 0 returns.
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 p-5 dark:border-surface-400 dark:bg-surface-500/80">
-            <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Ping-pong ratio
-            </div>
-            <div className="mt-1 text-3xl font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
-              {kpis.pingpong_ratio}
-            </div>
-            <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-              Returns per version (avg).
-            </div>
-          </div>
+          </ReportChartCard>
         </div>
+      )}
 
-        {/* Cluster chart */}
-        {scope === "clusters" && (
-          <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 p-6 dark:border-surface-400 dark:bg-surface-500/80">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  Approval performance by cluster (VP + President)
-                </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">
-                  Routed = QA sent to that cluster; Final approved =
-                  distributed; Returned = sent back for edits.
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 h-85 w-full">
-              <ComplianceClusterBarChart data={clusterData} height={340} />
-            </div>
+      {/* ── Tab: Compliance ────────────────────────────────────────────────────── */}
+      {activeTab === "compliance" && (
+        <div className="flex flex-col gap-5">
+          {/* Compliance KPIs */}
+          <div className="flex flex-wrap gap-3">
+            <ReportStatCard
+              label="Entered review"
+              value={totals.in_review}
+              sub="Office/VP stage reached"
+              icon="📋"
+            />
+            <ReportStatCard
+              label="Final approved"
+              value={totals.approved}
+              sub={`${pct(totals.approved, totals.in_review)}% approval rate`}
+              color="emerald"
+              icon="✅"
+            />
+            <ReportStatCard
+              label="Returned for edits"
+              value={totals.returned}
+              sub={`${pct(totals.returned, totals.in_review)}% return rate`}
+              color="rose"
+              icon="↩️"
+            />
+            <ReportStatCard
+              label="First-pass yield"
+              value={`${kpis.first_pass_yield_pct}%`}
+              sub="Approved with zero returns"
+              color="sky"
+              icon="🎯"
+            />
+            <ReportStatCard
+              label="Ping-pong ratio"
+              value={kpis.pingpong_ratio}
+              sub="Returns per version (avg)"
+              color={kpis.pingpong_ratio > 1 ? "rose" : "default"}
+              icon="🏓"
+            />
           </div>
-        )}
 
-        {/* Volume chart */}
-        <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 p-6 dark:border-surface-400 dark:bg-surface-500/80">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                Documents created vs final approved ({bucket})
-              </div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                Created uses version created_at; Final approved uses
-                distributed_at.
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 h-80 w-full">
-            <ResponsiveContainer width="100%" height={320}>
+          {/* Cluster bar chart */}
+          {scope === "clusters" && (
+            <ReportChartCard
+              title="Approval performance by cluster"
+              subtitle="VP + President clusters — routed vs approved vs returned"
+            >
+              <ComplianceClusterBarChart data={clusterData} height={300} />
+            </ReportChartCard>
+          )}
+
+          {/* Table */}
+          <ReportChartCard
+            title={
+              scope === "clusters"
+                ? "Cluster throughput breakdown"
+                : "Office compliance breakdown"
+            }
+            subtitle="Sorted by approval rate — lowest first (highest risk at top)"
+          >
+            <ComplianceTable
+              rows={scope === "clusters" ? rankedClusters : rankedOffices}
+              colLabel={scope === "clusters" ? "Cluster" : "Office"}
+            />
+          </ReportChartCard>
+        </div>
+      )}
+
+      {/* ── Tab: Timeline ──────────────────────────────────────────────────────── */}
+      {activeTab === "timeline" && (
+        <div className="flex flex-col gap-5">
+          <ReportChartCard
+            title={`Approval activity over time (${bucket})`}
+            subtitle={`Unique versions per stage per ${bucket} — based on task ${dateField} date`}
+          >
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart
-                data={volumeSeries}
-                margin={{ top: 10, right: 16, left: 0, bottom: 0 }}
+                data={seriesData}
+                margin={{ top: 4, right: 16, left: 0, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="created" fill="#6366f1" name="Created" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="rgba(148,163,184,0.15)"
+                />
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar
-                  dataKey="approved_final"
+                  dataKey="in_review"
+                  fill="#0ea5e9"
+                  name="In review"
+                  radius={[3, 3, 0, 0]}
+                />
+                <Bar
+                  dataKey="sent_to_qa"
+                  fill="#a855f7"
+                  name="Sent to QA"
+                  radius={[3, 3, 0, 0]}
+                />
+                <Bar
+                  dataKey="approved"
                   fill="#10b981"
-                  name="Final approved"
+                  name="Distributed"
+                  radius={[3, 3, 0, 0]}
+                />
+                <Bar
+                  dataKey="returned"
+                  fill="#f43f5e"
+                  name="Returned"
+                  radius={[3, 3, 0, 0]}
                 />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </ReportChartCard>
+
+          <ReportChartCard
+            title={`Volume trend — created vs distributed (${bucket})`}
+            subtitle="Gap between lines = backlog building up or clearing"
+          >
+            <VolumeTrendChart data={volumeSeries} height={260} />
+          </ReportChartCard>
+
+          <ReportChartCard
+            title="Stage processing time"
+            subtitle="Average hours spent per workflow stage — distributed versions only"
+          >
+            {stageDelays.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+                No stage data available yet.
+              </p>
+            ) : (
+              <StageDelayChart data={stageDelays} height={220} />
+            )}
+          </ReportChartCard>
         </div>
-
-        {/* Timeline */}
-        <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 p-6 dark:border-surface-400 dark:bg-surface-500/80">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                Approval timeline ({bucket})
-              </div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                Based on task {dateField} date. Bucket label is
-                day/week-start/month/year.
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 h-80 w-full">
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart
-                data={seriesData}
-                margin={{ top: 10, right: 16, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="in_review" fill="#0ea5e9" name="In review" />
-                <Bar dataKey="sent_to_qa" fill="#a855f7" name="Sent to QA" />
-                <Bar dataKey="approved" fill="#10b981" name="Final approved" />
-                <Bar dataKey="returned" fill="#f43f5e" name="Returned" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Office table */}
-        {scope === "offices" && (
-          <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 p-6 dark:border-surface-400 dark:bg-surface-500/80">
-            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              Office compliance (approval rate lowest first)
-            </div>
-            <div className="text-xs text-slate-600 dark:text-slate-400">
-              Grouped by assigned office. Filtered by Parent cluster.
-            </div>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-surface-400">
-                    <th className="py-2 pr-4">Office</th>
-                    <th className="py-2 pr-4">Cluster</th>
-                    <th className="py-2 pr-4">In review</th>
-                    <th className="py-2 pr-4">Approved</th>
-                    <th className="py-2 pr-4">Approval %</th>
-                    <th className="py-2 pr-4">Returned</th>
-                    <th className="py-2 pr-4">Return %</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rankedOffices.map((x) => (
-                    <tr
-                      key={x.office_id}
-                      className="border-b border-slate-100 dark:border-surface-400"
-                    >
-                      <td className="py-2 pr-4 font-medium text-slate-900 dark:text-slate-100">
-                        {x.office_code ?? `Office #${x.office_id}`}
-                      </td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-700 dark:text-slate-300">
-                        {x.cluster ?? "-"}
-                      </td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-700 dark:text-slate-300">
-                        {x.in_review}
-                      </td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-700 dark:text-slate-300">
-                        {x.approved}
-                      </td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-700 dark:text-slate-300">
-                        {x.approvalRate}%
-                      </td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-700 dark:text-slate-300">
-                        {x.returned}
-                      </td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-700 dark:text-slate-300">
-                        {x.returnRate}%
-                      </td>
-                    </tr>
-                  ))}
-                  {!rankedOffices.length && (
-                    <tr>
-                      <td
-                        className="py-3 text-slate-500 dark:text-slate-400"
-                        colSpan={7}
-                      >
-                        No office activity found for the selected filters.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Cluster ranking table */}
-        {scope === "clusters" && (
-          <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 p-6 dark:border-surface-400 dark:bg-surface-500/80">
-            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              Lowest throughput (quick view)
-            </div>
-            <div className="text-xs text-slate-600 dark:text-slate-400">
-              Sorted by approval rate (lowest first). Placeholder data for now.
-            </div>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-surface-400">
-                    <th className="py-2 pr-4">Cluster</th>
-                    <th className="py-2 pr-4">In review</th>
-                    <th className="py-2 pr-4">Approved</th>
-                    <th className="py-2 pr-4">Approval %</th>
-                    <th className="py-2 pr-4">Returned</th>
-                    <th className="py-2 pr-4">Return %</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ranked.map((x) => (
-                    <tr
-                      key={x.cluster}
-                      className="border-b border-slate-100 dark:border-surface-400"
-                    >
-                      <td className="py-2 pr-4 font-medium text-slate-900 dark:text-slate-100">
-                        {x.cluster}
-                      </td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-700 dark:text-slate-300">
-                        {x.in_review}
-                      </td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-700 dark:text-slate-300">
-                        {x.approved}
-                      </td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-700 dark:text-slate-300">
-                        {x.approvalRate}%
-                      </td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-700 dark:text-slate-300">
-                        {x.returned}
-                      </td>
-                      <td className="py-2 pr-4 tabular-nums text-slate-700 dark:text-slate-300">
-                        {x.returnRate}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Definitions */}
-        <div className="rounded-2xl border border-slate-200 bg-white/80 shadow-sm shadow-slate-100 p-6 dark:border-surface-400 dark:bg-surface-500/80">
-          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            Definitions
-          </div>
-          <div className="mt-2 text-sm text-slate-700 dark:text-slate-300 space-y-1">
-            <div>
-              In review: versions that reached office head or VP review.
-            </div>
-            <div>Sent to QA: versions that reached QA approval step.</div>
-            <div>Final approved: versions that were distributed.</div>
-            <div>Returned: versions that were sent back for edits.</div>
-          </div>
-        </div>
-      </div>
+      )}
     </PageFrame>
   );
 };

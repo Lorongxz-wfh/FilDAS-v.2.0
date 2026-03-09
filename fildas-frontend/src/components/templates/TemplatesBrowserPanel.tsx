@@ -13,6 +13,9 @@ import {
 } from "../../services/previews";
 import { useToast } from "../ui/toast/ToastContext";
 import SkeletonList from "../ui/loader/SkeletonList";
+import TemplateGridCard from "./TemplateGridCard";
+
+type ViewMode = "list" | "grid";
 
 type Props = {
   open: boolean;
@@ -29,6 +32,14 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [scope, setScope] = useState<"all" | "global" | "mine">("all");
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    () => (localStorage.getItem("templates_view") as ViewMode) ?? "grid",
+  );
+
+  const setView = (mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem("templates_view", mode);
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q.trim().toLowerCase()), 300);
@@ -219,13 +230,70 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
               )}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400 transition"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            {/* List/Grid toggle — only show when on list view (not detail) */}
+            {!selected && (
+              <div className="flex items-center rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-1 gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => setView("list")}
+                  title="List view"
+                  className={[
+                    "rounded-md p-1 transition",
+                    viewMode === "list"
+                      ? "bg-slate-100 dark:bg-surface-400 text-slate-800 dark:text-slate-100"
+                      : "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300",
+                  ].join(" ")}
+                >
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView("grid")}
+                  title="Grid view"
+                  className={[
+                    "rounded-md p-1 transition",
+                    viewMode === "grid"
+                      ? "bg-slate-100 dark:bg-surface-400 text-slate-800 dark:text-slate-100"
+                      : "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300",
+                  ].join(" ")}
+                >
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400 transition"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* LIST VIEW */}
@@ -266,7 +334,7 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
               </div>
             </div>
 
-            {/* List */}
+            {/* List / Grid */}
             <div className="flex-1 overflow-y-auto px-5 py-4">
               {listError ? (
                 <div className="rounded-md border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-700 dark:text-rose-400">
@@ -280,7 +348,18 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
                   </button>
                 </div>
               ) : loadingList ? (
-                <SkeletonList rows={5} rowClassName="h-16 rounded-xl" />
+                viewMode === "grid" ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="rounded-xl bg-slate-100 dark:bg-surface-600 animate-pulse aspect-[3/4]"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <SkeletonList rows={5} rowClassName="h-16 rounded-xl" />
+                )
               ) : filtered.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-6 py-10 text-center">
                   <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -288,6 +367,18 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
                       ? "No templates yet."
                       : "No templates match your search."}
                   </p>
+                </div>
+              ) : viewMode === "grid" ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-4">
+                  {filtered.map((t) => (
+                    <TemplateGridCard
+                      key={t.id}
+                      template={t}
+                      onSelect={setSelected}
+                      onDeleteClick={() => {}}
+                      isDeleting={false}
+                    />
+                  ))}
                 </div>
               ) : (
                 <div className="space-y-2">

@@ -1,9 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageFrame from "../components/layout/PageFrame";
-import Button from "../components/ui/Button";
-import Alert from "../components/ui/Alert";
-import { Card, CardBody } from "../components/ui/Card";
 import SkeletonList from "../components/ui/loader/SkeletonList";
 import { getDocumentVersion, listActivityLogs } from "../services/documents";
 
@@ -17,196 +14,166 @@ type ActivityLogRow = {
 };
 
 const formatWhen = (iso?: string | null) => {
-  if (!iso) return "-";
+  if (!iso) return "";
   try {
-    return new Date(iso).toLocaleString();
+    return new Date(iso).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch {
-    return String(iso);
+    return "";
   }
 };
 
 const MyActivityPage: React.FC = () => {
   const navigate = useNavigate();
+
+  const [page, setPage] = useState(1);
+  const perPage = 25;
+  const [rows, setRows] = useState<ActivityLogRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+
   const openByVersionId = async (versionId: number) => {
     const { document } = await getDocumentVersion(versionId);
     navigate(`/documents/${document.id}`);
   };
 
-  const [page, setPage] = useState(1);
-  const perPage = 25;
-
-  const [rows, setRows] = useState<ActivityLogRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const [lastPage, setLastPage] = useState(1);
-
-  const canPrev = currentPage > 1;
-  const canNext = currentPage < lastPage;
-
-  const titleRight = useMemo(() => {
-    return (
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => navigate("/work-queue")}
-        >
-          ← Work queue
-        </Button>
-      </div>
-    );
-  }, [navigate]);
-
   useEffect(() => {
     let alive = true;
-
-    const load = async () => {
+    (async () => {
       try {
         setLoading(true);
         setError(null);
-
         const res: any = await listActivityLogs({
           scope: "mine",
           per_page: perPage,
           page,
         });
-
         if (!alive) return;
-
         setRows((res?.data ?? []) as ActivityLogRow[]);
         setCurrentPage(Number(res?.current_page ?? page));
         setLastPage(Number(res?.last_page ?? 1));
       } catch (e: any) {
-        if (!alive) return;
-        setError(e?.message ?? "Failed to load activity logs");
+        if (alive) setError(e?.message ?? "Failed to load activity");
       } finally {
-        if (!alive) return;
-        setLoading(false);
+        if (alive) setLoading(false);
       }
-    };
-
-    load();
+    })();
     return () => {
       alive = false;
     };
   }, [page]);
 
+  const canPrev = currentPage > 1;
+  const canNext = currentPage < lastPage;
+
   return (
     <PageFrame
       title="My Activity"
-      right={titleRight}
-      contentClassName="space-y-6"
+      contentClassName="flex flex-col gap-4 h-full"
+      onBack={() => navigate("/work-queue")}
     >
-      {error && <Alert variant="danger">{error}</Alert>}
+      {/* Error */}
+      {error && (
+        <div className="shrink-0 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-700 dark:text-rose-400">
+          {error}
+        </div>
+      )}
 
-      <Card>
-        <CardBody className="flex items-center justify-between gap-3">
+      {/* Table card */}
+      <div className="flex flex-col rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex-1 min-h-0">
+        {/* Card header */}
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-5 py-4">
           <div>
-            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
               Proof log
-            </div>
-            <div className="text-xs text-slate-600 dark:text-slate-400">
-              Shows actions you performed (scope: mine).
-            </div>
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Actions you performed
+            </p>
           </div>
-
+          {/* Pagination */}
           <div className="flex items-center gap-2">
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               disabled={!canPrev || loading}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
             >
-              Prev
-            </Button>
-            <div className="text-xs text-slate-600 dark:text-slate-400 tabular-nums">
-              Page {currentPage} / {lastPage}
-            </div>
-            <Button
+              ← Prev
+            </button>
+            <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
+              {currentPage} / {lastPage}
+            </span>
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               disabled={!canNext || loading}
               onClick={() => setPage((p) => p + 1)}
+              className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
             >
-              Next
-            </Button>
+              Next →
+            </button>
           </div>
-        </CardBody>
-      </Card>
+        </div>
 
-      <Card>
-        <CardBody>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
           {loading ? (
-            <div className="space-y-2">
-              <SkeletonList rows={8} rowClassName="h-10" />
-            </div>
+            <SkeletonList rows={8} rowClassName="h-12 rounded-xl" />
           ) : rows.length === 0 ? (
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              No activity yet.
-            </p>
+            <div className="flex h-full items-center justify-center">
+              <p className="text-sm text-slate-400 dark:text-slate-500">
+                No activity yet.
+              </p>
+            </div>
           ) : (
             <div className="space-y-2">
               {rows.map((l) => (
                 <div
                   key={l.id}
-                  className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2"
+                  className="flex items-center gap-4 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-3"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
-                        {l.label || l.event}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                        {l.event}
-                        {l.document_id ? ` • Doc#${l.document_id}` : ""}
-                        {l.document_version_id
-                          ? ` • Ver#${l.document_version_id}`
-                          : ""}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-[11px] text-slate-500 dark:text-slate-400">
-                      {formatWhen(l.created_at)}
-                    </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                      {l.label || l.event}
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                      {l.event}
+                      {l.document_id ? ` · Doc #${l.document_id}` : ""}
+                      {l.document_version_id
+                        ? ` · Ver #${l.document_version_id}`
+                        : ""}
+                    </p>
                   </div>
 
-                  {(l.document_id || l.document_version_id) && (
-                    <div className="mt-2 flex gap-2">
-                      {l.document_version_id ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            openByVersionId(Number(l.document_version_id))
-                          }
-                        >
-                          Open version
-                        </Button>
-                      ) : l.document_id ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            navigate(`/documents/${l.document_id}`)
-                          }
-                        >
-                          Open document
-                        </Button>
-                      ) : null}
-                    </div>
+                  <div className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500">
+                    {formatWhen(l.created_at)}
+                  </div>
+
+                  {(l.document_version_id || l.document_id) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        l.document_version_id
+                          ? openByVersionId(Number(l.document_version_id))
+                          : navigate(`/documents/${l.document_id}`)
+                      }
+                      className="shrink-0 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+                    >
+                      Open →
+                    </button>
                   )}
                 </div>
               ))}
             </div>
           )}
-        </CardBody>
-      </Card>
+        </div>
+      </div>
     </PageFrame>
   );
 };

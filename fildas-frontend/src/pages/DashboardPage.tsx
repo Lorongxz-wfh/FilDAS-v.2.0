@@ -226,7 +226,14 @@ const QADashboard: React.FC<
       {/* Row 3: Pending + Activity */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <DashboardPendingList items={pending} loading={loading} />
-        <DashboardRecentActivity logs={recentActivity} loading={loading} />
+        <Card
+          title="Recent activity"
+          sub="Latest actions in the system."
+          link={{ label: "View all", to: "/activity-logs" }}
+          onLinkClick={() => navigate("/activity-logs")}
+        >
+          <DashboardRecentActivity logs={recentActivity} loading={loading} />
+        </Card>
       </div>
     </div>
   );
@@ -317,7 +324,14 @@ const OfficeDashboard: React.FC<
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <DashboardPendingList items={pending} loading={loading} />
-        <DashboardRecentActivity logs={recentActivity} loading={loading} />
+        <Card
+          title="Recent activity"
+          sub="Latest actions in the system."
+          link={{ label: "View all", to: "/activity-logs" }}
+          onLinkClick={() => navigate("/activity-logs")}
+        >
+          <DashboardRecentActivity logs={recentActivity} loading={loading} />
+        </Card>
       </div>
     </div>
   );
@@ -373,15 +387,22 @@ const AdminDashboard: React.FC<
       <Card
         title="Recent registrations"
         sub="Latest user accounts created."
-        link={{ label: "Manage users", to: "/admin/users" }}
-        onLinkClick={() => navigate("/admin/users")}
+        link={{ label: "Manage users", to: "/user-manager" }}
+        onLinkClick={() => navigate("/user-manager")}
       >
         <AdminRecentUsers
           users={adminStats?.users.recent ?? []}
           loading={loading}
         />
       </Card>
-      <DashboardRecentActivity logs={recentActivity} loading={loading} />
+      <Card
+        title="Recent activity"
+        sub="Latest system actions."
+        link={{ label: "View all", to: "/activity-logs" }}
+        onLinkClick={() => navigate("/activity-logs")}
+      >
+        <DashboardRecentActivity logs={recentActivity} loading={loading} />
+      </Card>
     </div>
   </div>
 );
