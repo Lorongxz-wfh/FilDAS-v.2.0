@@ -52,7 +52,7 @@ const ReportStatCard: React.FC<Props> = ({
 }) => {
   const c = colorMap[color];
   return (
-    <div className="flex-1 min-w-[160px] rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-5 py-4 flex items-start gap-4">
+    <div className="flex-1 min-w-40 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-5 py-4 flex items-start gap-4">
       {icon && (
         <div className={`mt-0.5 rounded-lg p-2 ${c.bg}`}>
           <span className={`text-lg ${c.icon}`}>{icon}</span>

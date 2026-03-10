@@ -45,7 +45,7 @@ const TemplateGridCard: React.FC<Props> = ({
       className="group relative flex flex-col rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden cursor-pointer transition hover:border-sky-300 dark:hover:border-sky-700 hover:shadow-md"
     >
       {/* Thumbnail area */}
-      <div className="relative aspect-[3/4] w-full bg-slate-50 dark:bg-surface-600 overflow-hidden">
+      <div className="relative aspect-3/4 w-full bg-slate-50 dark:bg-surface-600 overflow-hidden">
         {template.thumbnail_url && !imgError ? (
           <img
             src={template.thumbnail_url}

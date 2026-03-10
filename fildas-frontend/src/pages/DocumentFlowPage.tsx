@@ -539,7 +539,7 @@ const DocumentFlowPage: React.FC = () => {
                           )}
                       </div>
                       <span
-                        className={`shrink-0 max-w-[140px] truncate rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor}`}
+                        className={`shrink-0 max-w-35 truncate rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor}`}
                         title={v.status}
                       >
                         {v.status}

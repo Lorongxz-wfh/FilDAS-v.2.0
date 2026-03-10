@@ -324,7 +324,7 @@ const MyWorkQueuePage: React.FC = () => {
             {loading ? (
               <SkeletonList rows={4} rowClassName="h-14 rounded-xl" />
             ) : activeItems.length === 0 ? (
-              <div className="flex h-full min-h-[160px] items-center justify-center rounded-xl border border-dashed border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600">
+              <div className="flex h-full min-h-40 items-center justify-center rounded-xl border border-dashed border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600">
                 <div className="text-center">
                   <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 text-lg">
                     ✓
@@ -379,7 +379,7 @@ const MyWorkQueuePage: React.FC = () => {
             {loadingActivity ? (
               <SkeletonList rows={5} rowClassName="h-12 rounded-lg" />
             ) : recentActivity.length === 0 ? (
-              <div className="flex h-full min-h-[120px] items-center justify-center">
+              <div className="flex h-full min-h-30 items-center justify-center">
                 <p className="text-xs text-slate-400 dark:text-slate-500">
                   No activity yet.
                 </p>

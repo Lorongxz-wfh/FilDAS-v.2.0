@@ -353,7 +353,7 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
                     {Array.from({ length: 6 }).map((_, i) => (
                       <div
                         key={i}
-                        className="rounded-xl bg-slate-100 dark:bg-surface-600 animate-pulse aspect-[3/4]"
+                        className="rounded-xl bg-slate-100 dark:bg-surface-600 animate-pulse aspect-3/4"
                       />
                     ))}
                   </div>

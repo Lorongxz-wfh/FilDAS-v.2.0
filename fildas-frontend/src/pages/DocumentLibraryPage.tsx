@@ -170,13 +170,13 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
 
   const [viewMode, setViewMode] = useState<"table" | "cards">(getInitialView);
 
-  const toggleView = () => {
-    setViewMode((v) => {
-      const next = v === "table" ? "cards" : "table";
-      localStorage.setItem(VIEW_KEY, next);
-      return next;
-    });
-  };
+  // const toggleView = () => {
+  //   setViewMode((v) => {
+  //     const next = v === "table" ? "cards" : "table";
+  //     localStorage.setItem(VIEW_KEY, next);
+  //     return next;
+  //   });
+  // };
 
   const [loadedDocuments, setLoadedDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
