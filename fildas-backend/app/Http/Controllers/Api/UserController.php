@@ -107,6 +107,23 @@ class UserController extends Controller
 
         $user->load(['role', 'office']);
 
+        \App\Models\ActivityLog::create([
+            'document_id'         => null,
+            'document_version_id' => null,
+            'actor_user_id'       => $request->user()->id,
+            'actor_office_id'     => $request->user()->office_id,
+            'target_office_id'    => null,
+            'event'               => 'user.created',
+            'label'               => 'Created a user account',
+            'meta'                => [
+                'target_user_id' => $user->id,
+                'name'           => trim("{$user->first_name} {$user->last_name}"),
+                'email'          => $user->email,
+                'role'           => $user->role?->name,
+                'office'         => $user->office?->code,
+            ],
+        ]);
+
         return response()->json([
             'user' => $user,
         ], 201);
@@ -156,10 +173,26 @@ class UserController extends Controller
 
         $user->load(['role', 'office']);
 
+        \App\Models\ActivityLog::create([
+            'document_id'         => null,
+            'document_version_id' => null,
+            'actor_user_id'       => $request->user()->id,
+            'actor_office_id'     => $request->user()->office_id,
+            'target_office_id'    => null,
+            'event'               => 'user.updated',
+            'label'               => 'Updated a user account',
+            'meta'                => [
+                'target_user_id' => $user->id,
+                'name'           => trim("{$user->first_name} {$user->last_name}"),
+                'changed_fields' => array_keys($payload),
+            ],
+        ]);
+
         return response()->json([
             'user' => $user,
         ]);
     }
+
     // PATCH /api/admin/users/{user}/disable
     public function disable(Request $request, User $user, CanModifyUserAction $guard)
     {
@@ -177,6 +210,20 @@ class UserController extends Controller
         $user->save();
 
         $user->load(['role', 'office']);
+
+        \App\Models\ActivityLog::create([
+            'document_id'         => null,
+            'document_version_id' => null,
+            'actor_user_id'       => $actor->id,
+            'actor_office_id'     => $actor->office_id,
+            'target_office_id'    => null,
+            'event'               => 'user.disabled',
+            'label'               => 'Disabled a user account',
+            'meta'                => [
+                'target_user_id' => $user->id,
+                'name'           => trim("{$user->first_name} {$user->last_name}"),
+            ],
+        ]);
 
         return response()->json(['user' => $user]);
     }
@@ -197,6 +244,20 @@ class UserController extends Controller
 
         $user->load(['role', 'office']);
 
+        \App\Models\ActivityLog::create([
+            'document_id'         => null,
+            'document_version_id' => null,
+            'actor_user_id'       => $actor->id,
+            'actor_office_id'     => $actor->office_id,
+            'target_office_id'    => null,
+            'event'               => 'user.enabled',
+            'label'               => 'Re-enabled a user account',
+            'meta'                => [
+                'target_user_id' => $user->id,
+                'name'           => trim("{$user->first_name} {$user->last_name}"),
+            ],
+        ]);
+
         return response()->json(['user' => $user]);
     }
 
@@ -207,6 +268,21 @@ class UserController extends Controller
         $actor = $request->user();
 
         $guard->assertCanDisableOrDelete($actor, $user);
+
+        \App\Models\ActivityLog::create([
+            'document_id'         => null,
+            'document_version_id' => null,
+            'actor_user_id'       => $actor->id,
+            'actor_office_id'     => $actor->office_id,
+            'target_office_id'    => null,
+            'event'               => 'user.deleted',
+            'label'               => 'Deleted a user account',
+            'meta'                => [
+                'target_user_id' => $user->id,
+                'name'           => trim("{$user->first_name} {$user->last_name}"),
+                'email'          => $user->email,
+            ],
+        ]);
 
         $user->delete();
 

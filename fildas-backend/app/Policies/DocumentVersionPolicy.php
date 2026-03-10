@@ -73,7 +73,7 @@ class DocumentVersionPolicy
             return Response::allow();
         }
 
-        // 3) Open task assigned to my office on LATEST version
+        // 3a) Open task assigned to my office on LATEST version
         $latestVersionNumber = $document->versions()
             ->max('version_number');
 
@@ -86,6 +86,18 @@ class DocumentVersionPolicy
             ->exists();
 
         if ($hasOpenTaskOnLatest) {
+            return Response::allow();
+        }
+
+        // 3b) Office participated in the workflow at any point (any task, any status)
+        //     Allows offices to view Distributed documents they helped process.
+        $wasWorkflowParticipant = WorkflowTask::query()
+            ->where('workflow_tasks.assigned_office_id', $userOfficeId)
+            ->join('document_versions', 'workflow_tasks.document_version_id', '=', 'document_versions.id')
+            ->where('document_versions.document_id', (int) $document->id)
+            ->exists();
+
+        if ($wasWorkflowParticipant) {
             return Response::allow();
         }
 

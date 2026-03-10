@@ -82,6 +82,17 @@ class AdminOfficeController extends Controller
 
         $office->load(['parentOffice:id,code,name']);
 
+        \App\Models\ActivityLog::create([
+            'document_id'         => null,
+            'document_version_id' => null,
+            'actor_user_id'       => $request->user()->id,
+            'actor_office_id'     => $request->user()->office_id,
+            'target_office_id'    => null,
+            'event'               => 'office.created',
+            'label'               => 'Created an office',
+            'meta'                => ['office_id' => $office->id, 'code' => $office->code, 'name' => $office->name],
+        ]);
+
         return response()->json(['office' => $office], 201);
     }
 
@@ -130,12 +141,34 @@ class AdminOfficeController extends Controller
 
         $office->load(['parentOffice:id,code,name']);
 
+        \App\Models\ActivityLog::create([
+            'document_id'         => null,
+            'document_version_id' => null,
+            'actor_user_id'       => $request->user()->id,
+            'actor_office_id'     => $request->user()->office_id,
+            'target_office_id'    => null,
+            'event'               => 'office.updated',
+            'label'               => 'Updated an office',
+            'meta'                => ['office_id' => $office->id, 'code' => $office->code, 'changed_fields' => array_keys($payload)],
+        ]);
+
         return response()->json(['office' => $office]);
     }
 
     // DELETE /api/admin/offices/{office} (soft delete)
-    public function destroy(Office $office)
+    public function destroy(Request $office_request, Office $office)
     {
+        \App\Models\ActivityLog::create([
+            'document_id'         => null,
+            'document_version_id' => null,
+            'actor_user_id'       => $office_request->user()->id,
+            'actor_office_id'     => $office_request->user()->office_id,
+            'target_office_id'    => null,
+            'event'               => 'office.disabled',
+            'label'               => 'Disabled an office',
+            'meta'                => ['office_id' => $office->id, 'code' => $office->code],
+        ]);
+
         $office->delete();
         return response()->json(['message' => 'Office disabled.']);
     }
@@ -149,7 +182,17 @@ class AdminOfficeController extends Controller
         $o->restore();
         $o->load(['parentOffice:id,code,name']);
 
+        \App\Models\ActivityLog::create([
+            'document_id'         => null,
+            'document_version_id' => null,
+            'actor_user_id'       => $request->user()->id,
+            'actor_office_id'     => $request->user()->office_id,
+            'target_office_id'    => null,
+            'event'               => 'office.restored',
+            'label'               => 'Restored a disabled office',
+            'meta'                => ['office_id' => $o->id, 'code' => $o->code],
+        ]);
+
         return response()->json(['office' => $o]);
     }
 }
-    

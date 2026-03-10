@@ -1,5 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+// html2canvas is no longer used directly — dom-to-image-more handles SVG charts correctly
+// @ts-ignore
 import type {
   ComplianceKpis,
   ComplianceVolumeSeriesDatum,
@@ -13,8 +15,96 @@ const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
 // ── CSV helpers ────────────────────────────────────────────────────────────────
 
+// ── Chart / element PDF export ─────────────────────────────────────────────
+
+export async function exportElementPdf(
+  element: HTMLElement,
+  filename: string,
+  _title?: string,
+) {
+  const domtoimage = await import("dom-to-image-more");
+  const isDark = document.documentElement.classList.contains("dark");
+  const bg = isDark ? "#1e293b" : "#ffffff";
+
+  // Collect all elements to hide during capture
+  const toHide: { el: HTMLElement; prev: string }[] = [];
+
+  const hide = (el: HTMLElement | null) => {
+    if (!el) return;
+    toHide.push({ el, prev: el.style.visibility });
+    el.style.visibility = "hidden";
+  };
+
+  // Hide all export dropdown wrappers inside the card
+  element.querySelectorAll<HTMLElement>("[data-export-menu]").forEach(hide);
+
+  // Temporarily make overflow visible so legend/content isn't clipped
+  const prevOverflow = element.style.overflow;
+  const prevBoxShadow = element.style.boxShadow;
+  element.style.overflow = "visible";
+  element.style.boxShadow = "none";
+
+  // Also clear box-shadow on inner chart wrapper to avoid stacked border effect
+  const innerDivs = element.querySelectorAll<HTMLElement>("div");
+  const prevShadows: { el: HTMLElement; val: string }[] = [];
+  innerDivs.forEach((d) => {
+    if (getComputedStyle(d).boxShadow !== "none") {
+      prevShadows.push({ el: d, val: d.style.boxShadow });
+      d.style.boxShadow = "none";
+    }
+  });
+
+  const dataUrl = await domtoimage.default.toPng(element, {
+    scale: 2,
+    bgcolor: bg,
+    width: element.scrollWidth,
+    height: element.scrollHeight + 20,
+  });
+
+  // Restore everything
+  element.style.overflow = prevOverflow;
+  element.style.boxShadow = prevBoxShadow;
+  prevShadows.forEach(({ el, val }) => {
+    el.style.boxShadow = val;
+  });
+  toHide.forEach(({ el, prev }) => {
+    el.style.visibility = prev;
+  });
+
+  const { default: jsPDF } = await import("jspdf");
+  const img = new Image();
+  img.src = dataUrl;
+  await new Promise((res) => {
+    img.onload = res;
+  });
+
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 10;
+  const maxW = pageW - margin * 2;
+  const maxH = pageH - margin * 2;
+  const ratio = img.naturalWidth / img.naturalHeight;
+  let imgW = maxW;
+  let imgH = imgW / ratio;
+  if (imgH > maxH) {
+    imgH = maxH;
+    imgW = imgH * ratio;
+  }
+  doc.addImage(dataUrl, "PNG", margin, margin, imgW, imgH);
+  await saveBlob(doc.output("blob"), filename, "application/pdf");
+}
+
+export async function exportFullTabPdf(element: HTMLElement, tabName: string) {
+  await exportElementPdf(
+    element,
+    `fildas_report_${tabName.toLowerCase()}.pdf`,
+    `Report — ${tabName}`,
+  );
+}
+
 async function saveBlob(blob: Blob, filename: string, mimeType: string) {
-  // Try File System Access API (Chrome/Edge)
+  // Use File System Access API if available (shows save-as dialog with rename + location)
   if ("showSaveFilePicker" in window) {
     try {
       const ext = filename.split(".").pop() ?? "";
@@ -27,18 +117,20 @@ async function saveBlob(blob: Blob, filename: string, mimeType: string) {
       await writable.close();
       return;
     } catch (e: any) {
-      // User cancelled — don't fallback
+      // User cancelled — stop entirely, don't auto-download
       if (e?.name === "AbortError") return;
-      // Other error — fallback to auto-download
+      // Any other error (permissions, security policy, etc.) — fall through to anchor download
     }
   }
-  // Fallback
+  // Fallback: auto-download via anchor
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 function downloadCsv(
@@ -131,7 +223,7 @@ export async function exportKpiPdf(
     styles: { fontSize: 10 },
     headStyles: { fillColor: [14, 165, 233] },
   });
-  await savePdf(doc,"fildas_kpi_summary.pdf");
+  await savePdf(doc, "fildas_kpi_summary.pdf");
 }
 
 // ── Volume Trend ───────────────────────────────────────────────────────────────
@@ -153,7 +245,7 @@ export async function exportVolumePdf(data: ComplianceVolumeSeriesDatum[]) {
     styles: { fontSize: 10 },
     headStyles: { fillColor: [14, 165, 233] },
   });
-  await savePdf(doc,"fildas_volume_trend.pdf");
+  await savePdf(doc, "fildas_volume_trend.pdf");
 }
 
 // ── Cluster Compliance ─────────────────────────────────────────────────────────
@@ -198,7 +290,7 @@ export async function exportClusterPdf(data: ComplianceClusterDatum[]) {
     styles: { fontSize: 10 },
     headStyles: { fillColor: [14, 165, 233] },
   });
-  await savePdf(doc,"fildas_cluster_compliance.pdf");
+  await savePdf(doc, "fildas_cluster_compliance.pdf");
 }
 
 // ── Office Compliance ──────────────────────────────────────────────────────────
@@ -254,7 +346,7 @@ export async function exportOfficePdf(data: ComplianceOfficeDatum[]) {
     styles: { fontSize: 10 },
     headStyles: { fillColor: [14, 165, 233] },
   });
-  await savePdf(doc,"fildas_office_compliance.pdf");
+  await savePdf(doc, "fildas_office_compliance.pdf");
 }
 
 // ── Stage Delays ───────────────────────────────────────────────────────────────
@@ -276,7 +368,7 @@ export async function exportStageDelayPdf(data: ComplianceStageDelayDatum[]) {
     styles: { fontSize: 10 },
     headStyles: { fillColor: [14, 165, 233] },
   });
-  await savePdf(doc,"fildas_stage_delays.pdf");
+  await savePdf(doc, "fildas_stage_delays.pdf");
 }
 
 // ── Approval Timeline ──────────────────────────────────────────────────────────
@@ -310,5 +402,5 @@ export async function exportTimelinePdf(data: ComplianceSeriesDatum[]) {
     styles: { fontSize: 10 },
     headStyles: { fillColor: [14, 165, 233] },
   });
-  await savePdf(doc,"fildas_approval_timeline.pdf");
+  await savePdf(doc, "fildas_approval_timeline.pdf");
 }

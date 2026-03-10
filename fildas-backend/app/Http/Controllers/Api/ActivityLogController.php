@@ -28,20 +28,7 @@ class ActivityLogController extends Controller
         }
         Cache::put($key, 1, now()->addSeconds(60));
 
-        ActivityLog::create([
-            'document_id' => $version->document_id,
-            'document_version_id' => $version->id,
-            'actor_user_id' => $user->id,
-            'actor_office_id' => $user->office_id,
-            'target_office_id' => null,
-            'event' => 'version.opened',
-            'label' => 'Opened a document version',
-            'meta' => [
-                'source' => $data['source'] ?? null,
-                'status' => $version->status,
-                'version_number' => $version->version_number,
-            ],
-        ]);
+        // Opened version events intentionally not logged — too noisy
 
         return response()->json(['ok' => true]);
     }

@@ -72,6 +72,7 @@ const DocumentFlowPage: React.FC = () => {
 
   const [error, setError] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [versionsPanelOpen, setVersionsPanelOpen] = useState(true);
 
   const refreshAndSelectBest = React.useCallback(
     async (opts?: { preferVersionId?: number | null }) => {
@@ -417,6 +418,8 @@ const DocumentFlowPage: React.FC = () => {
         rightTitle="Versions"
         rightSubtitle={`${allVersions.length} total`}
         rightWidthClassName="w-[360px] max-w-[45vw]"
+        onRightTitleClick={() => setVersionsPanelOpen((v) => !v)}
+        rightCollapsed={!versionsPanelOpen}
         left={
           <div className="relative">
             {selectedVersion ? (
@@ -465,70 +468,98 @@ const DocumentFlowPage: React.FC = () => {
           </div>
         }
         rightPanel={
-          <div className="space-y-2">
-            {allVersions.map((v) => {
-              const isSelected = v.id === selectedVersion?.id;
+          !versionsPanelOpen ? null : (
+            <div className="space-y-2">
+              {allVersions.map((v) => {
+                const isSelected = v.id === selectedVersion?.id;
+                const statusKey = v.status?.toLowerCase().trim();
+                const statusColors: Record<string, string> = {
+                  draft:
+                    "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300",
+                  review:
+                    "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                  approval:
+                    "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                  registration:
+                    "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+                  distributed:
+                    "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+                };
+                // partial match for multi-word statuses like "For QA Final Check"
+                const statusColor =
+                  statusColors[statusKey] ??
+                  Object.entries(statusColors).find(([k]) =>
+                    statusKey.includes(k),
+                  )?.[1] ??
+                  "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300";
 
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  disabled={isLoadingSelectedVersion}
-                  onClick={() => {
-                    setTargetVersionId(v.id);
-                    setTargetVersionNumber(v.version_number);
-                    setSearchParams((prev) => {
-                      const p = new URLSearchParams(prev);
-                      p.set("version_id", String(v.id));
-                      return p;
-                    });
-                    logOpenedVersion(v.id, "versions_panel");
-                  }}
-                  className={[
-                    "w-full rounded-xl border px-3 py-2 text-left transition relative",
-                    isSelected
-                      ? "border-sky-300 dark:border-sky-700 bg-white dark:bg-surface-500 shadow-sm"
-                      : "border-slate-200 dark:border-surface-400 bg-white/70 dark:bg-surface-600 hover:bg-white dark:hover:bg-surface-500",
-                    isLoadingSelectedVersion
-                      ? "opacity-70 cursor-not-allowed"
-                      : "",
-                  ].join(" ")}
-                  aria-current={isSelected ? "true" : undefined}
-                >
-                  {isSelected && (
-                    <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r bg-sky-500" />
-                  )}
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    disabled={isLoadingSelectedVersion}
+                    onClick={() => {
+                      setTargetVersionId(v.id);
+                      setTargetVersionNumber(v.version_number);
+                      setSearchParams((prev) => {
+                        const p = new URLSearchParams(prev);
+                        p.set("version_id", String(v.id));
+                        return p;
+                      });
+                      logOpenedVersion(v.id, "versions_panel");
+                    }}
+                    className={[
+                      "w-full rounded-xl border px-3 py-2.5 text-left transition relative",
+                      isSelected
+                        ? "border-sky-300 dark:border-sky-700 bg-white dark:bg-surface-500 shadow-sm"
+                        : "border-slate-200 dark:border-surface-400 bg-white/70 dark:bg-surface-600 hover:bg-white dark:hover:bg-surface-500",
+                      isLoadingSelectedVersion
+                        ? "opacity-70 cursor-not-allowed"
+                        : "",
+                    ].join(" ")}
+                    aria-current={isSelected ? "true" : undefined}
+                  >
+                    {isSelected && (
+                      <span className="absolute left-0 top-3 bottom-3 w-1 rounded-r bg-sky-500" />
+                    )}
 
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <p className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                        v{v.version_number}
-                      </p>
-                      {isLoadingSelectedVersion && targetVersionId === v.id && (
-                        <InlineSpinner className="h-3 w-3 border-2" />
-                      )}
+                    <div className="flex items-center justify-between gap-2 pl-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                          v{v.version_number}
+                        </span>
+                        {isSelected && (
+                          <span className="text-[10px] font-medium text-sky-500 dark:text-sky-400">
+                            current
+                          </span>
+                        )}
+                        {isLoadingSelectedVersion &&
+                          targetVersionId === v.id && (
+                            <InlineSpinner className="h-3 w-3 border-2" />
+                          )}
+                      </div>
+                      <span
+                        className={`shrink-0 max-w-[140px] truncate rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor}`}
+                        title={v.status}
+                      >
+                        {v.status}
+                      </span>
                     </div>
 
-                    <span
-                      className="max-w-35 truncate rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300"
-                      title={v.status}
-                    >
-                      {v.status}
-                    </span>
-                  </div>
-
-                  <div className="mt-1 grid grid-cols-2 gap-2 text-[10px] text-slate-500 dark:text-slate-400">
-                    <div>
-                      Created: {new Date(v.created_at).toLocaleDateString()}
+                    <div className="mt-1.5 pl-1 flex gap-3 text-[10px] text-slate-400 dark:text-slate-500">
+                      <span>
+                        Created {new Date(v.created_at).toLocaleDateString()}
+                      </span>
+                      <span>·</span>
+                      <span>
+                        Updated {new Date(v.updated_at).toLocaleDateString()}
+                      </span>
                     </div>
-                    <div>
-                      Updated: {new Date(v.updated_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+                  </button>
+                );
+              })}
+            </div>
+          )
         }
       />
 

@@ -722,14 +722,16 @@ class WorkflowService
         ?string $note,
         bool $isReject,
     ): void {
+        [$event, $label] = $this->resolveEventAndLabel($step, $toStatus, $isReject);
+
         ActivityLog::create([
             'document_id'         => $version->document_id,
             'document_version_id' => $version->id,
             'actor_user_id'       => $actor->id,
             'actor_office_id'     => $actor->office_id,
             'target_office_id'    => $targetOfficeId,
-            'event'               => $isReject ? 'workflow.rejected' : 'workflow.action',
-            'label'               => $isReject ? 'Rejected — returned to draft' : "Advanced to {$toStatus}",
+            'event'               => $event,
+            'label'               => $label,
             'meta'                => [
                 'from_status' => $fromStatus,
                 'to_status'   => $toStatus,
@@ -738,5 +740,47 @@ class WorkflowService
                 'note'        => $note,
             ],
         ]);
+    }
+
+    private function resolveEventAndLabel(string $step, string $toStatus, bool $isReject): array
+    {
+        if ($isReject) {
+            return ['workflow.rejected', 'Rejected — returned to draft'];
+        }
+
+        return match ($step) {
+            // QA flow
+            WorkflowSteps::STEP_QA_DRAFT           => ['workflow.returned_to_draft',    'Returned to QA draft'],
+            WorkflowSteps::STEP_QA_OFFICE_REVIEW   => ['workflow.sent_to_review',        'Sent to office for review'],
+            WorkflowSteps::STEP_QA_VP_REVIEW       => ['workflow.forwarded_to_vp',       'Forwarded to VP for review'],
+            WorkflowSteps::STEP_QA_FINAL_CHECK     => ['workflow.returned_for_check',    'VP sent back to QA for final check'],
+            WorkflowSteps::STEP_QA_OFFICE_APPROVAL => ['workflow.sent_to_approval',      'Sent to office for approval'],
+            WorkflowSteps::STEP_QA_VP_APPROVAL     => ['workflow.forwarded_to_vp',       'Forwarded to VP for approval'],
+            WorkflowSteps::STEP_QA_PRES_APPROVAL   => ['workflow.forwarded_to_president', 'Forwarded to President for approval'],
+            WorkflowSteps::STEP_QA_REGISTRATION    => ['workflow.sent_to_registration',  'President approved — sent to QA for registration'],
+            WorkflowSteps::STEP_QA_DISTRIBUTION    => ['workflow.registered',            'Document registered'],
+
+            // Office flow
+            WorkflowSteps::STEP_OFFICE_DRAFT        => ['workflow.returned_to_draft',    'Returned to office draft'],
+            WorkflowSteps::STEP_OFFICE_HEAD_REVIEW  => ['workflow.sent_to_review',       'Sent to office head for review'],
+            WorkflowSteps::STEP_OFFICE_VP_REVIEW    => ['workflow.forwarded_to_vp',      'Forwarded to VP for review'],
+            WorkflowSteps::STEP_OFFICE_FINAL_CHECK  => ['workflow.returned_for_check',   'VP sent back to office for final check'],
+            WorkflowSteps::STEP_OFFICE_QA_APPROVAL  => ['workflow.sent_to_approval',     'Sent to QA for approval'],
+            WorkflowSteps::STEP_OFFICE_REGISTRATION => ['workflow.sent_to_registration', 'QA approved — sent to office for registration'],
+            WorkflowSteps::STEP_OFFICE_DISTRIBUTION => ['workflow.registered',           'Document registered'],
+
+            // Custom flow
+            WorkflowSteps::STEP_CUSTOM_DRAFT                  => ['workflow.returned_to_draft',    'Returned to owner draft'],
+            WorkflowSteps::STEP_CUSTOM_OFFICE_REVIEW          => ['workflow.sent_to_review',        'Forwarded for review'],
+            WorkflowSteps::STEP_CUSTOM_BACK_TO_OWNER          => ['workflow.returned_for_check',    'Review complete — returned to owner'],
+            WorkflowSteps::STEP_CUSTOM_OFFICE_APPROVAL        => ['workflow.sent_to_approval',      'Forwarded for approval'],
+            WorkflowSteps::STEP_CUSTOM_BACK_TO_OWNER_APPROVAL => ['workflow.returned_for_check',    'Approval complete — returned to owner'],
+            WorkflowSteps::STEP_CUSTOM_REGISTRATION           => ['workflow.sent_to_registration',  'Sent for registration'],
+
+            // Terminal
+            WorkflowSteps::STEP_DISTRIBUTED => ['workflow.distributed', 'Document distributed'],
+
+            default => ['workflow.action', "Advanced to {$toStatus}"],
+        };
     }
 }

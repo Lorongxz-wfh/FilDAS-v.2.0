@@ -18,6 +18,21 @@ import {
   type ComplianceStageDelayDatum,
 } from "../services/documents";
 import {
+  exportElementPdf,
+  exportFullTabPdf,
+  exportKpiCsv,
+  exportVolumeCsv,
+  exportVolumePdf,
+  exportClusterCsv,
+  exportClusterPdf,
+  exportOfficeCsv,
+  exportOfficePdf,
+  exportStageDelayCsv,
+  exportStageDelayPdf,
+  exportTimelineCsv,
+  exportTimelinePdf,
+} from "../services/reportExport";
+import {
   ResponsiveContainer,
   BarChart,
   Bar,
@@ -155,6 +170,28 @@ const ReportsPage: React.FC = () => {
   const navigate = useNavigate();
   const me = useAuthUser();
 
+  const tabContentRef = React.useRef<HTMLDivElement>(null);
+  const [tabExporting, setTabExporting] = React.useState(false);
+
+  const handleExportTab = async () => {
+    if (!tabContentRef.current) return;
+    setTabExporting(true);
+    try {
+      await exportFullTabPdf(tabContentRef.current, activeTab);
+    } finally {
+      setTabExporting(false);
+    }
+  };
+
+  const chartPdfHandler =
+    (filename: string) => async (element: HTMLElement) => {
+      await exportElementPdf(
+        element,
+        filename,
+        filename.replace("fildas_", "").replace(".pdf", "").replace(/_/g, " "),
+      );
+    };
+
   const [activeTab, setActiveTab] = React.useState<Tab>("overview");
   const [dateFrom, setDateFrom] = React.useState("");
   const [dateTo, setDateTo] = React.useState("");
@@ -274,16 +311,25 @@ const ReportsPage: React.FC = () => {
   return (
     <PageFrame
       title="Reports"
-      onBack={() => navigate(-1)}
       contentClassName="flex flex-col gap-5"
       right={
-        <button
-          type="button"
-          onClick={() => navigate("/reports/export")}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
-        >
-          ↓ Export
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportTab}
+            disabled={tabExporting}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition disabled:opacity-50"
+          >
+            {tabExporting ? "Exporting…" : "↓ Export tab"}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/reports/export")}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500 hover:bg-sky-600 px-3 py-2 text-sm font-medium text-white transition"
+          >
+            Export reports
+          </button>
+        </div>
       }
     >
       {/* Error */}
@@ -413,252 +459,278 @@ const ReportsPage: React.FC = () => {
         ))}
       </div>
 
-      {/* ── Tab: Overview ──────────────────────────────────────────────────────── */}
-      {activeTab === "overview" && (
-        <div className="flex flex-col gap-5">
-          {/* KPI row */}
-          <div className="flex flex-wrap gap-3">
-            <ReportStatCard
-              label="Total created"
-              value={kpis.total_created}
-              sub="All versions in period"
-              icon="📄"
-            />
-            <ReportStatCard
-              label="Final distributed"
-              value={kpis.total_approved_final}
-              sub={`${pct(kpis.total_approved_final, kpis.total_created)}% completion rate`}
-              color="emerald"
-              icon="✅"
-            />
-            <ReportStatCard
-              label="In review / returned"
-              value={totals.in_review}
-              sub={`${totals.returned} returned for edits`}
-              color="sky"
-              icon="🔄"
-            />
-            <ReportStatCard
-              label="Avg cycle time"
-              value={`${kpis.cycle_time_avg_days}d`}
-              sub="Draft → distribution (avg)"
-              color="violet"
-              icon="⏱"
-            />
-            <ReportStatCard
-              label="Ping-pong ratio"
-              value={kpis.pingpong_ratio}
-              sub="Returns per version (avg)"
-              color={kpis.pingpong_ratio > 1 ? "rose" : "default"}
-              icon="🏓"
-            />
-          </div>
-
-          {/* Volume trend */}
-          <ReportChartCard
-            title={`Document volume — created vs distributed (${bucket})`}
-            subtitle="Tracks how many documents were started vs actually completed each period"
-          >
-            <VolumeTrendChart data={volumeSeries} height={260} />
-          </ReportChartCard>
-
-          {/* Stage delays */}
-          <ReportChartCard
-            title="Average time per workflow stage"
-            subtitle="Based on distributed documents only — how long each stage took on average (hours)"
-          >
-            {stageDelays.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
-                No stage data available for the selected filters.
-              </p>
-            ) : (
-              <StageDelayChart data={stageDelays} height={220} />
-            )}
-          </ReportChartCard>
-
-          {/* Definitions */}
-          <ReportChartCard title="Metric definitions">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm text-slate-600 dark:text-slate-400">
-              <p>
-                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                  Total created
-                </span>{" "}
-                — all document versions created in the period.
-              </p>
-              <p>
-                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                  Final distributed
-                </span>{" "}
-                — versions that completed all 5 phases.
-              </p>
-              <p>
-                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                  Avg cycle time
-                </span>{" "}
-                — days from first task opened to distribution (distributed
-                versions only).
-              </p>
-              <p>
-                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                  Ping-pong ratio
-                </span>{" "}
-                — average number of return events per version.
-              </p>
-              <p>
-                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                  First-pass yield
-                </span>{" "}
-                — % of distributed versions that had zero returns.
-              </p>
-              <p>
-                <span className="font-semibold text-slate-700 dark:text-slate-300">
-                  Stage delay
-                </span>{" "}
-                — avg hours a task spent in each stage (Office / VP / QA /
-                Registration).
-              </p>
+      {/* ── Tab content (ref used for screenshot export) ───────────────────────── */}
+      <div ref={tabContentRef}>
+        {/* ── Tab: Overview ──────────────────────────────────────────────────────── */}
+        {activeTab === "overview" && (
+          <div className="flex flex-col gap-5">
+            {/* KPI row */}
+            <div className="flex flex-wrap gap-3">
+              <ReportStatCard
+                label="Total created"
+                value={kpis.total_created}
+                sub="All versions in period"
+                icon="📄"
+              />
+              <ReportStatCard
+                label="Final distributed"
+                value={kpis.total_approved_final}
+                sub={`${pct(kpis.total_approved_final, kpis.total_created)}% completion rate`}
+                color="emerald"
+                icon="✅"
+              />
+              <ReportStatCard
+                label="In review / returned"
+                value={totals.in_review}
+                sub={`${totals.returned} returned for edits`}
+                color="sky"
+                icon="🔄"
+              />
+              <ReportStatCard
+                label="Avg cycle time"
+                value={`${kpis.cycle_time_avg_days}d`}
+                sub="Draft → distribution (avg)"
+                color="violet"
+                icon="⏱"
+              />
+              <ReportStatCard
+                label="Ping-pong ratio"
+                value={kpis.pingpong_ratio}
+                sub="Returns per version (avg)"
+                color={kpis.pingpong_ratio > 1 ? "rose" : "default"}
+                icon="🏓"
+              />
             </div>
-          </ReportChartCard>
-        </div>
-      )}
 
-      {/* ── Tab: Compliance ────────────────────────────────────────────────────── */}
-      {activeTab === "compliance" && (
-        <div className="flex flex-col gap-5">
-          {/* Compliance KPIs */}
-          <div className="flex flex-wrap gap-3">
-            <ReportStatCard
-              label="Entered review"
-              value={totals.in_review}
-              sub="Office/VP stage reached"
-              icon="📋"
-            />
-            <ReportStatCard
-              label="Final approved"
-              value={totals.approved}
-              sub={`${pct(totals.approved, totals.in_review)}% approval rate`}
-              color="emerald"
-              icon="✅"
-            />
-            <ReportStatCard
-              label="Returned for edits"
-              value={totals.returned}
-              sub={`${pct(totals.returned, totals.in_review)}% return rate`}
-              color="rose"
-              icon="↩️"
-            />
-            <ReportStatCard
-              label="First-pass yield"
-              value={`${kpis.first_pass_yield_pct}%`}
-              sub="Approved with zero returns"
-              color="sky"
-              icon="🎯"
-            />
-            <ReportStatCard
-              label="Ping-pong ratio"
-              value={kpis.pingpong_ratio}
-              sub="Returns per version (avg)"
-              color={kpis.pingpong_ratio > 1 ? "rose" : "default"}
-              icon="🏓"
-            />
-          </div>
-
-          {/* Cluster bar chart */}
-          {scope === "clusters" && (
+            {/* Volume trend */}
             <ReportChartCard
-              title="Approval performance by cluster"
-              subtitle="VP + President clusters — routed vs approved vs returned"
+              title={`Document volume — created vs distributed (${bucket})`}
+              subtitle="Tracks how many documents were started vs actually completed each period"
+              onExportCsv={() => exportVolumeCsv(volumeSeries)}
+              onExportPdf={chartPdfHandler("fildas_volume_trend.pdf")}
             >
-              <ComplianceClusterBarChart data={clusterData} height={300} />
+              <VolumeTrendChart data={volumeSeries} height={260} />
             </ReportChartCard>
-          )}
 
-          {/* Table */}
-          <ReportChartCard
-            title={
-              scope === "clusters"
-                ? "Cluster throughput breakdown"
-                : "Office compliance breakdown"
-            }
-            subtitle="Sorted by approval rate — lowest first (highest risk at top)"
-          >
-            <ComplianceTable
-              rows={scope === "clusters" ? rankedClusters : rankedOffices}
-              colLabel={scope === "clusters" ? "Cluster" : "Office"}
-            />
-          </ReportChartCard>
-        </div>
-      )}
+            {/* Stage delays */}
+            <ReportChartCard
+              title="Average time per workflow stage"
+              subtitle="Based on distributed documents only — how long each stage took on average (hours)"
+              onExportCsv={() => exportStageDelayCsv(stageDelays)}
+              onExportPdf={chartPdfHandler("fildas_stage_delays.pdf")}
+            >
+              {stageDelays.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+                  No stage data available for the selected filters.
+                </p>
+              ) : (
+                <StageDelayChart data={stageDelays} height={220} />
+              )}
+            </ReportChartCard>
 
-      {/* ── Tab: Timeline ──────────────────────────────────────────────────────── */}
-      {activeTab === "timeline" && (
-        <div className="flex flex-col gap-5">
-          <ReportChartCard
-            title={`Approval activity over time (${bucket})`}
-            subtitle={`Unique versions per stage per ${bucket} — based on task ${dateField} date`}
-          >
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart
-                data={seriesData}
-                margin={{ top: 4, right: 16, left: 0, bottom: 0 }}
+            {/* Definitions */}
+            <ReportChartCard title="Metric definitions">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm text-slate-600 dark:text-slate-400">
+                <p>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Total created
+                  </span>{" "}
+                  — all document versions created in the period.
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Final distributed
+                  </span>{" "}
+                  — versions that completed all 5 phases.
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Avg cycle time
+                  </span>{" "}
+                  — days from first task opened to distribution (distributed
+                  versions only).
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Ping-pong ratio
+                  </span>{" "}
+                  — average number of return events per version.
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    First-pass yield
+                  </span>{" "}
+                  — % of distributed versions that had zero returns.
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    Stage delay
+                  </span>{" "}
+                  — avg hours a task spent in each stage (Office / VP / QA /
+                  Registration).
+                </p>
+              </div>
+            </ReportChartCard>
+          </div>
+        )}
+
+        {/* ── Tab: Compliance ────────────────────────────────────────────────────── */}
+        {activeTab === "compliance" && (
+          <div className="flex flex-col gap-5">
+            {/* Compliance KPIs */}
+            <div className="flex flex-wrap gap-3">
+              <ReportStatCard
+                label="Entered review"
+                value={totals.in_review}
+                sub="Office/VP stage reached"
+                icon="📋"
+              />
+              <ReportStatCard
+                label="Final approved"
+                value={totals.approved}
+                sub={`${pct(totals.approved, totals.in_review)}% approval rate`}
+                color="emerald"
+                icon="✅"
+              />
+              <ReportStatCard
+                label="Returned for edits"
+                value={totals.returned}
+                sub={`${pct(totals.returned, totals.in_review)}% return rate`}
+                color="rose"
+                icon="↩️"
+              />
+              <ReportStatCard
+                label="First-pass yield"
+                value={`${kpis.first_pass_yield_pct}%`}
+                sub="Approved with zero returns"
+                color="sky"
+                icon="🎯"
+              />
+              <ReportStatCard
+                label="Ping-pong ratio"
+                value={kpis.pingpong_ratio}
+                sub="Returns per version (avg)"
+                color={kpis.pingpong_ratio > 1 ? "rose" : "default"}
+                icon="🏓"
+              />
+            </div>
+
+            {/* Cluster bar chart */}
+            {scope === "clusters" && (
+              <ReportChartCard
+                title="Approval performance by cluster"
+                subtitle="VP + President clusters — routed vs approved vs returned"
+                onExportCsv={() => exportClusterCsv(clusterData)}
+                onExportPdf={chartPdfHandler("fildas_cluster_compliance.pdf")}
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="rgba(148,163,184,0.15)"
-                />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar
-                  dataKey="in_review"
-                  fill="#0ea5e9"
-                  name="In review"
-                  radius={[3, 3, 0, 0]}
-                />
-                <Bar
-                  dataKey="sent_to_qa"
-                  fill="#a855f7"
-                  name="Sent to QA"
-                  radius={[3, 3, 0, 0]}
-                />
-                <Bar
-                  dataKey="approved"
-                  fill="#10b981"
-                  name="Distributed"
-                  radius={[3, 3, 0, 0]}
-                />
-                <Bar
-                  dataKey="returned"
-                  fill="#f43f5e"
-                  name="Returned"
-                  radius={[3, 3, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </ReportChartCard>
-
-          <ReportChartCard
-            title={`Volume trend — created vs distributed (${bucket})`}
-            subtitle="Gap between lines = backlog building up or clearing"
-          >
-            <VolumeTrendChart data={volumeSeries} height={260} />
-          </ReportChartCard>
-
-          <ReportChartCard
-            title="Stage processing time"
-            subtitle="Average hours spent per workflow stage — distributed versions only"
-          >
-            {stageDelays.length === 0 ? (
-              <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
-                No stage data available yet.
-              </p>
-            ) : (
-              <StageDelayChart data={stageDelays} height={220} />
+                <ComplianceClusterBarChart data={clusterData} height={300} />
+              </ReportChartCard>
             )}
-          </ReportChartCard>
-        </div>
-      )}
+
+            {/* Table */}
+            <ReportChartCard
+              title={
+                scope === "clusters"
+                  ? "Cluster throughput breakdown"
+                  : "Office compliance breakdown"
+              }
+              subtitle="Sorted by approval rate — lowest first (highest risk at top)"
+              onExportCsv={
+                scope === "clusters"
+                  ? () => exportClusterCsv(clusterData)
+                  : () => exportOfficeCsv(officeData)
+              }
+              onExportPdf={chartPdfHandler(
+                scope === "clusters"
+                  ? "fildas_cluster_table.pdf"
+                  : "fildas_office_compliance.pdf",
+              )}
+            >
+              <ComplianceTable
+                rows={scope === "clusters" ? rankedClusters : rankedOffices}
+                colLabel={scope === "clusters" ? "Cluster" : "Office"}
+              />
+            </ReportChartCard>
+          </div>
+        )}
+
+        {/* ── Tab: Timeline ──────────────────────────────────────────────────────── */}
+        {activeTab === "timeline" && (
+          <div className="flex flex-col gap-5">
+            <ReportChartCard
+              title={`Approval activity over time (${bucket})`}
+              subtitle={`Unique versions per stage per ${bucket} — based on task ${dateField} date`}
+              onExportCsv={() => exportTimelineCsv(seriesData)}
+              onExportPdf={chartPdfHandler("fildas_approval_timeline.pdf")}
+            >
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={seriesData}
+                  margin={{ top: 4, right: 16, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(148,163,184,0.15)"
+                  />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar
+                    dataKey="in_review"
+                    fill="#0ea5e9"
+                    name="In review"
+                    radius={[3, 3, 0, 0] as any}
+                  />
+                  <Bar
+                    dataKey="sent_to_qa"
+                    fill="#a855f7"
+                    name="Sent to QA"
+                    radius={[3, 3, 0, 0] as any}
+                  />
+                  <Bar
+                    dataKey="approved"
+                    fill="#10b981"
+                    name="Distributed"
+                    radius={[3, 3, 0, 0] as any}
+                  />
+                  <Bar
+                    dataKey="returned"
+                    fill="#f43f5e"
+                    name="Returned"
+                    radius={[3, 3, 0, 0] as any}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </ReportChartCard>
+
+            <ReportChartCard
+              title={`Volume trend — created vs distributed (${bucket})`}
+              subtitle="Gap between lines = backlog building up or clearing"
+              onExportCsv={() => exportVolumeCsv(volumeSeries)}
+              onExportPdf={chartPdfHandler("fildas_volume_trend.pdf")}
+            >
+              <VolumeTrendChart data={volumeSeries} height={260} />
+            </ReportChartCard>
+
+            <ReportChartCard
+              title="Stage processing time"
+              subtitle="Average hours spent per workflow stage — distributed versions only"
+              onExportCsv={() => exportStageDelayCsv(stageDelays)}
+              onExportPdf={chartPdfHandler("fildas_stage_delays.pdf")}
+            >
+              {stageDelays.length === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+                  No stage data available yet.
+                </p>
+              ) : (
+                <StageDelayChart data={stageDelays} height={220} />
+              )}
+            </ReportChartCard>
+          </div>
+        )}
+      </div>
+      {/* end tab content ref wrapper */}
     </PageFrame>
   );
 };

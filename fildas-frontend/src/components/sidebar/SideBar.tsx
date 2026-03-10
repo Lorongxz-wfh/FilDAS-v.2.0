@@ -1,8 +1,8 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { getUserRole } from "../../lib/roleFilters";
-import { navGroups } from "./navConfig";
-import { PanelLeftClose, PanelLeftOpen, LogOut } from "lucide-react";
+import { navGroups, settingsNavItem } from "./navConfig";
+import { PanelLeftClose, PanelLeftOpen, LogOut, Settings } from "lucide-react";
 import { useSidebarCollapsed } from "../../hooks/useSidebarCollapsed";
 import { useAuthUser } from "../../hooks/useAuthUser";
 
@@ -32,7 +32,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout }) => {
         collapsed ? "w-14" : "w-56",
       ].join(" ")}
     >
-
       {/* Logo + collapse toggle */}
       <div
         className={[
@@ -161,46 +160,82 @@ const Sidebar: React.FC<SidebarProps> = ({ onLogout }) => {
           );
         })}
       </nav>
-      {/* User profile + logout */}
-      <div
-        className={[
-          "shrink-0 border-t border-slate-200 dark:border-surface-400",
-          collapsed ? "px-2 py-3" : "px-3 py-3",
-        ].join(" ")}
-      >
-        {collapsed ? (
-          <button
-            type="button"
-            onClick={onLogout}
-            title={`Logout ${user?.full_name ?? ""}`}
-            className="flex w-full items-center justify-center rounded-lg py-2 text-slate-400 hover:bg-slate-50 hover:text-rose-500 dark:hover:bg-surface-400 dark:hover:text-rose-400 transition-colors"
+      {/* Bottom strip: Settings + profile + logout */}
+      <div className="shrink-0 border-t border-slate-200 dark:border-surface-400">
+        {/* Settings nav item */}
+        <div className="px-2 pt-2">
+          <NavLink
+            to={settingsNavItem.to}
+            title={collapsed ? settingsNavItem.label : undefined}
+            className={({ isActive }) =>
+              [
+                "group relative flex w-full items-center rounded-lg text-sm font-medium transition-all",
+                collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
+                isActive
+                  ? "bg-brand-50 text-brand-500 dark:bg-surface-400 dark:text-brand-300"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-surface-400 dark:hover:text-slate-200",
+              ].join(" ")
+            }
           >
-            <LogOut className="h-4 w-4" />
-          </button>
-        ) : (
-          <div className="flex items-center gap-2.5">
-            {/* Avatar */}
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/40 text-[11px] font-semibold text-brand-600 dark:text-brand-300">
-              {initials || "?"}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">
-                {user?.full_name ?? "User"}
-              </p>
-              <p className="truncate text-[10px] text-slate-400 dark:text-slate-500">
-                {(user as any)?.email ?? ""}
-              </p>
-            </div>
+            {({ isActive }) => (
+              <>
+                <span
+                  className={[
+                    "absolute left-0 h-6 w-0.5 rounded-r-full transition-all",
+                    isActive ? "bg-brand-400 opacity-100" : "opacity-0",
+                  ].join(" ")}
+                />
+                <Settings
+                  className={[
+                    "h-4 w-4 shrink-0 transition-colors",
+                    isActive
+                      ? "text-brand-400 dark:text-brand-300"
+                      : "text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300",
+                  ].join(" ")}
+                />
+                {!collapsed && (
+                  <span className="truncate">{settingsNavItem.label}</span>
+                )}
+              </>
+            )}
+          </NavLink>
+        </div>
+
+        {/* Profile + logout */}
+        <div className={["px-2 pb-3 pt-1", collapsed ? "" : "px-3"].join(" ")}>
+          {collapsed ? (
             <button
               type="button"
               onClick={onLogout}
-              title="Logout"
-              className="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-surface-400 dark:hover:text-rose-400 transition-colors"
+              title={`Logout ${user?.full_name ?? ""}`}
+              className="flex w-full items-center justify-center rounded-lg py-2 text-slate-400 hover:bg-slate-50 hover:text-rose-500 dark:hover:bg-surface-400 dark:hover:text-rose-400 transition-colors"
             >
-              <LogOut className="h-3.5 w-3.5" />
+              <LogOut className="h-4 w-4" />
             </button>
-          </div>
-        )}
+          ) : (
+            <div className="flex items-center gap-2.5 px-1 pt-1">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-900/40 text-[11px] font-semibold text-brand-600 dark:text-brand-300">
+                {initials || "?"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">
+                  {user?.full_name ?? "User"}
+                </p>
+                <p className="truncate text-[10px] text-slate-400 dark:text-slate-500">
+                  {(user as any)?.email ?? ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onLogout}
+                title="Logout"
+                className="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-surface-400 dark:hover:text-rose-400 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );

@@ -189,7 +189,19 @@ class DocumentController extends Controller
                 }
             } else {
                 // Normal user: must match owner office OR be shared OR has open task on latest
-                if ((int) $document->owner_office_id !== (int) $userOfficeId && !$isSharedToMe && !$hasOpenTaskOnLatest) {
+                // OR was a workflow participant at any point (covers Distributed docs)
+                $wasWorkflowParticipant = WorkflowTask::query()
+                    ->where('workflow_tasks.assigned_office_id', $userOfficeId)
+                    ->join('document_versions', 'workflow_tasks.document_version_id', '=', 'document_versions.id')
+                    ->where('document_versions.document_id', $document->id)
+                    ->exists();
+
+                if (
+                    (int) $document->owner_office_id !== (int) $userOfficeId
+                    && !$isSharedToMe
+                    && !$hasOpenTaskOnLatest
+                    && !$wasWorkflowParticipant
+                ) {
                     return response()->json(['message' => 'Forbidden.'], 403);
                 }
             }
@@ -789,21 +801,6 @@ class DocumentController extends Controller
         if (!Storage::disk()->exists($version->preview_path)) {
             return response()->json(['message' => 'Preview file not found on server.'], Response::HTTP_NOT_FOUND);
         }
-
-        \App\Models\ActivityLog::create([
-            'document_id' => $version->document_id,
-            'document_version_id' => $version->id,
-            'actor_user_id' => $request->user()?->id,
-            'actor_office_id' => $request->user()?->office_id,
-            'target_office_id' => null,
-            'event' => 'version.previewed',
-            'label' => 'Opened document preview',
-            'meta' => [
-                'status' => $version->status,
-                'version_number' => $version->version_number,
-                'signed' => $request->hasValidSignature(),
-            ],
-        ]);
 
         $stream = Storage::disk()->readStream($version->preview_path);
 

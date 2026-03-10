@@ -570,16 +570,10 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
             required={false}
             disabled={roleDisablesOffice || saving || isDeleted}
             autoLoad={!roleDisablesOffice}
-            label={roleDisablesOffice ? "Office (not applicable)" : "Office"}
+            label={roleDisablesOffice ? "Office (not applicable for admins)" : "Office"}
           />
         </div>
       </div>
-
-      {roleDisablesOffice && (
-        <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
-          Office is not assigned for Admin / Auditor accounts.
-        </p>
-      )}
 
       {/* Footer */}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 dark:border-surface-400 pt-4">

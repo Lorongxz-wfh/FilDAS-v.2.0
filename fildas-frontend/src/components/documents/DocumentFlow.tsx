@@ -598,6 +598,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             isTasksReady={workflow.isTasksReady}
             isBurstPolling={workflow.isBurstPolling}
             stopBurstPolling={workflow.stopBurstPolling}
+            taskChanged={workflow.taskChanged}
+            clearTaskChanged={workflow.clearTaskChanged}
+            newMessageCount={workflow.newMessageCount}
+            clearNewMessageCount={workflow.clearNewMessageCount}
             currentStep={currentStep}
             nextStep={nextStep}
             assignedOfficeId={assignedOfficeId}
@@ -615,6 +619,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             isSendingMessage={isSendingMessage}
             onSendMessage={handleSendMessage}
             formatWhen={formatWhen}
+            offices={offices}
           />
         </div>
 

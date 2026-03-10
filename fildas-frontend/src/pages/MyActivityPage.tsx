@@ -76,7 +76,7 @@ const MyActivityPage: React.FC = () => {
     <PageFrame
       title="My Activity"
       contentClassName="flex flex-col gap-4 h-full"
-      onBack={() => navigate("/work-queue")}
+      onBack={() => navigate("/activity-logs")}
     >
       {/* Error */}
       {error && (

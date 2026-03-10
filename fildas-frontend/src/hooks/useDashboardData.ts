@@ -56,8 +56,8 @@ export function useDashboardData(role: UserRole): DashboardData {
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      setLoading(true);
+    async function load(silent = false) {
+      if (!silent) setLoading(true);
       setError(null);
       try {
         if (isAdmin) {
@@ -106,8 +106,15 @@ export function useDashboardData(role: UserRole): DashboardData {
     }
 
     load();
+
+    const interval = window.setInterval(() => {
+      cancelled = false;
+      load(true); // silent refresh — no loading flash
+    }, 60_000);
+
     return () => {
       cancelled = true;
+      window.clearInterval(interval);
     };
   }, [role]);
 

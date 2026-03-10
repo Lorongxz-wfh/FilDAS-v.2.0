@@ -45,6 +45,17 @@ class AuthController extends Controller
             ], 403);
         }
 
+        \App\Models\ActivityLog::create([
+            'document_id'         => null,
+            'document_version_id' => null,
+            'actor_user_id'       => $user->id,
+            'actor_office_id'     => $user->office_id,
+            'target_office_id'    => null,
+            'event'               => 'auth.login',
+            'label'               => 'Logged in',
+            'meta'                => ['role' => $roleName],
+        ]);
+
         return response()->json([
             'token' => $token,
             'user'  => [
@@ -70,7 +81,20 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+
+        \App\Models\ActivityLog::create([
+            'document_id'         => null,
+            'document_version_id' => null,
+            'actor_user_id'       => $user->id,
+            'actor_office_id'     => $user->office_id,
+            'target_office_id'    => null,
+            'event'               => 'auth.logout',
+            'label'               => 'Logged out',
+            'meta'                => null,
+        ]);
+
+        $user->currentAccessToken()->delete();
 
         return response()->json([
             'message' => 'Logged out',

@@ -105,38 +105,28 @@ class DocumentIndexService
             $query->whereHas('latestVersion', fn($v) => $v->where('status', 'Distributed'));
         } else if (!$canSeeAll) {
             $query->where(function ($q) use ($vpOfficeIds, $userOfficeId) {
+                // Has an open task assigned to this office on the latest version
                 $q->orWhereHas('latestVersion', function ($v) use ($userOfficeId) {
                     $v->whereHas('tasks', function ($t) use ($userOfficeId) {
                         $t->where('status', 'open')->where('assigned_office_id', $userOfficeId);
                     });
                 });
 
+                // Owns the document
                 if (is_array($vpOfficeIds)) $q->orWhereIn('documents.owner_office_id', $vpOfficeIds);
                 else $q->orWhere('documents.owner_office_id', $userOfficeId);
 
+                // Shared directly to this office
                 $q->orWhereHas('sharedOffices', fn($s) => $s->where('offices.id', $userOfficeId));
-            });
 
-            if ($qaOfficeId && (int) $userOfficeId !== (int) $qaOfficeId) {
-                $dvMax = DocumentVersion::query()
-                    ->selectRaw('document_id, MAX(version_number) as max_version_number')
-                    ->groupBy('document_id');
-
-                $openTaskDocIds = WorkflowTask::query()
-                    ->where('workflow_tasks.status', 'open')
-                    ->where('workflow_tasks.assigned_office_id', $userOfficeId)
-                    ->join('document_versions', 'workflow_tasks.document_version_id', '=', 'document_versions.id')
-                    ->joinSub($dvMax, 'dv_max', function ($join) {
-                        $join->on('dv_max.document_id', '=', 'document_versions.document_id')
-                            ->on('dv_max.max_version_number', '=', 'document_versions.version_number');
-                    })
-                    ->select('document_versions.document_id');
-
-                $query->where(function ($q) use ($openTaskDocIds) {
-                    $q->whereIn('documents.id', $openTaskDocIds)
-                        ->orWhereHas('latestVersion', fn($v) => $v->where('status', 'Distributed'));
+                // Was a workflow participant (had a task at any point) and doc is now Distributed
+                $q->orWhere(function ($inner) use ($userOfficeId) {
+                    $inner->whereHas('latestVersion', fn($v) => $v->where('status', 'Distributed'))
+                        ->whereHas('versions', function ($v) use ($userOfficeId) {
+                            $v->whereHas('tasks', fn($t) => $t->where('assigned_office_id', $userOfficeId));
+                        });
                 });
-            }
+            });
         }
 
         // Apply scope filter AFTER base visibility rules

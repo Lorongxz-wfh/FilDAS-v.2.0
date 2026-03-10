@@ -2,34 +2,89 @@ import React from "react";
 import Skeleton from "../../ui/loader/Skeleton";
 import InlineSpinner from "../../ui/loader/InlineSpinner";
 import UploadProgress from "../../ui/loader/UploadProgress";
+import { Download, Maximize2, X } from "lucide-react";
 
+// ── Preview modal ────────────────────────────────────────────────────────────
+function PreviewModal({
+  url,
+  filename,
+  onClose,
+}: {
+  url: string;
+  filename?: string | null;
+  onClose: () => void;
+}) {
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex flex-col w-full max-w-4xl h-[90vh] rounded-2xl overflow-hidden bg-white shadow-2xl dark:bg-surface-500"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal toolbar */}
+        <div className="shrink-0 flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-surface-400 dark:bg-surface-600">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate max-w-[70%]">
+            {filename ?? "Preview"}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(url, "_blank");
+              }}
+              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300"
+            >
+              <Download size={12} /> Download
+            </button>
+            <button
+              onClick={onClose}
+              className="flex items-center justify-center h-7 w-7 rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition dark:hover:bg-surface-400 dark:hover:text-slate-200"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+        {/* iframe */}
+        <iframe
+          title="Full preview"
+          src={url}
+          className="flex-1 min-h-0 w-full bg-white dark:bg-surface-600"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ───────────────────────────────────────────────────────────
 type Props = {
   versionId: number;
-
   previewPath: string | null;
   filePath: string | null;
   originalFilename?: string | null;
-
   status: string;
-
   signedPreviewUrl: string;
   previewNonce: number;
-
   isUploading: boolean;
   uploadProgress: number;
-
   isPreviewLoading: boolean;
   setIsPreviewLoading: (v: boolean) => void;
-
   fileInputRef: React.Ref<HTMLInputElement>;
-
   onOpenPreview: () => Promise<void>;
   onClickReplace: () => void;
-
   onDrop: (e: React.DragEvent<HTMLDivElement>) => Promise<void> | void;
   onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
-
   onFileSelect: (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => Promise<void> | void;
@@ -56,116 +111,166 @@ const DocumentPreviewPanel: React.FC<Props> = ({
   onFileSelect,
 }) => {
   const hasPreview = !!filePath && !!previewPath;
+  const [modal, setModal] = React.useState(false);
+
+  const openModal = () => {
+    if (signedPreviewUrl) setModal(true);
+    else
+      onOpenPreview()
+        .then(() => setModal(true))
+        .catch(() => {});
+  };
 
   return (
-    <div className="space-y-3">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center justify-between">
-        Document preview
-      </h2>
-
-      <button
-        type="button"
-        disabled={!previewPath}
-        onClick={() => {
-          onOpenPreview().catch(() => {});
-        }}
-        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors ml-2 ${
-          !previewPath
-            ? "bg-slate-50 text-slate-400 cursor-not-allowed dark:bg-surface-600 dark:text-slate-600"
-            : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-surface-400 dark:text-slate-300 dark:hover:bg-surface-300"
-        }`}
-      >
-        Open preview
-      </button>
-
-      <div
-        className={`relative h-150 w-full overflow-hidden rounded-xl border-2 transition-all ${
-          filePath
-            ? "border-slate-200 bg-white cursor-pointer hover:border-sky-300 hover:shadow-md dark:border-surface-400 dark:bg-surface-500"
-            : "border-dashed border-slate-300 bg-slate-50 cursor-pointer hover:border-sky-400 hover:bg-sky-50 dark:border-surface-400 dark:bg-surface-600 dark:hover:border-sky-700 dark:hover:bg-sky-950/20"
-        }`}
-        onClick={() => {
-          if (isUploading) return;
-          if (status !== "Draft") return;
-          onClickReplace();
-        }}
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-      >
-        {filePath && previewPath && !signedPreviewUrl && (
-          <div className="absolute inset-0 p-4">
-            <Skeleton className="h-full w-full rounded-lg" />
-          </div>
-        )}
-
-        {hasPreview ? (
-          <iframe
-            key={`${versionId}-${previewNonce}`}
-            src={signedPreviewUrl || "about:blank"}
-            title="Document preview"
-            className="h-full w-full"
-            onLoad={() => setIsPreviewLoading(false)}
-            onError={() => setIsPreviewLoading(false)}
-          />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center p-8 text-center text-sm">
-            <div className="mb-3 h-12 w-12 rounded-full bg-slate-200 dark:bg-surface-400 flex items-center justify-center">
-              <svg
-                className="h-6 w-6 text-slate-400 dark:text-slate-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            </div>
-            <p className="mb-1 font-medium text-slate-900 dark:text-slate-100">
-              {filePath ? "Click to replace document" : "Upload new document"}
-            </p>
-            <p className="text-slate-500 dark:text-slate-400 mb-4">
-              {filePath
-                ? "Drag & drop or click to replace the current file"
-                : "Drag & drop PDF, Word, Excel, PowerPoint, or click to browse (max 10MB)"}
-            </p>
-            {!!filePath && (
-              <p className="text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-surface-400 px-2 py-0.5 rounded-full">
-                {originalFilename ?? ""}
-              </p>
+    <div className="space-y-0">
+      {/* Preview container */}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2 dark:border-surface-400 dark:bg-surface-600">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+              Document Preview
+            </span>
+            {originalFilename && (
+              <>
+                <span className="text-slate-300 dark:text-slate-600">·</span>
+                <span className="truncate text-[11px] text-slate-500 dark:text-slate-400 max-w-xs">
+                  {originalFilename}
+                </span>
+              </>
             )}
           </div>
-        )}
+          <div className="flex items-center gap-1 shrink-0">
+            {hasPreview && (
+              <button
+                type="button"
+                onClick={openModal}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition dark:hover:bg-surface-400 dark:hover:text-slate-200"
+              >
+                <Maximize2 size={11} /> View
+              </button>
+            )}
+            {status === "Draft" && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isUploading) onClickReplace();
+                }}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition dark:hover:bg-surface-400 dark:hover:text-slate-200"
+              >
+                Replace
+              </button>
+            )}
+          </div>
+        </div>
 
-        {isUploading && (
-          <div className="absolute inset-0 bg-white/90 dark:bg-surface-500/90 backdrop-blur-sm flex items-center justify-center">
-            <div className="w-full max-w-sm rounded-xl bg-white dark:bg-surface-600 p-4 shadow-md">
-              <p className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">
-                {uploadProgress >= 100 ? "Processing..." : "Uploading..."}
-              </p>
-              <UploadProgress value={uploadProgress} />
+        {/* Preview body */}
+        <div
+          className={`relative h-150 w-full overflow-hidden transition-all ${
+            !filePath
+              ? "cursor-pointer"
+              : status === "Draft"
+                ? "cursor-pointer"
+                : ""
+          }`}
+          onClick={() => {
+            if (isUploading) return;
+            if (status !== "Draft") return;
+            onClickReplace();
+          }}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+        >
+          {filePath && previewPath && !signedPreviewUrl && (
+            <div className="absolute inset-0 p-4">
+              <Skeleton className="h-full w-full rounded-lg" />
             </div>
-          </div>
-        )}
+          )}
 
-        {isPreviewLoading && (
-          <div className="absolute inset-0 bg-white/80 dark:bg-surface-500/80 backdrop-blur-sm flex items-center justify-center">
-            <InlineSpinner className="h-8 w-8 border-2" />
-          </div>
-        )}
+          {hasPreview ? (
+            <iframe
+              key={`${versionId}-${previewNonce}`}
+              src={signedPreviewUrl || "about:blank"}
+              title="Document preview"
+              className="h-full w-full"
+              onLoad={() => setIsPreviewLoading(false)}
+              onError={() => setIsPreviewLoading(false)}
+            />
+          ) : (
+            <div
+              className={`flex h-full flex-col items-center justify-center p-8 text-center text-sm border-2 border-dashed m-3 rounded-xl transition ${
+                filePath
+                  ? "border-slate-200 dark:border-surface-400"
+                  : "border-slate-300 hover:border-sky-400 hover:bg-sky-50 dark:border-surface-400 dark:hover:border-sky-700 dark:hover:bg-sky-950/20"
+              }`}
+            >
+              <div className="mb-3 h-12 w-12 rounded-full bg-slate-100 dark:bg-surface-400 flex items-center justify-center">
+                <svg
+                  className="h-6 w-6 text-slate-400 dark:text-slate-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </div>
+              <p className="mb-1 font-medium text-slate-900 dark:text-slate-100">
+                {filePath ? "Click to replace document" : "Upload document"}
+              </p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs">
+                {filePath
+                  ? "Drag & drop or click to replace"
+                  : "Drag & drop or click to browse · PDF, Word, Excel, PowerPoint · max 10MB"}
+              </p>
+              {!!filePath && (
+                <p className="mt-3 text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-surface-400 px-2 py-0.5 rounded-full">
+                  {originalFilename ?? ""}
+                </p>
+              )}
+            </div>
+          )}
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-          className="sr-only"
-          onChange={onFileSelect}
-        />
+          {isUploading && (
+            <div className="absolute inset-0 bg-white/90 dark:bg-surface-500/90 backdrop-blur-sm flex items-center justify-center">
+              <div className="w-full max-w-sm rounded-xl bg-white dark:bg-surface-600 p-4 shadow-md">
+                <p className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {uploadProgress >= 100 ? "Processing..." : "Uploading..."}
+                </p>
+                <UploadProgress value={uploadProgress} />
+              </div>
+            </div>
+          )}
+
+          {isPreviewLoading && (
+            <div className="absolute inset-0 bg-white/80 dark:bg-surface-500/80 backdrop-blur-sm flex items-center justify-center">
+              <InlineSpinner className="h-8 w-8 border-2" />
+            </div>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+            className="sr-only"
+            onChange={onFileSelect}
+          />
+        </div>
       </div>
+
+      {/* Modal */}
+      {modal && signedPreviewUrl && (
+        <PreviewModal
+          url={signedPreviewUrl}
+          filename={originalFilename}
+          onClose={() => setModal(false)}
+        />
+      )}
     </div>
   );
 };

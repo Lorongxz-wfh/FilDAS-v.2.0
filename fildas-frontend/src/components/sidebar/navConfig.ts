@@ -8,6 +8,7 @@ import {
   ScrollText,
   Users,
   Building2,
+  Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -21,6 +22,12 @@ export type NavItem = {
 export type NavGroup = {
   label: string;
   items: NavItem[];
+};
+
+export const settingsNavItem: NavItem = {
+  to: "/settings",
+  label: "Settings",
+  icon: Settings,
 };
 
 export const navGroups: NavGroup[] = [

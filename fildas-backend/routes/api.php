@@ -110,7 +110,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/activity/opened-version', [ActivityLogController::class, 'openedVersion']);
     Route::get('/activity',                 [ActivityLogController::class, 'index']);
 
-    // ── Reports ────────────────────────────────────────────────────────────
+    // ── Search ─────────────────────────────────────────────────────────────────
+    Route::get('/search', \App\Http\Controllers\Api\SearchController::class);
+
+    // ── Profile ────────────────────────────────────────────────────────────────
+    Route::patch('/profile',          [\App\Http\Controllers\Api\ProfileController::class, 'update']);
+    Route::post('/profile/password',  [\App\Http\Controllers\Api\ProfileController::class, 'changePassword']);
+    Route::post('/profile/photo',     [\App\Http\Controllers\Api\ProfileController::class, 'uploadPhoto']);
+    Route::delete('/profile/photo',   [\App\Http\Controllers\Api\ProfileController::class, 'removePhoto']);
+
+    // ── Reports ────────────────────────────────────────────────────────────────
     Route::get('/reports/approval',    [ReportsController::class, 'approval']);
     Route::get('/reports/compliance',  [ReportsController::class, 'compliance']);
 
