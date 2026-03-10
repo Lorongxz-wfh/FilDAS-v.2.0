@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import html2canvas from "html2canvas";
+// import html2canvas from "html2canvas";
 import { Download } from "lucide-react";
 
 type Props = {

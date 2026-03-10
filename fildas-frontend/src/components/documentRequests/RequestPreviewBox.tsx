@@ -1,4 +1,4 @@
-import React from "react";
+// import React from "react";
 import { RefreshCw, Download, Maximize2 } from "lucide-react";
 
 type Props = {

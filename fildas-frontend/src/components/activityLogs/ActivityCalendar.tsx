@@ -3,7 +3,7 @@ import {
   listActivityLogs,
   type ActivityLogItem,
 } from "../../services/documents";
-import { ChevronLeft, ChevronRight, Calendar, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 
 // ── Event color mapping ───────────────────────────────────────────────────────
 

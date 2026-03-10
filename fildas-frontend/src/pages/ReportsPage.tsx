@@ -20,17 +20,17 @@ import {
 import {
   exportElementPdf,
   exportFullTabPdf,
-  exportKpiCsv,
+  // exportKpiCsv,
   exportVolumeCsv,
-  exportVolumePdf,
+  // exportVolumePdf,
   exportClusterCsv,
-  exportClusterPdf,
+  // exportClusterPdf,
   exportOfficeCsv,
-  exportOfficePdf,
+  // exportOfficePdf,
   exportStageDelayCsv,
-  exportStageDelayPdf,
+  // exportStageDelayPdf,
   exportTimelineCsv,
-  exportTimelinePdf,
+  // exportTimelinePdf,
 } from "../services/reportExport";
 import {
   ResponsiveContainer,

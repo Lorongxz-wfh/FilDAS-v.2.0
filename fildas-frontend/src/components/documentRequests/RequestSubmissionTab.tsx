@@ -1,4 +1,4 @@
-import React from "react";
+// import React from "react";
 import { Upload, CheckCircle, XCircle, Clock, ChevronDown } from "lucide-react";
 import { StatusBadge } from "./shared";
 import RequestPreviewBox from "./RequestPreviewBox";
@@ -50,7 +50,7 @@ export default function RequestSubmissionTab({
   req,
   submissions,
   selectedSubmission,
-  selectedSubmissionId,
+//   selectedSubmissionId,
   selectedFileId,
   onSelectSubmission,
   qaNote,
