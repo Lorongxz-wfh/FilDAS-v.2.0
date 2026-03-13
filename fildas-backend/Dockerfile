@@ -17,4 +17,4 @@ ENV WEBROOT=/var/www/html/public
 COPY deploy.sh /deploy.sh
 RUN chmod +x /deploy.sh
 
-ENTRYPOINT ["/bin/bash", "/deploy.sh"]
+CMD ["/bin/bash", "/deploy.sh"]
