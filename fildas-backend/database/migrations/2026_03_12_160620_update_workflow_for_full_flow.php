@@ -9,10 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 1. Expand workflow_tasks.phase enum to include 'draft' and 'finalization'
-        DB::statement("ALTER TABLE workflow_tasks MODIFY COLUMN phase ENUM('draft','review','approval','registration','finalization') NOT NULL");
-
-        // 2. Add cancelled_at to document_versions if not present
+        // 1. Add cancelled_at to document_versions if not present
         if (!Schema::hasColumn('document_versions', 'cancelled_at')) {
             Schema::table('document_versions', function (Blueprint $table) {
                 $table->timestamp('cancelled_at')->nullable()->after('superseded_at');
@@ -33,8 +30,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::statement("ALTER TABLE workflow_tasks MODIFY COLUMN phase ENUM('review','approval','registration') NOT NULL");
-
         DB::table('workflow_tasks')
             ->where('step', 'qa_review_final_check')
             ->update(['step' => 'qa_final_check']);
