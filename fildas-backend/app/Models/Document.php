@@ -16,6 +16,7 @@ class Document extends Model
         'review_office_id',
         'visibility_scope',
         'code',
+        'reserved_code',
         'school_year',
         'semester',
         'created_by',
@@ -80,5 +81,21 @@ class Document extends Model
         $docTypeCode = $doctype === 'forms' ? 'F' : 'D';
         $nextNum = str_pad($sequence, 3, '0', STR_PAD_LEFT);
         return "FCU-EOMS-{$office->code}-{$nextNum}-{$docTypeCode}";
+    }
+
+    /**
+     * Peek at the next code without consuming the counter.
+     * Returns null if office not found or counter not yet seeded.
+     */
+    public static function peekNextCode(int $ownerOfficeId, string $doctype): ?string
+    {
+        $office = Office::find($ownerOfficeId);
+        if (!$office) return null;
+
+        $seq = \App\Models\DocumentCounter::where('office_id', $ownerOfficeId)
+            ->where('doctype', $doctype)
+            ->value('next_seq') ?? 1;
+
+        return self::generateCode($office, $doctype, (int) $seq);
     }
 }

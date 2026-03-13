@@ -16,6 +16,17 @@ type Props = {
   newMessageCount?: number;
   clearNewMessageCount?: () => void;
   skeletonCount?: number;
+  optimisticMessages: {
+    tempId: string;
+    text: string;
+    sending: boolean;
+    failed: boolean;
+  }[];
+  setOptimisticMessages: React.Dispatch<
+    React.SetStateAction<
+      { tempId: string; text: string; sending: boolean; failed: boolean }[]
+    >
+  >;
 };
 
 const DocumentCommentsPanel: React.FC<Props> = ({
@@ -30,9 +41,12 @@ const DocumentCommentsPanel: React.FC<Props> = ({
   newMessageCount = 0,
   clearNewMessageCount,
   skeletonCount = 3,
+  optimisticMessages,
+  setOptimisticMessages,
 }) => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
-  const myUserId = getAuthUser()?.id ?? null;
+  const me = getAuthUser();
+  const myUserId = me?.id ?? null;
 
   // Track which message IDs are "new" (arrived via polling)
   const [newMessageIds, setNewMessageIds] = React.useState<Set<number>>(
@@ -92,6 +106,33 @@ const DocumentCommentsPanel: React.FC<Props> = ({
     }
     clearNewMessageCount?.();
   };
+
+  const handleSend = React.useCallback(async () => {
+    const text = draftMessage.trim();
+    if (!text) return;
+    const tempId = `opt-${Date.now()}`;
+    setOptimisticMessages((prev) => [
+      ...prev,
+      { tempId, text, sending: true, failed: false },
+    ]);
+    setDraftMessage("");
+    // Scroll to bottom
+    window.requestAnimationFrame(() => {
+      if (scrollRef.current)
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    });
+    try {
+      await onSend();
+      // Real message will arrive via poll — remove optimistic
+      setOptimisticMessages((prev) => prev.filter((m) => m.tempId !== tempId));
+    } catch {
+      setOptimisticMessages((prev) =>
+        prev.map((m) =>
+          m.tempId === tempId ? { ...m, sending: false, failed: true } : m,
+        ),
+      );
+    }
+  }, [draftMessage, onSend, setDraftMessage]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-2">
@@ -174,6 +215,49 @@ const DocumentCommentsPanel: React.FC<Props> = ({
                   .toUpperCase()}
               />
             ))}
+            {optimisticMessages.map((m) => (
+              <div key={m.tempId} className="flex items-end justify-end gap-2">
+                <div className="flex flex-col items-end gap-1 max-w-[75%]">
+                  <div
+                    className={`rounded-2xl rounded-tr-none px-3 py-2 text-sm ${
+                      m.failed
+                        ? "bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300"
+                        : "bg-sky-500 text-white opacity-80"
+                    }`}
+                  >
+                    {m.text}
+                  </div>
+                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                    {m.failed ? (
+                      <span className="text-rose-500">Failed to send</span>
+                    ) : (
+                      <>
+                        <svg
+                          className="animate-spin h-2.5 w-2.5"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8v8z"
+                          />
+                        </svg>
+                        Sending…
+                      </>
+                    )}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -189,14 +273,14 @@ const DocumentCommentsPanel: React.FC<Props> = ({
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
-              if (!isSending && draftMessage.trim()) onSend();
+              if (!isSending && draftMessage.trim()) handleSend();
             }
           }}
         />
         <button
           type="button"
           disabled={isSending || draftMessage.trim().length === 0}
-          onClick={onSend}
+          onClick={handleSend}
           className="rounded-lg px-3 py-2 text-xs font-semibold transition bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isSending ? "…" : "Send"}

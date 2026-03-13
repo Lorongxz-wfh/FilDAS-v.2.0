@@ -57,6 +57,7 @@ export type DocumentFlowHeaderState = {
 
 interface DocumentFlowProps {
   isPageLoading?: boolean;
+  isExternalUploading?: boolean;
   document: Document | null;
   version: DocumentVersion | null;
   allVersions?: DocumentVersion[];
@@ -78,6 +79,7 @@ type RightPanelProps = {
   previewNonce: number;
   isUploading: boolean;
   uploadProgress: number;
+  isExternalUploading?: boolean;
   isPreviewLoading: boolean;
   setIsPreviewLoading: (v: boolean) => void;
   fileInputRef: React.Ref<HTMLInputElement>;
@@ -100,6 +102,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
   previewNonce,
   isUploading,
   uploadProgress,
+  isExternalUploading = false,
   isPreviewLoading,
   setIsPreviewLoading,
   fileInputRef,
@@ -161,6 +164,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
           previewNonce={previewNonce}
           isUploading={isUploading}
           uploadProgress={uploadProgress}
+          isExternalUploading={isExternalUploading}
           isPreviewLoading={isPreviewLoading}
           setIsPreviewLoading={setIsPreviewLoading}
           fileInputRef={fileInputRef}
@@ -178,6 +182,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
 
 const DocumentFlow: React.FC<DocumentFlowProps> = ({
   // isPageLoading = false,
+  isExternalUploading = false,
   document,
   version,
   allVersions = [],
@@ -346,11 +351,14 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   // ── File upload hook ─────────────────────────────────────────
   const fileUpload = useDocumentFileUpload({
     versionId: localVersion?.id ?? 0,
-    onUploadComplete: () => {
-      // Clear cache for this version so new file preview is fetched
-      if (localVersion?.preview_path) {
-        delete previewUrlCacheRef.current[localVersion.preview_path];
-      }
+    onUploadComplete: async () => {
+      // Clear entire preview cache — path may be same but content changed
+      previewUrlCacheRef.current = {};
+      setSignedPreviewUrl("");
+      setPreviewNonce((n) => n + 1);
+      // Refresh version data so file_path + preview_path are updated
+      if (onChanged) await onChanged();
+      // Force another nonce bump after version refreshed
       setPreviewNonce((n) => n + 1);
     },
   });
@@ -383,6 +391,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   );
 
   React.useEffect(() => {
+    if (!currentTask) return;
+    console.log("[currentTask]", JSON.stringify(currentTask, null, 2));
+  }, [currentTask]);
+
+  React.useEffect(() => {
     if (!workflow.tasks.length) {
       setCurrentTask(null);
       return;
@@ -413,22 +426,23 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     (document as any)?.office?.id ??
     null;
 
-  React.useEffect(() => {
-    console.log("[flow debug]", {
-      owner_office_id: (document as any)?.owner_office_id,
-      ownerOffice: document?.ownerOffice,
-      ownerOfficeIdForFlow,
-      officesCount: offices.length,
-      matchedOffice: offices.find(
-        (o) => Number(o.id) === Number(ownerOfficeIdForFlow),
-      ),
-    });
-  }, [document, offices, ownerOfficeIdForFlow]);
+  // ── Debug ─────────────────────────────────────────────────
+  // React.useEffect(() => {
+  //   console.log("[flow debug]", {
+  //     owner_office_id: (document as any)?.owner_office_id,
+  //     ownerOffice: document?.ownerOffice,
+  //     ownerOfficeIdForFlow,
+  //     officesCount: offices.length,
+  //     matchedOffice: offices.find(
+  //       (o) => Number(o.id) === Number(ownerOfficeIdForFlow),
+  //     ),
+  //   });
+  // }, [document, offices, ownerOfficeIdForFlow]);
 
-  React.useEffect(() => {
-    if (!document) return;
-    console.log("[document raw]", JSON.stringify(document, null, 2));
-  }, [document?.id]);
+  // React.useEffect(() => {
+  //   if (!document) return;
+  //   console.log("[document raw]", JSON.stringify(document, null, 2));
+  // }, [document?.id]);
 
   const customFlowSteps = React.useMemo(
     () =>
@@ -441,10 +455,13 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         : null,
     [routeSteps, offices, ownerOfficeIdForFlow],
   );
+
+  const isCustomRoutingPending = isCustomRouting && customFlowSteps === null;
   const activeFlowSteps =
     customFlowSteps ?? (isOfficeFlow ? flowStepsOffice : flowStepsQa);
 
   const currentStep = (() => {
+    if (isCustomRoutingPending && !currentTask?.step) return activeFlowSteps[0];
     if (isCustomRouting && currentTask?.step) {
       const assignedId = currentTask?.assigned_office_id ?? null;
       if (
@@ -470,7 +487,9 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       // Map backend step names → flowUtils step ids
       const stepIdMap: Record<string, string> = {
         custom_back_to_owner: "custom_review_back_to_originator",
+        custom_review_back_to_owner: "custom_review_back_to_originator",
         custom_back_to_owner_approval: "custom_approval_back_to_originator",
+        custom_approval_back_to_owner: "custom_approval_back_to_originator",
         custom_registration: "custom_registration",
         custom_distribution: "custom_distribution",
         distributed: "distributed",
@@ -523,6 +542,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     OFFICE_DISTRIBUTE: "Distribute document",
     CUSTOM_FORWARD: "Forward",
     CUSTOM_START_APPROVAL: "Start approval phase",
+    CUSTOM_START_FINALIZATION: "Start finalization",
     CUSTOM_REGISTER: "Register document",
     CUSTOM_DISTRIBUTE: "Distribute document",
     REJECT: "Reject",
@@ -550,6 +570,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     OFFICE_DISTRIBUTE: 70,
     CUSTOM_FORWARD: 10,
     CUSTOM_START_APPROVAL: 20,
+    CUSTOM_START_FINALIZATION: 25,
     CUSTOM_REGISTER: 30,
     CUSTOM_DISTRIBUTE: 40,
     CANCEL_DOCUMENT: 998,
@@ -577,7 +598,17 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   );
 
   const headerActions: HeaderActionButton[] = React.useMemo(() => {
+    const cancelBlockedStatuses = new Set([
+      "For Registration",
+      "For Distribution",
+      "Distributed",
+      "Superseded",
+      "Cancelled",
+    ]);
+    const showCancel = !cancelBlockedStatuses.has(localVersion?.status ?? "");
+
     return [...workflow.availableActions]
+      .filter((code) => code !== "CANCEL_DOCUMENT" || showCancel)
       .sort((a, b) => (actionPriority[a] ?? 500) - (actionPriority[b] ?? 500))
       .map((code) => ({
         key: code,
@@ -777,6 +808,16 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const [draftMessage, setDraftMessage] = React.useState("");
   const [isSendingMessage, setIsSendingMessage] = React.useState(false);
 
+  type OptMsg = {
+    tempId: string;
+    text: string;
+    sending: boolean;
+    failed: boolean;
+  };
+  const [optimisticMessages, setOptimisticMessages] = React.useState<OptMsg[]>(
+    [],
+  );
+
   const draftMessageRef = React.useRef(draftMessage);
   React.useEffect(() => {
     draftMessageRef.current = draftMessage;
@@ -792,7 +833,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         message: text,
         type: "comment",
       });
-      setDraftMessage("");
       await workflow.refreshMessages();
     } catch (e: any) {
       push({
@@ -832,6 +872,8 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         setDraftMessage={setDraftMessage}
         isSendingMessage={isSendingMessage}
         onSendMessage={handleSendMessage}
+        optimisticMessages={optimisticMessages}
+        setOptimisticMessages={setOptimisticMessages}
         formatWhen={formatWhen}
         isEditable={["Draft", "Office Draft"].includes(
           localVersion?.status ?? "",
@@ -869,7 +911,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       <WorkflowProgressCard
         phases={phases}
         routeStepsCount={routeSteps.length}
-        isTasksReady={workflow.isTasksReady}
+        isTasksReady={workflow.isTasksReady && !isCustomRoutingPending}
         currentStep={currentStep}
         nextStep={nextStep}
         currentPhaseIndex={currentPhaseIndex}
@@ -910,6 +952,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             onDragOver={fileUpload.handleDragOver}
             onDragLeave={fileUpload.handleDragLeave}
             onFileSelect={fileUpload.handleFileSelect}
+            isExternalUploading={isExternalUploading}
             onSelectVersion={onSelectVersion}
             isLoadingSelectedVersion={isLoadingSelectedVersion}
             showWorkflowUpdated={showWorkflowUpdated}

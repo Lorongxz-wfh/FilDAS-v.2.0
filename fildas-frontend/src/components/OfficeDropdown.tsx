@@ -4,9 +4,10 @@ import { listOffices } from "../services/documents";
 
 interface OfficeDropdownProps {
   value: number | null;
-  onChange: (officeId: number) => void;
+  onChange: (officeId: number, name: string, code: string) => void;
   error?: string;
   excludeOfficeIds?: number[];
+  hideLabel?: boolean;
 }
 
 const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
@@ -14,6 +15,7 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
   onChange,
   error,
   excludeOfficeIds = [],
+  hideLabel = false,
 }) => {
   const [offices, setOffices] = useState<Office[]>([]);
   const [search, setSearch] = useState("");
@@ -46,9 +48,11 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
 
   return (
     <div className="relative">
-      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-        Office / Department <span className="text-rose-500">*</span>
-      </label>
+      {!hideLabel && (
+        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+          Office / Department <span className="text-rose-500">*</span>
+        </label>
+      )}
 
       <div className="relative">
         <input
@@ -113,7 +117,7 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
                       }`}
                       onClick={() => {
                         if (isExcluded) return;
-                        onChange(office.id);
+                        onChange(office.id, office.name, office.code);
                         setIsOpen(false);
                         setSearch("");
                       }}

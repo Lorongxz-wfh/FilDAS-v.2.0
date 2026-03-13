@@ -506,33 +506,13 @@ class DocumentController extends Controller
             ],
         ]);
 
-        $office = $doc->ownerOffice()->first();
-        if ($office) {
-            // Atomic per-(office,doctype) sequence allocation
-            DB::transaction(function () use ($doc, $office) {
-                $counter = DocumentCounter::query()
-                    ->where('office_id', $doc->owner_office_id)
-                    ->where('doctype', $doc->doctype)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$counter) {
-                    $counter = DocumentCounter::create([
-                        'office_id' => $doc->owner_office_id,
-                        'doctype' => $doc->doctype,
-                        'next_seq' => 1,
-                    ]);
-                }
-
-                $seq = (int) $counter->next_seq;
-
-                $doc->code = Document::generateCode($office, $doc->doctype, $seq);
-                $doc->save();
-
-                $counter->next_seq = $seq + 1;
-                $counter->save();
-            });
-        }
+        // Peek at expected code — does NOT consume the counter or increment seq.
+        // The real code is assigned atomically at the registration step.
+        $doc->reserved_code = Document::peekNextCode(
+            (int) $doc->owner_office_id,
+            $doc->doctype,
+        );
+        $doc->save();
 
         // File upload
         if ($request->hasFile('file')) {

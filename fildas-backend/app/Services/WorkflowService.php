@@ -703,6 +703,44 @@ class WorkflowService
         // 4. Update version status
         $version->status = $nextStatus;
 
+        // Consume counter and assign real code at registration step
+        $registrationSteps = [
+            WorkflowSteps::STEP_QA_DISTRIBUTION,
+            WorkflowSteps::STEP_OFFICE_DISTRIBUTION,
+            WorkflowSteps::STEP_CUSTOM_DISTRIBUTION,
+        ];
+        if (in_array($nextStep, $registrationSteps, true)) {
+            $doc = $this->doc($version);
+            if (!$doc->code) {
+                $office = \App\Models\Office::find($doc->owner_office_id);
+                if ($office) {
+                    DB::transaction(function () use ($doc, $office) {
+                        $counter = \App\Models\DocumentCounter::query()
+                            ->where('office_id', $doc->owner_office_id)
+                            ->where('doctype', $doc->doctype)
+                            ->lockForUpdate()
+                            ->first();
+
+                        if (!$counter) {
+                            $counter = \App\Models\DocumentCounter::create([
+                                'office_id' => $doc->owner_office_id,
+                                'doctype'   => $doc->doctype,
+                                'next_seq'  => 1,
+                            ]);
+                        }
+
+                        $seq        = (int) $counter->next_seq;
+                        $doc->code  = \App\Models\Document::generateCode($office, $doc->doctype, $seq);
+                        $doc->reserved_code = null;
+                        $doc->save();
+
+                        $counter->next_seq = $seq + 1;
+                        $counter->save();
+                    });
+                }
+            }
+        }
+
         if ($isFinal) {
             $version->distributed_at = $version->distributed_at ?? now();
             $version->effective_date = $effectiveDate ?? $version->effective_date ?? now()->toDateString();

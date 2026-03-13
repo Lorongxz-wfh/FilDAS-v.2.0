@@ -30,7 +30,6 @@ export default function BackButton({
           d="M15 19l-7-7 7-7"
         />
       </svg>
-      <span className="text-sm font-medium">{label}</span>
     </button>
   );
 }

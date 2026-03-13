@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   getDocumentStats,
@@ -18,6 +18,8 @@ import Button from "../components/ui/Button";
 import InlineSpinner from "../components/ui/loader/InlineSpinner";
 import SkeletonList from "../components/ui/loader/SkeletonList";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
+import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
+import { RefreshCw } from "lucide-react";
 
 // ── Stat card ──────────────────────────────────────────────────────────────────
 
@@ -201,12 +203,40 @@ const MyWorkQueuePage: React.FC = () => {
   const showMonitoring = isQA(userRole);
   const activeItems = tab === "assigned" ? assignedItems : monitoringItems;
 
+  const loadAll = useCallback(async () => {
+    const roleNow = getUserRole();
+    const [s, a] = await Promise.all([
+      getDocumentStats(),
+      listActivityLogs({ scope: "mine", per_page: 10 }),
+    ]);
+    setStats(s);
+    setRecentActivity((a as any)?.data ?? []);
+    if (roleNow !== "ADMIN") {
+      const q = await getWorkQueue();
+      setAssignedItems(q.assigned ?? []);
+      setMonitoringItems(q.monitoring ?? []);
+    }
+  }, []);
+
+  const { refresh, refreshing } = usePageBurstRefresh(loadAll);
+
   return (
     <PageFrame
       title="My Work Queue"
       contentClassName="flex flex-col min-h-0 gap-5"
       right={
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={refreshing || loading}
+            title="Refresh queue"
+            className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+            />
+          </button>
           <Button
             type="button"
             variant="outline"

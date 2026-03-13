@@ -138,6 +138,7 @@ export function useDocumentWorkflow({
   // Visibility-aware catch-up: fire immediately when tab becomes visible
   useVisibilityPolling(
     useCallback(() => {
+      if (!versionId || versionId === 0) return;
       refreshTasksAndActions(versionId, { isPolling: true }).catch(() => {});
     }, [versionId, refreshTasksAndActions]),
     10_000,

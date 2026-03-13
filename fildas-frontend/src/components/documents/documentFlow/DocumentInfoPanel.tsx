@@ -215,7 +215,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
 
   const ownerOffice = document.ownerOffice ?? (document as any).office ?? null;
   // const reviewOffice =
-    document.reviewOffice ?? (document as any).review_office ?? null;
+  document.reviewOffice ?? (document as any).review_office ?? null;
   // const doctype = (document.doctype ?? "").toLowerCase();
   // const visibility = (document as any).visibility_scope ?? null;
   const tags: string[] = Array.isArray((document as any).tags)
@@ -388,7 +388,23 @@ const DocumentInfoPanel: React.FC<Props> = ({
             <InfoRow label="Title" value={document.title ?? "—"} />
           )}
 
-          <InfoRow label="Code" value={document.code ?? "—"} />
+          <InfoRow
+            label="Code"
+            value={
+              document.code ? (
+                document.code
+              ) : (document as any).reserved_code ? (
+                <span className="flex items-center gap-1.5">
+                  {(document as any).reserved_code}
+                  <span className="rounded-full bg-amber-100 dark:bg-amber-950/40 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400">
+                    pending
+                  </span>
+                </span>
+              ) : (
+                "—"
+              )
+            }
+          />
 
           {((document as any).school_year || (document as any).semester) && (
             <InfoRow

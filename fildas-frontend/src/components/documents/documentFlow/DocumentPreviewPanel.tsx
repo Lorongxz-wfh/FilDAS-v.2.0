@@ -76,6 +76,7 @@ type Props = {
   previewNonce: number;
   isUploading: boolean;
   uploadProgress: number;
+  isExternalUploading?: boolean;
   isPreviewLoading: boolean;
   setIsPreviewLoading: (v: boolean) => void;
   fileInputRef: React.Ref<HTMLInputElement>;
@@ -99,6 +100,7 @@ const DocumentPreviewPanel: React.FC<Props> = ({
   previewNonce,
   isUploading,
   uploadProgress,
+  isExternalUploading = false,
   isPreviewLoading,
   setIsPreviewLoading,
   fileInputRef,
@@ -152,8 +154,9 @@ const DocumentPreviewPanel: React.FC<Props> = ({
             {status === "Draft" && (
               <button
                 type="button"
+                disabled={isUploading || isExternalUploading}
                 onClick={() => {
-                  if (!isUploading) onClickReplace();
+                  if (!isUploading && !isExternalUploading) onClickReplace();
                 }}
                 className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition dark:hover:bg-surface-400 dark:hover:text-slate-200"
               >
@@ -173,12 +176,16 @@ const DocumentPreviewPanel: React.FC<Props> = ({
                 : ""
           }`}
           onClick={() => {
-            if (isUploading) return;
+            if (isUploading || isExternalUploading) return;
             if (status !== "Draft") return;
             onClickReplace();
           }}
-          onDrop={onDrop}
-          onDragOver={onDragOver}
+          onDrop={(e) => {
+            if (!isExternalUploading) onDrop(e);
+          }}
+          onDragOver={(e) => {
+            if (!isExternalUploading) onDragOver(e);
+          }}
           onDragLeave={onDragLeave}
         >
           {filePath && previewPath && !signedPreviewUrl && (

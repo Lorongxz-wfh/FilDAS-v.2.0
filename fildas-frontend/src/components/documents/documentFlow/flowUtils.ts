@@ -181,7 +181,7 @@ export function buildCustomFlowSteps(opts: {
   out.push({
     id: "custom_review_back_to_originator",
     label: `Owner review check (${ownerLabel})`,
-    statusValue: "For Owner Review",
+    statusValue: "For Owner Review Check",
     phase: "review",
   });
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   listDocumentsPage,
   getCurrentUserOfficeId,
@@ -16,7 +16,8 @@ import {
   isSysAdmin,
 } from "../lib/roleFilters";
 import ShareDocumentModal from "../components/documents/ShareDocumentModal";
-import { Search, X, LayoutList, LayoutGrid } from "lucide-react";
+import { Search, X, LayoutList, LayoutGrid, RefreshCw } from "lucide-react";
+import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 
 // ── Status badge ─────────────────────────────────────────────────────────────
 const STATUS_STYLES: Record<string, string> = {
@@ -203,6 +204,14 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
 
   const role = getUserRole();
   const myOfficeId = getCurrentUserOfficeId();
+
+  const reloadLibrary = useCallback(async () => {
+    setPage(1);
+    // page reset triggers the load useEffect automatically
+  }, []);
+
+  const { refresh: refreshLibrary, refreshing: refreshingLibrary } =
+    usePageBurstRefresh(reloadLibrary);
 
   useEffect(() => {
     setPage(1);
@@ -454,6 +463,17 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
             </button>
           </div>
 
+          <button
+            type="button"
+            onClick={refreshLibrary}
+            disabled={refreshingLibrary || loading}
+            title="Refresh library"
+            className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${refreshingLibrary ? "animate-spin" : ""}`}
+            />
+          </button>
           {(isQA(role) || isOfficeStaff(role) || isOfficeHead(role)) && (
             <Button
               type="button"

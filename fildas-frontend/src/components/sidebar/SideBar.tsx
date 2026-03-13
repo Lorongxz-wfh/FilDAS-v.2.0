@@ -88,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         ].join(" ")}
       >
         {/* Logo header */}
-        <div className="shrink-0 flex items-center justify-between border-b border-slate-200 dark:border-surface-400 px-2 h-14">
+        <div className="shrink-0 flex items-center justify-between border-b border-slate-200 dark:border-surface-400 px-2 h-13.5">
           {/* Logo — collapsed: expands sidebar | expanded: navigates to dashboard */}
           <div
             className="flex items-center gap-2 min-w-0 overflow-hidden cursor-pointer"

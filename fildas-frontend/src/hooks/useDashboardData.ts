@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   getDocumentStats,
   getWorkQueue,
@@ -37,6 +37,7 @@ export type DashboardData = {
   adminStats: AdminDashboardStats | null;
   loading: boolean;
   error: string | null;
+  reload: () => Promise<void>;
 };
 
 export function useDashboardData(role: UserRole): DashboardData {
@@ -53,24 +54,20 @@ export function useDashboardData(role: UserRole): DashboardData {
 
   const isAdmin = role === "ADMIN" || role === "SYSADMIN";
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load(silent = false) {
+  // Ref so reload() can call the latest load() without closure issues
+  const loadRef = useCallback(
+    async (silent = false) => {
       if (!silent) setLoading(true);
       setError(null);
       try {
         if (isAdmin) {
-          // Admin: only needs admin stats + activity
           const [adminData, activityData] = await Promise.all([
             getAdminDashboardStats(),
             listActivityLogs({ scope: "all", per_page: 8 }),
           ]);
-          if (cancelled) return;
           setAdminStats(adminData);
           setRecentActivity(activityData.data ?? []);
         } else {
-          // QA + Office: document-focused data
           const scope = isQA(role) ? "all" : "office";
           const promises: Promise<unknown>[] = [
             getDocumentStats(),
@@ -80,8 +77,6 @@ export function useDashboardData(role: UserRole): DashboardData {
           if (isQA(role)) promises.push(getComplianceReport());
 
           const results = await Promise.all(promises);
-          if (cancelled) return;
-
           const [statsData, queueData, activityData, reportData] = results as [
             DocumentStats,
             { assigned: WorkQueueItem[]; monitoring: WorkQueueItem[] },
@@ -96,27 +91,23 @@ export function useDashboardData(role: UserRole): DashboardData {
           if (reportData) setReport(reportData);
         }
       } catch (e: unknown) {
-        if (!cancelled)
-          setError(
-            e instanceof Error ? e.message : "Failed to load dashboard.",
-          );
+        setError(e instanceof Error ? e.message : "Failed to load dashboard.");
       } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
-    }
+    },
+    [role, isAdmin],
+  );
 
-    load();
+  useEffect(() => {
+    loadRef();
+    const interval = window.setInterval(() => loadRef(true), 60_000);
+    return () => window.clearInterval(interval);
+  }, [loadRef]);
 
-    const interval = window.setInterval(() => {
-      cancelled = false;
-      load(true); // silent refresh — no loading flash
-    }, 60_000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [role]);
+  const reload = useCallback(async () => {
+    await loadRef(true);
+  }, [loadRef]);
 
   return {
     stats,
@@ -127,5 +118,6 @@ export function useDashboardData(role: UserRole): DashboardData {
     adminStats,
     loading,
     error,
+    reload,
   };
 }

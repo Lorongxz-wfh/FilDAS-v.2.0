@@ -28,6 +28,7 @@ return new class extends Migration
 
 
             $table->string('code', 100)->nullable()->unique();
+            $table->string('reserved_code', 100)->nullable();
 
             $table->string('school_year', 20)->nullable();
             $table->string('semester', 20)->nullable();

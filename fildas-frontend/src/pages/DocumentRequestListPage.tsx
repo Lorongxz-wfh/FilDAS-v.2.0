@@ -9,6 +9,8 @@ import { useNavigate } from "react-router-dom";
 import { getAuthUser } from "../lib/auth.ts";
 import CreateDocumentRequestModal from "../components/documentRequests/CreateDocumentRequestModal";
 import Table, { type TableColumn } from "../components/ui/Table";
+import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
+import { RefreshCw } from "lucide-react";
 
 function formatDate(iso: string | null | undefined) {
   if (!iso) return "—";
@@ -76,6 +78,16 @@ export default function DocumentRequestListPage() {
 
   const navigate = useNavigate();
 
+  const reloadRequests = React.useCallback(async () => {
+    setRows([]);
+    setPage(1);
+    setHasMore(true);
+    setInitialLoading(true);
+  }, []);
+
+  const { refresh: refreshRequests, refreshing: refreshingRequests } =
+    usePageBurstRefresh(reloadRequests);
+
   // Reset when filters change
   React.useEffect(() => {
     setRows([]);
@@ -133,16 +145,29 @@ export default function DocumentRequestListPage() {
     <PageFrame
       title="Document Requests"
       right={
-        isQaAdmin ? (
-          <Button
+        <div className="flex items-center gap-2">
+          <button
             type="button"
-            variant="primary"
-            size="sm"
-            onClick={() => setCreateOpen(true)}
+            onClick={refreshRequests}
+            disabled={refreshingRequests || loading}
+            title="Refresh requests"
+            className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
           >
-            Create request
-          </Button>
-        ) : null
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${refreshingRequests ? "animate-spin" : ""}`}
+            />
+          </button>
+          {isQaAdmin && (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setCreateOpen(true)}
+            >
+              Create request
+            </Button>
+          )}
+        </div>
       }
       contentClassName="flex flex-col min-h-0 gap-4"
     >

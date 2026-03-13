@@ -24,13 +24,20 @@ import AdminRecentUsers from "../components/dashboard/AdminRecentUsers";
 import AdminActivityBarChart from "../components/dashboard/AdminActivityBarChart";
 
 import { useDashboardData } from "../hooks/useDashboardData";
+import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import {
   getUserRole,
   isQA,
   isOfficeStaff,
   isOfficeHead,
 } from "../lib/roleFilters";
-import { FolderOpen, ClipboardList, Inbox, Clock } from "lucide-react";
+import {
+  FolderOpen,
+  ClipboardList,
+  Inbox,
+  Clock,
+  RefreshCw,
+} from "lucide-react";
 
 // ─── Shared card wrapper ───────────────────────────────────────────────────
 const Card: React.FC<{
@@ -441,19 +448,34 @@ const DashboardPage: React.FC = () => {
   const isAdmin = role === "ADMIN" || role === "SYSADMIN";
   const canCreate = isQA(role) || isOfficeStaff(role) || isOfficeHead(role);
 
+  const { refresh, refreshing } = usePageBurstRefresh(dashData.reload);
+
   return (
     <PageFrame
       title="Dashboard"
       right={
-        canCreate ? (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => navigate("/documents/create")}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={refreshing || loading}
+            title="Refresh dashboard"
+            className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
           >
-            + New document
-          </Button>
-        ) : undefined
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+            />
+          </button>
+          {canCreate && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => navigate("/documents/create")}
+            >
+              + New document
+            </Button>
+          )}
+        </div>
       }
       contentClassName="space-y-5"
     >

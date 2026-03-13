@@ -31,6 +31,17 @@ type Props = {
   isSendingMessage: boolean;
   onSendMessage: () => Promise<void>;
   formatWhen: (iso: string) => string;
+  optimisticMessages: {
+    tempId: string;
+    text: string;
+    sending: boolean;
+    failed: boolean;
+  }[];
+  setOptimisticMessages: React.Dispatch<
+    React.SetStateAction<
+      { tempId: string; text: string; sending: boolean; failed: boolean }[]
+    >
+  >;
   isEditable?: boolean;
   onTitleSaved?: (newTitle: string) => void;
 };
@@ -56,6 +67,8 @@ const DocumentRightPanel: React.FC<Props> = ({
   isSendingMessage,
   onSendMessage,
   formatWhen,
+  optimisticMessages,
+  setOptimisticMessages,
   isEditable = false,
   onTitleSaved,
 }) => {
@@ -220,6 +233,8 @@ const DocumentRightPanel: React.FC<Props> = ({
                 onSend={onSendMessage}
                 formatWhen={formatWhen}
                 skeletonCount={infoExpanded ? 2 : 5}
+                optimisticMessages={optimisticMessages}
+                setOptimisticMessages={setOptimisticMessages}
               />
             ) : (
               <DocumentActivityPanel

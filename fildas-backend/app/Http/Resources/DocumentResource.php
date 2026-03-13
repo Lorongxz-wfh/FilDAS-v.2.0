@@ -54,6 +54,7 @@ class DocumentResource extends JsonResource
 
             'doctype' => $doc->doctype,
             'code' => $doc->code,
+            'reserved_code' => $doc->reserved_code,
             'tags' => $this->whenLoaded('tags', function () use ($doc) {
                 return $doc->tags->pluck('name')->values();
             }),
