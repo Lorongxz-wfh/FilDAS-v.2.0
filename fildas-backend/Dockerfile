@@ -12,11 +12,9 @@ RUN chown -R nginx:nginx /var/www/html/storage /var/www/html/bootstrap/cache
 
 COPY nginx.conf /etc/nginx/sites-available/default.conf
 
+ENV WEBROOT=/var/www/html/public
+
 COPY deploy.sh /deploy.sh
 RUN chmod +x /deploy.sh
 
-ENV WEBROOT=/var/www/html/public
-
-EXPOSE 80
-
-ENTRYPOINT ["/deploy.sh"]
+ENTRYPOINT ["/bin/bash", "/deploy.sh"]
