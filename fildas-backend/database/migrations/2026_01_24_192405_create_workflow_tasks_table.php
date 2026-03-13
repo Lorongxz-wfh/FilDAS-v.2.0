@@ -16,7 +16,7 @@ return new class extends Migration
 
             $table->foreignId('document_version_id')->constrained('document_versions')->cascadeOnDelete();
 
-            $table->enum('phase', ['review', 'approval', 'registration']);
+            $table->enum('phase', ['draft', 'review', 'approval', 'finalization', 'registration']);
             $table->string('step', 50);
 
             $table->foreignId('assigned_office_id')->nullable()->constrained('offices')->nullOnDelete();
