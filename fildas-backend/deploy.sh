@@ -9,6 +9,7 @@ php artisan config:cache
 
 php artisan storage:link --force || true
 php artisan migrate:fresh --force --seed
+php artisan about || true
 # Replace the line above with this two lines below to not wipe data
 # php artisan migrate --force || true
 # php artisan db:seed --force || true

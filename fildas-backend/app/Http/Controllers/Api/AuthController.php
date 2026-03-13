@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use App\Models\User;
 
 class AuthController extends Controller
@@ -22,11 +23,22 @@ class AuthController extends Controller
             ->first();
 
 
+        Log::info('Login debug', [
+            'email_input' => $credentials['email'],
+            'user_found' => !!$user,
+            'user_id' => $user?->id,
+            'user_email' => $user?->email,
+            'password_match' => $user ? Hash::check($credentials['password'], $user->password) : false,
+            'deleted_at' => $user?->deleted_at,
+            'disabled_at' => $user?->disabled_at,
+        ]);
+
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             return response()->json([
                 'message' => 'Invalid credentials',
             ], 422);
         }
+
 
         if ($user->disabled_at) {
             return response()->json([

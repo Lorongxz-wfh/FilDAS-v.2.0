@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\Role;
 use App\Models\Office;
@@ -190,5 +191,11 @@ class UserSeeder extends Seeder
                 'office_id' => $officeId('PO'),
             ]
         );
+
+        Log::info('UserSeeder done', [
+            'admin_exists' => \App\Models\User::where('email', 'admin@example.com')->exists(),
+            'qa_exists' => \App\Models\User::where('email', 'qa@example.com')->exists(),
+            'user_count' => \App\Models\User::count(),
+        ]);
     }
 }
