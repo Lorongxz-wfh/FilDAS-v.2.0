@@ -44,6 +44,7 @@ type Props = {
   >;
   isEditable?: boolean;
   onTitleSaved?: (newTitle: string) => void;
+  onChanged?: () => void;
 };
 
 // PanelHeightButton removed — info section now scrolls independently
@@ -71,6 +72,7 @@ const DocumentRightPanel: React.FC<Props> = ({
   setOptimisticMessages,
   isEditable = false,
   onTitleSaved,
+  onChanged,
 }) => {
   const [infoExpanded, setInfoExpanded] = React.useState(true);
   const [commentsExpanded, setCommentsExpanded] = React.useState(true);
@@ -126,11 +128,6 @@ const DocumentRightPanel: React.FC<Props> = ({
               )}
             </div>
           )}
-          {isEditable && isDataReady && (
-            <span className="ml-auto text-[10px] font-medium text-sky-500 dark:text-sky-400 shrink-0">
-              Draft
-            </span>
-          )}
         </button>
 
         {infoExpanded && (
@@ -160,6 +157,7 @@ const DocumentRightPanel: React.FC<Props> = ({
                 tasks={tasks}
                 isEditable={isEditable}
                 onTitleSaved={onTitleSaved}
+                onChanged={onChanged}
               />
             )}
           </div>

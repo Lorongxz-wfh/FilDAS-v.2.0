@@ -33,6 +33,7 @@ class DocumentResource extends JsonResource
 
             // keep old key names temporarily for frontend compatibility
             'office_id' => $doc->owner_office_id,
+            'owner_office_id' => $doc->owner_office_id,
             'office' => $this->whenLoaded('ownerOffice', function () use ($doc) {
                 return [
                     'id' => $doc->ownerOffice->id,
@@ -58,6 +59,17 @@ class DocumentResource extends JsonResource
             'tags' => $this->whenLoaded('tags', function () use ($doc) {
                 return $doc->tags->pluck('name')->values();
             }),
+
+            'was_participant' => (function () use ($doc) {
+                $request = request();
+                $user = $request?->user();
+                if (!$user || !$user->office_id) return false;
+                return \App\Models\WorkflowTask::query()
+                    ->where('assigned_office_id', (int) $user->office_id)
+                    ->join('document_versions', 'workflow_tasks.document_version_id', '=', 'document_versions.id')
+                    ->where('document_versions.document_id', (int) $doc->id)
+                    ->exists();
+            })(),
 
 
             // Flattened version fields (compat)

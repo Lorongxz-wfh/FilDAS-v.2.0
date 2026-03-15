@@ -700,32 +700,59 @@ class DocumentController extends Controller
     // POST /api/document-versions/{version}/replace-file
     public function replaceFile(Request $request, DocumentVersion $version)
     {
-        if (!in_array($version->status, ['Draft', 'Office Draft'])) {
-            return response()->json(['message' => 'Can only replace file during Draft.'], 422);
-        }
+        Gate::authorize('replaceFile', $version);
 
         $request->validate([
             'file' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:10240',
         ]);
 
+        $approvalStatuses = [
+            'For Office Approval',
+            'For VP Approval',
+            "For President's Approval",
+            'For QA Approval Check',
+            'For Office Head Approval',
+            'For Staff Approval Check',
+            'For Owner Approval Check',
+        ];
+        $isDuringApproval = in_array($version->status, $approvalStatuses, true)
+            || (bool) preg_match('/^For .+ Approval$/', $version->status);
+
         $this->versionFiles->saveVersionFile($version, $request->file('file'));
 
+        $freshVersion = $version->fresh();
+
+        // Flag as signed file when replaced during approval phase
+        if ($isDuringApproval && $freshVersion->file_path) {
+            $freshVersion->signed_file_path = $freshVersion->file_path;
+            $freshVersion->save();
+        }
+
+        $label = $isDuringApproval
+            ? 'Uploaded signed document for approval'
+            : 'Replaced the draft file';
+
+        $event = $isDuringApproval
+            ? 'version.signed_file_uploaded'
+            : 'version.file_replaced';
+
         ActivityLog::create([
-            'document_id' => $version->document_id,
+            'document_id'         => $version->document_id,
             'document_version_id' => $version->id,
-            'actor_user_id' => $request->user()?->id,
-            'actor_office_id' => $request->user()?->office_id,
-            'target_office_id' => null,
-            'event' => 'version.file_replaced',
-            'label' => 'Replaced the draft file',
-            'meta' => [
-                'status' => $version->status,
+            'actor_user_id'       => $request->user()?->id,
+            'actor_office_id'     => $request->user()?->office_id,
+            'target_office_id'    => null,
+            'event'               => $event,
+            'label'               => $label,
+            'meta'                => [
+                'status'         => $version->status,
                 'version_number' => $version->version_number,
-                'filename' => $version->original_filename,
+                'filename'       => $freshVersion->original_filename,
+                'is_signed'      => $isDuringApproval,
             ],
         ]);
 
-        return response()->json($version->fresh(), 200);
+        return response()->json($freshVersion->fresh(), 200);
     }
 
     // HALF
@@ -946,9 +973,34 @@ class DocumentController extends Controller
     {
         $version->load('document.ownerOffice');
 
+        // Check if file replacement is required after rejection
+        $needsFileReplacement = false;
+        $draftStatuses = ['Draft', 'Office Draft'];
+        if (in_array($version->status, $draftStatuses, true)) {
+            $lastRejected = ActivityLog::where('document_version_id', $version->id)
+                ->where('event', 'workflow.rejected')
+                ->orderByDesc('created_at')
+                ->value('created_at');
+
+            if ($lastRejected) {
+                $lastFileEvent = ActivityLog::where('document_version_id', $version->id)
+                    ->whereIn('event', ['version.file_replaced', 'version.file_uploaded', 'version.signed_file_uploaded'])
+                    ->orderByDesc('created_at')
+                    ->value('created_at');
+
+                // Needs replacement if rejected AFTER last file upload (or never uploaded)
+                $needsFileReplacement = !$lastFileEvent || $lastRejected > $lastFileEvent;
+            }
+        }
+
+        $versionData = $version->toArray();
+        $versionData['needs_file_replacement'] = $needsFileReplacement;
+
         return response()->json([
-            'version' => $version,
-            'document' => new DocumentResource($version->document->load(['ownerOffice', 'latestVersion'])),
+            'version' => $versionData,
+            'document' => new DocumentResource(
+                $version->document->load(['ownerOffice', 'latestVersion', 'tags'])
+            ),
         ]);
     }
 
@@ -1001,5 +1053,96 @@ class DocumentController extends Controller
         Gate::forUser($user)->authorize('preview', $version);
 
         return $this->previewVersion($request, $version);
+    }
+
+    // GET /api/documents/finished
+    // Documents where the current user's office had a workflow task, now Distributed
+    public function finished(Request $request)
+    {
+        $user     = $request->user();
+        $officeId = (int) ($user?->office_id ?? 0);
+        $role = strtolower(trim((string) ($user?->role?->name ?? '')));
+        $isQa = in_array($role, ['qa', 'sysadmin', 'admin'], true);
+        $perPage  = min((int) ($request->query('per_page', 15)), 50);
+        $page     = max((int) ($request->query('page', 1)), 1);
+        $q        = trim((string) ($request->query('q', '')));
+
+        // Build base query — distributed versions only
+        $query = DB::table('document_versions as dv')
+            ->join('documents as d', 'd.id', '=', 'dv.document_id')
+            ->leftJoin('offices as oo', 'oo.id', '=', 'd.owner_office_id')
+            ->where('dv.status', 'Distributed')
+            ->whereNull('dv.superseded_at')
+            ->whereNull('dv.cancelled_at');
+
+        if ($isQa) {
+            // QA sees all distributed documents they were involved in
+            // (they touch everything, so just show all distributed)
+            // Still scope to docs they created or had tasks on
+            $query->where(function ($q2) use ($user, $officeId) {
+                $q2->where('d.created_by', $user->id)
+                    ->orWhereExists(function ($sub) use ($officeId) {
+                        $sub->select(DB::raw(1))
+                            ->from('workflow_tasks as wt')
+                            ->whereColumn('wt.document_version_id', 'dv.id')
+                            ->where('wt.assigned_office_id', $officeId);
+                    });
+            });
+        } else {
+            // Office users: only docs where their office had a task
+            $query->whereExists(function ($sub) use ($officeId) {
+                $sub->select(DB::raw(1))
+                    ->from('workflow_tasks as wt')
+                    ->whereColumn('wt.document_version_id', 'dv.id')
+                    ->where('wt.assigned_office_id', $officeId)
+                    ->where('wt.status', 'completed');
+            });
+        }
+
+        if ($q) {
+            $query->where(function ($q2) use ($q) {
+                $q2->where('d.title', 'like', "%{$q}%")
+                    ->orWhere('d.code', 'like', "%{$q}%");
+            });
+        }
+
+        $total = (clone $query)->count();
+
+        $rows = $query
+            ->select([
+                'd.id',
+                'd.title',
+                'd.code',
+                'd.doctype',
+                'd.owner_office_id',
+                'd.created_by',
+                'd.created_at',
+                'dv.id as version_id',
+                'dv.version_number',
+                'dv.status',
+                'dv.distributed_at',
+                'dv.effective_date',
+                'dv.original_filename',
+                'dv.file_path',
+                'dv.preview_path',
+                'oo.name as owner_office_name',
+                'oo.code as owner_office_code',
+            ])
+            ->orderByDesc('dv.distributed_at')
+            ->offset(($page - 1) * $perPage)
+            ->limit($perPage)
+            ->get();
+
+        $lastPage = max(1, (int) ceil($total / $perPage));
+
+        return response()->json([
+            'data' => $rows,
+            'meta' => [
+                'current_page' => $page,
+                'last_page'    => $lastPage,
+                'per_page'     => $perPage,
+                'total'        => $total,
+            ],
+        ]);
     }
 }

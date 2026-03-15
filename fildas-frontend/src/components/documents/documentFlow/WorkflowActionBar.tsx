@@ -33,8 +33,16 @@ const WorkflowActionBar: React.FC<Props> = ({
   const handleConfirm = async () => {
     if (!confirmAction) return;
 
-    if (confirmAction.key === "REJECT" && !rejectNote.trim()) {
-      setRejectError("A note is required when rejecting.");
+    if (
+      (confirmAction.key === "REJECT" ||
+        confirmAction.key === "CANCEL_DOCUMENT") &&
+      !rejectNote.trim()
+    ) {
+      setRejectError(
+        confirmAction.key === "CANCEL_DOCUMENT"
+          ? "A reason is required when cancelling."
+          : "A note is required when rejecting.",
+      );
       return;
     }
 
@@ -48,6 +56,8 @@ const WorkflowActionBar: React.FC<Props> = ({
   };
 
   const isReject = confirmAction?.key === "REJECT";
+  const isCancel = confirmAction?.key === "CANCEL_DOCUMENT";
+  const needsNote = isReject || isCancel;
 
   return (
     <>
@@ -102,16 +112,21 @@ const WorkflowActionBar: React.FC<Props> = ({
       <Modal
         open={!!confirmAction}
         title={
-          isReject ? "Reject document" : `Confirm: ${confirmAction?.label}`
+          isReject
+            ? "Reject document"
+            : isCancel
+              ? "Cancel document"
+              : `Confirm: ${confirmAction?.label}`
         }
         onClose={() => setConfirmAction(null)}
         widthClassName="max-w-md"
       >
         <div className="space-y-4">
-          {isReject ? (
+          {needsNote ? (
             <div>
               <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                Rejection note <span className="text-rose-500">*</span>
+                {isCancel ? "Cancellation reason" : "Rejection note"}
+                <span className="text-rose-500 ml-0.5">*</span>
               </label>
               <textarea
                 rows={3}
@@ -120,7 +135,11 @@ const WorkflowActionBar: React.FC<Props> = ({
                   setRejectNote(e.target.value);
                   setRejectError("");
                 }}
-                placeholder="Explain why this document is being rejected…"
+                placeholder={
+                  isCancel
+                    ? "Explain why this document is being cancelled…"
+                    : "Explain why this document is being rejected…"
+                }
                 className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200"
               />
               {rejectError && (

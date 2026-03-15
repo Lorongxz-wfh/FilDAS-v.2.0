@@ -3,21 +3,19 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { getAuthUser } from "../lib/auth";
 import PageFrame from "../components/layout/PageFrame";
 import Table, { type TableColumn } from "../components/ui/Table";
-import { listActivityLogs } from "../services/documents";
+import { listActivityLogs, getDocumentVersion } from "../services/documents";
 import Modal from "../components/ui/Modal";
 import ActivityCalendar from "../components/activityLogs/ActivityCalendar";
-import { List, CalendarDays } from "lucide-react";
+import { List, CalendarDays, X } from "lucide-react";
 
 type Scope = "all" | "office" | "mine";
+type Category = "" | "workflow" | "request";
 
 const EVENT_LABELS: Record<string, string> = {
-  // Auth
   "auth.login": "Logged in",
   "auth.logout": "Logged out",
-  // Profile
   "profile.updated": "Profile updated",
   "profile.password_changed": "Password changed",
-  // Workflow
   "workflow.distributed": "Document distributed",
   "workflow.sent_to_review": "Sent for review",
   "workflow.forwarded_to_vp": "Forwarded to VP",
@@ -29,11 +27,11 @@ const EVENT_LABELS: Record<string, string> = {
   "workflow.returned_for_check": "Returned for final check",
   "workflow.rejected": "Rejected",
   "workflow.action": "Workflow action",
-  // Document
   "document.created": "Document created",
   "document.tags_updated": "Tags updated",
   "version.file_uploaded": "File uploaded",
   "version.file_replaced": "File replaced",
+  "version.signed_file_uploaded": "Signed document uploaded",
   "version.updated": "Draft updated",
   "version.revision_created": "Revision started",
   "version.cancelled": "Version cancelled",
@@ -41,14 +39,13 @@ const EVENT_LABELS: Record<string, string> = {
   "version.previewed": "Document previewed",
   "version.downloaded": "Document downloaded",
   "message.posted": "Comment posted",
-  // Document requests
   "document_request.created": "Document request created",
+  "document_request.updated": "Request updated",
   "document_request.submission.submitted": "Submission uploaded",
   "document_request.submission.reviewed": "Submission reviewed",
   "document_request.submission.accepted": "Submission accepted",
   "document_request.submission.rejected": "Submission rejected",
-  "document_request.message.posted": "Comment posted",
-  // Admin
+  "document_request.message.posted": "Request comment posted",
   "user.created": "User created",
   "user.updated": "User updated",
   "user.disabled": "User disabled",
@@ -93,13 +90,44 @@ function DetailRow({
   );
 }
 
-function ActivityModal({ row, onClose }: { row: any; onClose: () => void }) {
+function ActivityModal({
+  row,
+  onClose,
+  onNavigate,
+}: {
+  row: any;
+  onClose: () => void;
+  onNavigate: (row: any) => void;
+}) {
   const fromStatus = row.meta?.from_status;
   const toStatus = row.meta?.to_status;
   const note = row.meta?.note;
+  const canNav = !!(
+    row.document_version_id ||
+    row.document_id ||
+    row.meta?.document_request_id
+  );
 
   return (
-    <Modal open={true} title={friendlyEvent(row.event)} onClose={onClose}>
+    <Modal
+      open={true}
+      title={friendlyEvent(row.event)}
+      onClose={onClose}
+      headerActions={
+        canNav ? (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onNavigate(row);
+            }}
+            className="rounded-lg bg-brand-500 hover:bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition"
+          >
+            Open →
+          </button>
+        ) : undefined
+      }
+    >
       <div className="space-y-0">
         <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">
           {formatWhen(row.created_at)}
@@ -197,8 +225,11 @@ const ActivityLogsPage: React.FC = () => {
 
   const [tab, setTab] = React.useState<TabView>("log");
   const [scope, setScope] = React.useState<Scope>("all");
+  const [category, setCategory] = React.useState<Category>("");
   const [q, setQ] = React.useState("");
   const [qDebounced, setQDebounced] = React.useState("");
+  const [dateFrom, setDateFrom] = React.useState("");
+  const [dateTo, setDateTo] = React.useState("");
   const [selectedRow, setSelectedRow] = React.useState<any | null>(null);
 
   React.useEffect(() => {
@@ -218,7 +249,7 @@ const ActivityLogsPage: React.FC = () => {
     setPage(1);
     setHasMore(true);
     setInitialLoading(true);
-  }, [scope, qDebounced]);
+  }, [scope, qDebounced, category, dateFrom, dateTo]);
 
   React.useEffect(() => {
     let alive = true;
@@ -232,6 +263,9 @@ const ActivityLogsPage: React.FC = () => {
           q: qDebounced.trim() || undefined,
           page,
           per_page: 25,
+          category: category || undefined,
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
         });
         if (!alive) return;
         const incoming = res.data ?? [];
@@ -255,7 +289,38 @@ const ActivityLogsPage: React.FC = () => {
     return () => {
       alive = false;
     };
-  }, [page, scope, qDebounced, hasMore]);
+  }, [page, scope, qDebounced, category, dateFrom, dateTo, hasMore]);
+
+  // Navigate from activity row
+  const handleRowNavigate = async (row: any) => {
+    if (row.meta?.document_request_id) {
+      navigate(`/document-requests/${row.meta.document_request_id}`);
+      return;
+    }
+    if (row.document_version_id) {
+      try {
+        const { document } = await getDocumentVersion(
+          Number(row.document_version_id),
+        );
+        navigate(`/documents/${document.id}`, {
+          state: { from: "/activity-logs" },
+        });
+      } catch {
+        /* silent */
+      }
+      return;
+    }
+    if (row.document_id) {
+      navigate(`/documents/${row.document_id}`, {
+        state: { from: "/activity-logs" },
+      });
+    }
+  };
+
+  const inputCls =
+    "rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:focus:ring-sky-900/30 transition";
+
+  const hasFilters = category || q || dateFrom || dateTo || scope !== "all";
 
   const columns: TableColumn<any>[] = [
     {
@@ -318,17 +383,12 @@ const ActivityLogsPage: React.FC = () => {
       contentClassName="flex flex-col min-h-0 gap-4"
       right={
         <div className="flex items-center gap-2">
-          {/* Log / Calendar toggle */}
           <div className="flex items-center rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-0.5">
             <button
               type="button"
               onClick={() => setTab("log")}
               title="Log view"
-              className={`p-1.5 rounded-md transition ${
-                tab === "log"
-                  ? "bg-slate-100 dark:bg-surface-400 text-slate-900 dark:text-slate-100"
-                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-              }`}
+              className={`p-1.5 rounded-md transition ${tab === "log" ? "bg-slate-100 dark:bg-surface-400 text-slate-900 dark:text-slate-100" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
             >
               <List size={15} />
             </button>
@@ -336,11 +396,7 @@ const ActivityLogsPage: React.FC = () => {
               type="button"
               onClick={() => setTab("calendar")}
               title="Calendar view"
-              className={`p-1.5 rounded-md transition ${
-                tab === "calendar"
-                  ? "bg-slate-100 dark:bg-surface-400 text-slate-900 dark:text-slate-100"
-                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-              }`}
+              className={`p-1.5 rounded-md transition ${tab === "calendar" ? "bg-slate-100 dark:bg-surface-400 text-slate-900 dark:text-slate-100" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
             >
               <CalendarDays size={15} />
             </button>
@@ -368,28 +424,72 @@ const ActivityLogsPage: React.FC = () => {
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value as Scope)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 transition"
+            className={inputCls}
           >
             <option value="all">All</option>
             <option value="office">My office</option>
             <option value="mine">Mine</option>
           </select>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search event/label…"
-            className="w-72 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              setQ("");
-              setScope("all");
-            }}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300 dark:hover:bg-surface-400 transition-colors"
+
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value as Category)}
+            className={inputCls}
           >
-            Clear
-          </button>
+            <option value="">All categories</option>
+            <option value="workflow">Workflow</option>
+            <option value="request">Requests</option>
+          </select>
+
+          <div className="relative">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search event/label…"
+              className={`${inputCls} w-56 pr-8`}
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className={inputCls}
+            title="From date"
+          />
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className={inputCls}
+            title="To date"
+          />
+
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setQ("");
+                setScope("all");
+                setCategory("");
+                setDateFrom("");
+                setDateTo("");
+              }}
+              className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2 text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+            >
+              Clear
+            </button>
+          )}
+
           {error && <span className="text-xs text-rose-500">{error}</span>}
         </div>
       )}
@@ -398,7 +498,7 @@ const ActivityLogsPage: React.FC = () => {
       {tab === "log" && (
         <div
           className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden"
-          style={{ height: "calc(100vh - 220px)" }}
+          style={{ height: "calc(100vh - 230px)" }}
         >
           <Table
             bare
@@ -419,7 +519,11 @@ const ActivityLogsPage: React.FC = () => {
       )}
 
       {selectedRow && (
-        <ActivityModal row={selectedRow} onClose={() => setSelectedRow(null)} />
+        <ActivityModal
+          row={selectedRow}
+          onClose={() => setSelectedRow(null)}
+          onNavigate={handleRowNavigate}
+        />
       )}
     </PageFrame>
   );

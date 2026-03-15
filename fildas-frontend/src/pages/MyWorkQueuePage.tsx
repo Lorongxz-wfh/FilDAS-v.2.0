@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   getDocumentStats,
   getWorkQueue,
   listActivityLogs,
   getDocumentVersion,
+  listFinishedDocuments,
+  type FinishedDocumentRow,
 } from "../services/documents";
 import type { WorkQueueItem } from "../services/documents";
 import {
@@ -19,10 +21,9 @@ import InlineSpinner from "../components/ui/loader/InlineSpinner";
 import SkeletonList from "../components/ui/loader/SkeletonList";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, CheckCircle2, FileText } from "lucide-react";
 
-// ── Stat card ──────────────────────────────────────────────────────────────────
-
+// ── Stat card ──────────────────────────────────────────────────────────────
 const StatCard: React.FC<{
   label: string;
   value: number | null;
@@ -50,8 +51,7 @@ const StatCard: React.FC<{
   );
 };
 
-// ── Queue item card ────────────────────────────────────────────────────────────
-
+// ── Queue item card ────────────────────────────────────────────────────────
 const QueueCard: React.FC<{
   item: WorkQueueItem;
   onClick: (id: number) => void;
@@ -78,7 +78,6 @@ const QueueCard: React.FC<{
       onClick={() => onClick(doc.id)}
       className="w-full text-left flex items-center gap-4 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-3 transition hover:border-sky-300 dark:hover:border-sky-700 hover:shadow-sm"
     >
-      {/* Status pill */}
       <div className="shrink-0">
         <span
           className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusColor(ver.status)}`}
@@ -86,8 +85,6 @@ const QueueCard: React.FC<{
           {ver.status}
         </span>
       </div>
-
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
           {doc.title}
@@ -96,8 +93,6 @@ const QueueCard: React.FC<{
           {doc.code} · v{ver.version_number}
         </p>
       </div>
-
-      {/* Action badge */}
       <div className="shrink-0">
         {item.can_act ? (
           <span className="inline-flex items-center gap-1 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 px-2.5 py-1 text-[11px] font-semibold text-sky-700 dark:text-sky-400">
@@ -113,14 +108,57 @@ const QueueCard: React.FC<{
   );
 };
 
-// ── Main page ──────────────────────────────────────────────────────────────────
+// ── Finished doc card ──────────────────────────────────────────────────────
+const FinishedCard: React.FC<{
+  doc: FinishedDocumentRow;
+  onClick: () => void;
+}> = ({ doc, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="w-full text-left flex items-center gap-4 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-3 transition hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-sm group"
+  >
+    <div className="shrink-0 flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30">
+      <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+        {doc.title}
+      </p>
+      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+        {doc.code ?? "—"} · v{doc.version_number}
+        {doc.owner_office_code && ` · ${doc.owner_office_code}`}
+      </p>
+    </div>
+    <div className="shrink-0 flex flex-col items-end gap-1">
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+        <CheckCircle2 className="h-2.5 w-2.5" />
+        Distributed
+      </span>
+      {doc.distributed_at && (
+        <span className="text-[10px] text-slate-400 dark:text-slate-500">
+          {new Date(doc.distributed_at).toLocaleDateString()}
+        </span>
+      )}
+    </div>
+  </button>
+);
+
+// ── Main page ──────────────────────────────────────────────────────────────
+type QueueTab = "assigned" | "monitoring" | "finished";
 
 const MyWorkQueuePage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [userRole] = useState(getUserRole());
 
   const [assignedItems, setAssignedItems] = useState<WorkQueueItem[]>([]);
   const [monitoringItems, setMonitoringItems] = useState<WorkQueueItem[]>([]);
+  const [finishedDocs, setFinishedDocs] = useState<FinishedDocumentRow[]>([]);
+  const [finishedLoading, setFinishedLoading] = useState(false);
+  const [finishedHasMore, setFinishedHasMore] = useState(false);
+  const [finishedPage, setFinishedPage] = useState(1);
+
   const [stats, setStats] = useState<{
     total: number;
     pending: number;
@@ -130,7 +168,10 @@ const MyWorkQueuePage: React.FC = () => {
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"assigned" | "monitoring">("assigned");
+
+  // Pre-select tab from router state (e.g. from Work Queue "finished" link)
+  const initialTab = (location.state as any)?.tab as QueueTab | undefined;
+  const [tab, setTab] = useState<QueueTab>(initialTab ?? "assigned");
 
   const formatWhen = (iso?: string | null) => {
     if (!iso) return "";
@@ -146,6 +187,7 @@ const MyWorkQueuePage: React.FC = () => {
     }
   };
 
+  // ── Load queue + stats + activity ─────────────────────────────────────────
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -156,7 +198,12 @@ const MyWorkQueuePage: React.FC = () => {
 
         const [s, a] = await Promise.all([
           getDocumentStats(),
-          listActivityLogs({ scope: "mine", per_page: 10 }),
+          // Workflow-only events for recent activity
+          listActivityLogs({
+            scope: "mine",
+            per_page: 10,
+            category: "workflow",
+          }),
         ]);
 
         if (!alive) return;
@@ -183,6 +230,34 @@ const MyWorkQueuePage: React.FC = () => {
     };
   }, []);
 
+  // ── Load finished docs ─────────────────────────────────────────────────────
+  const loadFinished = useCallback(async (page: number) => {
+    setFinishedLoading(true);
+    try {
+      const res = await listFinishedDocuments({ page, per_page: 15 });
+      const incoming = res.data ?? [];
+      setFinishedDocs((prev) =>
+        page === 1 ? incoming : [...prev, ...incoming],
+      );
+      setFinishedHasMore(
+        res.meta?.current_page != null &&
+          res.meta?.last_page != null &&
+          res.meta.current_page < res.meta.last_page,
+      );
+    } catch {
+      /* silent */
+    } finally {
+      setFinishedLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === "finished" && finishedDocs.length === 0) {
+      loadFinished(1);
+    }
+  }, [tab]);
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
   const openByDocId = (docId: number) =>
     navigate(`/documents/${docId}`, { state: { from: "/work-queue" } });
 
@@ -207,7 +282,7 @@ const MyWorkQueuePage: React.FC = () => {
     const roleNow = getUserRole();
     const [s, a] = await Promise.all([
       getDocumentStats(),
-      listActivityLogs({ scope: "mine", per_page: 10 }),
+      listActivityLogs({ scope: "mine", per_page: 10, category: "workflow" }),
     ]);
     setStats(s);
     setRecentActivity((a as any)?.data ?? []);
@@ -216,9 +291,33 @@ const MyWorkQueuePage: React.FC = () => {
       setAssignedItems(q.assigned ?? []);
       setMonitoringItems(q.monitoring ?? []);
     }
-  }, []);
+    if (tab === "finished") {
+      setFinishedDocs([]);
+      setFinishedPage(1);
+      await loadFinished(1);
+    }
+  }, [tab, loadFinished]);
 
   const { refresh, refreshing } = usePageBurstRefresh(loadAll);
+
+  // ── Tabs config ────────────────────────────────────────────────────────────
+  const tabs: { value: QueueTab; label: string; count?: number }[] = [
+    {
+      value: "assigned",
+      label: "Assigned",
+      count: assignedItems.length || undefined,
+    },
+    ...(showMonitoring
+      ? [
+          {
+            value: "monitoring" as QueueTab,
+            label: "Monitoring",
+            count: monitoringItems.length || undefined,
+          },
+        ]
+      : []),
+    { value: "finished", label: "Finished" },
+  ];
 
   return (
     <PageFrame
@@ -243,7 +342,7 @@ const MyWorkQueuePage: React.FC = () => {
             size="sm"
             onClick={() => navigate("/documents")}
           >
-            Document library
+            Library
           </Button>
           {canCreate && (
             <Button
@@ -292,66 +391,102 @@ const MyWorkQueuePage: React.FC = () => {
         />
       </div>
 
-      {/* Queue + Activity — 2 col on large screens */}
+      {/* Main 2-col layout */}
       <div
         className="flex gap-5 flex-col lg:flex-row lg:min-h-0"
         style={{ height: "calc(100vh - 275px)" }}
       >
-        {/* Work queue panel */}
+        {/* Queue panel */}
         <div className="flex flex-col flex-1 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
-          {/* Panel header */}
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-5 py-4">
+          {/* Panel header + tabs */}
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-5 py-3">
             <div>
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                Pending actions
+                {tab === "finished" ? "Completed flows" : "Pending actions"}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Items requiring your attention
+                {tab === "finished"
+                  ? "Distributed documents you were involved in"
+                  : "Items requiring your attention"}
               </p>
             </div>
 
-            {/* Tabs — only show if QA (has monitoring) */}
-            {showMonitoring && (
-              <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 p-1">
-                {(["assigned", "monitoring"] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setTab(t)}
-                    className={[
-                      "rounded-md px-3 py-1 text-xs font-medium capitalize transition",
-                      tab === t
-                        ? "bg-white dark:bg-surface-500 text-slate-900 dark:text-slate-100 shadow-sm border border-slate-200 dark:border-surface-400"
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
-                    ].join(" ")}
-                  >
-                    {t}
-                    {t === "assigned" && assignedItems.length > 0 && (
-                      <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-sky-100 dark:bg-sky-950/40 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-400">
-                        {assignedItems.length}
-                      </span>
-                    )}
-                    {t === "monitoring" && monitoringItems.length > 0 && (
-                      <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-slate-100 dark:bg-surface-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-300">
-                        {monitoringItems.length}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Count badge for non-QA */}
-            {!showMonitoring && assignedItems.length > 0 && (
-              <span className="inline-flex items-center rounded-full border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 px-2.5 py-0.5 text-xs font-semibold text-sky-700 dark:text-sky-400">
-                {assignedItems.length} pending
-              </span>
-            )}
+            {/* Tab switcher */}
+            <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 p-1">
+              {tabs.map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setTab(t.value)}
+                  className={[
+                    "rounded-md px-3 py-1 text-xs font-medium capitalize transition",
+                    tab === t.value
+                      ? "bg-white dark:bg-surface-500 text-slate-900 dark:text-slate-100 shadow-sm border border-slate-200 dark:border-surface-400"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
+                  ].join(" ")}
+                >
+                  {t.label}
+                  {t.count != null && (
+                    <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-sky-100 dark:bg-sky-950/40 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-400">
+                      {t.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Queue list */}
           <div className="flex-1 overflow-y-auto px-5 py-4">
-            {loading ? (
+            {tab === "finished" ? (
+              finishedLoading && finishedDocs.length === 0 ? (
+                <SkeletonList rows={4} rowClassName="h-14 rounded-xl" />
+              ) : finishedDocs.length === 0 ? (
+                <div className="flex h-full min-h-40 items-center justify-center rounded-xl border border-dashed border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600">
+                  <div className="text-center">
+                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-surface-400 text-slate-400 dark:text-slate-500 text-lg">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      No finished flows yet
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+                      Distributed documents you acted on will appear here.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {finishedDocs.map((doc) => (
+                    <FinishedCard
+                      key={doc.version_id}
+                      doc={doc}
+                      onClick={() =>
+                        navigate(`/documents/${doc.id}`, {
+                          state: { from: "/work-queue" },
+                        })
+                      }
+                    />
+                  ))}
+                  {finishedHasMore && (
+                    <div className="flex justify-center pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = finishedPage + 1;
+                          setFinishedPage(next);
+                          loadFinished(next);
+                        }}
+                        disabled={finishedLoading}
+                        className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
+                      >
+                        {finishedLoading ? "Loading…" : "Load more"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            ) : loading ? (
               <SkeletonList rows={4} rowClassName="h-14 rounded-xl" />
             ) : activeItems.length === 0 ? (
               <div className="flex h-full min-h-40 items-center justify-center rounded-xl border border-dashed border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600">
@@ -383,35 +518,37 @@ const MyWorkQueuePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Recent activity panel */}
+        {/* Recent activity panel — workflow only */}
         <div className="flex flex-col lg:w-80 shrink-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden max-h-96 lg:max-h-none">
-          {/* Panel header */}
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-5 py-4">
             <div>
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 Recent activity
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Your latest actions
+                Workflow actions
               </p>
             </div>
             <button
               type="button"
-              onClick={() => navigate("/my-activity")}
+              onClick={() =>
+                navigate("/my-activity", {
+                  state: { category: "workflow" },
+                })
+              }
               className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
             >
               View all
             </button>
           </div>
 
-          {/* Activity list */}
           <div className="flex-1 overflow-y-auto px-4 py-4">
             {loadingActivity ? (
               <SkeletonList rows={5} rowClassName="h-12 rounded-lg" />
             ) : recentActivity.length === 0 ? (
               <div className="flex h-full min-h-30 items-center justify-center">
                 <p className="text-xs text-slate-400 dark:text-slate-500">
-                  No activity yet.
+                  No workflow activity yet.
                 </p>
               </div>
             ) : (

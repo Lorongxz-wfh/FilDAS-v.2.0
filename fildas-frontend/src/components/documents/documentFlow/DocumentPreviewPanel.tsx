@@ -72,6 +72,7 @@ type Props = {
   filePath: string | null;
   originalFilename?: string | null;
   status: string;
+  canReplace?: boolean;
   signedPreviewUrl: string;
   previewNonce: number;
   isUploading: boolean;
@@ -82,6 +83,7 @@ type Props = {
   fileInputRef: React.Ref<HTMLInputElement>;
   onOpenPreview: () => Promise<void>;
   onClickReplace: () => void;
+  onReloadPreview?: () => void;
   onDrop: (e: React.DragEvent<HTMLDivElement>) => Promise<void> | void;
   onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -96,6 +98,7 @@ const DocumentPreviewPanel: React.FC<Props> = ({
   filePath,
   originalFilename,
   status,
+  canReplace = false,
   signedPreviewUrl,
   previewNonce,
   isUploading,
@@ -106,6 +109,7 @@ const DocumentPreviewPanel: React.FC<Props> = ({
   fileInputRef,
   onOpenPreview,
   onClickReplace,
+  onReloadPreview,
   onDrop,
   onDragOver,
   onDragLeave,
@@ -142,6 +146,16 @@ const DocumentPreviewPanel: React.FC<Props> = ({
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {hasPreview && onReloadPreview && (
+              <button
+                type="button"
+                onClick={onReloadPreview}
+                title="Reload preview"
+                className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-2 py-1 text-[11px] text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 transition shadow-sm"
+              >
+                ↺
+              </button>
+            )}
             {hasPreview && (
               <button
                 type="button"
@@ -151,16 +165,40 @@ const DocumentPreviewPanel: React.FC<Props> = ({
                 <Maximize2 size={11} /> View
               </button>
             )}
-            {status === "Draft" && (
+            {canReplace && (
               <button
                 type="button"
                 disabled={isUploading || isExternalUploading}
                 onClick={() => {
                   if (!isUploading && !isExternalUploading) onClickReplace();
                 }}
-                className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition dark:hover:bg-surface-400 dark:hover:text-slate-200"
+                className={[
+                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition shadow-sm disabled:opacity-50",
+                  status === "Draft" || status === "Office Draft"
+                    ? "border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400"
+                    : "border border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/60",
+                ].join(" ")}
               >
-                Replace
+                {status === "Draft" || status === "Office Draft" ? (
+                  "Replace"
+                ) : (
+                  <>
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                      />
+                    </svg>
+                    Upload signed
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -169,15 +207,11 @@ const DocumentPreviewPanel: React.FC<Props> = ({
         {/* Preview body */}
         <div
           className={`relative flex-1 min-h-0 w-full overflow-hidden transition-all ${
-            !filePath
-              ? "cursor-pointer"
-              : status === "Draft"
-                ? "cursor-pointer"
-                : ""
+            canReplace ? "cursor-pointer" : ""
           }`}
           onClick={() => {
             if (isUploading || isExternalUploading) return;
-            if (status !== "Draft") return;
+            if (!canReplace) return;
             onClickReplace();
           }}
           onDrop={(e) => {

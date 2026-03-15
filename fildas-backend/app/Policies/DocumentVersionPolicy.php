@@ -163,7 +163,39 @@ class DocumentVersionPolicy
 
     public function replaceFile(User $user, DocumentVersion $version): Response
     {
-        return $this->updateDraft($user, $version);
+        $base = $this->access($user, $version);
+        if ($base->denied()) return $base;
+
+        // Allow in Draft
+        if ($version->status === 'Draft' || $version->status === 'Office Draft') {
+            return Response::allow();
+        }
+
+        // Allow during approval phase — user must have an open task assigned to their office
+        $approvalStatuses = [
+            'For Office Approval',
+            'For VP Approval',
+            "For President's Approval",
+            'For QA Approval Check',
+            'For Office Head Approval',
+            'For Staff Approval Check',
+            'For Owner Approval Check',
+        ];
+
+        // Also allow custom flow dynamic statuses: "For {code} Approval"
+        $isApprovalStatus = in_array($version->status, $approvalStatuses, true)
+            || preg_match('/^For .+ Approval$/', $version->status);
+
+        if ($isApprovalStatus) {
+            $userOfficeId = (int) ($user->office_id ?? 0);
+            $hasOpenTask = \App\Models\WorkflowTask::where('document_version_id', $version->id)
+                ->where('status', 'open')
+                ->where('assigned_office_id', $userOfficeId)
+                ->exists();
+            if ($hasOpenTask) return Response::allow();
+        }
+
+        return Response::deny('File replacement is only allowed during Draft or when you have an active approval task.');
     }
 
     public function cancel(User $user, DocumentVersion $version): Response

@@ -38,6 +38,7 @@ class SearchController extends Controller
                 $query->where('title', $op, $like)
                     ->orWhere('description', $op, $like);
             })
+            ->with('latestVersion:id,document_id,status')
             ->limit(6)
             ->get(['id', 'title', 'description'])
             ->map(fn($d) => [
@@ -45,7 +46,10 @@ class SearchController extends Controller
                 'id'          => $d->id,
                 'title'       => $d->title,
                 'description' => $d->description,
-                'url'         => "/documents/{$d->id}",
+                'meta'        => $d->latestVersion?->status ?? null,
+                'url'         => $d->latestVersion?->status === 'Distributed'
+                    ? "/documents/{$d->id}/view"
+                    : "/documents/{$d->id}",
             ]);
 
         // Users — admin only

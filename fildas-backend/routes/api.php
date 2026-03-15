@@ -71,8 +71,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/work-queue', [WorkflowController::class, 'workQueue']);
 
     // ── Documents ──────────────────────────────────────────────────────────
-    Route::get('/documents/stats',  [DocumentController::class, 'stats']);
-    Route::get('/documents',        [DocumentController::class, 'index']);
+    Route::get('/documents/stats',    [DocumentController::class, 'stats']);
+    Route::get('/documents/finished', [DocumentController::class, 'finished']);
+    Route::get('/documents',          [DocumentController::class, 'index']);
     Route::post('/documents',       [DocumentController::class, 'store']);
     Route::get('/documents/{document}',         [DocumentController::class, 'show']);
     Route::patch('/documents/{document}',       [DocumentController::class, 'update']);

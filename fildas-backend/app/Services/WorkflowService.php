@@ -66,6 +66,41 @@ class WorkflowService
         return $actions;
     }
 
+    // Called by DocumentController::replaceFile after successful upload during approval phase
+    public function flagSignedFile(DocumentVersion $version, string $filePath): void
+    {
+        $version->signed_file_path = $filePath;
+        $version->save();
+    }
+
+    private function isApprovalStep(string $step): bool
+    {
+        $approvalSteps = [
+            WorkflowSteps::STEP_QA_OFFICE_APPROVAL,
+            WorkflowSteps::STEP_QA_VP_APPROVAL,
+            WorkflowSteps::STEP_QA_PRES_APPROVAL,
+            WorkflowSteps::STEP_OFFICE_HEAD_APPROVAL,
+            WorkflowSteps::STEP_OFFICE_VP_APPROVAL,
+            WorkflowSteps::STEP_OFFICE_PRES_APPROVAL,
+            WorkflowSteps::STEP_CUSTOM_OFFICE_APPROVAL,
+        ];
+        return in_array($step, $approvalSteps, true);
+    }
+
+    private function isForwardActionDuringApproval(string $action): bool
+    {
+        // Only actions that FORWARD the document to the next approver
+        // President approve + finalization go to check/finalization steps — excluded
+        $forwardActions = [
+            WorkflowSteps::ACTION_QA_OFFICE_FORWARD_TO_VP_APPR,
+            WorkflowSteps::ACTION_QA_VP_FORWARD_TO_PRESIDENT,
+            WorkflowSteps::ACTION_OFFICE_HEAD_FORWARD_TO_VP_APPR,
+            WorkflowSteps::ACTION_OFFICE_VP_FORWARD_TO_PRESIDENT,
+            WorkflowSteps::ACTION_CUSTOM_FORWARD,
+        ];
+        return in_array($action, $forwardActions, true);
+    }
+
     public function applyAction(
         DocumentVersion $version,
         User $user,
@@ -95,6 +130,19 @@ class WorkflowService
 
             $flow    = $version->workflow_type;
             $routing = $version->routing_mode;
+
+            // ── Signing enforcement ────────────────────────────────────────
+            // During approval phase, a forward action requires a signed file
+            if (
+                $task &&
+                $this->isApprovalStep($task->step) &&
+                $this->isForwardActionDuringApproval($action) &&
+                empty($version->signed_file_path)
+            ) {
+                throw new \InvalidArgumentException(
+                    'A signed copy of the document must be uploaded before forwarding during the approval phase.'
+                );
+            }
 
             if ($routing === 'custom') {
                 return $this->applyCustomAction($version, $task, $user, $action, $note, $effectiveDate);

@@ -31,7 +31,14 @@ const DocumentFlowPage: React.FC = () => {
   const navigate = useNavigate();
 
   const location = useLocation();
-  const backTo: string = (location.state as any)?.from ?? "/documents";
+  const fromPath: string = (location.state as any)?.from ?? "/work-queue";
+  // If came from a doc view page, go back there; if from library, go to library; else work queue
+  const backTo =
+    fromPath.startsWith("/documents/") && fromPath.includes("/view")
+      ? fromPath
+      : fromPath === "/documents"
+        ? "/documents"
+        : "/work-queue";
 
   const handleBack = () => {
     navigate(backTo);
@@ -160,8 +167,16 @@ const DocumentFlowPage: React.FC = () => {
 
   const handleHeaderActionConfirm = async () => {
     if (!confirmAction) return;
-    if (confirmAction.key === "REJECT" && !rejectNote.trim()) {
-      setRejectError("A note is required when rejecting.");
+    if (
+      (confirmAction.key === "REJECT" ||
+        confirmAction.key === "CANCEL_DOCUMENT") &&
+      !rejectNote.trim()
+    ) {
+      setRejectError(
+        confirmAction.key === "CANCEL_DOCUMENT"
+          ? "A reason is required when cancelling."
+          : "A note is required when rejecting.",
+      );
       return;
     }
     const actionToRun = confirmAction;
@@ -169,7 +184,9 @@ const DocumentFlowPage: React.FC = () => {
     setConfirmAction(null); // close modal immediately
     try {
       await actionToRun.onClick(
-        actionToRun.key === "REJECT" ? rejectNote : undefined,
+        actionToRun.key === "REJECT" || actionToRun.key === "CANCEL_DOCUMENT"
+          ? rejectNote
+          : undefined,
       );
     } finally {
       setProcessingKey(null);
@@ -555,6 +572,30 @@ const DocumentFlowPage: React.FC = () => {
                 Share
               </Button>
             )}
+            {current?.status === "Distributed" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isLoadingSelectedVersion}
+                onClick={() => navigate(`/documents/${id}/view`)}
+              >
+                <svg
+                  className="h-3 w-3 mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"
+                  />
+                </svg>
+                View in Library
+              </Button>
+            )}
             {isRevisable && (
               <Button
                 type="button"
@@ -675,9 +716,12 @@ const DocumentFlowPage: React.FC = () => {
               </div>
             )}
 
-            {!loading && !selectedVersion && !isLoadingSelectedVersion && (
-              <Alert variant="warning">No version available.</Alert>
-            )}
+            {!loading &&
+              !selectedVersion &&
+              !isLoadingSelectedVersion &&
+              allVersions.length === 0 && (
+                <Alert variant="warning">No version available.</Alert>
+              )}
             <DocumentFlow
               isPageLoading={loading}
               isExternalUploading={pendingUploadPct !== null}
@@ -704,18 +748,32 @@ const DocumentFlowPage: React.FC = () => {
                 setHeaderState(s);
               }}
               onAfterActionClose={async () => {
+                // After cancel/terminal action — stay on page, just refresh data
                 try {
-                  await getDocument(id);
-                } catch (e: any) {
-                  navigate("/documents");
-                  return;
+                  await refreshAndSelectBest({
+                    preferVersionId: selectedVersion?.id ?? null,
+                  });
+                } catch {
+                  // Silent — page already shows what it has
                 }
-                await refreshAndSelectBest();
               }}
               onChanged={async () => {
-                await refreshAndSelectBest({
-                  preferVersionId: selectedVersion?.id ?? null,
-                });
+                const preferId = selectedVersion?.id ?? null;
+                if (preferId) {
+                  try {
+                    const { version: v, document: d } =
+                      await getDocumentVersion(preferId);
+                    setDocument(d);
+                    setSelectedVersion(v);
+                    setAllVersions((prev) =>
+                      prev.map((x) => (x.id === v.id ? v : x)),
+                    );
+                    return;
+                  } catch {
+                    // Fall through to full refresh
+                  }
+                }
+                await refreshAndSelectBest({ preferVersionId: preferId });
               }}
               onRightPanelContent={setRightPanelContent}
             />
@@ -738,12 +796,18 @@ const DocumentFlowPage: React.FC = () => {
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">
               {confirmAction.key === "REJECT"
                 ? "Reject document"
-                : `Confirm: ${confirmAction.label}`}
+                : confirmAction.key === "CANCEL_DOCUMENT"
+                  ? "Cancel document"
+                  : `Confirm: ${confirmAction.label}`}
             </h2>
-            {confirmAction.key === "REJECT" ? (
+            {confirmAction.key === "REJECT" ||
+            confirmAction.key === "CANCEL_DOCUMENT" ? (
               <div className="mb-4">
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                  Rejection note <span className="text-rose-500">*</span>
+                  {confirmAction.key === "CANCEL_DOCUMENT"
+                    ? "Cancellation reason"
+                    : "Rejection note"}
+                  <span className="text-rose-500 ml-0.5">*</span>
                 </label>
                 <textarea
                   rows={3}
@@ -752,7 +816,11 @@ const DocumentFlowPage: React.FC = () => {
                     setRejectNote(e.target.value);
                     setRejectError("");
                   }}
-                  placeholder="Explain why this document is being rejected…"
+                  placeholder={
+                    confirmAction.key === "CANCEL_DOCUMENT"
+                      ? "Explain why this document is being cancelled…"
+                      : "Explain why this document is being rejected…"
+                  }
                   className="block w-full rounded-lg border border-slate-300 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-900/30"
                 />
                 {rejectError && (
@@ -808,6 +876,8 @@ const DocumentFlowPage: React.FC = () => {
                   </span>
                 ) : confirmAction.key === "REJECT" ? (
                   "Reject"
+                ) : confirmAction.key === "CANCEL_DOCUMENT" ? (
+                  "Cancel document"
                 ) : (
                   "Confirm"
                 )}

@@ -54,18 +54,21 @@ export const newActions: NewAction[] = [
     label: "New Document",
     to: "/documents/create",
     icon: FilePlus,
+    roles: ["QA", "SYSADMIN", "OFFICE_STAFF", "OFFICE_HEAD"],
     state: { fromLibrary: true },
   },
   {
     label: "New Request",
     to: "/document-requests",
     icon: FileInput,
+    roles: ["QA", "SYSADMIN"],
     state: { openModal: true },
   },
   {
     label: "New Template",
     to: "/templates",
     icon: LayoutTemplate,
+    roles: ["QA", "SYSADMIN", "OFFICE_STAFF", "OFFICE_HEAD"],
     state: { openModal: true },
   },
   {

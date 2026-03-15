@@ -24,6 +24,7 @@ type Props = {
   tasks?: WorkflowTask[];
   isEditable?: boolean;
   onTitleSaved?: (newTitle: string) => void;
+  onChanged?: () => void;
 };
 
 const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({
@@ -74,7 +75,12 @@ const DocumentInfoPanel: React.FC<Props> = ({
   tasks = [],
   isEditable = false,
   onTitleSaved,
+  onChanged,
 }) => {
+  const isDraftStatus = ["Draft", "Office Draft"].includes(
+    version?.status ?? "",
+  );
+
   const [activeTab, setActiveTab] = React.useState<"details" | "participants">(
     "details",
   );
@@ -177,7 +183,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
     setIsSaving(true);
     try {
       const saves: Promise<any>[] = [];
-      if (trimmed && trimmed !== document.title) {
+      if (isDraftStatus && trimmed && trimmed !== document.title) {
         saves.push(
           updateDocumentTitle(document.id, trimmed).then(() =>
             onTitleSaved?.(trimmed),
@@ -194,6 +200,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
         saves.push(setDocumentTags(document.id, tagsDraft));
       }
       await Promise.all(saves);
+      onChanged?.();
     } catch (e) {
       console.error("Save failed", e);
     } finally {
@@ -214,8 +221,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
   if (!document || !version) return null;
 
   const ownerOffice = document.ownerOffice ?? (document as any).office ?? null;
-  // const reviewOffice =
-  document.reviewOffice ?? (document as any).review_office ?? null;
+  // const reviewOffice = document.reviewOffice ?? (document as any).review_office ?? null;
   // const doctype = (document.doctype ?? "").toLowerCase();
   // const visibility = (document as any).visibility_scope ?? null;
   const tags: string[] = Array.isArray((document as any).tags)
@@ -371,17 +377,25 @@ const DocumentInfoPanel: React.FC<Props> = ({
             <div className="rounded-lg bg-slate-50 dark:bg-surface-600/50 border border-sky-200 dark:border-sky-800 px-3 py-2">
               <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-1">
                 Title
+                {!isDraftStatus && (
+                  <span className="ml-1 text-slate-400 font-normal">
+                    (read-only outside draft)
+                  </span>
+                )}
               </p>
               <input
                 value={titleDraft}
-                onChange={(e) => setTitleDraft(e.target.value)}
+                onChange={(e) => isDraftStatus && setTitleDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleSave();
                   if (e.key === "Escape") handleCancel();
                 }}
-                disabled={isSaving}
-                className="w-full rounded-md border border-sky-300 dark:border-sky-700 bg-white dark:bg-surface-500 px-2 py-1 text-[11px] text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-sky-400"
-                autoFocus
+                disabled={isSaving || !isDraftStatus}
+                className={`w-full rounded-md border px-2 py-1 text-[11px] text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-sky-400 ${
+                  isDraftStatus
+                    ? "border-sky-300 dark:border-sky-700 bg-white dark:bg-surface-500"
+                    : "border-slate-200 dark:border-surface-400 bg-slate-100 dark:bg-surface-600 opacity-60 cursor-not-allowed"
+                }`}
               />
             </div>
           ) : (

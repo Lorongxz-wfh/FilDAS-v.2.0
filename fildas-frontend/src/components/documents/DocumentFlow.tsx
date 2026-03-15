@@ -19,6 +19,7 @@ import {
 } from "../../services/documents";
 
 import { useToast } from "../ui/toast/ToastContext";
+import { getAuthUser } from "../../lib/auth";
 import { useDocumentWorkflow } from "../../hooks/useDocumentWorkflow";
 import { useDocumentAutoSave } from "../../hooks/useDocumentAutoSave";
 import { useDocumentFileUpload } from "../../hooks/useDocumentFileUpload";
@@ -85,19 +86,18 @@ type RightPanelProps = {
   fileInputRef: React.Ref<HTMLInputElement>;
   onOpenPreview: () => Promise<void>;
   onClickReplace: () => void;
+  onReloadPreview: () => void;
   onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSelectVersion?: (v: DocumentVersion) => void;
   isLoadingSelectedVersion?: boolean;
-  showWorkflowUpdated?: boolean;
+  canReplace?: boolean;
 };
 
 const RightPanel: React.FC<RightPanelProps> = ({
   localVersion,
-  // allVersions,
-  // selectedVersionId,
   signedPreviewUrl,
   previewNonce,
   isUploading,
@@ -108,13 +108,12 @@ const RightPanel: React.FC<RightPanelProps> = ({
   fileInputRef,
   onOpenPreview,
   onClickReplace,
+  onReloadPreview,
   onDrop,
   onDragOver,
   onDragLeave,
   onFileSelect,
-  // onSelectVersion,
-  // isLoadingSelectedVersion,
-  showWorkflowUpdated,
+  canReplace = false,
 }) => {
   // const statusColors: Record<string, string> = {
   //   draft:
@@ -142,16 +141,6 @@ const RightPanel: React.FC<RightPanelProps> = ({
       className="flex flex-col gap-0 rounded-xl overflow-hidden border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500"
       style={{ height: "calc(100vh - 220px)" }}
     >
-      {/* Workflow updated indicator */}
-      {showWorkflowUpdated && (
-        <div className="shrink-0 flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/30 border-b border-emerald-200 dark:border-emerald-800/40 animate-fade-in">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-          <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
-            Workflow step updated
-          </span>
-        </div>
-      )}
-
       {/* Preview — fills available space */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <DocumentPreviewPanel
@@ -160,6 +149,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
           filePath={localVersion.file_path ?? null}
           originalFilename={localVersion.original_filename ?? null}
           status={localVersion.status}
+          canReplace={canReplace}
           signedPreviewUrl={signedPreviewUrl}
           previewNonce={previewNonce}
           isUploading={isUploading}
@@ -170,6 +160,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
           fileInputRef={fileInputRef}
           onOpenPreview={onOpenPreview}
           onClickReplace={onClickReplace}
+          onReloadPreview={onReloadPreview}
           onDrop={onDrop}
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
@@ -196,6 +187,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 }) => {
   const { push } = useToast();
   const myOfficeId = getCurrentUserOfficeId();
+  const myUserId = Number(getAuthUser()?.id ?? 0);
 
   // ── Local version + field state ──────────────────────────────
   const [localVersion, setLocalVersion] = React.useState(version ?? null);
@@ -256,7 +248,14 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     const ed = String((version as any)?.effective_date ?? "").slice(0, 10);
     setLocalEffectiveDate(ed);
     setInitialEffectiveDate(ed);
-  }, [document?.id, version?.id]);
+  }, [
+    document?.id,
+    version?.id,
+    version?.status,
+    version?.preview_path,
+    version?.file_path,
+    (version as any)?.signed_file_path,
+  ]);
 
   // ── Preview ──────────────────────────────────────────────────
   const [signedPreviewUrl, setSignedPreviewUrl] = React.useState("");
@@ -264,29 +263,49 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const [previewNonce, setPreviewNonce] = React.useState(0);
   const previewUrlCacheRef = React.useRef<Record<string, string>>({});
 
+  // Track previous preview_path to detect changes from polling
+  const prevPreviewPathRef = React.useRef<string | null>(null);
+
   React.useEffect(() => {
     if (!localVersion) return;
     let alive = true;
+
     if (!localVersion.preview_path) {
       setSignedPreviewUrl("");
       setIsPreviewLoading(false);
       setPreviewNonce((n) => n + 1);
+      prevPreviewPathRef.current = null;
       return;
     }
-    // Reuse cached URL if preview_path hasn't changed
+
+    const pathChanged =
+      localVersion.preview_path !== prevPreviewPathRef.current;
+    prevPreviewPathRef.current = localVersion.preview_path;
+
+    // If path changed (new file uploaded by anyone), nuke cache and force re-fetch
+    if (pathChanged) {
+      delete previewUrlCacheRef.current[localVersion.preview_path];
+    }
+
+    // Reuse cached URL if preview_path hasn't changed and cache is warm
     const cached = previewUrlCacheRef.current[localVersion.preview_path];
-    if (cached) {
+    if (cached && !pathChanged) {
       setSignedPreviewUrl(cached);
       setIsPreviewLoading(false);
       return;
     }
+
     setIsPreviewLoading(true);
+    if (pathChanged) setPreviewNonce((n) => n + 1);
+
     getDocumentPreviewLink(localVersion.id)
       .then((r) => {
         if (alive) {
           previewUrlCacheRef.current[localVersion.preview_path!] = r.url;
           setSignedPreviewUrl(r.url);
           setIsPreviewLoading(false);
+          // Bump nonce again after URL is ready to force iframe reload
+          setPreviewNonce((n) => n + 1);
         }
       })
       .catch(() => {
@@ -317,9 +336,18 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     "comments",
   );
 
-  // ── Workflow hook ────────────────────────────────────────────
+  // Stop polling for terminal statuses — no workflow changes possible
+  const terminalStatuses = new Set(["Distributed", "Cancelled", "Superseded"]);
+  // Check version prop too — localVersion may be null on first render
+  const effectiveStatus = localVersion?.status ?? version?.status ?? "";
+  const isTerminal = terminalStatuses.has(effectiveStatus);
+
+  // ── Workflow hook ────────────────────────────────────────────────────
+  // For terminal statuses: pass versionId for data loading (messages/logs)
+  // but polling is suppressed inside the hook via isTerminal flag
   const workflow = useDocumentWorkflow({
     versionId: localVersion?.id && localVersion.id > 0 ? localVersion.id : 0,
+    isTerminal,
     activeSideTab,
     onChanged,
     onAfterActionClose,
@@ -352,32 +380,22 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const fileUpload = useDocumentFileUpload({
     versionId: localVersion?.id ?? 0,
     onUploadComplete: async () => {
-      // Clear entire preview cache — path may be same but content changed
+      // Nuke entire preview cache — force fresh signed URL fetch
       previewUrlCacheRef.current = {};
       setSignedPreviewUrl("");
+      setIsPreviewLoading(true);
       setPreviewNonce((n) => n + 1);
       // Refresh version data so file_path + preview_path are updated
       if (onChanged) await onChanged();
-      // Force another nonce bump after version refreshed
+      // After version refreshed, the preview useEffect will re-run
+      // because localVersion.preview_path will have changed.
+      // Bump nonce again to force iframe key change even if path is same.
       setPreviewNonce((n) => n + 1);
     },
   });
 
-  // ── Workflow update indicator ─────────────────────────────────
-  const [showWorkflowUpdated, setShowWorkflowUpdated] = React.useState(false);
+  // ── Workflow update indicator (handled in WorkflowTaskPanel) ──────────
   const workflowUpdatedTimerRef = React.useRef<number | null>(null);
-
-  React.useEffect(() => {
-    if (!workflow.taskChanged) return;
-    workflow.clearTaskChanged();
-    setShowWorkflowUpdated(true);
-    if (workflowUpdatedTimerRef.current)
-      window.clearTimeout(workflowUpdatedTimerRef.current);
-    workflowUpdatedTimerRef.current = window.setTimeout(() => {
-      setShowWorkflowUpdated(false);
-    }, 3000);
-  }, [workflow.taskChanged]);
-
   React.useEffect(() => {
     return () => {
       if (workflowUpdatedTimerRef.current)
@@ -518,6 +536,32 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     !!assignedOfficeId && Number(myOfficeId) === Number(assignedOfficeId);
   const fullCode = document?.code ?? "CODE-NOT-AVAILABLE";
 
+  // ── Signing state ─────────────────────────────────────────────────────
+  // Match approval statuses across all flows — use pattern for custom flow
+  const isInApprovalPhase = (() => {
+    const s = localVersion?.status ?? "";
+    // QA flow exact statuses
+    if (s === "For Office Approval") return true;
+    if (s === "For VP Approval") return true;
+    if (s === "For President's Approval") return true;
+    if (s === "For QA Approval Check") return true;
+    // Office flow exact statuses
+    if (s === "For Office Head Approval") return true;
+    if (s === "For Staff Approval Check") return true;
+    // Custom flow: "For {OfficCode} Approval"
+    if (/^For .+ Approval$/.test(s)) return true;
+    return false;
+  })();
+  const hasSigned = !!(localVersion as any)?.signed_file_path;
+  const needsSignedFile = isInApprovalPhase && canAct && !hasSigned;
+
+  // ── Rejection replacement state ───────────────────────────────────────────
+  // After rejection, owner must upload a revised file before forwarding again
+  const isDraftStatus =
+    localVersion?.status === "Draft" || localVersion?.status === "Office Draft";
+  const needsFileReplacement =
+    isDraftStatus && canAct && !!(localVersion as any)?.needs_file_replacement;
+
   // ── Action labels + sorting ──────────────────────────────────
   const actionLabels: Record<string, string> = {
     CANCEL_DOCUMENT: "Cancel document",
@@ -619,7 +663,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             : "primary",
         // CANCEL_DOCUMENT is always clickable for owner/admin — backend enforces who can cancel
         disabled:
-          workflow.isChangingStatus || (code !== "CANCEL_DOCUMENT" && !canAct),
+          workflow.isChangingStatus ||
+          (code !== "CANCEL_DOCUMENT" && !canAct) ||
+          (needsSignedFile && !["REJECT", "CANCEL_DOCUMENT"].includes(code)) ||
+          (needsFileReplacement &&
+            !["REJECT", "CANCEL_DOCUMENT"].includes(code)),
         onClick: async () => {
           try {
             const res = await workflow.submitAction(code);
@@ -645,19 +693,23 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     workflow.availableActions,
     workflow.isChangingStatus,
     canAct,
+    needsSignedFile,
     workflow.submitAction,
     handleActionResult,
   ]);
 
-  // Override REJECT to pass note from modal
+  // Override REJECT + CANCEL_DOCUMENT to pass note from modal
   const headerActionsWithReject: HeaderActionButton[] = React.useMemo(() => {
     return headerActions.map((a) => {
-      if (a.key !== "REJECT") return a;
+      if (a.key !== "REJECT" && a.key !== "CANCEL_DOCUMENT") return a;
       return {
         ...a,
         onClick: async (note?: string) => {
           try {
-            const res = await workflow.submitAction("REJECT", note);
+            const res = await workflow.submitAction(
+              a.key as "REJECT" | "CANCEL_DOCUMENT",
+              note,
+            );
             if (res) {
               handleActionResult(res);
               push({
@@ -665,7 +717,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                 title: "Workflow updated",
                 message: res.message || "Action completed.",
               });
-              setActiveSideTab("comments");
+              if (a.key === "REJECT") setActiveSideTab("comments");
             }
           } catch (e: any) {
             push({
@@ -702,7 +754,13 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       });
     }
 
+    const isOwner =
+      !!myOfficeId &&
+      (myOfficeId === (document as any)?.owner_office_id ||
+        myOfficeId === qaOfficeId);
+
     if (
+      isOwner &&
       localVersion?.status === "Draft" &&
       Number(localVersion?.version_number) === 0
     ) {
@@ -732,6 +790,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     }
 
     if (
+      isOwner &&
       localVersion?.status === "Draft" &&
       Number(localVersion?.version_number) > 0
     ) {
@@ -779,7 +838,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   }, [onHeaderStateChange]);
 
   const headerSig =
-    `${localVersion?.status}|${localVersion?.version_number}|${canAct}|${workflow.isTasksReady}|` +
+    `${localVersion?.status}|${localVersion?.version_number}|${canAct}|${workflow.isTasksReady}|${needsSignedFile ? 1 : 0}|${needsFileReplacement ? 1 : 0}|` +
     headerActionsWithReject
       .map((a) => `${a.key}:${a.disabled ? 1 : 0}`)
       .join(",") +
@@ -875,9 +934,12 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         optimisticMessages={optimisticMessages}
         setOptimisticMessages={setOptimisticMessages}
         formatWhen={formatWhen}
-        isEditable={["Draft", "Office Draft"].includes(
-          localVersion?.status ?? "",
-        )}
+        isEditable={
+          isQAOfficeUser ||
+          myOfficeId === Number((document as any)?.owner_office_id ?? -1) ||
+          myUserId === Number((document as any)?.created_by ?? -1)
+        }
+        onChanged={() => onChanged?.()}
         onTitleSaved={(newTitle) => {
           setLocalTitle(newTitle);
           setInitialTitle(newTitle);
@@ -907,6 +969,54 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
   return (
     <section className="flex flex-col gap-4">
+      {/* Cancelled banner */}
+      {effectiveStatus === "Cancelled" && (
+        <div className="flex items-center gap-3 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 px-4 py-3">
+          <span className="text-rose-500 shrink-0 text-base">✕</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-rose-800 dark:text-rose-300">
+              Document cancelled
+            </p>
+            <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-0.5">
+              This document was cancelled. No further workflow actions are
+              available.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* File replacement required banner — shown after rejection */}
+      {needsFileReplacement && (
+        <div className="flex items-center gap-3 rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30 px-4 py-3">
+          <span className="text-orange-500 shrink-0 text-base">↺</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-orange-800 dark:text-orange-300">
+              Revised document required
+            </p>
+            <p className="text-[11px] text-orange-700 dark:text-orange-400 mt-0.5">
+              This document was rejected. Upload a revised version using the
+              "Replace" button before forwarding.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Signing required banner */}
+      {needsSignedFile && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3">
+          <span className="text-amber-500 shrink-0 text-base">⚠</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+              Signed document required
+            </p>
+            <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
+              Upload a signed copy using the "Upload signed" button on the right
+              before you can forward this document.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Progress card — full width */}
       <WorkflowProgressCard
         phases={phases}
@@ -936,6 +1046,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             localVersion={localVersion}
             allVersions={allVersions}
             selectedVersionId={selectedVersion?.id ?? null}
+            canReplace={
+              localVersion.status === "Draft" ||
+              localVersion.status === "Office Draft" ||
+              (canAct && isInApprovalPhase)
+            }
             signedPreviewUrl={signedPreviewUrl}
             previewNonce={previewNonce}
             isUploading={fileUpload.isUploading}
@@ -948,6 +1063,16 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               window.open(res.url, "_blank");
             }}
             onClickReplace={fileUpload.triggerFilePicker}
+            onReloadPreview={() => {
+              // Nuke cache + force re-fetch for the current preview path
+              if (localVersion?.preview_path) {
+                delete previewUrlCacheRef.current[localVersion.preview_path];
+              }
+              previewUrlCacheRef.current = {};
+              setSignedPreviewUrl("");
+              setIsPreviewLoading(true);
+              setPreviewNonce((n) => n + 1);
+            }}
             onDrop={fileUpload.handleDrop}
             onDragOver={fileUpload.handleDragOver}
             onDragLeave={fileUpload.handleDragLeave}
@@ -955,7 +1080,6 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             isExternalUploading={isExternalUploading}
             onSelectVersion={onSelectVersion}
             isLoadingSelectedVersion={isLoadingSelectedVersion}
-            showWorkflowUpdated={showWorkflowUpdated}
           />
         )}
       </div>

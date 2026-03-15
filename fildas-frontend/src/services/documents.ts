@@ -236,8 +236,12 @@ export interface DocumentVersion {
   file_path: string | null;
   preview_path: string | null;
   original_filename: string | null;
+  signed_file_path?: string | null;
+  needs_file_replacement?: boolean;
   description?: string | null;
   revision_reason?: string | null;
+  workflow_type?: string | null;
+  routing_mode?: string | null;
 
   effective_date?: string | null; // YYYY-MM-DD
 
@@ -321,6 +325,7 @@ export type ComplianceClusterDatum = {
 export type ComplianceReportParams = {
   date_from?: string; // YYYY-MM-DD
   date_to?: string; // YYYY-MM-DD
+  category?: "workflow" | "request";
 
   date_field?: "created" | "completed";
 
@@ -964,6 +969,7 @@ export async function listActivityLogs(params: {
   office_id?: number;
   date_from?: string; // YYYY-MM-DD
   date_to?: string; // YYYY-MM-DD
+  category?: "workflow" | "request";
 }): Promise<Paginated<ActivityLogItem>> {
   try {
     const api = await getApi();
@@ -980,6 +986,7 @@ export async function listActivityLogs(params: {
         office_id: params.office_id,
         date_from: params.date_from,
         date_to: params.date_to,
+        category: params.category,
       },
     });
 
@@ -1072,6 +1079,36 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
         : "Failed to load admin stats");
     throw new Error(msg);
   }
+}
+
+export type FinishedDocumentRow = {
+  id: number;
+  title: string;
+  code: string | null;
+  doctype: string;
+  owner_office_id: number | null;
+  owner_office_name: string | null;
+  owner_office_code: string | null;
+  created_by: number | null;
+  created_at: string;
+  version_id: number;
+  version_number: number;
+  status: string;
+  distributed_at: string | null;
+  effective_date: string | null;
+  original_filename: string | null;
+  file_path: string | null;
+  preview_path: string | null;
+};
+
+export async function listFinishedDocuments(params?: {
+  page?: number;
+  per_page?: number;
+  q?: string;
+}): Promise<{ data: FinishedDocumentRow[]; meta: any }> {
+  const api = await getApi();
+  const res = await api.get("/documents/finished", { params });
+  return res.data;
 }
 
 export async function getDocumentStats(): Promise<DocumentStats> {

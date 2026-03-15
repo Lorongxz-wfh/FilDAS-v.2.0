@@ -5,46 +5,19 @@ import {
   type Document,
 } from "../services/documents";
 import { useNavigate } from "react-router-dom";
-import Table, { type TableColumn } from "../components/ui/Table";
-import Button from "../components/ui/Button";
 import PageFrame from "../components/layout/PageFrame";
-import {
-  getUserRole,
-  isOfficeStaff,
-  isOfficeHead,
-  isQA,
-  isSysAdmin,
-} from "../lib/roleFilters";
+import { getUserRole, isQA, isSysAdmin } from "../lib/roleFilters";
 import ShareDocumentModal from "../components/documents/ShareDocumentModal";
-import { Search, X, LayoutList, LayoutGrid, RefreshCw } from "lucide-react";
+import { Search, X, RefreshCw, BookOpen, FileText, Share2 } from "lucide-react";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 
-// ── Status badge ─────────────────────────────────────────────────────────────
-const STATUS_STYLES: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300",
-  review: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  approval: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  registration:
-    "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  distributed:
-    "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-};
-
-function StatusBadge({ status }: { status: string }) {
-  const key = status?.toLowerCase().trim();
-  const cls =
-    STATUS_STYLES[key] ??
-    "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300";
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${cls}`}
-    >
-      {status}
-    </span>
-  );
+// ── Helpers ────────────────────────────────────────────────────────────────
+function formatDate(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
 }
 
-// ── Type badge ────────────────────────────────────────────────────────────────
+// ── Type badge ─────────────────────────────────────────────────────────────
 const TYPE_STYLES: Record<string, string> = {
   internal: "bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
   external:
@@ -54,453 +27,297 @@ const TYPE_STYLES: Record<string, string> = {
 };
 
 function TypeBadge({ type }: { type: string }) {
-  const key = type?.toLowerCase() ?? "";
   const cls =
-    TYPE_STYLES[key] ??
+    TYPE_STYLES[type?.toLowerCase()] ??
     "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300";
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${cls}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${cls}`}
     >
       {type || "—"}
     </span>
   );
 }
 
-// ── Filter select ─────────────────────────────────────────────────────────────
-const selectCls =
-  "rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:focus:ring-sky-900/30 transition";
-
-// ── View toggle storage key ───────────────────────────────────────────────────
-const VIEW_KEY = "doclib_view";
-
-// ── Card view ─────────────────────────────────────────────────────────────────
-const DocCard: React.FC<{
-  doc: Document;
-  role: ReturnType<typeof getUserRole>;
-  onClick: () => void;
-  onShare: () => void;
-}> = ({ doc, role, onClick, onShare }) => {
-  const canShare =
-    (isQA(role) || isSysAdmin(role)) && doc.status === "Distributed";
-
+// ── Source badge ───────────────────────────────────────────────────────────
+function SourceBadge({
+  source,
+}: {
+  source: "created" | "requested" | "shared";
+}) {
+  const map = {
+    created:
+      "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
+    requested:
+      "bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400",
+    shared:
+      "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
+  };
+  const label = {
+    created: "Created",
+    requested: "Requested",
+    shared: "Shared",
+  };
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full text-left rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-3.5 transition hover:border-sky-300 dark:hover:border-sky-700 hover:shadow-sm"
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${map[source]}`}
     >
-      {/* Title row */}
-      <div className="flex items-start justify-between gap-2 min-w-0">
-        <p className="font-medium text-sm text-slate-800 dark:text-slate-100 truncate flex-1">
-          {doc.title}
-        </p>
-        <span className="shrink-0 rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-          v{doc.version_number}
-        </span>
-      </div>
-
-      {/* Code */}
-      <p className="mt-1 font-mono text-[11px] text-slate-400 dark:text-slate-500">
-        {doc.code || "—"}
-      </p>
-
-      {/* Tags */}
-      {Array.isArray(doc.tags) && doc.tags.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {doc.tags.slice(0, 3).map((t) => (
-            <span
-              key={t}
-              className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-400"
-            >
-              {t}
-            </span>
-          ))}
-          {doc.tags.length > 3 && (
-            <span className="text-[10px] text-slate-400">
-              +{doc.tags.length - 3}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Bottom row: badges + date + share */}
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <TypeBadge type={doc.doctype} />
-          <StatusBadge status={doc.status} />
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[11px] text-slate-400 dark:text-slate-500">
-            {new Date(doc.created_at).toLocaleDateString()}
-          </span>
-          {canShare && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onShare();
-              }}
-              className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
-            >
-              Share
-            </button>
-          )}
-        </div>
-      </div>
-    </button>
+      {label[source]}
+    </span>
   );
-};
-
-// ── Main page ─────────────────────────────────────────────────────────────────
-interface DocumentLibraryPageProps {
-  documents?: Document[];
 }
 
-const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
-  documents,
-}) => {
+// ── Doc row ────────────────────────────────────────────────────────────────
+const DocRow: React.FC<{
+  doc: Document;
+  source: "created" | "requested" | "shared";
+  canShare: boolean;
+  onClick: () => void;
+  onShare: () => void;
+}> = ({ doc, source, canShare, onClick, onShare }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="group w-full flex items-center gap-4 px-4 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-surface-400 transition border-b border-slate-100 dark:border-surface-400 last:border-0"
+  >
+    {/* Icon */}
+    <div className="shrink-0 flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600">
+      <FileText className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+    </div>
+
+    {/* Main info */}
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+          {doc.title}
+        </span>
+        <TypeBadge type={doc.doctype} />
+        <SourceBadge source={source} />
+      </div>
+      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+        {doc.code && (
+          <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500">
+            {doc.code}
+          </span>
+        )}
+        {doc.ownerOffice && (
+          <span className="text-[11px] text-slate-400 dark:text-slate-500">
+            {doc.ownerOffice.name}
+          </span>
+        )}
+        {Array.isArray(doc.tags) && doc.tags.length > 0 && (
+          <div className="flex items-center gap-1">
+            {doc.tags.slice(0, 3).map((t) => (
+              <span
+                key={t}
+                className="rounded-full border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-1.5 py-0 text-[10px] text-slate-400 dark:text-slate-500"
+              >
+                {t}
+              </span>
+            ))}
+            {doc.tags.length > 3 && (
+              <span className="text-[10px] text-slate-400">
+                +{doc.tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* Right: version + date + share */}
+    <div className="shrink-0 flex flex-col items-end gap-1.5">
+      <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+        v{doc.version_number}
+      </span>
+      <span className="text-[11px] text-slate-400 dark:text-slate-500">
+        {formatDate(doc.created_at)}
+      </span>
+      {canShare && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onShare();
+          }}
+          className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+        >
+          <Share2 className="h-2.5 w-2.5" />
+          Share
+        </button>
+      )}
+    </div>
+  </button>
+);
+
+// ── Tab type ───────────────────────────────────────────────────────────────
+type LibTab = "all" | "created" | "requested" | "shared";
+
+const TAB_LABELS: Record<LibTab, string> = {
+  all: "All",
+  created: "Created",
+  requested: "Requested",
+  shared: "Shared",
+};
+
+// ── Determine source label per doc ─────────────────────────────────────────
+function getDocSource(
+  doc: Document,
+  myOfficeId: number,
+  role: ReturnType<typeof getUserRole>,
+): "created" | "shared" | "requested" {
+  // Shared: not owned by user's office
+  if (doc.owner_office_id && doc.owner_office_id !== myOfficeId)
+    return "shared";
+  return "created";
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────
+export default function DocumentLibraryPage() {
   const navigate = useNavigate();
+  const role = getUserRole();
+  const myOfficeId = getCurrentUserOfficeId();
 
-  // Default: cards on mobile, table on desktop
-  const getInitialView = (): "table" | "cards" => {
-    const stored = localStorage.getItem(VIEW_KEY);
-    if (stored === "table" || stored === "cards") return stored;
-    return window.innerWidth < 640 ? "cards" : "table";
-  };
-
-  const [viewMode, setViewMode] = useState<"table" | "cards">(getInitialView);
-
-  // const toggleView = () => {
-  //   setViewMode((v) => {
-  //     const next = v === "table" ? "cards" : "table";
-  //     localStorage.setItem(VIEW_KEY, next);
-  //     return next;
-  //   });
-  // };
-
-  const [loadedDocuments, setLoadedDocuments] = useState<Document[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<LibTab>("all");
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
+  const [typeFilter, setTypeFilter] = useState("ALL");
 
+  const [rows, setRows] = useState<Document[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareDocId, setShareDocId] = useState<number | null>(null);
+
+  // Debounce search
   useEffect(() => {
     const t = window.setTimeout(() => setQDebounced(q), 300);
     return () => window.clearTimeout(t);
   }, [q]);
 
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [typeFilter, setTypeFilter] = useState<string>("ALL");
-  const [scopeFilter, setScopeFilter] = useState<
-    "all" | "owned" | "shared" | "assigned"
-  >("all");
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const PER_PAGE = 25;
-
-  const [shareOpen, setShareOpen] = useState(false);
-  const [shareDocId, setShareDocId] = useState<number | null>(null);
-
-  const role = getUserRole();
-  const myOfficeId = getCurrentUserOfficeId();
-
-  const reloadLibrary = useCallback(async () => {
+  // Reset on filter change
+  useEffect(() => {
+    setRows([]);
     setPage(1);
-    // page reset triggers the load useEffect automatically
-  }, []);
+    setHasMore(true);
+    setInitialLoading(true);
+  }, [tab, qDebounced, typeFilter]);
 
-  const { refresh: refreshLibrary, refreshing: refreshingLibrary } =
-    usePageBurstRefresh(reloadLibrary);
+  // Derive scope from tab
+  const scopeFromTab = useMemo((): "all" | "owned" | "shared" | "assigned" => {
+    if (tab === "created") return "owned";
+    if (tab === "shared") return "shared";
+    if (tab === "requested") return "assigned";
+    return "all";
+  }, [tab]);
 
+  // Load — always filter to Distributed only
   useEffect(() => {
-    setPage(1);
-  }, [qDebounced, statusFilter, typeFilter, scopeFilter]);
-
-  const displayDocuments = documents ?? loadedDocuments;
-
-  const latestDocuments = useMemo(() => {
-    const byFamily = new Map<number, Document>();
-    for (const d of displayDocuments) {
-      const familyId = Number(d.parent_document_id ?? d.id);
-      const existing = byFamily.get(familyId);
-      if (!existing) {
-        byFamily.set(familyId, d);
-        continue;
-      }
-      const better =
-        Number(d.version_number) > Number(existing.version_number) ||
-        (Number(d.version_number) === Number(existing.version_number) &&
-          String(d.updated_at) > String(existing.updated_at));
-      if (better) byFamily.set(familyId, d);
-    }
-    return Array.from(byFamily.values()).sort(
-      (a, b) => Number(b.version_number) - Number(a.version_number),
-    );
-  }, [displayDocuments]);
-
-  const statusOptions = useMemo(() => {
-    if (loading) return ["ALL"];
-    const s = new Set<string>();
-    for (const d of latestDocuments) s.add(d.status);
-    return ["ALL", ...Array.from(s).sort()];
-  }, [latestDocuments, loading]);
-
-  useEffect(() => {
-    if (loading) return;
-    if (!statusOptions.includes(statusFilter)) setStatusFilter("ALL");
-  }, [loading, statusOptions, statusFilter]);
-
-  useEffect(() => {
-    if (documents) {
-      setLoadedDocuments([]);
-      setLoading(false);
-      setError(null);
-      setPage(1);
-      setHasMore(false);
-      return;
-    }
     let alive = true;
     const load = async () => {
+      if (!hasMore && page > 1) return;
+      setLoading(true);
+      setError(null);
       try {
-        setLoading(true);
-        setError(null);
         const res = await listDocumentsPage({
           page,
-          perPage: PER_PAGE,
+          perPage: 25,
           q: qDebounced.trim() || undefined,
-          status: statusFilter !== "ALL" ? statusFilter : undefined,
+          status: "Distributed",
           doctype: typeFilter !== "ALL" ? typeFilter : undefined,
-          owner_office_id: undefined,
-          scope: scopeFilter,
+          scope: scopeFromTab,
         });
         if (!alive) return;
-        setLoadedDocuments((prev) => {
-          const next = page === 1 ? res.data : [...prev, ...res.data];
-          const byId = new Map<number, Document>();
-          for (const d of next) byId.set(d.id, d);
-          return Array.from(byId.values());
-        });
-        setHasMore(Boolean(res.links?.next));
-      } catch (err: any) {
+        const incoming = res.data ?? [];
+        setRows((prev) => (page === 1 ? incoming : [...prev, ...incoming]));
+        setHasMore(
+          res.meta?.current_page != null &&
+            res.meta?.last_page != null &&
+            res.meta.current_page < res.meta.last_page,
+        );
+      } catch (e: any) {
         if (!alive) return;
-        setError(err?.message ?? "Failed to load documents");
+        setError(e?.message ?? "Failed to load library.");
       } finally {
         if (!alive) return;
         setLoading(false);
+        setInitialLoading(false);
       }
     };
     load();
     return () => {
       alive = false;
     };
-  }, [
-    documents,
-    page,
-    qDebounced,
-    statusFilter,
-    typeFilter,
-    scopeFilter,
-    role,
-    myOfficeId,
-  ]);
+  }, [page, qDebounced, typeFilter, scopeFromTab, hasMore]);
 
-  const isFiltered =
-    q ||
-    statusFilter !== "ALL" ||
-    typeFilter !== "ALL" ||
-    scopeFilter !== "all";
+  const reloadLibrary = useCallback(async () => {
+    setRows([]);
+    setPage(1);
+    setHasMore(true);
+    setInitialLoading(true);
+  }, []);
 
-  const columns: TableColumn<Document>[] = [
-    {
-      key: "title",
-      header: "Title",
-      render: (d) => (
-        <div className="min-w-0">
-          <div className="truncate font-medium text-slate-800 dark:text-slate-100">
-            {d.title}
-          </div>
-          {Array.isArray(d.tags) && d.tags.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {d.tags.slice(0, 3).map((t) => (
-                <span
-                  key={t}
-                  className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-400"
-                >
-                  {t}
-                </span>
-              ))}
-              {d.tags.length > 3 && (
-                <span className="text-[10px] text-slate-400">
-                  +{d.tags.length - 3}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "code",
-      header: "Code",
-      render: (d) => (
-        <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
-          {d.code || "—"}
-        </span>
-      ),
-    },
-    {
-      key: "type",
-      header: "Type",
-      render: (d) => <TypeBadge type={d.doctype} />,
-    },
-    {
-      key: "status",
-      header: "Status",
-      render: (d) => <StatusBadge status={d.status} />,
-    },
-    {
-      key: "version",
-      header: "Ver.",
-      align: "center",
-      render: (d) => (
-        <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-          v{d.version_number}
-        </span>
-      ),
-    },
-    {
-      key: "created",
-      header: "Created",
-      render: (d) => (
-        <span className="text-xs text-slate-400 dark:text-slate-500">
-          {new Date(d.created_at).toLocaleDateString()}
-        </span>
-      ),
-    },
-    {
-      key: "actions",
-      header: "",
-      align: "right",
-      render: (d) => {
-        const canShare =
-          (isQA(role) || isSysAdmin(role)) && d.status === "Distributed";
-        if (!canShare) return null;
-        return (
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShareDocId(d.id);
-              setShareOpen(true);
-            }}
-          >
-            Share
-          </Button>
-        );
-      },
-    },
-  ];
+  const { refresh, refreshing } = usePageBurstRefresh(reloadLibrary);
 
-  // ── Card infinite scroll sentinel ─────────────────────────────────────────
-  const cardSentinelRef = React.useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (viewMode !== "cards") return;
-    const sentinel = cardSentinelRef.current;
-    if (!sentinel || !hasMore) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !loading && hasMore) {
-          setPage((p) => p + 1);
-        }
-      },
-      { rootMargin: "100px" },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [viewMode, hasMore, loading]);
+  const canShare = isQA(role) || isSysAdmin(role);
+
+  // const tabCounts = useMemo(() => {
+  //   // Just show total — granular counts would need separate API calls
+  //   return rows.length;
+  // }, [rows.length]);
 
   return (
     <PageFrame
       title="Document Library"
       right={
         <div className="flex items-center gap-2">
-          {/* View toggle */}
-          <div className="flex items-center rounded-lg border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 p-0.5">
-            <button
-              type="button"
-              onClick={() => {
-                setViewMode("cards");
-                localStorage.setItem(VIEW_KEY, "cards");
-              }}
-              title="Card view"
-              className={[
-                "rounded-md p-1.5 transition",
-                viewMode === "cards"
-                  ? "bg-white dark:bg-surface-500 text-slate-800 dark:text-slate-100 shadow-sm"
-                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300",
-              ].join(" ")}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setViewMode("table");
-                localStorage.setItem(VIEW_KEY, "table");
-              }}
-              title="Table view"
-              className={[
-                "rounded-md p-1.5 transition",
-                viewMode === "table"
-                  ? "bg-white dark:bg-surface-500 text-slate-800 dark:text-slate-100 shadow-sm"
-                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300",
-              ].join(" ")}
-            >
-              <LayoutList className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
           <button
             type="button"
-            onClick={refreshLibrary}
-            disabled={refreshingLibrary || loading}
+            onClick={refresh}
+            disabled={refreshing || loading}
             title="Refresh library"
             className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
           >
             <RefreshCw
-              className={`h-3.5 w-3.5 ${refreshingLibrary ? "animate-spin" : ""}`}
+              className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
             />
           </button>
-          {(isQA(role) || isOfficeStaff(role) || isOfficeHead(role)) && (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() =>
-                navigate("/documents/create", {
-                  state: isQA(role) ? { fromLibrary: true } : undefined,
-                })
-              }
-            >
-              Create document
-            </Button>
-          )}
         </div>
       }
       contentClassName="flex flex-col min-h-0 gap-4 h-full"
     >
-      {/* Filter bar */}
+      {/* Tabs */}
+      <div className="flex items-center gap-0 border-b border-slate-200 dark:border-surface-400 shrink-0">
+        {(["all", "created", "requested", "shared"] as LibTab[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={[
+              "flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px",
+              tab === t
+                ? "border-sky-500 text-sky-600 dark:text-sky-400"
+                : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200",
+            ].join(" ")}
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            {TAB_LABELS[t]}
+          </button>
+        ))}
+      </div>
+
+      {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 shrink-0">
-        {/* Search */}
-        <div className="relative w-full sm:w-60">
+        <div className="relative w-full sm:w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search title, code, office…"
+            placeholder="Search title, code…"
             className="w-full rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 pl-9 pr-8 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:focus:ring-sky-900/30 transition"
           />
           {q && (
@@ -515,21 +332,9 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
         </div>
 
         <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className={selectCls}
-        >
-          {statusOptions.map((s) => (
-            <option key={s} value={s}>
-              {s === "ALL" ? "All statuses" : s}
-            </option>
-          ))}
-        </select>
-
-        <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className={selectCls}
+          className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:focus:ring-sky-900/30 transition"
         >
           <option value="ALL">All types</option>
           <option value="internal">Internal</option>
@@ -537,86 +342,58 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
           <option value="forms">Forms</option>
         </select>
 
-        <select
-          value={scopeFilter}
-          onChange={(e) => setScopeFilter(e.target.value as any)}
-          className={selectCls}
-        >
-          <option value="all">All scope</option>
-          <option value="assigned">Assigned</option>
-          <option value="owned">Owned</option>
-          <option value="shared">Shared</option>
-        </select>
-
-        {isFiltered && (
+        {(q || typeFilter !== "ALL") && (
           <button
             type="button"
             onClick={() => {
               setQ("");
-              setStatusFilter("ALL");
               setTypeFilter("ALL");
-              setScopeFilter("all");
-              setPage(1);
             }}
             className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
           >
             Clear
           </button>
         )}
+
+        {error && <span className="text-xs text-rose-500">{error}</span>}
       </div>
 
-      {/* Table view */}
-      {viewMode === "table" && (
-        <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
-          <Table<Document>
-            bare
-            className="h-full"
-            columns={columns}
-            rows={latestDocuments}
-            rowKey={(d) => d.id}
-            onRowClick={(d) =>
-              navigate(`/documents/${d.id}`, { state: { from: "/documents" } })
-            }
-            loading={loading}
-            initialLoading={loading && latestDocuments.length === 0}
-            error={error}
-            emptyMessage="No documents found."
-            hasMore={hasMore}
-            onLoadMore={!documents ? () => setPage((p) => p + 1) : undefined}
-            gridTemplateColumns="minmax(0,2.5fr) minmax(0,1fr) 100px 160px 60px 90px 80px"
-          />
-        </div>
-      )}
-
-      {/* Card view */}
-      {viewMode === "cards" && (
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {loading && latestDocuments.length === 0 ? (
-            <div className="space-y-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-24 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 animate-pulse"
-                />
-              ))}
-            </div>
-          ) : error ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
-              {error}
-            </div>
-          ) : latestDocuments.length === 0 ? (
-            <div className="flex h-40 items-center justify-center text-sm text-slate-400 dark:text-slate-500">
-              No documents found.
-            </div>
-          ) : (
-            <div className="space-y-2 pb-4">
-              {latestDocuments.map((doc) => (
-                <DocCard
+      {/* Doc list */}
+      <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden overflow-y-auto flex-1 min-h-0">
+        {initialLoading ? (
+          <div className="divide-y divide-slate-100 dark:divide-surface-400">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="px-4 py-3.5 flex items-center gap-4">
+                <div className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-surface-400 animate-pulse shrink-0" />
+                <div className="flex-1 flex flex-col gap-2">
+                  <div className="h-4 w-2/3 rounded-md bg-slate-100 dark:bg-surface-400 animate-pulse" />
+                  <div className="h-3 w-1/3 rounded-md bg-slate-100 dark:bg-surface-400 animate-pulse" />
+                </div>
+                <div className="h-4 w-16 rounded-md bg-slate-100 dark:bg-surface-400 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="flex h-48 flex-col items-center justify-center gap-3">
+            <BookOpen className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+            <p className="text-sm text-slate-400 dark:text-slate-500">
+              {tab === "all"
+                ? "No distributed documents yet."
+                : `No ${TAB_LABELS[tab].toLowerCase()} documents found.`}
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100 dark:divide-surface-400">
+            {rows.map((doc) => {
+              const source = getDocSource(doc, myOfficeId, role);
+              return (
+                <DocRow
                   key={doc.id}
                   doc={doc}
-                  role={role}
+                  source={source}
+                  canShare={canShare && doc.status === "Distributed"}
                   onClick={() =>
-                    navigate(`/documents/${doc.id}`, {
+                    navigate(`/documents/${doc.id}/view`, {
                       state: { from: "/documents" },
                     })
                   }
@@ -625,22 +402,23 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
                     setShareOpen(true);
                   }}
                 />
-              ))}
-              {/* Infinite scroll sentinel */}
-              <div ref={cardSentinelRef} className="py-3 flex justify-center">
-                {loading && (
-                  <div className="h-5 w-5 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
-                )}
-                {!loading && !hasMore && latestDocuments.length > 0 && (
-                  <span className="text-xs text-slate-400 dark:text-slate-500">
-                    All caught up
-                  </span>
-                )}
+              );
+            })}
+            {hasMore && (
+              <div className="flex justify-center py-3">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={loading}
+                  className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
+                >
+                  {loading ? "Loading…" : "Load more"}
+                </button>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </div>
 
       <ShareDocumentModal
         open={shareOpen}
@@ -653,6 +431,4 @@ const DocumentLibraryPage: React.FC<DocumentLibraryPageProps> = ({
       />
     </PageFrame>
   );
-};
-
-export default DocumentLibraryPage;
+}

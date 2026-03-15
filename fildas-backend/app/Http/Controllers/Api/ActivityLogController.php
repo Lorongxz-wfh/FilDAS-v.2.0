@@ -49,7 +49,8 @@ class ActivityLogController extends Controller
             'event' => 'nullable|string|max:100',
             'office_id' => 'nullable|integer|exists:offices,id',
             'date_from' => 'nullable|date',
-            'date_to' => 'nullable|date',
+            'date_to'  => 'nullable|date',
+            'category' => 'nullable|in:workflow,request',
         ]);
 
         $scope = $data['scope'] ?? 'office';
@@ -83,6 +84,19 @@ class ActivityLogController extends Controller
                 $qq->where('event', 'like', "%{$term}%")
                     ->orWhere('label', 'like', "%{$term}%");
             });
+        }
+
+        // Category filter
+        $category = trim((string) ($request->query('category', '')));
+        if ($category === 'workflow') {
+            $q->where(function ($qq) {
+                $qq->where('event', 'like', 'workflow.%')
+                    ->orWhere('event', 'like', 'document.%')
+                    ->orWhere('event', 'like', 'version.%')
+                    ->orWhere('event', 'like', 'message.%');
+            });
+        } elseif ($category === 'request') {
+            $q->where('event', 'like', 'document_request%');
         }
 
         // Scope

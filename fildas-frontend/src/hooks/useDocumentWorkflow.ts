@@ -15,6 +15,7 @@ import {
 
 type Options = {
   versionId: number;
+  isTerminal?: boolean;
   activeSideTab: "comments" | "logs";
   onChanged?: () => Promise<void> | void;
   onAfterActionClose?: () => void;
@@ -22,8 +23,15 @@ type Options = {
   qaOfficeId: number | null;
 };
 
+// Polling intervals — tuned for localhost + production
+const IDLE_POLL_MS = 30_000; // 30s idle (was 10s — 3x fewer requests)
+const BURST_POLL_MS = 8_000; // 8s burst after action (was 5s)
+const BURST_EXPIRE_MS = 24_000; // revert after 24s (was 15s)
+const MSG_POLL_MS = 15_000; // 15s message poll (was 10s)
+
 export function useDocumentWorkflow({
   versionId,
+  isTerminal = false,
   activeSideTab,
   onChanged,
   onAfterActionClose,
@@ -46,8 +54,10 @@ export function useDocumentWorkflow({
   const [isBurstPolling, setIsBurstPolling] = useState(false);
   const burstPollRef = useRef<number | null>(null);
   const burstTimeoutRef = useRef<number | null>(null);
+  const idlePollRef = useRef<number | null>(null);
+  const msgPollRef = useRef<number | null>(null);
 
-  // Change detection
+  // Change detection refs
   const [newMessageCount, setNewMessageCount] = useState(0);
   const [taskChanged, setTaskChanged] = useState(false);
   const prevMessageCountRef = useRef<number>(0);
@@ -56,27 +66,30 @@ export function useDocumentWorkflow({
   const isFirstTaskLoadRef = useRef(true);
   const isFirstMessageLoadRef = useRef(true);
   const myUserIdRef = useRef<number | null>(null);
+  const hasLoadedMessagesRef = useRef(false);
+  const hasLoadedLogsRef = useRef(false);
 
-  // Keep myUserId in a ref for use inside intervals
   useEffect(() => {
     myUserIdRef.current = getAuthUser()?.id ?? null;
   }, []);
 
-  const idlePollRef = useRef<number | null>(null);
-
+  // ── Stop all polling ────────────────────────────────────────────────────
   const stopAllPolling = useCallback(() => {
     setIsBurstPolling(false);
     if (burstPollRef.current) window.clearInterval(burstPollRef.current);
-    burstPollRef.current = null;
     if (burstTimeoutRef.current) window.clearTimeout(burstTimeoutRef.current);
-    burstTimeoutRef.current = null;
     if (idlePollRef.current) window.clearInterval(idlePollRef.current);
-    idlePollRef.current = null;
+    if (msgPollRef.current) window.clearInterval(msgPollRef.current);
+    burstPollRef.current =
+      burstTimeoutRef.current =
+      idlePollRef.current =
+      msgPollRef.current =
+        null;
   }, []);
 
-  // Keep old name as alias so existing call sites don't break
   const stopBurstPolling = stopAllPolling;
 
+  // ── Core: fetch tasks + actions together in one round-trip-pair ─────────
   const refreshTasksAndActions = useCallback(
     async (id: number, opts?: { isPolling?: boolean }) => {
       try {
@@ -85,21 +98,19 @@ export function useDocumentWorkflow({
           getAvailableActions(id),
         ]);
 
-        // Change detection — skip on first load
         if (!isFirstTaskLoadRef.current) {
           const openTask = t.find((tk) => tk.status === "open") ?? null;
           const newOffice = openTask?.assigned_office_id ?? null;
           const newActionsKey = actions.join(",");
-          if (
+          const changed =
             newOffice !== prevOpenTaskOfficeRef.current ||
-            newActionsKey !== prevActionsRef.current
-          ) {
+            newActionsKey !== prevActionsRef.current;
+
+          if (changed) {
             setTaskChanged(true);
-            // Only update state if something actually changed during polling
             setTasks(t);
             setAvailableActions(actions);
           } else if (!opts?.isPolling) {
-            // Always update state on explicit (non-poll) refreshes
             setTasks(t);
             setAvailableActions(actions);
           }
@@ -109,7 +120,6 @@ export function useDocumentWorkflow({
           setAvailableActions(actions);
         }
 
-        // Update refs
         const openTask = t.find((tk) => tk.status === "open") ?? null;
         prevOpenTaskOfficeRef.current = openTask?.assigned_office_id ?? null;
         prevActionsRef.current = actions.join(",");
@@ -118,6 +128,8 @@ export function useDocumentWorkflow({
           setTasks([]);
           setAvailableActions([]);
         }
+        // Always mark ready even on error — prevents infinite loading skeleton
+        setIsTasksReady(true);
       } finally {
         setIsTasksReady(true);
       }
@@ -125,28 +137,52 @@ export function useDocumentWorkflow({
     [],
   );
 
+  // ── Message polling helper ───────────────────────────────────────────────
+  const pollMessages = useCallback((id: number) => {
+    listDocumentMessages(id)
+      .then((m) => {
+        setMessages(m);
+        if (!isFirstMessageLoadRef.current) {
+          const incoming = m.filter(
+            (msg) => Number(msg.sender_user_id) !== Number(myUserIdRef.current),
+          );
+          const newCount = incoming.length - prevMessageCountRef.current;
+          if (newCount > 0) setNewMessageCount((prev) => prev + newCount);
+          prevMessageCountRef.current = incoming.length;
+        } else {
+          isFirstMessageLoadRef.current = false;
+          const incoming = m.filter(
+            (msg) => Number(msg.sender_user_id) !== Number(myUserIdRef.current),
+          );
+          prevMessageCountRef.current = incoming.length;
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Idle polling ────────────────────────────────────────────────────────
   const startIdlePolling = useCallback(
     (id: number) => {
       if (idlePollRef.current) window.clearInterval(idlePollRef.current);
       idlePollRef.current = window.setInterval(() => {
         refreshTasksAndActions(id, { isPolling: true }).catch(() => {});
-      }, 10_000);
+      }, IDLE_POLL_MS);
     },
     [refreshTasksAndActions],
   );
 
-  // Visibility-aware catch-up: fire immediately when tab becomes visible
+  // ── Visibility-aware catch-up ────────────────────────────────────────────
   useVisibilityPolling(
     useCallback(() => {
       if (!versionId || versionId === 0) return;
       refreshTasksAndActions(versionId, { isPolling: true }).catch(() => {});
     }, [versionId, refreshTasksAndActions]),
-    10_000,
+    IDLE_POLL_MS,
   );
 
+  // ── Burst polling after action ───────────────────────────────────────────
   const startBurstPolling = useCallback(
     (id: number) => {
-      // Stop idle, start burst
       if (idlePollRef.current) window.clearInterval(idlePollRef.current);
       idlePollRef.current = null;
       if (burstPollRef.current) window.clearInterval(burstPollRef.current);
@@ -154,23 +190,31 @@ export function useDocumentWorkflow({
       setIsBurstPolling(true);
       burstPollRef.current = window.setInterval(() => {
         refreshTasksAndActions(id, { isPolling: true }).catch(() => {});
-      }, 5_000);
+      }, BURST_POLL_MS);
 
-      // After 15s revert to idle
       if (burstTimeoutRef.current) window.clearTimeout(burstTimeoutRef.current);
       burstTimeoutRef.current = window.setTimeout(() => {
         if (burstPollRef.current) window.clearInterval(burstPollRef.current);
         burstPollRef.current = null;
         setIsBurstPolling(false);
         startIdlePolling(id);
-      }, 15_000);
+      }, BURST_EXPIRE_MS);
     },
     [refreshTasksAndActions, startIdlePolling],
   );
 
-  // Initial load
+  // ── Initial load ─────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!versionId || versionId === 0) return;
+    if (!versionId || versionId === 0) {
+      setIsTasksReady(true);
+      return;
+    }
+    if (isTerminal) {
+      // Terminal: mark ready immediately, skip task/action fetch
+      setIsTasksReady(true);
+      setAvailableActions([]);
+      return;
+    }
     let alive = true;
     setIsTasksReady(false);
     setAvailableActions([]);
@@ -196,67 +240,48 @@ export function useDocumentWorkflow({
     return () => {
       alive = false;
     };
-  }, [versionId]);
+  }, [versionId, isTerminal]);
 
-  // Start idle polling on mount, stop on unmount
+  // ── Start idle + message polling on mount ────────────────────────────────
   useEffect(() => {
     if (!versionId || versionId === 0) return;
+    if (isTerminal) return; // no polling for terminal statuses
+
     startIdlePolling(versionId);
-    return () => stopAllPolling();
-  }, [versionId, startIdlePolling, stopAllPolling]);
 
-  // Poll messages every 10s regardless of active tab
+    // Message poll — separate interval, slower cadence
+    if (msgPollRef.current) window.clearInterval(msgPollRef.current);
+    msgPollRef.current = window.setInterval(() => {
+      pollMessages(versionId);
+    }, MSG_POLL_MS);
+
+    return () => stopAllPolling();
+  }, [versionId, isTerminal, startIdlePolling, stopAllPolling, pollMessages]);
+
+  // ── Reset load guards when versionId changes ────────────────────────────
   useEffect(() => {
-    if (!versionId || versionId === 0) return;
-    const interval = window.setInterval(() => {
-      listDocumentMessages(versionId)
-        .then((m) => {
-          setMessages(m);
-          if (!isFirstMessageLoadRef.current) {
-            const incoming = m.filter(
-              (msg) =>
-                Number(msg.sender_user_id) !== Number(myUserIdRef.current),
-            );
-            const newCount = incoming.length - prevMessageCountRef.current;
-            if (newCount > 0) {
-              setNewMessageCount((prev) => prev + newCount);
-            }
-            prevMessageCountRef.current = incoming.length;
-          } else {
-            isFirstMessageLoadRef.current = false;
-            const incoming = m.filter(
-              (msg) =>
-                Number(msg.sender_user_id) !== Number(myUserIdRef.current),
-            );
-            prevMessageCountRef.current = incoming.length;
-          }
-        })
-        .catch(() => {});
-    }, 10_000);
-    return () => {
-      window.clearInterval(interval);
-    };
+    hasLoadedMessagesRef.current = false;
+    hasLoadedLogsRef.current = false;
+    isFirstTaskLoadRef.current = true;
+    isFirstMessageLoadRef.current = true;
   }, [versionId]);
 
-  // Messages — load once on mount, polling handles updates
-  const hasLoadedMessagesRef = useRef(false);
-
+  // ── Messages: load once ──────────────────────────────────────────────────
   useEffect(() => {
     if (!versionId || versionId === 0) return;
     let alive = true;
-    if (hasLoadedMessagesRef.current) return; // already loaded, skip
+    if (hasLoadedMessagesRef.current) return;
     setIsLoadingMessages(true);
     listDocumentMessages(versionId)
       .then((m) => {
-        if (alive) {
-          setMessages(m);
-          hasLoadedMessagesRef.current = true;
-          const incoming = m.filter(
-            (msg) => Number(msg.sender_user_id) !== Number(myUserIdRef.current),
-          );
-          prevMessageCountRef.current = incoming.length;
-          isFirstMessageLoadRef.current = false;
-        }
+        if (!alive) return;
+        setMessages(m);
+        hasLoadedMessagesRef.current = true;
+        const incoming = m.filter(
+          (msg) => Number(msg.sender_user_id) !== Number(myUserIdRef.current),
+        );
+        prevMessageCountRef.current = incoming.length;
+        isFirstMessageLoadRef.current = false;
       })
       .catch(() => {
         if (alive) setMessages([]);
@@ -269,21 +294,11 @@ export function useDocumentWorkflow({
     };
   }, [versionId]);
 
-  // Activity logs — load once on mount, don't clear on tab switch
-  const hasLoadedLogsRef = useRef(false);
-
-  // Reset load guards when versionId changes
-  useEffect(() => {
-    hasLoadedMessagesRef.current = false;
-    hasLoadedLogsRef.current = false;
-    isFirstTaskLoadRef.current = true;
-    isFirstMessageLoadRef.current = true;
-  }, [versionId]);
-
+  // ── Activity logs: load once ─────────────────────────────────────────────
   useEffect(() => {
     if (!versionId || versionId === 0) return;
     let alive = true;
-    if (hasLoadedLogsRef.current) return; // already loaded, skip
+    if (hasLoadedLogsRef.current) return;
     setIsLoadingActivityLogs(true);
     listActivityLogs({
       scope: "document",
@@ -291,10 +306,9 @@ export function useDocumentWorkflow({
       per_page: 50,
     })
       .then((p) => {
-        if (alive) {
-          setActivityLogs(p.data);
-          hasLoadedLogsRef.current = true;
-        }
+        if (!alive) return;
+        setActivityLogs(p.data);
+        hasLoadedLogsRef.current = true;
       })
       .catch(() => {
         if (alive) setActivityLogs([]);
@@ -307,31 +321,32 @@ export function useDocumentWorkflow({
     };
   }, [versionId]);
 
+  // ── Submit action ────────────────────────────────────────────────────────
   const submitAction = useCallback(
     async (code: WorkflowActionCode, note?: string) => {
       setIsChangingStatus(true);
       try {
         const res = await submitWorkflowAction(versionId, code, note);
         window.dispatchEvent(new Event("notifications:refresh"));
+
+        // Refresh tasks immediately
         await refreshTasksAndActions(res.version.id);
         startBurstPolling(res.version.id);
 
-        // Always refresh both messages and logs after any action
-        // Wrapped separately so a fetch failure doesn't surface as an action error
-        try {
-          const [msgs, logs] = await Promise.all([
-            listDocumentMessages(res.version.id),
-            listActivityLogs({
-              scope: "document",
-              document_version_id: res.version.id,
-              per_page: 50,
-            }),
-          ]);
-          setMessages(msgs);
-          setActivityLogs(logs.data);
-        } catch {
-          // Non-critical — polling will catch up
-        }
+        // Refresh messages + logs in background (non-blocking)
+        Promise.all([
+          listDocumentMessages(res.version.id),
+          listActivityLogs({
+            scope: "document",
+            document_version_id: res.version.id,
+            per_page: 50,
+          }),
+        ])
+          .then(([msgs, logs]) => {
+            setMessages(msgs);
+            setActivityLogs(logs.data);
+          })
+          .catch(() => {});
 
         if (onChanged) await onChanged();
 
@@ -362,13 +377,8 @@ export function useDocumentWorkflow({
     setMessages(m);
   }, [versionId]);
 
-  const clearNewMessageCount = useCallback(() => {
-    setNewMessageCount(0);
-  }, []);
-
-  const clearTaskChanged = useCallback(() => {
-    setTaskChanged(false);
-  }, []);
+  const clearNewMessageCount = useCallback(() => setNewMessageCount(0), []);
+  const clearTaskChanged = useCallback(() => setTaskChanged(false), []);
 
   return {
     tasks,

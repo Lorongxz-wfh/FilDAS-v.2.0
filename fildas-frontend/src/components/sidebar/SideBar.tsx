@@ -144,51 +144,53 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* New button */}
-        <div className="shrink-0 px-2 py-3" ref={newRef}>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setNewOpen((o) => !o)}
-              className={[
-                "flex items-center rounded-lg text-sm font-semibold transition-all",
-                "bg-brand-500 hover:bg-brand-600 text-white shadow-sm",
-                collapsed
-                  ? "justify-center w-full px-0 h-10.5"
-                  : "gap-2 px-4 h-10.5",
-              ].join(" ")}
-              title={collapsed ? "New" : undefined}
-            >
-              <Plus className="h-4 w-4 shrink-0" />
-              {!collapsed && <span>New</span>}
-            </button>
+        {/* New button — only show if user has at least one visible action */}
+        {visibleNewActions.length > 0 && (
+          <div className="shrink-0 px-2 py-3" ref={newRef}>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setNewOpen((o) => !o)}
+                className={[
+                  "flex items-center rounded-lg text-sm font-semibold transition-all",
+                  "bg-brand-500 hover:bg-brand-600 text-white shadow-sm",
+                  collapsed
+                    ? "justify-center w-full px-0 h-10.5"
+                    : "gap-2 px-4 h-10.5",
+                ].join(" ")}
+                title={collapsed ? "New" : undefined}
+              >
+                <Plus className="h-4 w-4 shrink-0" />
+                {!collapsed && <span>New</span>}
+              </button>
 
-            {newOpen && (
-              <div className="absolute left-0 top-full mt-1 z-50 w-52 rounded-xl border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-500 shadow-lg py-1">
-                {visibleNewActions.map((action) => {
-                  const Icon = action.icon;
-                  return (
-                    <button
-                      key={action.to}
-                      type="button"
-                      onClick={() => {
-                        setNewOpen(false);
-                        navigate(
-                          action.to,
-                          action.state ? { state: action.state } : undefined,
-                        );
-                      }}
-                      className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors"
-                    >
-                      <Icon className="h-4 w-4 text-slate-400 dark:text-slate-500 shrink-0" />
-                      {action.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+              {newOpen && (
+                <div className="absolute left-0 top-full mt-1 z-50 w-52 rounded-xl border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-500 shadow-lg py-1">
+                  {visibleNewActions.map((action) => {
+                    const Icon = action.icon;
+                    return (
+                      <button
+                        key={action.to}
+                        type="button"
+                        onClick={() => {
+                          setNewOpen(false);
+                          navigate(
+                            action.to,
+                            action.state ? { state: action.state } : undefined,
+                          );
+                        }}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors"
+                      >
+                        <Icon className="h-4 w-4 text-slate-400 dark:text-slate-500 shrink-0" />
+                        {action.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 space-y-5">
@@ -220,6 +222,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <li key={item.to} className="relative">
                         <NavLink
                           to={item.to}
+                          end={
+                            item.to === "/documents" ||
+                            item.to === "/work-queue"
+                          }
                           title={collapsed ? item.label : undefined}
                           className={({ isActive }) =>
                             [

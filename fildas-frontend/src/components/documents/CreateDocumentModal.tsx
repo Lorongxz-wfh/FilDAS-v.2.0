@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import Modal from "../ui/Modal";
 import OfficeDropdown from "../OfficeDropdown";
+import { getAuthUser } from "../../lib/auth";
 
 export type FlowSelection = {
   routingMode: "default" | "custom";
@@ -108,6 +109,9 @@ export default function FlowSelectModal({
     {},
   );
   const [error, setError] = useState<string | null>(null);
+
+  // Exclude the creator's own office from custom recipients
+  const myOfficeId: number = Number(getAuthUser()?.office_id ?? 0);
 
   const customSelectedIds = useMemo(
     () => customOfficeIds.filter((x) => x > 0),
@@ -234,6 +238,7 @@ export default function FlowSelectModal({
             <OfficeDropdown
               value={reviewOfficeId}
               hideLabel
+              excludeOfficeIds={myOfficeId > 0 ? [myOfficeId] : []}
               onChange={(id) => {
                 setReviewOfficeId(id);
                 setError(null);
@@ -277,9 +282,10 @@ export default function FlowSelectModal({
                         setOfficeCodeById((prev) => ({ ...prev, [id]: code }));
                         setError(null);
                       }}
-                      excludeOfficeIds={customSelectedIds.filter(
-                        (id) => id !== val,
-                      )}
+                      excludeOfficeIds={[
+                        ...customSelectedIds.filter((id) => id !== val),
+                        ...(myOfficeId > 0 ? [myOfficeId] : []),
+                      ]}
                     />
                   </div>
                   <button

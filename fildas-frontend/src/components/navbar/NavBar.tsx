@@ -175,7 +175,7 @@ const Navbar: React.FC<NavbarProps> = ({
     }, 300);
   };
 
-  const handleResultClick = (url: string) => {
+  const handleResultClick = (url: string, item?: SearchResultItem) => {
     setSearchOpen(false);
     setSearchQuery("");
     setSearchResults({
@@ -187,7 +187,12 @@ const Navbar: React.FC<NavbarProps> = ({
       requests: [],
       notifications: [],
     });
-    navigate(url);
+    // For document flow pages, pass from state so back button works
+    if (item?.type === "document" && !url.includes("/view")) {
+      navigate(url, { state: { from: "/work-queue" } });
+    } else {
+      navigate(url);
+    }
   };
 
   const clearSearch = () => {
@@ -333,7 +338,7 @@ const Navbar: React.FC<NavbarProps> = ({
           <button
             key={`${item.type}-${item.id}`}
             type="button"
-            onMouseDown={() => handleResultClick(item.url)}
+            onMouseDown={() => handleResultClick(item.url, item)}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-surface-400 transition"
           >
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 dark:bg-surface-400 text-slate-500 dark:text-slate-300">
@@ -532,9 +537,19 @@ const Navbar: React.FC<NavbarProps> = ({
                               startNotifPolling("burst");
                               const noLink = Boolean((n as any)?.meta?.no_link);
                               if (noLink) return;
-                              if (n.document_id)
-                                navigate(`/documents/${n.document_id}`);
-                              else navigate("/inbox");
+                              if (n.document_id) {
+                                // Check meta for status hint if available
+                                const toView =
+                                  (n as any)?.meta?.status === "Distributed";
+                                navigate(
+                                  toView
+                                    ? `/documents/${n.document_id}/view`
+                                    : `/documents/${n.document_id}`,
+                                  toView
+                                    ? undefined
+                                    : { state: { from: "/work-queue" } },
+                                );
+                              } else navigate("/inbox");
                             } catch {
                               /* ignore */
                             }

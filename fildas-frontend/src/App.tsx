@@ -22,6 +22,7 @@ const UserManagerPage = React.lazy(() => import("./pages/UserManagerPage"));
 const OfficeManagerPage = React.lazy(() => import("./pages/OfficeManagerPage"));
 const ActivityLogsPage = React.lazy(() => import("./pages/ActivityLogsPage"));
 const DocumentFlowPage = React.lazy(() => import("./pages/DocumentFlowPage"));
+const DocumentViewPage = React.lazy(() => import("./pages/DocumentViewPage"));
 
 const DocumentRequestListPage = React.lazy(
   () => import("./pages/DocumentRequestListPage"),
@@ -97,6 +98,8 @@ export default function App() {
             element={<Navigate to="/document-requests/:id" replace />}
           />
 
+          {/* Document view (library/finished) */}
+          <Route path="/documents/:id/view" element={<DocumentViewPage />} />
           {/* DocumentFlow is ok to open normally */}
           <Route path="/documents/:id" element={<DocumentFlowPage />} />
 
