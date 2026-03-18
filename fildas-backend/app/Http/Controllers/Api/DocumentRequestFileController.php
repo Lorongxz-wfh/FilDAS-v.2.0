@@ -111,6 +111,7 @@ class DocumentRequestFileController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
         $disk = Storage::disk();
         if (!$disk->exists($row->example_preview_path)) {
             return response()->json(['message' => 'Preview file not found on server.'], 404);
@@ -175,6 +176,7 @@ class DocumentRequestFileController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
         $disk = Storage::disk();
         if (!$disk->exists($row->example_file_path)) {
             return response()->json(['message' => 'File not found on server.'], 404);
@@ -233,6 +235,7 @@ class DocumentRequestFileController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
         $disk = Storage::disk();
         if (!$disk->exists($row->preview_path)) {
             return response()->json(['message' => 'Preview file not found on server.'], 404);
@@ -297,6 +300,7 @@ class DocumentRequestFileController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
         $disk = Storage::disk();
         if (!$disk->exists($row->file_path)) {
             return response()->json(['message' => 'File not found on server.'], 404);

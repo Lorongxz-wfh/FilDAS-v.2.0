@@ -394,6 +394,16 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     },
   });
 
+  // ── When polling detects a stage change, refresh version data ────────────
+  // taskChanged fires when assigned_office_id or availableActions change,
+  // meaning the workflow moved to a new step. We must re-fetch localVersion
+  // so isInApprovalPhase / needsSignedFile / canAct recompute correctly.
+  React.useEffect(() => {
+    if (!workflow.taskChanged) return;
+    workflow.clearTaskChanged();
+    if (onChanged) void Promise.resolve(onChanged()).catch(() => {});
+  }, [workflow.taskChanged]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Workflow update indicator (handled in WorkflowTaskPanel) ──────────
   const workflowUpdatedTimerRef = React.useRef<number | null>(null);
   React.useEffect(() => {
