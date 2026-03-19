@@ -7,7 +7,7 @@ import {
   updateDocumentRequest,
   updateDocumentRequestStatus,
   type DocumentRequestItemRow,
-  type DocumentRequestProgress,
+  // type DocumentRequestProgress,
 } from "../services/documentRequests";
 import { Users, FileStack, RefreshCw, Ban, Check, Pencil } from "lucide-react";
 import { roleLower, StatusBadge } from "../components/documentRequests/shared";
