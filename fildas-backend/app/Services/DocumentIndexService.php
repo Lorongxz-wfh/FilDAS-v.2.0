@@ -79,7 +79,7 @@ class DocumentIndexService
         if ($ownerOfficeFilter > 0) $query->where('owner_office_id', $ownerOfficeFilter);
 
         if (!empty($data['status'])) {
-            $query->whereHas('latestVersion', function ($v) use ($data) {
+            $query->whereHas('versions', function ($v) use ($data) {
                 $v->where('status', $data['status']);
             });
         }
@@ -113,7 +113,7 @@ class DocumentIndexService
 
         // Auditor: only docs whose latest version is Distributed
         if ($roleName === 'auditor') {
-            $query->whereHas('latestVersion', fn($v) => $v->where('status', 'Distributed'));
+            $query->whereHas('versions', fn($v) => $v->where('status', 'Distributed'));
         } else if (!$canSeeAll) {
             $query->where(function ($q) use ($vpOfficeIds, $userOfficeId) {
                 // Has an open task assigned to this office on the latest version
@@ -132,7 +132,7 @@ class DocumentIndexService
 
                 // Was a workflow participant (had a task at any point) and doc is now Distributed
                 $q->orWhere(function ($inner) use ($userOfficeId) {
-                    $inner->whereHas('latestVersion', fn($v) => $v->where('status', 'Distributed'))
+                    $inner->whereHas('versions', fn($v) => $v->where('status', 'Distributed'))
                         ->whereHas('versions', function ($v) use ($userOfficeId) {
                             $v->whereHas('tasks', fn($t) => $t->where('assigned_office_id', $userOfficeId));
                         });
@@ -162,6 +162,33 @@ class DocumentIndexService
         $perPage = (int) ($data['per_page'] ?? 25);
         $perPage = max(1, min(100, $perPage));
 
+        $versionFields = [
+            'document_versions.id',
+            'document_versions.document_id',
+            'document_versions.version_number',
+            'document_versions.status',
+            'document_versions.workflow_type',
+            'document_versions.updated_at',
+            'document_versions.created_at',
+        ];
+
+        $withs = [
+            'ownerOffice:id,code,name',
+            'reviewOffice:id,code,name',
+            'latestVersion' => function ($q) use ($versionFields) {
+                $q->select($versionFields);
+            },
+            'tags:id,name',
+        ];
+
+        // When filtering by Distributed status, also load the latest Distributed version
+        // so DocumentResource can show correct version data even after a revision draft exists.
+        // Note: do NOT add select() here — ofMany() builds an internal aggregation join that
+        // requires its own columns; constraining via callback select breaks that join.
+        if (!empty($data['status']) && $data['status'] === 'Distributed') {
+            $withs[] = 'latestDistributedVersion';
+        }
+
         return $query
             ->select([
                 'documents.id',
@@ -175,22 +202,7 @@ class DocumentIndexService
                 'documents.semester',
                 'documents.created_at',
             ])
-            ->with([
-                'ownerOffice:id,code,name',
-                'reviewOffice:id,code,name',
-                'latestVersion' => function ($q) {
-                    $q->select([
-                        'document_versions.id',
-                        'document_versions.document_id',
-                        'document_versions.version_number',
-                        'document_versions.status',
-                        'document_versions.workflow_type',
-                        'document_versions.updated_at',
-                        'document_versions.created_at',
-                    ]);
-                },
-                'tags:id,name',
-            ])
+            ->with($withs)
             ->orderByDesc('documents.created_at')
             ->paginate($perPage);
     }

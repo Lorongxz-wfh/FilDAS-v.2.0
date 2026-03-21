@@ -1,7 +1,9 @@
 import React from "react";
+import { XCircle, AlertTriangle, Upload, CheckCircle2 } from "lucide-react";
 import WorkflowProgressCard from "./documentFlow/WorkflowProgressCard";
 import DocumentRightPanel from "./documentFlow/DocumentRightPanel";
-import DocumentPreviewPanel from "./documentFlow/DocumentPreviewPanel";
+import DocumentPreviewWrapper from "./documentFlow/DocumentPreviewWrapper";
+import DeleteDraftConfirmModal from "./documentFlow/DeleteDraftConfirmModal";
 
 import {
   type Document,
@@ -44,6 +46,7 @@ export type HeaderActionButton = {
   label: string;
   variant: "primary" | "danger" | "outline";
   disabled?: boolean;
+  skipConfirm?: boolean;
   onClick: () => Promise<void> | void;
 };
 
@@ -74,105 +77,6 @@ interface DocumentFlowProps {
   adminDebugMode?: boolean;
 }
 
-// ── RightPanel: preview + collapsible versions shelf ────────────────────────
-type RightPanelProps = {
-  localVersion: DocumentVersion;
-  allVersions: DocumentVersion[];
-  selectedVersionId: number | null;
-  signedPreviewUrl: string;
-  previewNonce: number;
-  isUploading: boolean;
-  uploadProgress: number;
-  isExternalUploading?: boolean;
-  isPreviewLoading: boolean;
-  setIsPreviewLoading: (v: boolean) => void;
-  fileInputRef: React.Ref<HTMLInputElement>;
-  onOpenPreview: () => Promise<void>;
-  onClickReplace: () => void;
-  onReloadPreview: () => void;
-  onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
-  onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
-  onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onSelectVersion?: (v: DocumentVersion) => void;
-  isLoadingSelectedVersion?: boolean;
-  canReplace?: boolean;
-};
-
-const RightPanel: React.FC<RightPanelProps> = ({
-  localVersion,
-  signedPreviewUrl,
-  previewNonce,
-  isUploading,
-  uploadProgress,
-  isExternalUploading = false,
-  isPreviewLoading,
-  setIsPreviewLoading,
-  fileInputRef,
-  onOpenPreview,
-  onClickReplace,
-  onReloadPreview,
-  onDrop,
-  onDragOver,
-  onDragLeave,
-  onFileSelect,
-  canReplace = false,
-}) => {
-  // const statusColors: Record<string, string> = {
-  //   draft:
-  //     "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300",
-  //   review:
-  //     "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  //   approval: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  //   registration:
-  //     "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  //   distributed:
-  //     "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-  // };
-
-  // const getStatusColor = (status: string) => {
-  //   const key = status.toLowerCase().trim();
-  //   return (
-  //     statusColors[key] ??
-  //     Object.entries(statusColors).find(([k]) => key.includes(k))?.[1] ??
-  //     "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300"
-  //   );
-  // };
-
-  return (
-    <div
-      className="flex flex-col gap-0 rounded-xl overflow-hidden border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500"
-      style={{ height: "calc(100vh - 220px)" }}
-    >
-      {/* Preview — fills available space */}
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <DocumentPreviewPanel
-          versionId={localVersion.id}
-          previewPath={localVersion.preview_path ?? null}
-          filePath={localVersion.file_path ?? null}
-          originalFilename={localVersion.original_filename ?? null}
-          status={localVersion.status}
-          canReplace={canReplace}
-          signedPreviewUrl={signedPreviewUrl}
-          previewNonce={previewNonce}
-          isUploading={isUploading}
-          uploadProgress={uploadProgress}
-          isExternalUploading={isExternalUploading}
-          isPreviewLoading={isPreviewLoading}
-          setIsPreviewLoading={setIsPreviewLoading}
-          fileInputRef={fileInputRef}
-          onOpenPreview={onOpenPreview}
-          onClickReplace={onClickReplace}
-          onReloadPreview={onReloadPreview}
-          onDrop={onDrop}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onFileSelect={onFileSelect}
-        />
-      </div>
-    </div>
-  );
-};
 
 const DocumentFlow: React.FC<DocumentFlowProps> = ({
   // isPageLoading = false,
@@ -192,6 +96,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const { push } = useToast();
   const myOfficeId = getCurrentUserOfficeId();
   const myUserId = Number(getAuthUser()?.id ?? 0);
+
+  // ── Delete/cancel confirmation state ─────────────────────────
+  const [pendingDelete, setPendingDelete] = React.useState<"draft" | "revision" | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   // ── Local version + field state ──────────────────────────────
   const [localVersion, setLocalVersion] = React.useState(version ?? null);
@@ -259,6 +167,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     version?.preview_path,
     version?.file_path,
     (version as any)?.signed_file_path,
+    (version as any)?.needs_file_replacement,
   ]);
 
   // ── Preview ──────────────────────────────────────────────────
@@ -568,8 +477,27 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     if (/^For .+ Approval$/.test(s)) return true;
     return false;
   })();
-  const hasSigned = !!(localVersion as any)?.signed_file_path;
-  const needsSignedFile = isInApprovalPhase && canAct && !hasSigned;
+  // Pre-finalize check = creator confirms before registration (approval phase but no signing needed)
+  const FINALIZATION_ACTION_CODES = [
+    "QA_START_FINALIZATION",
+    "OFFICE_START_FINALIZATION",
+    "CUSTOM_START_FINALIZATION",
+  ];
+  const isPreFinalizeCheck =
+    isInApprovalPhase &&
+    workflow.availableActions.some((a) => FINALIZATION_ACTION_CODES.includes(a));
+  // Active approver = has non-cancel actions, is in approval phase, not at pre-finalize check
+  const isActiveApprover = isInApprovalPhase && canAct && !isPreFinalizeCheck;
+
+  // Pre-approval creator check = creator must upload signed file before starting approval
+  const PRE_APPROVAL_START_ACTIONS = [
+    "QA_START_OFFICE_APPROVAL",
+    "OFFICE_START_APPROVAL",
+    "CUSTOM_START_APPROVAL",
+  ];
+  const isPreApprovalCreatorCheck =
+    canAct && workflow.availableActions.some((a) => PRE_APPROVAL_START_ACTIONS.includes(a));
+  const hasSignedFile = !!(localVersion as any)?.signed_file_path;
 
   // ── Rejection replacement state ───────────────────────────────────────────
   // After rejection, owner must upload a revised file before forwarding again
@@ -598,6 +526,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     [localVersion?.preview_path],
   );
 
+  const canReplace =
+    localVersion?.status === "Draft" ||
+    localVersion?.status === "Office Draft";
+
   const headerActions: HeaderActionButton[] = React.useMemo(() => {
     const cancelBlockedStatuses = new Set([
       "For Registration",
@@ -608,49 +540,109 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     ]);
     const showCancel = !cancelBlockedStatuses.has(localVersion?.status ?? "");
 
-    return [...workflow.availableActions]
+    // Show "Replace file" prominently when the doc was returned/rejected
+    const wasReturnedOrRejected = workflow.tasks.some(
+      (t) => t.status === "returned" || t.status === "rejected",
+    );
+    const showReplaceAction =
+      canReplace && wasReturnedOrRejected && canAct && !isActiveApprover;
+
+    const replaceAction: HeaderActionButton | null = showReplaceAction
+      ? {
+          key: "REPLACE_FILE",
+          label: "Replace file",
+          variant: "outline",
+          disabled: workflow.isChangingStatus,
+          onClick: async () => fileUpload.triggerFilePicker(),
+        }
+      : null;
+
+    // Cancel button config (always built separately so it shows even during approval sequence)
+    const cancelBtn = workflow.availableActions.includes("CANCEL_DOCUMENT") && showCancel
+      ? [{
+          key: "CANCEL_DOCUMENT",
+          label: ACTION_LABELS["CANCEL_DOCUMENT"] ?? "Cancel document",
+          variant: "danger" as const,
+          disabled: workflow.isChangingStatus,
+          onClick: async () => {
+            try {
+              const res = await workflow.submitAction("CANCEL_DOCUMENT");
+              if (res) {
+                handleActionResult(res);
+                push({ type: "success", title: "Workflow updated", message: res.message || "Action completed." });
+              }
+            } catch (e: any) {
+              push({ type: "error", title: "Action failed", message: e?.message ?? "Action failed." });
+            }
+          },
+        }]
+      : [];
+
+    let workflowButtons: HeaderActionButton[];
+
+    const makeWorkflowBtn = (code: string): HeaderActionButton => ({
+      key: code,
+      label: ACTION_LABELS[code] ?? code,
+      variant: code === "REJECT" || code === "CANCEL_DOCUMENT" ? ("danger" as const) : ("primary" as const),
+      disabled:
+        workflow.isChangingStatus ||
+        (code !== "CANCEL_DOCUMENT" && !canAct) ||
+        (needsFileReplacement && !["REJECT", "CANCEL_DOCUMENT"].includes(code)) ||
+        (isPreApprovalCreatorCheck && PRE_APPROVAL_START_ACTIONS.includes(code) && !hasSignedFile),
+      onClick: async () => {
+        try {
+          const res = await workflow.submitAction(code as any);
+          if (res) {
+            handleActionResult(res);
+            push({ type: "success", title: "Workflow updated", message: res.message || "Action completed." });
+            if (code === "REJECT") setActiveSideTab("comments");
+          }
+        } catch (e: any) {
+          push({ type: "error", title: "Action failed", message: e?.message ?? "Action failed." });
+        }
+      },
+    });
+
+    const normalButtons = [...workflow.availableActions]
       .filter((code) => code !== "CANCEL_DOCUMENT" || showCancel)
       .sort((a, b) => (ACTION_PRIORITY[a] ?? 500) - (ACTION_PRIORITY[b] ?? 500))
-      .map((code) => ({
-        key: code,
-        label: ACTION_LABELS[code] ?? code,
-        variant:
-          code === "REJECT" || code === "CANCEL_DOCUMENT"
-            ? "danger"
-            : "primary",
-        // CANCEL_DOCUMENT requires canAct — admin observer (no office, debug OFF) cannot cancel
-        disabled:
-          workflow.isChangingStatus ||
-          !canAct ||
-          (needsSignedFile && !["REJECT", "CANCEL_DOCUMENT"].includes(code)) ||
-          (needsFileReplacement &&
-            !["REJECT", "CANCEL_DOCUMENT"].includes(code)),
+      .map(makeWorkflowBtn);
+
+    if (isActiveApprover) {
+      // Show Download for signing alongside normal forward buttons
+      const downloadBtn: HeaderActionButton = {
+        key: "DOWNLOAD_FOR_SIGNING",
+        label: "Download for signing",
+        variant: "outline" as const,
+        disabled: workflow.isChangingStatus,
+        skipConfirm: true,
         onClick: async () => {
           try {
-            const res = await workflow.submitAction(code);
-            if (res) {
-              handleActionResult(res);
-              push({
-                type: "success",
-                title: "Workflow updated",
-                message: res.message || "Action completed.",
-              });
-              if (code === "REJECT") setActiveSideTab("comments");
-            }
+            await downloadDocument(localVersion!);
           } catch (e: any) {
-            push({
-              type: "error",
-              title: "Action failed",
-              message: e?.message ?? "Action failed.",
-            });
+            push({ type: "error", title: "Download failed", message: e?.message ?? "Could not download the file." });
           }
         },
-      }));
+      };
+      workflowButtons = [
+        ...normalButtons.filter((b) => b.key !== "CANCEL_DOCUMENT"),
+        downloadBtn,
+        ...cancelBtn,
+      ];
+    } else {
+      workflowButtons = normalButtons;
+    }
+
+    return replaceAction ? [replaceAction, ...workflowButtons] : workflowButtons;
   }, [
     workflow.availableActions,
     workflow.isChangingStatus,
+    workflow.tasks,
     canAct,
-    needsSignedFile,
+    canReplace,
+    needsFileReplacement,
+    isActiveApprover,
+    localVersion,
     workflow.submitAction,
     handleActionResult,
   ]);
@@ -711,10 +703,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       });
     }
 
+    // Only the document's owner office can delete/cancel the draft.
+    // QA office should NOT get owner access to office-start documents.
     const isOwner =
       !!myOfficeId &&
-      (myOfficeId === (document as any)?.owner_office_id ||
-        myOfficeId === qaOfficeId);
+      myOfficeId === (document as any)?.owner_office_id;
 
     if (
       isOwner &&
@@ -725,24 +718,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         key: "delete_draft",
         label: "Delete draft",
         variant: "danger",
-        onClick: async () => {
-          try {
-            if (
-              !confirm(
-                "Delete this draft? This will remove the whole document draft.",
-              )
-            )
-              return;
-            await deleteDraftVersion(localVersion!.id);
-            onAfterActionClose?.();
-          } catch (e: any) {
-            push({
-              type: "error",
-              title: "Delete failed",
-              message: e?.message ?? "Delete failed.",
-            });
-          }
-        },
+        onClick: async () => { setPendingDelete("draft"); },
       });
     }
 
@@ -755,25 +731,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         key: "cancel_revision",
         label: "Cancel revision",
         variant: "danger",
-        onClick: async () => {
-          try {
-            if (
-              !confirm(
-                "Cancel this revision draft? This will delete the draft and return to the last official version.",
-              )
-            )
-              return;
-            await deleteDraftVersion(localVersion!.id);
-            if (onChanged) await onChanged();
-            onAfterActionClose?.();
-          } catch (e: any) {
-            push({
-              type: "error",
-              title: "Cancel failed",
-              message: e?.message ?? "Cancel failed.",
-            });
-          }
-        },
+        onClick: async () => { setPendingDelete("revision"); },
       });
     }
 
@@ -795,7 +753,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   }, [onHeaderStateChange]);
 
   const headerSig =
-    `${localVersion?.status}|${localVersion?.version_number}|${canAct}|${workflow.isTasksReady}|${needsSignedFile ? 1 : 0}|${needsFileReplacement ? 1 : 0}|` +
+    `${localVersion?.status}|${localVersion?.version_number}|${canAct}|${workflow.isTasksReady}|${needsFileReplacement ? 1 : 0}|` +
     headerActionsWithReject
       .map((a) => `${a.key}:${a.disabled ? 1 : 0}`)
       .join(",") +
@@ -925,52 +883,54 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   // const isShellLoading = !document || !version || !localVersion;
 
   return (
+    <>
     <section className="flex flex-col gap-4">
       {/* Cancelled banner */}
       {effectiveStatus === "Cancelled" && (
-        <div className="flex items-center gap-3 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30 px-4 py-3">
-          <span className="text-rose-500 shrink-0 text-base">✕</span>
+        <div className="flex items-center gap-3 rounded-md border-l-4 border-rose-400 dark:border-rose-600 bg-rose-50 dark:bg-rose-950/30 px-4 py-2.5">
+          <XCircle className="h-4 w-4 text-rose-500 dark:text-rose-400 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-rose-800 dark:text-rose-300">
-              Document cancelled
-            </p>
-            <p className="text-[11px] text-rose-700 dark:text-rose-400 mt-0.5">
-              This document was cancelled. No further workflow actions are
-              available.
-            </p>
+            <p className="text-xs font-semibold text-rose-700 dark:text-rose-300">Document cancelled</p>
+            <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5">No further workflow actions are available.</p>
           </div>
         </div>
       )}
 
       {/* File replacement required banner */}
       {needsFileReplacement && (
-        <div className="flex items-center gap-3 rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/30 px-4 py-3">
-          <span className="text-orange-500 shrink-0 text-base">↺</span>
+        <div className="flex items-center gap-3 rounded-md border-l-4 border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/30 px-4 py-2.5">
+          <AlertTriangle className="h-4 w-4 text-amber-500 dark:text-amber-400 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-orange-800 dark:text-orange-300">
-              New file required before forwarding
-            </p>
-            <p className="text-[11px] text-orange-700 dark:text-orange-400 mt-0.5">
-              Upload a new version of the document using the "Replace" button
-              before forwarding.
-            </p>
+            <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">New file required before forwarding</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Upload a revised version using the Replace button before forwarding.</p>
           </div>
         </div>
       )}
 
-      {/* Signing required banner */}
-      {needsSignedFile && (
-        <div className="flex items-center gap-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3">
-          <span className="text-amber-500 shrink-0 text-base">⚠</span>
+      {/* Pre-approval signed upload banner */}
+      {isPreApprovalCreatorCheck && !hasSignedFile && (
+        <div className="flex items-start gap-3 rounded-md border-l-4 border-sky-400 dark:border-sky-600 bg-sky-50 dark:bg-sky-950/30 px-4 py-2.5">
+          <Upload className="h-4 w-4 text-sky-500 dark:text-sky-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-              Signed document required
-            </p>
-            <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">
-              Upload a signed copy using the "Upload signed" button on the right
-              before you can forward this document.
-            </p>
+            <p className="text-xs font-semibold text-sky-700 dark:text-sky-300">Upload signed document to start approval</p>
+            <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">Download the reviewed document, sign it, then upload the signed copy before starting the approval phase.</p>
           </div>
+          <button
+            type="button"
+            onClick={fileUpload.triggerFilePicker}
+            disabled={fileUpload.isUploading || workflow.isChangingStatus}
+            className="shrink-0 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50 transition"
+          >
+            {fileUpload.isUploading ? "Uploading…" : "Upload signed"}
+          </button>
+        </div>
+      )}
+      {isPreApprovalCreatorCheck && hasSignedFile && (
+        <div className="flex items-center gap-3 rounded-md border-l-4 border-emerald-400 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2.5">
+          <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
+          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+            Signed document uploaded — you can now start the approval phase.
+          </p>
         </div>
       )}
 
@@ -999,15 +959,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             <div className="flex-1 bg-slate-100 dark:bg-surface-600 animate-pulse" />
           </div>
         ) : (
-          <RightPanel
+          <DocumentPreviewWrapper
             localVersion={localVersion}
             allVersions={allVersions}
             selectedVersionId={selectedVersion?.id ?? null}
-            canReplace={
-              localVersion.status === "Draft" ||
-              localVersion.status === "Office Draft" ||
-              (canAct && isInApprovalPhase)
-            }
+            canReplace={canReplace}
             signedPreviewUrl={signedPreviewUrl}
             previewNonce={previewNonce}
             isUploading={fileUpload.isUploading}
@@ -1020,15 +976,23 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               window.open(res.url, "_blank");
             }}
             onClickReplace={fileUpload.triggerFilePicker}
-            onReloadPreview={() => {
-              // Nuke cache + force re-fetch for the current preview path
-              if (localVersion?.preview_path) {
-                delete previewUrlCacheRef.current[localVersion.preview_path];
-              }
+            onReloadPreview={async () => {
               previewUrlCacheRef.current = {};
               setSignedPreviewUrl("");
               setIsPreviewLoading(true);
               setPreviewNonce((n) => n + 1);
+              try {
+                const r = await getDocumentPreviewLink(localVersion.id);
+                if (localVersion?.preview_path) {
+                  previewUrlCacheRef.current[localVersion.preview_path] = r.url;
+                }
+                setSignedPreviewUrl(r.url);
+                setPreviewNonce((n) => n + 1);
+              } catch {
+                // Leave blank — no preview available
+              } finally {
+                setIsPreviewLoading(false);
+              }
             }}
             onDrop={fileUpload.handleDrop}
             onDragOver={fileUpload.handleDragOver}
@@ -1041,6 +1005,30 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         )}
       </div>
     </section>
+
+    {/* ── Delete / cancel-revision confirm modal ──────────────── */}
+    {pendingDelete != null && (
+      <DeleteDraftConfirmModal
+        pendingDelete={pendingDelete}
+        isDeleting={isDeleting}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={async () => {
+          setIsDeleting(true);
+          try {
+            await deleteDraftVersion(localVersion!.id);
+            if (pendingDelete === "revision" && onChanged) await onChanged();
+            setPendingDelete(null);
+            onAfterActionClose?.();
+          } catch (e: any) {
+            push({ type: "error", title: pendingDelete === "draft" ? "Delete failed" : "Cancel failed", message: e?.message ?? "Operation failed." });
+            setPendingDelete(null);
+          } finally {
+            setIsDeleting(false);
+          }
+        }}
+      />
+    )}
+  </>
   );
 };
 

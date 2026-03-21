@@ -21,13 +21,13 @@ export default function RequestExampleTab({
 }: Props) {
   return (
     <>
-      <div className="shrink-0 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-surface-400 dark:bg-surface-600">
+      <div className="shrink-0 flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-surface-400 dark:bg-surface-600">
         <FileText size={13} className="text-slate-400 shrink-0" />
         <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate flex-1">
           {req.example_original_filename ??
             (req.example_file_path ? "Attached" : "No example file")}
         </span>
-        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 shrink-0">
+        <span className="text-xs font-bold uppercase tracking-wide text-slate-400 shrink-0">
           Reference
         </span>
       </div>

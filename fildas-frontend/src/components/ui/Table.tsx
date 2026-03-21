@@ -113,7 +113,7 @@ export default function Table<T>({
           </div>
         ) : error ? (
           <div className="px-5 py-4">
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
               {error}
             </div>
           </div>
@@ -155,7 +155,7 @@ export default function Table<T>({
             {onLoadMore && (
               <div ref={sentinelRef} className="py-3 flex justify-center">
                 {loading && !initialLoading && (
-                  <div className="h-5 w-5 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
+                  <div className="h-5 w-5 rounded-full border-2 border-slate-200 dark:border-surface-400 border-t-sky-600 animate-spin" />
                 )}
                 {!loading && !hasMore && rows.length > 0 && (
                   <span className="text-xs text-slate-400 dark:text-slate-500">
@@ -187,7 +187,7 @@ export default function Table<T>({
   return (
     <div
       className={[
-        "flex flex-col min-h-0 overflow-hidden rounded-md border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500",
+        "flex flex-col min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500",
         className ?? "",
       ].join(" ")}
     >

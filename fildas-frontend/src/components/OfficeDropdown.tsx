@@ -63,7 +63,7 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
 
   const selected = offices.find((o) => o.id === value);
 
-  const inputCls = `w-full rounded-lg border px-3 py-2 text-sm outline-none transition
+  const inputCls = `w-full rounded-md border px-3 py-2 text-sm outline-none transition
     bg-white dark:bg-surface-600
     text-slate-900 dark:text-slate-100
     placeholder-slate-400 dark:placeholder-slate-500

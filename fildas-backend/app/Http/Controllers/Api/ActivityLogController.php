@@ -54,7 +54,7 @@ class ActivityLogController extends Controller
             'office_id' => 'nullable|integer|exists:offices,id',
             'date_from' => 'nullable|date',
             'date_to'  => 'nullable|date',
-            'category' => 'nullable|in:workflow,request,document,user,template,profile',
+            'category' => 'nullable|in:workflow,request,document,user,template,profile,actions',
         ]);
 
         $scope = $data['scope'] ?? 'office';
@@ -99,6 +99,8 @@ class ActivityLogController extends Controller
             'user'     => ['user.', 'office.'],
             'template' => ['template.'],
             'profile'  => ['profile.', 'auth.'],
+            // All document/workflow/request actions — excludes auth, profile, user-mgmt, template noise
+            'actions'  => ['workflow.', 'document.', 'version.', 'message.', 'document_request.'],
         ];
         if ($category !== '' && isset($categoryPrefixes[$category])) {
             $prefixes = $categoryPrefixes[$category];

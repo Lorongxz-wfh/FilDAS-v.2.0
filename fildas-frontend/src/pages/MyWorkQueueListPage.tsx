@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import { useNavigate } from "react-router-dom";
 import { listDocumentsPage, type Document } from "../services/documents";
 import { getUserRole, isQA, isSysAdmin } from "../lib/roleFilters";
@@ -110,7 +111,7 @@ export default function MyWorkQueueListPage() {
       try {
         const res = await listDocumentsPage({
           page,
-          perPage: 30,
+          perPage: 12,
           q: qDebounced.trim() || undefined,
           status: statusParam,
           doctype: typeFilter || undefined,
@@ -144,6 +145,8 @@ export default function MyWorkQueueListPage() {
     setHasMore(true);
     setInitialLoading(true);
   }, []);
+
+  const { refresh, refreshing } = usePageBurstRefresh(reload);
 
   const displayRows = useMemo(() => {
     if (tab === "active") {
@@ -241,19 +244,19 @@ export default function MyWorkQueueListPage() {
     return cols;
   }, [showOffice]);
 
-  // grid: status(auto) | title(1fr) | code(auto) | [office(auto)] | ver(auto) | created(auto)
+  // grid: status | title | code | [office] | ver | created
   const gridTemplateColumns = showOffice
-    ? "auto 1fr auto auto auto auto"
-    : "auto 1fr auto auto auto";
+    ? "90px 1fr 80px 80px 60px 110px"
+    : "90px 1fr 80px 60px 110px";
 
   return (
     <PageFrame
       title="Workflow Documents"
       onBack={() => navigate("/work-queue")}
-      contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
+      contentClassName="flex flex-col min-h-0 h-full"
       right={
         <div className="flex items-center gap-2">
-          <RefreshButton onClick={reload} loading={loading} title="Refresh" />
+          <RefreshButton onClick={refresh} loading={loading || refreshing} title="Refresh" />
           {canCreate && (
             <Button
               type="button"
@@ -271,7 +274,7 @@ export default function MyWorkQueueListPage() {
       }
     >
       {/* Tabs */}
-      <div className="shrink-0 flex items-center border-b border-slate-200 dark:border-surface-400 px-4">
+      <div className="shrink-0 flex items-center border-b border-slate-200 dark:border-surface-400">
         {TABS.map((t) => (
           <button key={t.value} type="button" onClick={() => setTab(t.value)} className={tabCls(tab === t.value)}>
             {t.label}
@@ -280,7 +283,7 @@ export default function MyWorkQueueListPage() {
       </div>
 
       {/* Filter bar */}
-      <div className="shrink-0 border-b border-slate-200 dark:border-surface-400 px-4 py-2.5 flex flex-wrap items-center gap-2">
+      <div className="shrink-0 py-3 flex flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
           <input
@@ -309,7 +312,7 @@ export default function MyWorkQueueListPage() {
           <button
             type="button"
             onClick={() => { setQ(""); setTypeFilter(""); setDateFrom(""); setDateTo(""); }}
-            className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+            className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
           >
             Clear
           </button>
@@ -317,15 +320,16 @@ export default function MyWorkQueueListPage() {
       </div>
 
       {error && (
-        <div className="shrink-0 px-4 pt-3">
+        <div className="shrink-0 pb-3">
           <Alert variant="danger">{error}</Alert>
         </div>
       )}
 
-      {/* Table */}
-      <div className="flex-1 min-h-0">
+      {/* Table card */}
+      <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
         <Table<Document>
           bare
+          className="h-full"
           columns={columns}
           rows={displayRows}
           rowKey={(doc) => doc.id}

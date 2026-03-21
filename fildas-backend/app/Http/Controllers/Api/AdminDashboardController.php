@@ -45,6 +45,15 @@ class AdminDashboardController extends Controller
             $v->whereNotIn('status', ['Distributed', 'Cancelled', 'Superseded', 'Draft', 'Office Draft'])
         )->count();
 
+        // Document phase breakdown (for admin dashboard chart)
+        $docsByPhase = [
+            'draft'        => Document::whereHas('latestVersion', fn($q) => $q->whereIn('status', ['Draft', 'Office Draft']))->count(),
+            'review'       => Document::whereHas('latestVersion', fn($q) => $q->where('status', 'like', '%Review%')->orWhere('status', 'like', '%Check%'))->count(),
+            'approval'     => Document::whereHas('latestVersion', fn($q) => $q->where('status', 'like', '%Approval%'))->count(),
+            'finalization' => Document::whereHas('latestVersion', fn($q) => $q->where(function ($r) { $r->where('status', 'like', '%Registration%')->orWhere('status', 'like', '%Distribution%'); }))->count(),
+            'distributed'  => $distributedDocuments,
+        ];
+
         // Recent user registrations (last 8)
         $recentUsers = User::query()
             ->join('roles', 'users.role_id', '=', 'roles.id')
@@ -87,6 +96,13 @@ class AdminDashboardController extends Controller
             ->map(fn($r) => ['label' => $r->label, 'count' => (int) $r->count])
             ->values();
 
+        // Fill all 6 months with zeros so the chart always shows 6 bars
+        $activityMap    = $activitySeries->pluck('count', 'label');
+        $activitySeries = collect(range(5, 0))
+            ->map(fn($i) => now()->subMonths($i)->format('Y-m'))
+            ->map(fn($m) => ['label' => $m, 'count' => $activityMap[$m] ?? 0])
+            ->values();
+
         return response()->json([
             'users' => [
                 'total'        => $totalUsers,
@@ -103,6 +119,7 @@ class AdminDashboardController extends Controller
                 'total'       => $totalDocuments,
                 'distributed' => $distributedDocuments,
                 'in_progress' => $inProgressDocuments,
+                'by_phase'    => $docsByPhase,
             ],
             'activity_series' => $activitySeries,
         ]);

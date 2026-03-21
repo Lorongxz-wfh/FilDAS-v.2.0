@@ -1,7 +1,7 @@
 import React from "react";
 import InlineSpinner from "../../ui/loader/InlineSpinner";
 import UploadProgress from "../../ui/loader/UploadProgress";
-import { Download, Maximize2, X } from "lucide-react";
+import { Download, Maximize2, RotateCcw, X } from "lucide-react";
 
 // ── Preview modal ────────────────────────────────────────────────────────────
 function PreviewModal({
@@ -27,7 +27,7 @@ function PreviewModal({
       onClick={onClose}
     >
       <div
-        className="relative flex flex-col w-full max-w-4xl h-[90vh] rounded-2xl overflow-hidden bg-white shadow-2xl dark:bg-surface-500"
+        className="relative flex flex-col w-full max-w-4xl h-[90vh] rounded-xl overflow-hidden bg-white shadow-2xl dark:bg-surface-500"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal toolbar */}
@@ -42,13 +42,13 @@ function PreviewModal({
                 e.stopPropagation();
                 window.open(url, "_blank");
               }}
-              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300"
+              className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300"
             >
               <Download size={12} /> Download
             </button>
             <button
               onClick={onClose}
-              className="flex items-center justify-center h-7 w-7 rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition dark:hover:bg-surface-400 dark:hover:text-slate-200"
+              className="flex items-center justify-center h-7 w-7 rounded-md text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition dark:hover:bg-surface-400 dark:hover:text-slate-200"
             >
               <X size={14} />
             </button>
@@ -97,7 +97,7 @@ const DocumentPreviewPanel: React.FC<Props> = ({
   previewPath,
   filePath,
   originalFilename,
-  status,
+  // status prop kept for API compatibility
   canReplace = false,
   signedPreviewUrl,
   previewNonce,
@@ -133,13 +133,13 @@ const DocumentPreviewPanel: React.FC<Props> = ({
         {/* Toolbar */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2 dark:border-surface-400 dark:bg-surface-600">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
               Document Preview
             </span>
             {originalFilename && (
               <>
                 <span className="text-slate-300 dark:text-slate-600">·</span>
-                <span className="truncate text-[11px] text-slate-500 dark:text-slate-400 max-w-xs">
+                <span className="truncate text-xs text-slate-500 dark:text-slate-400 max-w-xs">
                   {originalFilename}
                 </span>
               </>
@@ -151,16 +151,16 @@ const DocumentPreviewPanel: React.FC<Props> = ({
                 type="button"
                 onClick={onReloadPreview}
                 title="Reload preview"
-                className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-2 py-1 text-[11px] text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 transition shadow-sm"
+                className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-2 py-1 text-xs text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 transition shadow-sm"
               >
-                ↺
+                <RotateCcw size={12} />
               </button>
             )}
             {hasPreview && (
               <button
                 type="button"
                 onClick={openModal}
-                className="flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-2.5 py-1 text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:bg-sky-50 hover:border-sky-300 hover:text-sky-700 dark:hover:bg-sky-950/30 dark:hover:border-sky-700 dark:hover:text-sky-400 transition shadow-sm"
+                className="flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-sky-50 hover:border-sky-300 hover:text-sky-700 dark:hover:bg-sky-950/30 dark:hover:border-sky-700 dark:hover:text-sky-400 transition shadow-sm"
               >
                 <Maximize2 size={11} /> View
               </button>
@@ -172,33 +172,9 @@ const DocumentPreviewPanel: React.FC<Props> = ({
                 onClick={() => {
                   if (!isUploading && !isExternalUploading) onClickReplace();
                 }}
-                className={[
-                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition shadow-sm disabled:opacity-50",
-                  status === "Draft" || status === "Office Draft"
-                    ? "border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400"
-                    : "border border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/60",
-                ].join(" ")}
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition shadow-sm disabled:opacity-50 border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400"
               >
-                {status === "Draft" || status === "Office Draft" ? (
-                  "Replace"
-                ) : (
-                  <>
-                    <svg
-                      className="h-3 w-3"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                      />
-                    </svg>
-                    Upload signed
-                  </>
-                )}
+                Replace
               </button>
             )}
           </div>
@@ -224,7 +200,7 @@ const DocumentPreviewPanel: React.FC<Props> = ({
         >
           {filePath && previewPath && !signedPreviewUrl && (
             <div className="absolute inset-0 p-4">
-              <div className="h-full w-full rounded-lg bg-slate-100 dark:bg-surface-400 animate-pulse flex flex-col gap-3 p-6">
+              <div className="h-full w-full rounded-md bg-slate-100 dark:bg-surface-400 animate-pulse flex flex-col gap-3 p-6">
                 <div className="h-4 w-3/4 rounded bg-slate-200 dark:bg-surface-300" />
                 <div className="h-4 w-full rounded bg-slate-200 dark:bg-surface-300" />
                 <div className="h-4 w-5/6 rounded bg-slate-200 dark:bg-surface-300" />

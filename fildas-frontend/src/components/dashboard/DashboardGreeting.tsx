@@ -30,7 +30,7 @@ const DashboardGreeting: React.FC<Props> = ({ pendingCount, loading }) => {
   });
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-5 py-4 dark:border-surface-400 dark:bg-surface-500">
+    <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 dark:border-surface-400 dark:bg-surface-500">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         {/* Left: greeting + status */}
         <div className="flex items-center gap-4">

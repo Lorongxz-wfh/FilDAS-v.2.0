@@ -44,6 +44,7 @@ export interface AdminUsersResponse {
 
 export async function getAdminUsers(params: {
   page?: number;
+  per_page?: number;
   q?: string;
   status?: "active" | "disabled" | "";
   role_id?: number | "";
@@ -73,20 +74,32 @@ export type AdminOffice = {
   parent_office_id?: number | null;
   deleted_at?: string | null;
 
-  parentOffice?: {
+  parent_office?: {
     id: number;
     code: string;
     name: string;
   } | null;
 };
 
+export interface AdminOfficesResponse {
+  data: AdminOffice[];
+  meta: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+  };
+}
+
 export async function getAdminOffices(params?: {
   q?: string;
   status?: "active" | "disabled" | "all";
   type?: string;
-}): Promise<AdminOffice[]> {
+  page?: number;
+  per_page?: number;
+}): Promise<AdminOfficesResponse> {
   const res = await api.get("/admin/offices", { params });
-  return res.data as AdminOffice[];
+  return res.data as AdminOfficesResponse;
 }
 
 export type AdminOfficeCreatePayload = {

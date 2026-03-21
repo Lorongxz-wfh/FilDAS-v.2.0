@@ -70,6 +70,7 @@ const UserManagerPage: React.FC = () => {
       try {
         const res = await getAdminUsers({
           page,
+          per_page: 10,
           q: searchDebounced || undefined,
           status: statusFilter || undefined,
           role_id: roleFilter || undefined,
@@ -213,7 +214,7 @@ const UserManagerPage: React.FC = () => {
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2 shrink-0">
         {/* Search with inline clear */}
-        <div className="relative w-64">
+        <div className="relative w-full sm:w-64">
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
@@ -261,7 +262,7 @@ const UserManagerPage: React.FC = () => {
           <button
             type="button"
             onClick={clearFilters}
-            className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+            className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
           >
             Clear
           </button>

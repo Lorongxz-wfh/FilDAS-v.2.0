@@ -58,7 +58,7 @@ const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 shadow-xl p-6">
+      <div className="w-full max-w-md rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 shadow-xl p-6">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">
           {title}
         </h2>
@@ -83,7 +83,7 @@ const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
                   ? "Explain why this document is being cancelled…"
                   : "Explain why this document is being rejected…"
               }
-              className="block w-full rounded-lg border border-slate-300 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-900/30"
+              className="block w-full rounded-md border border-slate-300 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-900/30"
             />
             {rejectError && (
               <p className="mt-1 text-xs text-rose-600">{rejectError}</p>

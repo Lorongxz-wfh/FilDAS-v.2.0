@@ -60,7 +60,9 @@ class UserController extends Controller
             });
         }
 
-        $users = $query->paginate(25)->appends($request->query());
+        $perPage = (int) $request->get('per_page', 10);
+        $perPage = max(1, min($perPage, 100));
+        $users = $query->paginate($perPage)->appends($request->query());
 
         return response()->json($users);
     }

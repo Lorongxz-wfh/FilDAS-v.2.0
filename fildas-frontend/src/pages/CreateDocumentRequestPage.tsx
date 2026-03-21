@@ -82,6 +82,7 @@ export default function CreateDocumentRequestPage() {
   const [description, setDescription] = useState("");
   const [dueAt, setDueAt] = useState("");
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // ── Multi-office: single example file + preview ────────────────────────────
@@ -261,6 +262,7 @@ export default function CreateDocumentRequestPage() {
     }
 
     setLoading(true);
+    setSubmitting(true);
     setError(null);
 
     try {
@@ -303,6 +305,7 @@ export default function CreateDocumentRequestPage() {
 
       navigate(`/document-requests/${result.id}`);
     } catch (err: any) {
+      setSubmitting(false);
       setError(
         err?.response?.data?.message ??
           err?.message ??
@@ -320,6 +323,27 @@ export default function CreateDocumentRequestPage() {
       : [(state as MultiDocState).officeCode];
 
   const barLabel = mode === "multi_office" ? "Recipients" : "Office";
+
+  if (submitting) {
+    return (
+      <PageFrame title="Creating Request…" contentClassName="flex flex-col gap-4 h-full">
+        <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-5 flex flex-col gap-3 animate-pulse">
+          <div className="h-5 w-2/3 rounded-md bg-slate-200 dark:bg-surface-400" />
+          <div className="h-3.5 w-1/3 rounded-md bg-slate-100 dark:bg-surface-400" />
+          <div className="flex gap-2 mt-1">
+            <div className="h-5 w-20 rounded-full bg-slate-100 dark:bg-surface-400" />
+            <div className="h-5 w-24 rounded-full bg-slate-100 dark:bg-surface-400" />
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-5 flex flex-col gap-3 animate-pulse flex-1">
+          <div className="h-4 w-1/4 rounded-md bg-slate-200 dark:bg-surface-400" />
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-12 rounded-xl bg-slate-100 dark:bg-surface-400" />
+          ))}
+        </div>
+      </PageFrame>
+    );
+  }
 
   return (
     <PageFrame
@@ -553,7 +577,7 @@ export default function CreateDocumentRequestPage() {
                       <button
                         type="button"
                         onClick={addItem}
-                        className="flex items-center gap-2 rounded-lg border border-dashed border-slate-200 dark:border-surface-400 px-4 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-400 transition"
+                        className="flex items-center gap-2 rounded-md border border-dashed border-slate-200 dark:border-surface-400 px-4 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-400 transition"
                       >
                         <Plus className="h-3.5 w-3.5" />
                         Add document item
@@ -563,7 +587,7 @@ export default function CreateDocumentRequestPage() {
                 )}
 
                 {error && (
-                  <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-xs font-medium text-rose-700 dark:text-rose-400">
+                  <div className="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-xs font-medium text-rose-700 dark:text-rose-400">
                     {error}
                   </div>
                 )}
@@ -577,14 +601,14 @@ export default function CreateDocumentRequestPage() {
                       navigate(-1);
                     }}
                     disabled={loading}
-                    className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-50 transition"
+                    className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-50 transition"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white transition"
+                    className="rounded-md bg-brand-500 hover:bg-brand-600 disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white transition"
                   >
                     {loading ? "Creating…" : "Create request"}
                   </button>
@@ -611,7 +635,7 @@ export default function CreateDocumentRequestPage() {
               {!activePreview.url &&
               !activePreview.loading &&
               !activePreview.error ? (
-                <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-slate-200 dark:border-surface-400">
+                <div className="flex h-full items-center justify-center rounded-md border-2 border-dashed border-slate-200 dark:border-surface-400">
                   <p className="text-sm text-slate-400 dark:text-slate-500 text-center px-4">
                     {mode === "multi_doc"
                       ? "Attach a file to an item to preview it here"
@@ -625,7 +649,7 @@ export default function CreateDocumentRequestPage() {
                   </p>
                 </div>
               ) : activePreview.error ? (
-                <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 p-4 text-xs text-rose-700 dark:text-rose-400">
+                <div className="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 p-4 text-xs text-rose-700 dark:text-rose-400">
                   {activePreview.error}
                   <p className="mt-1 opacity-70">
                     You can still create without a preview.
@@ -635,7 +659,7 @@ export default function CreateDocumentRequestPage() {
                 <iframe
                   title="File preview"
                   src={activePreview.url}
-                  className="h-full w-full rounded-lg border border-slate-200 dark:border-surface-400"
+                  className="h-full w-full rounded-md border border-slate-200 dark:border-surface-400"
                 />
               ) : null}
             </div>

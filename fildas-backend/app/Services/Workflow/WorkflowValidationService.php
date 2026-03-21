@@ -40,7 +40,7 @@ class WorkflowValidationService
             empty($version->signed_file_path)
         ) {
             throw new \InvalidArgumentException(
-                'A signed copy of the document must be uploaded before forwarding during the approval phase.'
+                'A signed copy of the document must be uploaded before starting the approval phase.'
             );
         }
     }
@@ -90,6 +90,10 @@ class WorkflowValidationService
             WorkflowSteps::STEP_OFFICE_VP_APPROVAL,
             WorkflowSteps::STEP_OFFICE_PRES_APPROVAL,
             WorkflowSteps::STEP_CUSTOM_OFFICE_APPROVAL,
+            // Pre-approval creator double-check steps
+            WorkflowSteps::STEP_QA_REVIEW_FINAL_CHECK,
+            WorkflowSteps::STEP_OFFICE_REVIEW_FINAL_CHECK,
+            WorkflowSteps::STEP_CUSTOM_REVIEW_BACK_TO_OWNER,
         ], true);
     }
 
@@ -101,6 +105,10 @@ class WorkflowValidationService
             WorkflowSteps::ACTION_OFFICE_HEAD_FORWARD_TO_VP_APPR,
             WorkflowSteps::ACTION_OFFICE_VP_FORWARD_TO_PRESIDENT,
             WorkflowSteps::ACTION_CUSTOM_FORWARD,
+            // Start-approval actions from the pre-approval creator check
+            WorkflowSteps::ACTION_QA_START_OFFICE_APPROVAL,
+            WorkflowSteps::ACTION_OFFICE_START_APPROVAL,
+            WorkflowSteps::ACTION_CUSTOM_START_APPROVAL,
         ], true);
     }
 }

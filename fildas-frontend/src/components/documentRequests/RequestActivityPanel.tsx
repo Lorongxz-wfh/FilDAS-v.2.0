@@ -26,14 +26,14 @@ export default function RequestActivityPanel({ logs, loading }: Props) {
           {logs.map((log: any) => (
             <div
               key={log.id}
-              className="flex items-start gap-3 rounded-lg px-3 py-2.5 hover:bg-white/60 dark:hover:bg-surface-500/40 transition"
+              className="flex items-start gap-3 rounded-md px-3 py-2.5 hover:bg-white/60 dark:hover:bg-surface-500/40 transition"
             >
               <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-slate-700 dark:text-slate-300">
                   {log.label}
                 </p>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                <p className="text-xs text-slate-400 dark:text-slate-500">
                   {formatDateTime(log.created_at)}
                 </p>
               </div>

@@ -162,15 +162,26 @@ export function useDocumentWorkflow({
       .catch(() => {});
   }, []);
 
+  // ── Activity logs: silent background refresh (used by polling) ────────────
+  const silentRefreshLogs = useCallback(
+    (id: number) => {
+      listActivityLogs({ scope: "document", document_version_id: id, per_page: 50 })
+        .then((p) => setActivityLogs(p.data))
+        .catch(() => {});
+    },
+    [],
+  );
+
   // ── Idle polling ────────────────────────────────────────────────────────
   const startIdlePolling = useCallback(
     (id: number) => {
       if (idlePollRef.current) window.clearInterval(idlePollRef.current);
       idlePollRef.current = window.setInterval(() => {
         refreshTasksAndActions(id, { isPolling: true }).catch(() => {});
+        silentRefreshLogs(id);
       }, IDLE_POLL_MS);
     },
-    [refreshTasksAndActions],
+    [refreshTasksAndActions, silentRefreshLogs],
   );
 
   // ── Visibility-aware catch-up ────────────────────────────────────────────
@@ -192,6 +203,7 @@ export function useDocumentWorkflow({
       setIsBurstPolling(true);
       burstPollRef.current = window.setInterval(() => {
         refreshTasksAndActions(id, { isPolling: true }).catch(() => {});
+        silentRefreshLogs(id);
       }, BURST_POLL_MS);
 
       if (burstTimeoutRef.current) window.clearTimeout(burstTimeoutRef.current);
@@ -202,7 +214,7 @@ export function useDocumentWorkflow({
         startIdlePolling(id);
       }, BURST_EXPIRE_MS);
     },
-    [refreshTasksAndActions, startIdlePolling],
+    [refreshTasksAndActions, startIdlePolling, silentRefreshLogs],
   );
 
   // ── Initial load ─────────────────────────────────────────────────────────

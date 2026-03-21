@@ -1,4 +1,5 @@
 import React from "react";
+import { Loader2 } from "lucide-react";
 import Skeleton from "../../ui/loader/Skeleton";
 import type { DocumentMessage } from "../../../services/documents";
 import CommentBubble from "./CommentBubble";
@@ -141,7 +142,7 @@ const DocumentCommentsPanel: React.FC<Props> = ({
         <button
           type="button"
           onClick={handleScrollToNew}
-          className="shrink-0 w-full flex items-center justify-center gap-1.5 rounded-lg bg-sky-500 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-sky-600 transition animate-pulse"
+          className="shrink-0 w-full flex items-center justify-center gap-1.5 rounded-md bg-sky-500 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-sky-600 transition animate-pulse"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-white" />
           {newMessageCount} new message{newMessageCount > 1 ? "s" : ""} · Click
@@ -169,7 +170,7 @@ const DocumentCommentsPanel: React.FC<Props> = ({
                       <Skeleton className="h-3 w-16" />
                     </div>
                     <Skeleton
-                      className={`h-9 ${bubbleWidth} rounded-2xl rounded-tr-none`}
+                      className={`h-9 ${bubbleWidth} rounded-xl rounded-tr-none`}
                     />
                     <Skeleton className="h-2.5 w-20" />
                   </div>
@@ -184,7 +185,7 @@ const DocumentCommentsPanel: React.FC<Props> = ({
                       <Skeleton className="h-3 w-14" />
                     </div>
                     <Skeleton
-                      className={`h-9 ${bubbleWidth} rounded-2xl rounded-tl-none`}
+                      className={`h-9 ${bubbleWidth} rounded-xl rounded-tl-none`}
                     />
                     <Skeleton className="h-2.5 w-24" />
                   </div>
@@ -219,7 +220,7 @@ const DocumentCommentsPanel: React.FC<Props> = ({
               <div key={m.tempId} className="flex items-end justify-end gap-2">
                 <div className="flex flex-col items-end gap-1 max-w-[75%]">
                   <div
-                    className={`rounded-2xl rounded-tr-none px-3 py-2 text-sm ${
+                    className={`rounded-xl rounded-tr-none px-3 py-2 text-sm ${
                       m.failed
                         ? "bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300"
                         : "bg-sky-500 text-white opacity-80"
@@ -227,30 +228,12 @@ const DocumentCommentsPanel: React.FC<Props> = ({
                   >
                     {m.text}
                   </div>
-                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                  <span className="text-xs text-slate-400 flex items-center gap-1">
                     {m.failed ? (
                       <span className="text-rose-500">Failed to send</span>
                     ) : (
                       <>
-                        <svg
-                          className="animate-spin h-2.5 w-2.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8v8z"
-                          />
-                        </svg>
+                        <Loader2 className="animate-spin h-2.5 w-2.5" />
                         Sending…
                       </>
                     )}
@@ -265,7 +248,7 @@ const DocumentCommentsPanel: React.FC<Props> = ({
       {/* Composer */}
       <div className="shrink-0 flex gap-2">
         <textarea
-          className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm resize-none outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-sky-900/30 transition"
+          className="flex-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm resize-none outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-sky-900/30 transition"
           rows={1}
           value={draftMessage}
           onChange={(e) => setDraftMessage(e.target.value)}
@@ -281,7 +264,7 @@ const DocumentCommentsPanel: React.FC<Props> = ({
           type="button"
           disabled={isSending || draftMessage.trim().length === 0}
           onClick={handleSend}
-          className="rounded-lg px-3 py-2 text-xs font-semibold transition bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded-md px-3 py-2 text-xs font-semibold transition bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isSending ? "…" : "Send"}
         </button>

@@ -3,8 +3,9 @@ import { useNavigate, useLocation } from "react-router-dom";
 import PageFrame from "../components/layout/PageFrame";
 import SkeletonList from "../components/ui/loader/SkeletonList";
 import { getDocumentVersion, listActivityLogs } from "../services/documents";
-import { Search, X, } from "lucide-react";
-import { inputCls } from "../utils/formStyles";
+import { Search, X } from "lucide-react";
+import { inputCls, selectCls } from "../utils/formStyles";
+import DateRangeInput from "../components/ui/DateRangeInput";
 
 type ActivityLogRow = {
   id: number;
@@ -16,13 +17,9 @@ type ActivityLogRow = {
   created_at?: string | null;
 };
 
-type Category = "" | "workflow" | "request";
+type Category = "" | "workflow" | "document" | "request";
 
 const EVENT_LABELS: Record<string, string> = {
-  "auth.login": "Logged in",
-  "auth.logout": "Logged out",
-  "profile.updated": "Profile updated",
-  "profile.password_changed": "Password changed",
   "workflow.distributed": "Document distributed",
   "workflow.sent_to_review": "Sent for review",
   "workflow.forwarded_to_vp": "Forwarded to VP",
@@ -59,23 +56,18 @@ function friendlyEvent(event: string): string {
   return EVENT_LABELS[event] ?? event.replace(/[._]/g, " ");
 }
 
-function categoryFromEvent(event: string): "workflow" | "request" | "other" {
-  if (
-    event.startsWith("workflow.") ||
-    event.startsWith("document.") ||
-    event.startsWith("version.") ||
-    event.startsWith("message.")
-  )
-    return "workflow";
+function categoryFromEvent(event: string): "workflow" | "document" | "request" | "other" {
+  if (event.startsWith("workflow.")) return "workflow";
+  if (event.startsWith("document.") || event.startsWith("version.") || event.startsWith("message.")) return "document";
   if (event.startsWith("document_request")) return "request";
   return "other";
 }
 
 const CATEGORY_BADGE: Record<string, string> = {
   workflow: "bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400",
-  request:
-    "bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400",
-  other: "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-400",
+  document: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
+  request:  "bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400",
+  other:    "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-400",
 };
 
 const formatWhen = (iso?: string | null) => {
@@ -144,6 +136,7 @@ const MyActivityPage: React.FC = () => {
           per_page: perPage,
           page,
           q: qDebounced.trim() || undefined,
+          // Always scope to action events — never fetch auth.login / profile.updated noise
           category: category || undefined,
           date_from: dateFrom || undefined,
           date_to: dateTo || undefined,
@@ -213,14 +206,13 @@ const MyActivityPage: React.FC = () => {
     >
       {/* Filters bar */}
       <div className="shrink-0 flex flex-wrap items-center gap-2">
-        {/* Search */}
-        <div className="relative w-full sm:w-56">
+        <div className="relative w-52">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search event/label…"
-            className={`${inputCls} pl-9 pr-8 w-full`}
+            className={`${inputCls} pl-9 pr-8`}
           />
           {q && (
             <button
@@ -233,40 +225,29 @@ const MyActivityPage: React.FC = () => {
           )}
         </div>
 
-        {/* Category */}
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value as Category)}
-          className={inputCls}
+          className={selectCls}
         >
-          <option value="">All categories</option>
+          <option value="">All actions</option>
           <option value="workflow">Workflow</option>
+          <option value="document">Documents &amp; Files</option>
           <option value="request">Requests</option>
         </select>
 
-        {/* Date from */}
-        <input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          className={inputCls}
-          title="From date"
-        />
-
-        {/* Date to */}
-        <input
-          type="date"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          className={inputCls}
-          title="To date"
+        <DateRangeInput
+          from={dateFrom}
+          to={dateTo}
+          onFromChange={setDateFrom}
+          onToChange={setDateTo}
         />
 
         {hasFilters && (
           <button
             type="button"
             onClick={clearFilters}
-            className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+            className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
           >
             Clear
           </button>
@@ -284,9 +265,13 @@ const MyActivityPage: React.FC = () => {
               Activity log
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Actions you performed
-              {category &&
-                ` · ${category === "workflow" ? "Workflow" : "Requests"}`}
+              {category === "workflow"
+                ? "Workflow actions"
+                : category === "document"
+                  ? "Document & file actions"
+                  : category === "request"
+                    ? "Request actions"
+                    : "Your document and workflow actions"}
             </p>
           </div>
           {/* Pagination */}
@@ -295,7 +280,7 @@ const MyActivityPage: React.FC = () => {
               type="button"
               disabled={!canPrev || loading}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
+              className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
             >
               ← Prev
             </button>
@@ -306,7 +291,7 @@ const MyActivityPage: React.FC = () => {
               type="button"
               disabled={!canNext || loading}
               onClick={() => setPage((p) => p + 1)}
-              className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
+              className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
             >
               Next →
             </button>
@@ -338,10 +323,12 @@ const MyActivityPage: React.FC = () => {
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${CATEGORY_BADGE[cat]}`}
                     >
                       {cat === "workflow"
-                        ? "Flow"
-                        : cat === "request"
-                          ? "Request"
-                          : "Other"}
+                        ? "Workflow"
+                        : cat === "document"
+                          ? "Document"
+                          : cat === "request"
+                            ? "Request"
+                            : "Other"}
                     </span>
 
                     {/* Info */}
@@ -349,13 +336,13 @@ const MyActivityPage: React.FC = () => {
                       <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                         {l.label || friendlyEvent(l.event)}
                       </p>
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                      <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
                         {l.event}
                       </p>
                     </div>
 
                     {/* When */}
-                    <div className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500 hidden sm:block">
+                    <div className="shrink-0 text-xs text-slate-400 dark:text-slate-500 hidden sm:block">
                       {formatWhen(l.created_at)}
                     </div>
 
@@ -364,7 +351,7 @@ const MyActivityPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleRowNavigate(l)}
-                        className="shrink-0 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+                        className="shrink-0 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
                       >
                         Open →
                       </button>

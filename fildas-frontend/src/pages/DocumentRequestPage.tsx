@@ -601,7 +601,7 @@ export default function DocumentRequestPage() {
                       setEditOpen(false);
                       setEditErr(null);
                     }}
-                    className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+                    className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
                   >
                     Cancel
                   </button>
@@ -609,7 +609,7 @@ export default function DocumentRequestPage() {
                     type="button"
                     onClick={saveEdit}
                     disabled={editSaving}
-                    className="rounded-lg bg-brand-500 hover:bg-brand-600 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-white transition"
+                    className="rounded-md bg-brand-500 hover:bg-brand-600 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-white transition"
                   >
                     {editSaving ? "Saving…" : "Save"}
                   </button>

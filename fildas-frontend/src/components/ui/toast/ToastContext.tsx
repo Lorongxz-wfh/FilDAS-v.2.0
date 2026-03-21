@@ -73,7 +73,7 @@ const ToastHost: React.FC<{
         <div
           key={t.id}
           className={[
-            "rounded-lg border px-4 py-3 shadow-lg backdrop-blur",
+            "rounded-xl border px-4 py-3 shadow-lg backdrop-blur",
             "bg-white/95 dark:bg-surface-500/95",
             borderByType[t.type],
           ].join(" ")}

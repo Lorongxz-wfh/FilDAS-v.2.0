@@ -39,7 +39,7 @@ const TableSkeleton: React.FC<Props> = ({
         {Array.from({ length: rows }).map((_, r) => (
           <div
             key={r}
-            className="grid gap-3 items-center px-3 py-3 rounded-lg"
+            className="grid gap-3 items-center px-3 py-3 rounded-md"
             style={{ gridTemplateColumns: colTemplate }}
           >
             {Array.from({ length: colCount }).map((_, c) => (

@@ -11,8 +11,11 @@ class DocumentResource extends JsonResource
     {
         $doc = $this;
 
-        // Prefer latest version; fallback null
-        $v = $doc->relationLoaded('latestVersion') ? $doc->latestVersion : null;
+        // For library queries (status=Distributed), latestDistributedVersion is eager-loaded
+        // and gives the correct distributed version even when a newer revision draft exists.
+        $v = ($doc->relationLoaded('latestDistributedVersion') && $doc->latestDistributedVersion !== null)
+            ? $doc->latestDistributedVersion
+            : ($doc->relationLoaded('latestVersion') ? $doc->latestVersion : null);
 
         // Resolve current OPEN task assignee only if it was eager-loaded.
         // Never query inside a Resource (avoids N+1 on lists). [web:702]
@@ -83,6 +86,8 @@ class DocumentResource extends JsonResource
             ] : null,
 
             'version_number' => $v?->version_number ?? 0,
+            'effective_date' => $v?->effective_date,
+            'distributed_at' => $v?->distributed_at,
             'file_path' => $v?->file_path,
             'preview_path' => $v?->preview_path,
             'original_filename' => $v?->original_filename,

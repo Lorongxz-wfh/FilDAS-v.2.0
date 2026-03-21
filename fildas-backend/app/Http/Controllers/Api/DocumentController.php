@@ -28,7 +28,9 @@ use App\Http\Resources\DocumentResource;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use App\Mail\WorkflowNotificationMail;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use App\Models\ActivityLog;
 use App\Models\Tag;
@@ -236,7 +238,10 @@ class DocumentController extends Controller
     {
         $user = $request->user();
         $roleName = $this->roleNameOf($user) ?: null;
-        $canManage = in_array($roleName, ['admin', 'qa'], true);
+        $actorOfficeId = (int) ($user?->office_id ?? 0);
+        $ownerOfficeId = (int) ($document->owner_office_id ?? 0);
+        $isOwner = $ownerOfficeId && $actorOfficeId === $ownerOfficeId;
+        $canManage = $isOwner || in_array($roleName, ['admin', 'qa'], true);
 
         if (!$canManage) {
             return response()->json(['message' => 'Forbidden.'], 403);
@@ -254,7 +259,10 @@ class DocumentController extends Controller
     {
         $user = $request->user();
         $roleName = $this->roleNameOf($user) ?: null;
-        $canManage = in_array($roleName, ['admin', 'qa'], true);
+        $actorOfficeId = (int) ($user?->office_id ?? 0);
+        $ownerOfficeId = (int) ($document->owner_office_id ?? 0);
+        $isOwner = $ownerOfficeId && $actorOfficeId === $ownerOfficeId;
+        $canManage = $isOwner || in_array($roleName, ['admin', 'qa'], true);
 
         if (!$canManage) {
             return response()->json(['message' => 'Forbidden.'], 403);
@@ -266,9 +274,39 @@ class DocumentController extends Controller
         ]);
 
         $actorUserId = (int) ($user?->id ?? 0);
-        $actorOfficeId = (int) ($user?->office_id ?? 0);
 
         $result = $this->shares->setShares($document, $data['office_ids'] ?? [], $actorUserId, $actorOfficeId);
+
+        // Email newly-added offices that the document was shared with them
+        $addedOfficeIds = $result['added_office_ids'] ?? [];
+        if (!empty($addedOfficeIds)) {
+            $actorName  = trim($user->first_name . ' ' . $user->last_name) ?: 'Someone';
+            $docTitle   = $document->title ?? 'A document';
+            $appUrl     = rtrim(env('FRONTEND_URL', config('app.url')), '/');
+            $appName    = config('app.name', 'FilDAS');
+
+            $shareUsers = User::whereIn('office_id', $addedOfficeIds)
+                ->select(['id', 'first_name', 'last_name', 'email', 'email_doc_updates'])
+                ->get();
+
+            foreach ($shareUsers as $u) {
+                if (!(bool) ($u->email_doc_updates ?? true) || !$u->email) continue;
+                try {
+                    Mail::to($u->email)->queue(new WorkflowNotificationMail(
+                        recipientName:  trim($u->first_name . ' ' . $u->last_name) ?: $u->email,
+                        notifTitle:     'A document has been shared with you',
+                        notifBody:      $docTitle . ' has been shared with your office by ' . $actorName . '. You can view it in the Library.',
+                        documentTitle:  $docTitle,
+                        documentStatus: 'Distributed',
+                        isReject:       false,
+                        actorName:      $actorName,
+                        documentId:     $document->id,
+                        appUrl:         $appUrl,
+                        appName:        $appName,
+                    ));
+                } catch (\Throwable) {}
+            }
+        }
 
         return response()->json([
             'message' => 'Shares updated.',
@@ -468,6 +506,14 @@ class DocumentController extends Controller
                     ]);
                 }
             }
+
+            // Custom routing always uses unified draft step/status regardless of flow type
+            $initialStep   = WorkflowSteps::STEP_CUSTOM_DRAFT; // 'draft'
+            $initialStatus = 'Draft';
+            if ($version->status !== 'Draft') {
+                $version->status = 'Draft';
+                $version->save();
+            }
         }
 
 
@@ -545,6 +591,14 @@ class DocumentController extends Controller
 
     public function createRevision(Request $request, Document $document)
     {
+        // Only the owner office (creator) may start a revision
+        $user = $request->user();
+        $userOfficeId = (int) ($user?->office_id ?? 0);
+        $ownerOfficeId = (int) ($document->owner_office_id ?? 0);
+        if (!$ownerOfficeId || $userOfficeId !== $ownerOfficeId) {
+            return response()->json(['message' => 'Only the document owner office may create a revision.'], 403);
+        }
+
         $data = $request->validate([
             'revision_reason' => 'nullable|string|max:1000',
         ]);
@@ -693,6 +747,10 @@ class DocumentController extends Controller
             'For Office Head Approval',
             'For Staff Approval Check',
             'For Owner Approval Check',
+            // Pre-approval creator double-check steps
+            'For QA Final Check',
+            'For Office Final Check',
+            'For Owner Review Check',
         ];
         $isDuringApproval = in_array($version->status, $approvalStatuses, true)
             || (bool) preg_match('/^For .+ Approval$/', $version->status);
@@ -789,10 +847,6 @@ class DocumentController extends Controller
     }
     public function downloadVersion(Request $request, DocumentVersion $version)
     {
-        if ($version->status !== 'Distributed') {
-            return response()->json(['message' => 'Only Distributed versions can be downloaded.'], 422);
-        }
-
         if (!$version->file_path) {
             return response()->json(['message' => 'No file available for this version.'], 404);
         }

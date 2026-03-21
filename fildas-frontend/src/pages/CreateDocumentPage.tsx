@@ -286,7 +286,7 @@ export default function CreateDocumentPage() {
           <button
             type="button"
             onClick={() => setTemplatesPanelOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
           >
             Templates
           </button>
@@ -490,7 +490,7 @@ export default function CreateDocumentPage() {
                               setTags((p) => [...p, t]);
                               setTagsInput("");
                             }}
-                            className="shrink-0 rounded-lg border border-slate-200 dark:border-surface-400 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+                            className="shrink-0 rounded-md border border-slate-200 dark:border-surface-400 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
                           >
                             Add
                           </button>
@@ -544,7 +544,7 @@ export default function CreateDocumentPage() {
                     </Field>
 
                     {error && (
-                      <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-xs text-rose-700 dark:text-rose-400">
+                      <div className="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-xs text-rose-700 dark:text-rose-400">
                         <p className="font-medium">{error}</p>
                         {fieldErrors && (
                           <ul className="mt-1 list-disc pl-4 space-y-0.5">
@@ -569,14 +569,14 @@ export default function CreateDocumentPage() {
                           navigate(-1);
                         }}
                         disabled={loading}
-                        className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-50 transition"
+                        className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-50 transition"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
                         disabled={loading}
-                        className="rounded-lg bg-sky-500 hover:bg-sky-600 disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white transition"
+                        className="rounded-md bg-sky-500 hover:bg-sky-600 disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white transition"
                       >
                         {loading ? "Creating…" : "Save document"}
                       </button>
@@ -599,7 +599,7 @@ export default function CreateDocumentPage() {
                 </div>
                 <div className="flex-1 p-4 min-h-0">
                   {!file ? (
-                    <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-slate-200 dark:border-surface-400">
+                    <div className="flex h-full items-center justify-center rounded-md border-2 border-dashed border-slate-200 dark:border-surface-400">
                       <p className="text-sm text-slate-400 dark:text-slate-500">
                         Attach a file to preview it here
                       </p>
@@ -611,7 +611,7 @@ export default function CreateDocumentPage() {
                       </p>
                     </div>
                   ) : previewError ? (
-                    <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 p-4 text-xs text-rose-700 dark:text-rose-400">
+                    <div className="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 p-4 text-xs text-rose-700 dark:text-rose-400">
                       {previewError}
                       <p className="mt-1 opacity-70">
                         You can still save without a preview.
@@ -621,7 +621,7 @@ export default function CreateDocumentPage() {
                     <iframe
                       title="Document preview"
                       src={tempPreview.url}
-                      className="h-full w-full rounded-lg border border-slate-200 dark:border-surface-400"
+                      className="h-full w-full rounded-md border border-slate-200 dark:border-surface-400"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center">

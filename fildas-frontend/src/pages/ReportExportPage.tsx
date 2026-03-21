@@ -279,7 +279,7 @@ const ReportExportPage: React.FC = () => {
           type="button"
           disabled={selectedCount === 0 || exporting || loading}
           onClick={handleExportAll}
-          className="inline-flex items-center gap-2 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:opacity-50 px-4 py-2 text-sm font-semibold text-white transition"
+          className="inline-flex items-center gap-2 rounded-md bg-sky-500 hover:bg-sky-600 disabled:opacity-50 px-4 py-2 text-sm font-semibold text-white transition"
         >
           {exporting ? "Exporting…" : `↓ Export ${selectedCount} selected`}
         </button>
@@ -312,7 +312,7 @@ const ReportExportPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-700 dark:text-rose-400">
+        <div className="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-700 dark:text-rose-400">
           {error}
         </div>
       )}
@@ -357,7 +357,7 @@ const ReportExportPage: React.FC = () => {
                   </div>
 
                   {/* Format toggle */}
-                  <div className="flex shrink-0 rounded-lg border border-slate-200 dark:border-surface-400 overflow-hidden text-xs font-medium">
+                  <div className="flex shrink-0 rounded-md border border-slate-200 dark:border-surface-400 overflow-hidden text-xs font-medium">
                     {(["pdf", "csv"] as Format[]).map((f) => (
                       <button
                         key={f}

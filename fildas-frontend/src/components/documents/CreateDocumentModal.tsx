@@ -169,14 +169,14 @@ export default function FlowSelectModal({
       <button
         type="button"
         onClick={onClose}
-        className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+        className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
       >
         Cancel
       </button>
       <button
         type="button"
         onClick={handleConfirm}
-        className="rounded-lg bg-brand-500 hover:bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition"
+        className="rounded-md bg-brand-500 hover:bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition"
       >
         Save
       </button>
@@ -219,7 +219,7 @@ export default function FlowSelectModal({
                     : "Default Office Flow"
                   : "Custom Flow"}
               </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {mode === "default"
                   ? "Standard chain through VP and President"
                   : "You choose 1–5 offices in order"}
@@ -244,7 +244,7 @@ export default function FlowSelectModal({
                 setError(null);
               }}
             />
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
               The first office that will review this document.
             </p>
           </div>
@@ -296,7 +296,7 @@ export default function FlowSelectModal({
                         return next.length ? next : [0];
                       })
                     }
-                    className="shrink-0 h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-400 hover:text-rose-500 hover:border-rose-300 dark:hover:border-rose-700 dark:hover:text-rose-400 transition"
+                    className="shrink-0 h-8 w-8 flex items-center justify-center rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-400 hover:text-rose-500 hover:border-rose-300 dark:hover:border-rose-700 dark:hover:text-rose-400 transition"
                   >
                     ✕
                   </button>
@@ -306,7 +306,7 @@ export default function FlowSelectModal({
                 <button
                   type="button"
                   onClick={() => setCustomOfficeIds((p) => [...p, 0])}
-                  className="mt-1 rounded-lg border border-dashed border-slate-200 dark:border-surface-400 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-400 transition"
+                  className="mt-1 rounded-md border border-dashed border-slate-200 dark:border-surface-400 py-2.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-400 transition"
                 >
                   + Add recipient
                 </button>
@@ -318,7 +318,7 @@ export default function FlowSelectModal({
         {/* Chain preview — 3 phases */}
         {chain.length > 0 && (
           <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-slate-50/80 dark:bg-surface-600/80 px-4 py-3 flex flex-col gap-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
               Flow Preview
             </p>
             {[
@@ -336,7 +336,7 @@ export default function FlowSelectModal({
               },
             ].map((phase) => (
               <div key={phase.label} className="flex items-start gap-2">
-                <span className="w-20 shrink-0 text-[10px] font-semibold text-slate-400 dark:text-slate-500 pt-0.5">
+                <span className="w-20 shrink-0 text-xs font-semibold text-slate-400 dark:text-slate-500 pt-0.5">
                   {phase.label}
                 </span>
                 <div className="flex flex-wrap items-center gap-1">
@@ -344,7 +344,7 @@ export default function FlowSelectModal({
                     <React.Fragment key={i}>
                       <span
                         className={[
-                          "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                          "rounded-full px-2 py-0.5 text-xs font-semibold",
                           node.includes("✓")
                             ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
                             : node === "Register" || node === "Distribute"
@@ -355,7 +355,7 @@ export default function FlowSelectModal({
                         {node}
                       </span>
                       {i < phase.nodes.length - 1 && (
-                        <span className="text-slate-300 dark:text-slate-600 text-[10px]">
+                        <span className="text-slate-300 dark:text-slate-600 text-xs">
                           →
                         </span>
                       )}
@@ -368,7 +368,7 @@ export default function FlowSelectModal({
         )}
 
         {error && (
-          <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-xs font-medium text-rose-700 dark:text-rose-400">
+          <div className="rounded-md border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-xs font-medium text-rose-700 dark:text-rose-400">
             {error}
           </div>
         )}

@@ -208,9 +208,11 @@ export default function OfficeEditModal({
             onChange={(e) => setCode(e.target.value)}
             disabled={saving || !!acting || isDisabled}
             placeholder="e.g. IT, HR, QA"
+            minLength={2}
+            maxLength={6}
           />
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Backend will normalize to uppercase and enforce uniqueness.
+            2–6 characters. Normalized to uppercase automatically.
           </p>
         </div>
 

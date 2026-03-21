@@ -48,4 +48,8 @@
   .dark {
     color-scheme: dark;
   }
+
+  body:not(.dark) {
+    background-color: #f1f5f9;
+  }
 }

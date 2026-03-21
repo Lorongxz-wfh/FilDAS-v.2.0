@@ -173,7 +173,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </button>
 
               {newOpen && (
-                <div className="absolute left-0 top-full mt-1 z-50 w-52 rounded-md border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-500 shadow-md py-1">
+                <div className="absolute left-0 top-full mt-1 z-50 w-52 rounded-xl border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-500 shadow-md py-1">
                   {visibleNewActions.map((action) => {
                     const Icon = action.icon;
                     return (

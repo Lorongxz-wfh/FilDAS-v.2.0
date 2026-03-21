@@ -1,4 +1,5 @@
 import React from "react";
+import { ChevronRight } from "lucide-react";
 import type {
   Document,
   DocumentVersion,
@@ -87,14 +88,10 @@ const DocumentRightPanel: React.FC<Props> = ({
           onClick={() => setInfoExpanded((v) => !v)}
           className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 dark:hover:bg-surface-400/40 transition"
         >
-          <svg
+          <ChevronRight
             className={`h-3 w-3 shrink-0 text-slate-400 transition-transform duration-150 ${infoExpanded ? "rotate-90" : "rotate-0"}`}
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path d="M7.5 4.5 13 10l-5.5 5.5-1.4-1.4L10.2 10 6.1 5.9 7.5 4.5z" />
-          </svg>
-          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+          />
+          <span className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
             Document Info
           </span>
           {isDataReady && document && (
@@ -104,7 +101,7 @@ const DocumentRightPanel: React.FC<Props> = ({
             >
               {document.doctype && (
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${
+                  className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${
                     document.doctype === "internal"
                       ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
                       : document.doctype === "external"
@@ -117,7 +114,7 @@ const DocumentRightPanel: React.FC<Props> = ({
               )}
               {(document as any).visibility_scope && (
                 <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${
+                  className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${
                     (document as any).visibility_scope === "global"
                       ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
                       : "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300"
@@ -138,7 +135,7 @@ const DocumentRightPanel: React.FC<Props> = ({
                 {[148, 100, 130, 90, 120, 110].map((w, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between rounded-lg border border-slate-100 dark:border-surface-400 bg-slate-50 dark:bg-surface-600/50 px-3 py-2"
+                    className="flex items-center justify-between rounded-md border border-slate-100 dark:border-surface-400 bg-slate-50 dark:bg-surface-600/50 px-3 py-2"
                   >
                     <div className="h-2.5 w-14 rounded-full bg-slate-200 dark:bg-surface-300 animate-pulse" />
                     <div
@@ -173,13 +170,9 @@ const DocumentRightPanel: React.FC<Props> = ({
           onKeyDown={(e) => e.key === "Enter" && setCommentsExpanded((v) => !v)}
           className="shrink-0 w-full flex items-center gap-2 px-3 py-2 border-b border-slate-200 dark:border-surface-400 hover:bg-slate-50 dark:hover:bg-surface-400/40 transition cursor-pointer"
         >
-          <svg
+          <ChevronRight
             className={`h-3 w-3 shrink-0 text-slate-400 transition-transform duration-150 ${commentsExpanded ? "rotate-90" : "rotate-0"}`}
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path d="M7.5 4.5 13 10l-5.5 5.5-1.4-1.4L10.2 10 6.1 5.9 7.5 4.5z" />
-          </svg>
+          />
           <div
             className="flex items-center gap-0"
             onClick={(e) => e.stopPropagation()}
@@ -195,7 +188,7 @@ const DocumentRightPanel: React.FC<Props> = ({
                   if (!commentsExpanded) setCommentsExpanded(true);
                 }}
                 className={[
-                  "px-2.5 py-0.5 text-[11px] font-medium rounded transition",
+                  "px-2.5 py-0.5 text-xs font-medium rounded transition",
                   activeSideTab === tab
                     ? "text-sky-600 dark:text-sky-400 font-semibold"
                     : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
@@ -203,14 +196,14 @@ const DocumentRightPanel: React.FC<Props> = ({
               >
                 {tab === "comments" ? "Comments" : "Activity"}
                 {tab === "comments" && newMessageCount > 0 && (
-                  <span className="ml-1 rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white animate-pulse">
+                  <span className="ml-1 rounded-full bg-rose-500 px-1.5 text-xs font-bold text-white animate-pulse">
                     +{newMessageCount}
                   </span>
                 )}
                 {tab === "comments" &&
                   newMessageCount === 0 &&
                   messages.length > 0 && (
-                    <span className="ml-1 rounded-full bg-sky-100 dark:bg-sky-900/40 px-1.5 text-[10px] font-bold text-sky-600 dark:text-sky-400">
+                    <span className="ml-1 rounded-full bg-sky-100 dark:bg-sky-900/40 px-1.5 text-xs font-bold text-sky-600 dark:text-sky-400">
                       {messages.length}
                     </span>
                   )}

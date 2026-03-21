@@ -37,7 +37,7 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 shadow-2xl">
+      <div className="w-full max-w-md rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 shadow-2xl">
         <div className="px-5 py-4 border-b border-slate-100 dark:border-surface-400">
           <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
             Start revision
@@ -52,14 +52,14 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
             <span className="font-normal text-slate-400">(optional)</span>
           </label>
           <textarea
-            className="w-full rounded-lg border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-500 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"
+            className="w-full rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-500 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"
             rows={3}
             maxLength={1000}
             placeholder="e.g. Updated to reflect new compliance requirements…"
             value={revisionReason}
             onChange={(e) => setRevisionReason(e.target.value)}
           />
-          <p className="mt-1 text-right text-[10px] text-slate-400">
+          <p className="mt-1 text-right text-xs text-slate-400">
             {revisionReason.length}/1000
           </p>
         </div>

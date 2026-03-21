@@ -57,7 +57,7 @@ const TemplateGridCard: React.FC<Props> = ({
           /* Fallback — styled placeholder */
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4">
             <span
-              className={`inline-flex items-center rounded-lg border px-3 py-1.5 text-sm font-bold tracking-wide ${typeColor}`}
+              className={`inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-bold tracking-wide ${typeColor}`}
             >
               {typeLabel}
             </span>
@@ -73,7 +73,7 @@ const TemplateGridCard: React.FC<Props> = ({
             type="button"
             onClick={handleDownload}
             disabled={downloading}
-            className="rounded-lg bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-white transition disabled:opacity-50 shadow"
+            className="rounded-md bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-white transition disabled:opacity-50 shadow"
           >
             {downloading ? "…" : "↓ Download"}
           </button>
@@ -85,7 +85,7 @@ const TemplateGridCard: React.FC<Props> = ({
                 onDeleteClick(template.id);
               }}
               disabled={isDeleting}
-              className="rounded-lg bg-rose-500/90 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-600 transition disabled:opacity-50 shadow"
+              className="rounded-md bg-rose-500/90 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-600 transition disabled:opacity-50 shadow"
             >
               {isDeleting ? "…" : "Delete"}
             </button>
@@ -95,7 +95,7 @@ const TemplateGridCard: React.FC<Props> = ({
         {/* File type badge — top left */}
         <div className="absolute top-2 left-2">
           <span
-            className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold tracking-wide shadow-sm ${typeColor}`}
+            className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-bold tracking-wide shadow-sm ${typeColor}`}
           >
             {typeLabel}
           </span>
@@ -104,11 +104,11 @@ const TemplateGridCard: React.FC<Props> = ({
         {/* Global/office badge — top right */}
         <div className="absolute top-2 right-2">
           {template.is_global ? (
-            <span className="inline-flex items-center rounded-full bg-violet-50/90 dark:bg-violet-950/70 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-400 shadow-sm">
+            <span className="inline-flex items-center rounded-full bg-violet-50/90 dark:bg-violet-950/70 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-400 shadow-sm">
               Global
             </span>
           ) : template.office ? (
-            <span className="inline-flex items-center rounded-full bg-white/90 dark:bg-surface-500/90 border border-slate-200 dark:border-surface-400 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300 shadow-sm">
+            <span className="inline-flex items-center rounded-full bg-white/90 dark:bg-surface-500/90 border border-slate-200 dark:border-surface-400 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300 shadow-sm">
               {template.office.code}
             </span>
           ) : null}
@@ -121,11 +121,11 @@ const TemplateGridCard: React.FC<Props> = ({
           {template.name}
         </p>
         {template.description && (
-          <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500 truncate">
+          <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500 truncate">
             {template.description}
           </p>
         )}
-        <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
           {template.file_size_label}
           {template.uploaded_by ? ` · ${template.uploaded_by.name}` : ""}
         </p>
@@ -134,13 +134,13 @@ const TemplateGridCard: React.FC<Props> = ({
             {template.tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
-                className="rounded-full bg-slate-100 dark:bg-surface-400 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-300"
+                className="rounded-full bg-slate-100 dark:bg-surface-400 px-1.5 py-0.5 text-xs font-medium text-slate-500 dark:text-slate-300"
               >
                 {tag}
               </span>
             ))}
             {template.tags.length > 3 && (
-              <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-1.5 py-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+              <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-1.5 py-0.5 text-xs text-slate-400 dark:text-slate-500">
                 +{template.tags.length - 3}
               </span>
             )}

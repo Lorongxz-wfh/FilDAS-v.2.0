@@ -895,21 +895,25 @@ class DocumentRequestController extends Controller
             // Notify office users
             $users = User::query()
                 ->where('office_id', (int) $recipient->office_id)
-                ->select(['id', 'office_id'])
+                ->select(['id', 'first_name', 'last_name', 'email', 'office_id', 'email_doc_updates'])
                 ->get();
+
+            $isAccepted = $data['decision'] === 'accepted';
+            $actorName  = trim($user->first_name . ' ' . $user->last_name) ?: 'QA';
+            $reqTitle   = $requestRow?->title ?? 'Document request';
+            $notifTitle = $isAccepted ? 'Document request submission accepted' : 'Document request submission rejected';
+            $notifBody  = $reqTitle . ($data['note'] ? ': ' . $data['note'] : '') . ' — ' . ($isAccepted ? 'accepted' : 'rejected') . ' by ' . $actorName . '.';
 
             foreach ($users as $u) {
                 Notification::create([
                     'user_id'             => $u->id,
                     'document_id'         => null,
                     'document_version_id' => null,
-                    'event'               => $data['decision'] === 'accepted'
+                    'event'               => $isAccepted
                         ? 'document_request.submission.accepted'
                         : 'document_request.submission.rejected',
-                    'title'               => $data['decision'] === 'accepted'
-                        ? 'Document request submission accepted'
-                        : 'Document request submission rejected',
-                    'body'                => $requestRow?->title ?? 'Document request update',
+                    'title'               => $notifTitle,
+                    'body'                => $reqTitle,
                     'meta'                => [
                         'document_request_id' => (int) ($recipient->request_id ?? null),
                         'recipient_id'        => (int) $recipient->id,
@@ -918,6 +922,24 @@ class DocumentRequestController extends Controller
                     ],
                     'read_at' => null,
                 ]);
+
+                if (!(bool) ($u->email_doc_updates ?? true) || !$u->email) continue;
+                try {
+                    Mail::to($u->email)->queue(new WorkflowNotificationMail(
+                        recipientName:   trim($u->first_name . ' ' . $u->last_name) ?: $u->email,
+                        notifTitle:      $notifTitle,
+                        notifBody:       $notifBody,
+                        documentTitle:   $reqTitle,
+                        documentStatus:  $isAccepted ? 'Accepted' : 'Rejected',
+                        isReject:        !$isAccepted,
+                        actorName:       $actorName,
+                        documentId:      null,
+                        cardLabel:       'Document Request',
+                        overrideLinkUrl: rtrim(env('FRONTEND_URL', config('app.url')), '/') . '/document-requests',
+                        appUrl:          rtrim(env('FRONTEND_URL', config('app.url')), '/'),
+                        appName:         config('app.name', 'FilDAS'),
+                    ));
+                } catch (\Throwable) {}
             }
 
             return response()->json(['message' => 'Reviewed.'], 200);

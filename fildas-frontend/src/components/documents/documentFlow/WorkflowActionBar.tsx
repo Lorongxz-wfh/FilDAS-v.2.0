@@ -1,4 +1,5 @@
 import React from "react";
+import { Loader2 } from "lucide-react";
 import Button from "../../ui/Button";
 import Modal from "../../ui/Modal";
 import type { HeaderActionButton } from "../DocumentFlow";
@@ -23,8 +24,17 @@ const WorkflowActionBar: React.FC<Props> = ({
 
   if (!actions.length) return null;
 
-  const handleClick = (action: HeaderActionButton) => {
-    if (!canAct || isChangingStatus) return;
+  const handleClick = async (action: HeaderActionButton) => {
+    const bypassCanAct = action.key === "CANCEL_DOCUMENT";
+    if (isChangingStatus || (!bypassCanAct && !canAct)) return;
+
+    if (action.skipConfirm) {
+      setProcessingKey(action.key);
+      try { await action.onClick(); }
+      finally { setProcessingKey(null); }
+      return;
+    }
+
     setRejectNote("");
     setRejectError("");
     setConfirmAction(action);
@@ -71,33 +81,15 @@ const WorkflowActionBar: React.FC<Props> = ({
               type="button"
               size="sm"
               variant={a.variant === "danger" ? "danger" : "primary"}
-              disabled={isBusy || !canAct}
+              disabled={isBusy || (a.key !== "CANCEL_DOCUMENT" && !canAct)}
               onClick={() => handleClick(a)}
               className={
-                !canAct && !isBusy ? "opacity-40 cursor-not-allowed" : ""
+                (a.key !== "CANCEL_DOCUMENT" && !canAct) && !isBusy ? "opacity-40 cursor-not-allowed" : ""
               }
             >
               {isThis ? (
                 <span className="flex items-center gap-1.5">
-                  <svg
-                    className="animate-spin h-3 w-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8z"
-                    />
-                  </svg>
+                  <Loader2 className="animate-spin h-3 w-3" />
                   Processing…
                 </span>
               ) : (

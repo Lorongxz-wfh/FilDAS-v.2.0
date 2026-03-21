@@ -251,6 +251,7 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
       onSaved?.(res.user);
       onClose();
     } catch (e: any) {
+      if ((e as any)?.code === "ERR_CANCELED" || e?.message === "canceled") return;
       setError(
         e?.message ??
           (mode === "create"
@@ -319,7 +320,7 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
               {user?.office ? `· ${user.office.name}` : ""}
             </p>
             <div className="flex items-center gap-2">
-              <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300 dark:hover:bg-surface-400 transition-colors">
+              <label className="cursor-pointer rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300 dark:hover:bg-surface-400 transition-colors">
                 {uploadingPhoto ? "Uploading…" : "Change photo"}
                 <input
                   type="file"
@@ -334,7 +335,7 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
                   type="button"
                   onClick={handleRemovePhoto}
                   disabled={uploadingPhoto || saving}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-500 hover:bg-rose-50 dark:border-surface-400 dark:bg-surface-500 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-50"
+                  className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-500 hover:bg-rose-50 dark:border-surface-400 dark:bg-surface-500 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-50"
                 >
                   Remove
                 </button>
@@ -344,17 +345,17 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
 
           {/* Status badge */}
           {isDeleted && (
-            <span className="ml-auto inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-400">
+            <span className="ml-auto inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-400">
               Deleted
             </span>
           )}
           {!isDeleted && isDisabled && (
-            <span className="ml-auto inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-rose-600 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
+            <span className="ml-auto inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-rose-600 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
               Disabled
             </span>
           )}
           {!isDeleted && !isDisabled && mode === "edit" && (
-            <span className="ml-auto inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-sky-600 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-400">
+            <span className="ml-auto inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-sky-600 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-400">
               Active
             </span>
           )}
@@ -400,7 +401,7 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
               Profile photo <span className="text-slate-400">(optional)</span>
             </p>
             <div className="flex items-center gap-2">
-              <label className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300 dark:hover:bg-surface-400 transition-colors">
+              <label className="cursor-pointer rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300 dark:hover:bg-surface-400 transition-colors">
                 Choose photo
                 <input
                   type="file"
@@ -425,7 +426,7 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
                     setPhotoPreview(null);
                     setPendingPhotoFile(null);
                   }}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-500 hover:bg-rose-50 dark:border-surface-400 dark:bg-surface-500 dark:hover:bg-rose-950/30 transition-colors"
+                  className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-rose-500 hover:bg-rose-50 dark:border-surface-400 dark:bg-surface-500 dark:hover:bg-rose-950/30 transition-colors"
                 >
                   Remove
                 </button>
@@ -496,7 +497,7 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
 
       {/* Password info — create only */}
       {mode === "create" && (
-        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-surface-600 rounded-lg px-3 py-2 border border-slate-200 dark:border-surface-400">
+        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-surface-600 rounded-md px-3 py-2 border border-slate-200 dark:border-surface-400">
           A temporary password will be generated and emailed to the user.
         </p>
       )}

@@ -62,7 +62,7 @@ const ActivityLogsPage: React.FC = () => {
           scope,
           q: qDebounced.trim() || undefined,
           page,
-          per_page: 25,
+          per_page: 10,
           category: category || undefined,
           date_from: dateFrom || undefined,
           date_to: dateTo || undefined,
@@ -177,7 +177,7 @@ const ActivityLogsPage: React.FC = () => {
   return (
     <PageFrame
       title="Activity Logs"
-      contentClassName="flex flex-col min-h-0 gap-4"
+      contentClassName="flex flex-col min-h-0 gap-4 h-full"
       right={
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-0.5">
@@ -242,12 +242,12 @@ const ActivityLogsPage: React.FC = () => {
             <option value="profile">Profile &amp; Auth</option>
           </select>
 
-          <div className="relative">
+          <div className="relative w-full sm:w-56">
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search event/label…"
-              className={`${selectCls} w-56 pr-8`}
+              className={`${selectCls} w-full pr-8`}
             />
             {q && (
               <button
@@ -277,7 +277,7 @@ const ActivityLogsPage: React.FC = () => {
                 setDateFrom("");
                 setDateTo("");
               }}
-              className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+              className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
             >
               Clear
             </button>
@@ -290,8 +290,7 @@ const ActivityLogsPage: React.FC = () => {
       {/* Log tab — table */}
       {tab === "log" && (
         <div
-          className="rounded-md border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden"
-          style={{ height: "calc(100vh - 230px)" }}
+          className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden flex-1 min-h-0"
         >
           <Table
             bare

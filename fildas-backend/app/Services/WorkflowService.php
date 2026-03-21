@@ -177,8 +177,8 @@ class WorkflowService
             default => [],
         };
 
-        // Reject: review and approval steps only (not draft, final checks, finalization)
-        if (in_array($step, [...$reviewSteps, ...$approvalSteps], true)) {
+        // Reject: review steps only (not draft, approval, final checks, finalization)
+        if (in_array($step, $reviewSteps, true)) {
             $actions[] = WorkflowSteps::ACTION_REJECT;
         }
 
@@ -231,7 +231,7 @@ class WorkflowService
             default => [],
         };
 
-        if (in_array($step, [...$reviewSteps, ...$approvalSteps], true)) {
+        if (in_array($step, $reviewSteps, true)) {
             $actions[] = WorkflowSteps::ACTION_REJECT;
         }
 
@@ -242,11 +242,11 @@ class WorkflowService
     {
         $rejectableSteps = [
             WorkflowSteps::STEP_CUSTOM_OFFICE_REVIEW,
-            WorkflowSteps::STEP_CUSTOM_OFFICE_APPROVAL,
         ];
 
         $actions = match ($step) {
-            WorkflowSteps::STEP_CUSTOM_DRAFT
+            WorkflowSteps::STEP_CUSTOM_DRAFT,
+            WorkflowSteps::STEP_OFFICE_DRAFT   // backward compat: custom-flow docs created before step normalisation
             => [WorkflowSteps::ACTION_CUSTOM_FORWARD],
 
             WorkflowSteps::STEP_CUSTOM_OFFICE_REVIEW
@@ -491,8 +491,9 @@ class WorkflowService
 
             WorkflowSteps::ACTION_CUSTOM_FORWARD => (function () use ($curStep, $nextInList, $ownerOfficeId, $customList) {
                 return match ($curStep) {
-                    WorkflowSteps::STEP_CUSTOM_DRAFT =>
-                    [WorkflowSteps::STEP_CUSTOM_OFFICE_REVIEW, $customList[0] ?? $ownerOfficeId],
+                    WorkflowSteps::STEP_CUSTOM_DRAFT,
+                    WorkflowSteps::STEP_OFFICE_DRAFT  // backward compat
+                    => [WorkflowSteps::STEP_CUSTOM_OFFICE_REVIEW, $customList[0] ?? $ownerOfficeId],
 
                     WorkflowSteps::STEP_CUSTOM_OFFICE_REVIEW =>
                     $nextInList
@@ -778,6 +779,10 @@ class WorkflowService
         $this->notify($nextOfficeId, $actor, $version, $nextStatus, $isReject);
         $this->log($version, $actor, $nextOfficeId, $fromStatus, $nextStatus, $nextStep, $nextPhase, $note, $isReject);
 
+        if ($isFinal) {
+            $this->notifyDistributed($version, $actor);
+        }
+
         return $newTask;
     }
 
@@ -893,6 +898,45 @@ class WorkflowService
                     // Email failure must never break the workflow action
                 }
             }
+        }
+    }
+
+    private function notifyDistributed(DocumentVersion $version, User $actor): void
+    {
+        $doc       = $this->doc($version);
+        $actorName = trim($actor->first_name . ' ' . $actor->last_name) ?: 'Someone';
+        $appUrl    = rtrim(env('FRONTEND_URL', config('app.url')), '/');
+        $appName   = config('app.name', 'FilDAS');
+
+        $participantOfficeIds = WorkflowTask::where('document_version_id', $version->id)
+            ->pluck('assigned_office_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $users = User::whereIn('office_id', $participantOfficeIds)
+            ->where('id', '!=', $actor->id)
+            ->select(['id', 'first_name', 'last_name', 'email', 'email_doc_updates'])
+            ->get();
+
+        foreach ($users as $u) {
+            if (!(bool) ($u->email_doc_updates ?? true) || !$u->email) continue;
+            try {
+                Mail::to($u->email)->queue(new WorkflowNotificationMail(
+                    recipientName:  trim($u->first_name . ' ' . $u->last_name) ?: $u->email,
+                    notifTitle:     'Document distributed: ' . ($doc->title ?? 'Untitled'),
+                    notifBody:      ($doc->title ?? 'A document') . ' has been distributed by ' . $actorName . ' and is now available in the library.',
+                    documentTitle:  $doc->title ?? 'Untitled Document',
+                    documentStatus: 'Distributed',
+                    isReject:       false,
+                    actorName:      $actorName,
+                    documentId:     $version->document_id,
+                    appUrl:         $appUrl,
+                    appName:        $appName,
+                ));
+            } catch (\Throwable) {}
         }
     }
 

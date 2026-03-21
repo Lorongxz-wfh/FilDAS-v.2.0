@@ -218,7 +218,7 @@ const MyWorkQueuePage: React.FC = () => {
   return (
     <PageFrame
       title={isAdmin ? "Work Queue" : "My Work Queue"}
-      contentClassName="flex flex-col min-h-0 gap-5"
+      contentClassName="flex flex-col min-h-0 gap-5 h-full"
       right={
         <div className="flex items-center gap-2">
           <button
@@ -286,11 +286,10 @@ const MyWorkQueuePage: React.FC = () => {
 
       {/* Main 2-col layout */}
       <div
-        className="flex gap-5 flex-col lg:flex-row lg:min-h-0"
-        style={{ height: "calc(100vh - 275px)" }}
+        className="flex gap-5 flex-col lg:flex-row flex-1 min-h-0"
       >
         {/* Queue panel */}
-        <div className="flex flex-col flex-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+        <div className="flex flex-col flex-1 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
           {/* Panel header + tabs */}
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-4 py-3">
             <div>
@@ -302,7 +301,7 @@ const MyWorkQueuePage: React.FC = () => {
                   ? "Distributed documents you were involved in"
                   : tab === "active"
                   ? "Assigned to your office — action required"
-                  : "All assigned + monitored documents"}
+                  : "All active + Distributed Documents"}
               </p>
             </div>
 
@@ -361,7 +360,7 @@ const MyWorkQueuePage: React.FC = () => {
               finishedLoading && finishedDocs.length === 0 ? (
                 <SkeletonList rows={4} rowClassName="h-14 rounded-md" />
               ) : finishedDocs.length === 0 ? (
-                <div className="flex h-full min-h-40 items-center justify-center rounded-md border border-dashed border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600">
+                <div className="flex h-full min-h-40 items-center justify-center rounded-xl border border-dashed border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600">
                   <div className="text-center">
                     <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded bg-slate-100 dark:bg-surface-400 text-slate-400 dark:text-slate-500">
                       <CheckCircle2 className="h-4 w-4" />
@@ -412,7 +411,7 @@ const MyWorkQueuePage: React.FC = () => {
                 tab === "active" ? assignedItems : allItems,
               );
               return displayItems.length === 0 ? (
-                <div className="flex h-full min-h-40 items-center justify-center rounded-md border border-dashed border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600">
+                <div className="flex h-full min-h-40 items-center justify-center rounded-xl border border-dashed border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600">
                   <div className="text-center">
                     <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded bg-slate-100 dark:bg-surface-400 text-slate-400 dark:text-slate-500">
                       <CheckCircle2 className="h-4 w-4" />
@@ -445,7 +444,7 @@ const MyWorkQueuePage: React.FC = () => {
         </div>
 
         {/* Recent activity panel — workflow only */}
-        <div className="flex flex-col lg:w-80 shrink-0 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden max-h-96 lg:max-h-none">
+        <div className="flex flex-col lg:w-80 shrink-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden max-h-96 lg:max-h-none">
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">

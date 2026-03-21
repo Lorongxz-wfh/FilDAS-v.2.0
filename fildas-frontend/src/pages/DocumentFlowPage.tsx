@@ -19,14 +19,17 @@ import {
 } from "react-router-dom";
 import Alert from "../components/ui/Alert";
 import Button from "../components/ui/Button";
+import RefreshButton from "../components/ui/RefreshButton";
 import DocFrame from "../components/layout/DocFrame";
 import DocumentRightPanel from "../components/documents/documentFlow/DocumentRightPanel";
+import VersionsDropdown from "../components/documents/documentFlow/VersionsDropdown";
 import BackButton from "../components/ui/buttons/BackButton";
 import Skeleton from "../components/ui/loader/Skeleton";
 import { replaceDocumentVersionFileWithProgress } from "../services/documents";
 import { useToast } from "../components/ui/toast/ToastContext";
 import { getUserRole } from "../lib/roleFilters";
 import { getAuthUser } from "../lib/auth";
+import { Library, Loader2, Copy, Check } from "lucide-react";
 
 const DocumentFlowPage: React.FC = () => {
   const params = useParams();
@@ -36,6 +39,7 @@ const DocumentFlowPage: React.FC = () => {
   const role = getUserRole();
   const isAdmin = role === "ADMIN" || role === "SYSADMIN";
   const currentUserId = getAuthUser()?.id;
+  const myOfficeId = getAuthUser()?.office_id ?? null;
   const debugKey = `pref_debug_mode_${currentUserId}`;
 
   const [adminDebugMode, setAdminDebugMode] = React.useState<boolean>(() =>
@@ -92,6 +96,7 @@ const DocumentFlowPage: React.FC = () => {
       : null;
   const [isLoadingSelectedVersion, setIsLoadingSelectedVersion] =
     useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [reviseModalOpen, setReviseModalOpen] = useState(false);
@@ -124,7 +129,7 @@ const DocumentFlowPage: React.FC = () => {
     [],
   );
   const [rightCollapsed, setRightCollapsed] = useState(false);
-  const [versionsDropdownOpen, setVersionsDropdownOpen] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   // ── Pending file upload (from create page async redirect) ─────────────────
   const toast = useToast();
@@ -189,51 +194,7 @@ const DocumentFlowPage: React.FC = () => {
       setProcessingKey(null);
     }
   };
-  const versionsDropdownRef = React.useRef<HTMLDivElement>(null);
-  const versionsButtonRef = React.useRef<HTMLButtonElement>(null);
-  const versionsFixedDropdownRef = React.useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = React.useState<{
-    top: number;
-    right: number;
-  } | null>(null);
-
-  React.useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      const inTrigger = versionsDropdownRef.current?.contains(e.target as Node);
-      const inFixed = versionsFixedDropdownRef.current?.contains(
-        e.target as Node,
-      );
-      if (!inTrigger && !inFixed) {
-        setVersionsDropdownOpen(false);
-      }
-    };
-    if (versionsDropdownOpen)
-      window.document.addEventListener("mousedown", handler);
-    return () => window.document.removeEventListener("mousedown", handler);
-  }, [versionsDropdownOpen]);
-
-  const statusColors: Record<string, string> = {
-    draft:
-      "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300",
-    review:
-      "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-    approval: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    registration:
-      "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-    distributed:
-      "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-  };
-
-  const getStatusColor = (status: string) => {
-    const key = status.toLowerCase().trim();
-    return (
-      statusColors[key] ??
-      Object.entries(statusColors).find(([k]) => key.includes(k))?.[1] ??
-      statusColors.draft
-    );
-  };
-
-  const refreshAndSelectBest = React.useCallback(
+const refreshAndSelectBest = React.useCallback(
     async (opts?: { preferVersionId?: number | null }) => {
       const [docData, versions] = await Promise.all([
         getDocument(id),
@@ -344,127 +305,25 @@ const DocumentFlowPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVersionId]);
 
-  // ── Versions dropdown (shared between loading + main render) ──────────────
-  const versionsDropdown = (
-    <div ref={versionsDropdownRef} className="flex items-center">
-      <button
-        ref={versionsButtonRef}
-        type="button"
-        onClick={() => {
-          if (versionsButtonRef.current) {
-            const r = versionsButtonRef.current.getBoundingClientRect();
-            setDropdownPos({
-              top: r.bottom + 6,
-              right: window.innerWidth - r.right,
-            });
-          }
-          setVersionsDropdownOpen((v) => !v);
-        }}
-        className="flex items-center gap-2 rounded-lg border border-slate-300 dark:border-surface-300 bg-slate-100 dark:bg-surface-500 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-surface-400 shadow-sm transition"
-      >
-        <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
-          v{selectedVersion?.version_number ?? "—"}
-        </span>
-        {allVersions.length > 1 && (
-          <span className="rounded-full bg-slate-300 dark:bg-surface-400 px-1.5 text-[10px] font-bold text-slate-600 dark:text-slate-300">
-            {allVersions.length}
-          </span>
-        )}
-        <svg
-          className={`h-3 w-3 transition-transform ${versionsDropdownOpen ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </button>
-
-      {versionsDropdownOpen && dropdownPos && (
-        <div
-          ref={versionsFixedDropdownRef}
-          style={{
-            position: "fixed",
-            top: dropdownPos.top,
-            right: dropdownPos.right,
-          }}
-          className="z-999 w-72 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 shadow-xl overflow-hidden"
-        >
-          <div className="px-3 py-2 border-b border-slate-100 dark:border-surface-400">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              Select version
-            </p>
-          </div>
-          <div className="max-h-56 overflow-y-auto">
-            <div className="p-2 space-y-1">
-              {allVersions.map((v) => {
-                const isSel = v.id === (selectedVersion?.id ?? null);
-                return (
-                  <button
-                    key={v.id}
-                    type="button"
-                    disabled={isLoadingSelectedVersion}
-                    onClick={() => {
-                      setSearchParams((prev) => {
-                        const p = new URLSearchParams(prev);
-                        p.set("version_id", String(v.id));
-                        return p;
-                      });
-                      logOpenedVersion(v.id, "versions_panel");
-                      setVersionsDropdownOpen(false);
-                    }}
-                    className={[
-                      "w-full rounded-lg px-3 py-2 text-left transition border",
-                      isSel
-                        ? "border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/30"
-                        : "border-transparent hover:bg-slate-50 dark:hover:bg-surface-500",
-                      isLoadingSelectedVersion
-                        ? "opacity-60 cursor-not-allowed"
-                        : "",
-                    ].join(" ")}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                          v{v.version_number}
-                        </span>
-                        {isSel && (
-                          <span className="text-[10px] text-sky-500">
-                            current
-                          </span>
-                        )}
-                      </div>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${getStatusColor(v.status)}`}
-                      >
-                        {v.status}
-                      </span>
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                      {new Date(v.created_at).toLocaleDateString()} · Updated{" "}
-                      {new Date(v.updated_at).toLocaleDateString()}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
   // Reset header sig when version changes so new state is always accepted
   React.useEffect(() => {
     headerSigRef.current = "";
   }, [selectedVersion?.id]);
 
-  const rightHeader = versionsDropdown;
+  const rightHeader = (
+    <VersionsDropdown
+      allVersions={allVersions}
+      selectedVersion={selectedVersion}
+      isLoadingSelectedVersion={isLoadingSelectedVersion}
+      onSelectVersion={(v) => {
+        setSearchParams((prev) => {
+          const p = new URLSearchParams(prev);
+          p.set("version_id", String(v.id));
+          return p;
+        });
+      }}
+    />
+  );
 
   // ── Loading skeleton ───────────────────────────────────────────────────────
 
@@ -494,14 +353,23 @@ const DocumentFlowPage: React.FC = () => {
       )
     : false;
 
-  const isRevisable = isLatestSelected && current?.status === "Distributed" && (!isAdmin || adminDebugMode);
+  const isOwner =
+    !!myOfficeId &&
+    !!document?.owner_office_id &&
+    Number(myOfficeId) === Number(document.owner_office_id);
+
+  const isRevisable =
+    isLatestSelected &&
+    current?.status === "Distributed" &&
+    (!isAdmin || adminDebugMode) &&
+    isOwner;
 
   return (
     <>
       <DocFrame
         title={
           <div className="min-w-0">
-            <div className="flex items-start gap-2 min-w-0">
+            <div className="flex flex-wrap items-start gap-2 min-w-0">
               {loading ? (
                 <Skeleton className="h-4 w-48 mt-0.5" />
               ) : (
@@ -537,7 +405,25 @@ const DocumentFlowPage: React.FC = () => {
           ) : (
             <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
               {document?.code ? (
-                document.code
+                <>
+                  {document.code}
+                  <button
+                    type="button"
+                    title="Copy document code"
+                    onClick={() => {
+                      navigator.clipboard.writeText(document.code!);
+                      setCodeCopied(true);
+                      setTimeout(() => setCodeCopied(false), 1500);
+                    }}
+                    className="cursor-pointer flex items-center justify-center h-4 w-4 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors normal-case"
+                  >
+                    {codeCopied ? (
+                      <Check className="h-3 w-3 text-emerald-500" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </button>
+                </>
               ) : (document as any)?.reserved_code ? (
                 <>
                   {(document as any).reserved_code}
@@ -558,7 +444,19 @@ const DocumentFlowPage: React.FC = () => {
         onCollapseToggle={() => setRightCollapsed((v) => !v)}
         actions={
           <div className="flex flex-wrap gap-2">
-            {current?.status === "Distributed" && (
+            <RefreshButton
+              onClick={async () => {
+                setIsRefreshing(true);
+                try {
+                  await refreshAndSelectBest({ preferVersionId: selectedVersion?.id });
+                } catch { /* silent */ } finally {
+                  setIsRefreshing(false);
+                }
+              }}
+              loading={isRefreshing}
+              title="Refresh"
+            />
+            {current?.status === "Distributed" && isOwner && (
               <Button
                 type="button"
                 variant="outline"
@@ -577,19 +475,7 @@ const DocumentFlowPage: React.FC = () => {
                 disabled={isLoadingSelectedVersion}
                 onClick={() => navigate(`/documents/${id}/view`)}
               >
-                <svg
-                  className="h-3 w-3 mr-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"
-                  />
-                </svg>
+                <Library className="h-3 w-3 mr-1" />
                 View in Library
               </Button>
             )}
@@ -607,7 +493,7 @@ const DocumentFlowPage: React.FC = () => {
               </Button>
             )}
             {!headerState?.isTasksReady && current?.status !== "Distributed" ? (
-              <div className="h-7 w-28 rounded-lg bg-slate-200 dark:bg-surface-400 animate-pulse" />
+              <div className="h-7 w-28 rounded-md bg-slate-200 dark:bg-surface-400 animate-pulse" />
             ) : (
               (headerState?.headerActions ?? []).map((a: any) => {
                 const isThis = processingKey === a.key;
@@ -623,25 +509,7 @@ const DocumentFlowPage: React.FC = () => {
                   >
                     {isThis ? (
                       <span className="flex items-center gap-1.5">
-                        <svg
-                          className="animate-spin h-3 w-3"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8v8z"
-                          />
-                        </svg>
+                        <Loader2 className="animate-spin h-3 w-3" />
                         Processing…
                       </span>
                     ) : (
@@ -675,27 +543,9 @@ const DocumentFlowPage: React.FC = () => {
         left={
           <div className="relative">
             {pendingUploadPct !== null && (
-              <div className="mb-3 mx-auto w-full max-w-5xl rounded-2xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 px-4 py-2.5 flex items-center gap-4">
+              <div className="mb-3 w-full rounded-md border-l-4 border-sky-400 dark:border-sky-600 bg-sky-50 dark:bg-sky-950/30 px-4 py-2.5 flex items-center gap-4">
                 <div className="flex items-center gap-2 shrink-0">
-                  <svg
-                    className="animate-spin h-3.5 w-3.5 text-sky-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8z"
-                    />
-                  </svg>
+                  <Loader2 className="animate-spin h-3.5 w-3.5 text-sky-500" />
                   <span className="text-xs font-medium text-sky-700 dark:text-sky-400">
                     Uploading file…
                   </span>
@@ -745,13 +595,15 @@ const DocumentFlowPage: React.FC = () => {
                 setHeaderState(s);
               }}
               onAfterActionClose={async () => {
-                // After cancel/terminal action — stay on page, just refresh data
                 try {
                   await refreshAndSelectBest({
                     preferVersionId: selectedVersion?.id ?? null,
                   });
-                } catch {
-                  // Silent — page already shows what it has
+                } catch (e: any) {
+                  // Document was deleted (404) — navigate back
+                  if (e?.response?.status === 404 || e?.status === 404) {
+                    navigate(fromPath);
+                  }
                 }
               }}
               onChanged={async () => {

@@ -233,7 +233,7 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
           <div className="flex items-center gap-2">
             {/* List/Grid toggle — only show when on list view (not detail) */}
             {!selected && (
-              <div className="flex items-center rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-1 gap-0.5">
+              <div className="flex items-center rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-1 gap-0.5">
                 <button
                   type="button"
                   onClick={() => setView("list")}
@@ -309,7 +309,7 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
                 className="w-full rounded-md border border-slate-300 dark:border-surface-400 bg-white dark:bg-surface-400 px-3 py-2 text-sm text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
               />
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 p-1">
+                <div className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 p-1">
                   {(["all", "global", "mine"] as const).map((s) => (
                     <button
                       key={s}
@@ -391,7 +391,7 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
                     >
                       <div className="shrink-0 pt-0.5">
                         <span
-                          className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-bold tracking-wide ${templateFileTypeColor(t.mime_type)}`}
+                          className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-bold tracking-wide ${templateFileTypeColor(t.mime_type)}`}
                         >
                           {templateFileTypeLabel(t.mime_type)}
                         </span>
@@ -402,11 +402,11 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
                             {t.name}
                           </p>
                           {t.is_global ? (
-                            <span className="inline-flex items-center rounded-full bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-400">
+                            <span className="inline-flex items-center rounded-full bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 px-2 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-400">
                               Global
                             </span>
                           ) : t.office ? (
-                            <span className="inline-flex items-center rounded-full bg-slate-100 dark:bg-surface-400 border border-slate-200 dark:border-surface-300 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                            <span className="inline-flex items-center rounded-full bg-slate-100 dark:bg-surface-400 border border-slate-200 dark:border-surface-300 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300">
                               {t.office.code}
                             </span>
                           ) : null}
@@ -416,7 +416,7 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
                             {t.description}
                           </p>
                         )}
-                        <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-slate-400 dark:text-slate-500">
+                        <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-slate-400 dark:text-slate-500">
                           <span>{t.file_size_label}</span>
                           {t.uploaded_by && (
                             <span>by {t.uploaded_by.name}</span>
@@ -451,16 +451,16 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
             <div className="shrink-0 border-b border-slate-200 dark:border-surface-400 px-5 py-4 space-y-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <span
-                  className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-bold tracking-wide ${templateFileTypeColor(selected.mime_type)}`}
+                  className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-bold tracking-wide ${templateFileTypeColor(selected.mime_type)}`}
                 >
                   {templateFileTypeLabel(selected.mime_type)}
                 </span>
                 {selected.is_global ? (
-                  <span className="inline-flex items-center rounded-full bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-400">
+                  <span className="inline-flex items-center rounded-full bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 px-2 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-400">
                     Global
                   </span>
                 ) : selected.office ? (
-                  <span className="inline-flex items-center rounded-full bg-slate-100 dark:bg-surface-400 border border-slate-200 dark:border-surface-300 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                  <span className="inline-flex items-center rounded-full bg-slate-100 dark:bg-surface-400 border border-slate-200 dark:border-surface-300 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300">
                     {selected.office.code}
                   </span>
                 ) : null}
@@ -470,7 +470,7 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
                   {selected.description}
                 </p>
               )}
-              <div className="flex flex-wrap gap-x-3 text-[11px] text-slate-400 dark:text-slate-500">
+              <div className="flex flex-wrap gap-x-3 text-xs text-slate-400 dark:text-slate-500">
                 <span>{selected.original_filename}</span>
                 <span>{selected.file_size_label}</span>
                 {selected.uploaded_by && (

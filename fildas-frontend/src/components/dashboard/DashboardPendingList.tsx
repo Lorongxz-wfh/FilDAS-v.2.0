@@ -33,7 +33,7 @@ const DashboardPendingList: React.FC<Props> = ({ items, loading }) => {
   const navigate = useNavigate();
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
+    <div className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-surface-400 px-4 py-3">
         <div>
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">

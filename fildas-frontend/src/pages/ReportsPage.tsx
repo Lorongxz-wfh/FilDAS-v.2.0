@@ -288,6 +288,7 @@ const ReportsPage: React.FC = () => {
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
       right={
         <div className="flex items-center gap-2">
+          <RefreshButton loading={loading} onClick={() => setRefreshKey((k) => k + 1)} title="Refresh report" />
           <Button
             type="button"
             variant="outline"
@@ -316,103 +317,49 @@ const ReportsPage: React.FC = () => {
       )}
 
       {/* Filter bar */}
-      <div className="shrink-0 border-b border-slate-200 dark:border-surface-400 px-4 py-2.5 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
-            Scope
-          </label>
-          <select
-            value={scope}
-            onChange={(e) => setScope(e.target.value as Scope)}
-            className={selectCls}
-          >
-            <option value="clusters">Clusters</option>
-            <option value="offices">Offices</option>
-          </select>
-        </div>
+      <div className="shrink-0 border-b border-slate-200 dark:border-surface-400 px-4 py-2.5 flex flex-wrap items-center gap-2">
+        <select value={scope} onChange={(e) => setScope(e.target.value as Scope)} className={selectCls}>
+          <option value="clusters">Clusters</option>
+          <option value="offices">Offices</option>
+        </select>
 
-        <div className="flex items-center gap-1.5">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
-            Parent
-          </label>
-          <select
-            value={parent}
-            onChange={(e) => setParent(e.target.value as Parent)}
-            className={selectCls}
-          >
-            <option value="ALL">All clusters</option>
-            <option value="PO">President (PO)</option>
-            <option value="VAd">VP-Admin (VAd)</option>
-            <option value="VA">VP-AA (VA)</option>
-            <option value="VF">VP-Finance (VF)</option>
-            <option value="VR">VP-REQA (VR)</option>
-          </select>
-        </div>
+        <select value={parent} onChange={(e) => setParent(e.target.value as Parent)} className={selectCls}>
+          <option value="ALL">All clusters</option>
+          <option value="PO">President (PO)</option>
+          <option value="VAd">VP-Admin (VAd)</option>
+          <option value="VA">VP-AA (VA)</option>
+          <option value="VF">VP-Finance (VF)</option>
+          <option value="VR">VP-REQA (VR)</option>
+        </select>
 
-        <div className="flex items-center gap-1.5">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
-            Bucket
-          </label>
-          <select
-            value={bucket}
-            onChange={(e) => setBucket(e.target.value as Bucket)}
-            className={selectCls}
-          >
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-            <option value="yearly">Yearly</option>
-            <option value="total">Total</option>
-          </select>
-        </div>
+        <select value={bucket} onChange={(e) => setBucket(e.target.value as Bucket)} className={selectCls}>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+          <option value="yearly">Yearly</option>
+          <option value="total">Total</option>
+        </select>
 
-        <div className="flex items-center gap-1.5">
-          <label className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
-            Date
-          </label>
-          <select
-            value={dateField}
-            onChange={(e) => setDateField(e.target.value as DateField)}
-            className={selectCls}
-          >
-            <option value="completed">Completed</option>
-            <option value="created">Created</option>
-          </select>
-        </div>
+        <select value={dateField} onChange={(e) => setDateField(e.target.value as DateField)} className={selectCls}>
+          <option value="completed">By completed date</option>
+          <option value="created">By created date</option>
+        </select>
 
         <div className="flex items-center gap-1">
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className={selectCls}
-          />
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={selectCls} />
           <span className="text-xs text-slate-400 px-0.5">–</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className={selectCls}
-          />
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={selectCls} />
         </div>
 
         {(dateFrom || dateTo) && (
           <button
             type="button"
             onClick={() => { setDateFrom(""); setDateTo(""); }}
-            className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+            className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
           >
             Clear
           </button>
         )}
-
-        <div className="ml-auto">
-          <RefreshButton
-            loading={loading}
-            onClick={() => setRefreshKey((k) => k + 1)}
-            title="Refresh report"
-          />
-        </div>
       </div>
 
       {/* Tab navigation */}
@@ -475,29 +422,32 @@ const ReportsPage: React.FC = () => {
                 )}
               </div>
 
-              <ReportChartCard
-                title={`Document volume — created vs distributed (${bucket})`}
-                subtitle="Tracks how many documents were started vs actually completed each period"
-                onExportCsv={() => exportVolumeCsv(volumeSeries)}
-                onExportPdf={chartPdfHandler("fildas_volume_trend.pdf")}
-              >
-                <VolumeTrendChart data={volumeSeries} height={260} />
-              </ReportChartCard>
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                <ReportChartCard
+                  title={`Document volume (${bucket})`}
+                  subtitle="Created vs distributed per period"
+                  onExportCsv={() => exportVolumeCsv(volumeSeries)}
+                  onExportPdf={chartPdfHandler("fildas_volume_trend.pdf")}
+                  className="lg:col-span-2"
+                >
+                  <VolumeTrendChart data={volumeSeries} height={240} />
+                </ReportChartCard>
 
-              <ReportChartCard
-                title="Average time per workflow stage"
-                subtitle="Based on distributed documents only — how long each stage took on average (hours)"
-                onExportCsv={() => exportStageDelayCsv(stageDelays)}
-                onExportPdf={chartPdfHandler("fildas_stage_delays.pdf")}
-              >
-                {stageDelays.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
-                    No stage data available for the selected filters.
-                  </p>
-                ) : (
-                  <StageDelayChart data={stageDelays} height={220} />
-                )}
-              </ReportChartCard>
+                <ReportChartCard
+                  title="Stage delay"
+                  subtitle="Avg hours per workflow stage"
+                  onExportCsv={() => exportStageDelayCsv(stageDelays)}
+                  onExportPdf={chartPdfHandler("fildas_stage_delays.pdf")}
+                >
+                  {stageDelays.length === 0 ? (
+                    <p className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+                      No stage data for selected filters.
+                    </p>
+                  ) : (
+                    <StageDelayChart data={stageDelays} height={240} />
+                  )}
+                </ReportChartCard>
+              </div>
             </>
           )}
 

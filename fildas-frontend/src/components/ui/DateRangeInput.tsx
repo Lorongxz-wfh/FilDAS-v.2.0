@@ -17,9 +17,9 @@ export default function DateRangeInput({
 }: DateRangeInputProps) {
   return (
     <div
-      className={`flex items-center gap-0 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-2.5 py-1.5 ${className}`}
+      className={`flex items-center gap-0 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1.5 ${className}`}
     >
-      <span className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500 mr-1.5">
+      <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500 mr-1.5">
         From
       </span>
       <input
@@ -28,7 +28,7 @@ export default function DateRangeInput({
         onChange={(e) => onFromChange(e.target.value)}
         className="bg-transparent outline-none text-xs text-slate-600 dark:text-slate-300"
       />
-      <span className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500 mx-1.5">
+      <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500 mx-1.5">
         To
       </span>
       <input

@@ -42,7 +42,10 @@ class AdminOfficeController extends Controller
             });
         }
 
-        $offices = $query->get([
+        $perPage = (int) $request->get('per_page', 10);
+        $perPage = max(1, min($perPage, 100));
+
+        $offices = $query->paginate($perPage, [
             'id',
             'name',
             'code',
@@ -55,7 +58,15 @@ class AdminOfficeController extends Controller
             'updated_at'
         ]);
 
-        return response()->json($offices);
+        return response()->json([
+            'data' => $offices->items(),
+            'meta' => [
+                'current_page' => $offices->currentPage(),
+                'last_page'    => $offices->lastPage(),
+                'per_page'     => $offices->perPage(),
+                'total'        => $offices->total(),
+            ],
+        ]);
     }
 
     // POST /api/admin/offices
@@ -63,7 +74,7 @@ class AdminOfficeController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'code' => ['required', 'string', 'max:50', Rule::unique('offices', 'code')],
+            'code' => ['required', 'string', 'min:2', 'max:6', Rule::unique('offices', 'code')],
             'description' => ['nullable', 'string'],
             'type' => ['nullable', 'string', 'max:50'],
             'cluster_kind' => ['nullable', Rule::in(['vp', 'president'])],
@@ -105,7 +116,7 @@ class AdminOfficeController extends Controller
     {
         $data = $request->validate([
             'name' => ['nullable', 'string', 'max:255'],
-            'code' => ['nullable', 'string', 'max:50', Rule::unique('offices', 'code')->ignore($office->id)],
+            'code' => ['nullable', 'string', 'min:2', 'max:6', Rule::unique('offices', 'code')->ignore($office->id)],
             'description' => ['nullable', 'string'],
             'type' => ['nullable', 'string', 'max:50'],
             'cluster_kind' => ['nullable', Rule::in(['vp', 'president'])],

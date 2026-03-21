@@ -2,13 +2,13 @@ import React from "react";
 import Skeleton from "../ui/loader/Skeleton";
 import type { DocumentStats } from "../../services/documents";
 import { isQA, type UserRole } from "../../lib/roleFilters";
-import { Bell, FileText, Clock, CheckCircle2, Eye } from "lucide-react";
+import { Bell, FileText, Clock, CheckCircle2, Inbox } from "lucide-react";
 
 type Props = {
   role: UserRole;
   stats: DocumentStats | null;
   pendingCount: number;
-  monitoringCount: number;
+  pendingRequestsCount: number;
   loading: boolean;
 };
 
@@ -25,7 +25,7 @@ const DashboardStatRow: React.FC<Props> = ({
   role,
   stats,
   pendingCount,
-  monitoringCount,
+  pendingRequestsCount,
   loading,
 }) => {
   const qaItems: StatItem[] = [
@@ -62,12 +62,12 @@ const DashboardStatRow: React.FC<Props> = ({
       sub: "official versions",
     },
     {
-      label: "Monitoring",
-      value: monitoringCount,
-      icon: <Eye className="h-4 w-4" />,
-      iconColor: "text-slate-400 dark:text-slate-500",
+      label: "Pending requests",
+      value: pendingRequestsCount,
+      icon: <Inbox className="h-4 w-4" />,
+      iconColor: "text-sky-500 dark:text-sky-400",
       valueColor: "text-slate-900 dark:text-slate-100",
-      sub: "tracked docs",
+      sub: "open doc requests",
     },
   ];
 
@@ -115,7 +115,7 @@ const DashboardStatRow: React.FC<Props> = ({
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-surface-400 dark:bg-surface-500"
+          className="min-w-0 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-surface-400 dark:bg-surface-500"
         >
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">

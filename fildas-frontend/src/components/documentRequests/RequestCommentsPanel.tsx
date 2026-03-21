@@ -80,7 +80,7 @@ export default function RequestCommentsPanel({
         <button
           type="button"
           onClick={handleScrollToNew}
-          className="mx-4 mt-2 flex w-[calc(100%-2rem)] items-center justify-center gap-1.5 rounded-lg bg-sky-500 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:bg-sky-600 transition animate-pulse"
+          className="mx-4 mt-2 flex w-[calc(100%-2rem)] items-center justify-center gap-1.5 rounded-md bg-sky-500 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-sky-600 transition animate-pulse"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-white" />
           {newMessageCount} new message{newMessageCount > 1 ? "s" : ""} · Click

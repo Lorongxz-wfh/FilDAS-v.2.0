@@ -18,6 +18,8 @@ export function OfficeManagerPage() {
   const [typeFilter, setTypeFilter] = useState("");
 
   const [items, setItems] = useState<AdminOffice[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,16 +39,19 @@ export function OfficeManagerPage() {
     return () => window.clearTimeout(t);
   }, [q]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (pageNum: number) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getAdminOffices({
+      const res = await getAdminOffices({
         q: qDebounced.trim() || undefined,
         status: statusFilter,
         type: typeFilter || undefined,
+        page: pageNum,
+        per_page: 10,
       });
-      setItems(data);
+      setItems((prev) => (pageNum === 1 ? res.data : [...prev, ...res.data]));
+      setHasMore(res.meta.current_page < res.meta.last_page);
     } catch (e: any) {
       setError(e?.message ?? "Failed to load offices");
     } finally {
@@ -55,10 +60,20 @@ export function OfficeManagerPage() {
     }
   }, [qDebounced, statusFilter, typeFilter]);
 
+  // Reset on filter change
   useEffect(() => {
+    setPage(1);
+    setItems([]);
+    setHasMore(true);
     setInitialLoading(true);
-    load();
+    load(1);
   }, [load]);
+
+  // Load next page when page increments beyond 1
+  useEffect(() => {
+    if (page === 1) return;
+    load(page);
+  }, [page, load]);
 
   const openCreate = () => {
     setSelected(null);
@@ -111,8 +126,8 @@ export function OfficeManagerPage() {
       header: "Parent",
       render: (o) => (
         <span className="text-sm text-slate-500 dark:text-slate-400 truncate block">
-          {o.parentOffice
-            ? `${o.parentOffice.name} (${o.parentOffice.code})`
+          {o.parent_office
+            ? `${o.parent_office.name} (${o.parent_office.code})`
             : "—"}
         </span>
       ),
@@ -151,7 +166,7 @@ export function OfficeManagerPage() {
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2 shrink-0">
         {/* Search with inline clear */}
-        <div className="relative w-64">
+        <div className="relative w-full sm:w-64">
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -199,7 +214,7 @@ export function OfficeManagerPage() {
           <button
             type="button"
             onClick={clearFilters}
-            className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+            className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
           >
             Clear
           </button>
@@ -221,6 +236,8 @@ export function OfficeManagerPage() {
           initialLoading={initialLoading}
           error={error}
           emptyMessage="No offices found."
+          hasMore={hasMore}
+          onLoadMore={() => setPage((p) => p + 1)}
           gridTemplateColumns="6rem 1fr 7rem 1fr 7rem"
         />
       </div>
@@ -230,7 +247,7 @@ export function OfficeManagerPage() {
         mode={modalMode}
         office={selected}
         onClose={() => setModalOpen(false)}
-        onSaved={() => load()}
+        onSaved={() => { setPage(1); setItems([]); setHasMore(true); setInitialLoading(true); load(1); }}
       />
     </PageFrame>
   );

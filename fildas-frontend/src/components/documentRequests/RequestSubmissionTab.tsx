@@ -90,16 +90,16 @@ export default function RequestSubmissionTab({
       {isQa && (
         <>
           {submissions.length > 0 && (
-            <div className="shrink-0 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-surface-400 dark:bg-surface-600">
+            <div className="shrink-0 flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-surface-400 dark:bg-surface-600">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 shrink-0">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500 shrink-0">
                   Attempt
                 </span>
                 {selectedSubmission && (
                   <StatusBadge status={selectedSubmission.status} />
                 )}
                 {selectedSubmission?.qa_review_note && (
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 italic truncate">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 italic truncate">
                     "{selectedSubmission.qa_review_note}"
                   </span>
                 )}
@@ -112,7 +112,7 @@ export default function RequestSubmissionTab({
                       e.target.value ? Number(e.target.value) : null,
                     )
                   }
-                  className="appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-7 py-1.5 text-xs text-slate-700 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
+                  className="appearance-none rounded-md border border-slate-200 bg-white pl-3 pr-7 py-1.5 text-xs text-slate-700 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
                 >
                   <option value="">None</option>
                   {submissions.map((s) => (
@@ -131,11 +131,11 @@ export default function RequestSubmissionTab({
 
           <div className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-surface-400 dark:bg-surface-600">
             <div className="flex items-center justify-between gap-3 mb-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Review Decision
               </p>
               {!canQaReview && selectedSubmission?.id && (
-                <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                <span className="text-xs text-slate-400 dark:text-slate-500">
                   Only available for SUBMITTED
                 </span>
               )}
@@ -146,15 +146,15 @@ export default function RequestSubmissionTab({
               onChange={(e) => onQaNoteChange(e.target.value)}
               placeholder="Optional note for the office…"
               disabled={reviewing || !canQaReview}
-              className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 disabled:opacity-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500 mb-2.5"
+              className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 disabled:opacity-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500 mb-2.5"
             />
             {reviewMsg && (
-              <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400 mb-2">
+              <div className="flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400 mb-2">
                 <CheckCircle size={12} /> {reviewMsg}
               </div>
             )}
             {reviewErr && (
-              <div className="flex items-center gap-1.5 rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-xs text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400 mb-2">
+              <div className="flex items-center gap-1.5 rounded-md bg-rose-50 border border-rose-200 px-3 py-2 text-xs text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400 mb-2">
                 <XCircle size={12} /> {reviewErr}
               </div>
             )}
@@ -162,14 +162,14 @@ export default function RequestSubmissionTab({
               <button
                 disabled={!canQaReview || reviewing}
                 onClick={() => onQaReview("rejected")}
-                className="flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400"
+                className="flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400"
               >
                 <XCircle size={12} /> Reject
               </button>
               <button
                 disabled={!canQaReview || reviewing}
                 onClick={() => onQaReview("accepted")}
-                className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                className="flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 <CheckCircle size={12} /> Accept
               </button>
@@ -226,12 +226,12 @@ export default function RequestSubmissionTab({
             <div className="shrink-0 flex items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-800 dark:bg-sky-950/30">
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-sky-800 dark:text-sky-300">Step 1 — Download the example document</p>
-                <p className="text-[11px] text-sky-600 dark:text-sky-400 mt-0.5">Fill in or sign the downloaded file, then upload it below.</p>
+                <p className="text-xs text-sky-600 dark:text-sky-400 mt-0.5">Fill in or sign the downloaded file, then upload it below.</p>
               </div>
               <button
                 type="button"
                 onClick={onDownloadExample}
-                className="shrink-0 flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 transition"
+                className="shrink-0 flex items-center gap-1.5 rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 transition"
               >
                 <Download size={12} /> Download
               </button>
@@ -262,7 +262,7 @@ export default function RequestSubmissionTab({
                 <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                   PDF, Word, Excel, PowerPoint · max 10MB
                 </p>
-                <label className="mt-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 transition">
+                <label className="mt-3 inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-sky-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-700 transition">
                   <Upload size={12} /> Choose file
                   <input
                     type="file"
@@ -273,7 +273,7 @@ export default function RequestSubmissionTab({
                 </label>
               </div>
               {submitErr && (
-                <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-xs text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400">
+                <div className="mt-2 flex items-center gap-1.5 rounded-md bg-rose-50 border border-rose-200 px-3 py-2 text-xs text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400">
                   <XCircle size={12} /> {submitErr}
                 </div>
               )}
@@ -282,12 +282,12 @@ export default function RequestSubmissionTab({
 
           {hasLocalFile && (
             <div className="shrink-0 space-y-2.5">
-              <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-surface-400 dark:bg-surface-600">
+              <div className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-surface-400 dark:bg-surface-600">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
                     {files[0].name}
                   </p>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-xs text-slate-500">
                     {(files[0].size / 1024).toFixed(0)} KB
                   </p>
                 </div>
@@ -305,15 +305,15 @@ export default function RequestSubmissionTab({
                 onChange={(e) => onNoteChange(e.target.value)}
                 placeholder="Optional note to QA…"
                 disabled={submitting}
-                className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 disabled:opacity-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500"
+                className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 disabled:opacity-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500"
               />
               {submitMsg && (
-                <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400">
+                <div className="flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400">
                   <CheckCircle size={12} /> {submitMsg}
                 </div>
               )}
               {submitErr && (
-                <div className="flex items-center gap-1.5 rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-xs text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400">
+                <div className="flex items-center gap-1.5 rounded-md bg-rose-50 border border-rose-200 px-3 py-2 text-xs text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-400">
                   <XCircle size={12} /> {submitErr}
                 </div>
               )}
@@ -321,7 +321,7 @@ export default function RequestSubmissionTab({
                 <button
                   onClick={onSubmit}
                   disabled={submitting || files.length !== 1}
-                  className="flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-50 transition"
+                  className="flex items-center gap-1.5 rounded-md bg-sky-600 px-4 py-2 text-xs font-semibold text-white hover:bg-sky-700 disabled:opacity-50 transition"
                 >
                   <Upload size={13} />
                   {submitting ? "Submitting…" : "Submit"}
@@ -331,20 +331,20 @@ export default function RequestSubmissionTab({
           )}
 
           {!hasLocalFile && selectedSubmission && (
-            <div className="shrink-0 flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-surface-400 dark:bg-surface-600">
+            <div className="shrink-0 flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-surface-400 dark:bg-surface-600">
               <div className="min-w-0">
                 <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
                   {selectedSubmission.files?.[0]?.original_filename ??
                     "No file"}
                 </p>
                 <div className="mt-0.5 flex items-center gap-2">
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-xs text-slate-500">
                     Attempt #{selectedSubmission.attempt_no}
                   </span>
                   <StatusBadge status={selectedSubmission.status} />
                 </div>
                 {selectedSubmission.qa_review_note && (
-                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 italic">
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 italic">
                     QA: {selectedSubmission.qa_review_note}
                   </p>
                 )}
@@ -358,7 +358,7 @@ export default function RequestSubmissionTab({
                         e.target.value ? Number(e.target.value) : null,
                       )
                     }
-                    className="appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-7 py-1.5 text-xs text-slate-700 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
+                    className="appearance-none rounded-md border border-slate-200 bg-white pl-3 pr-7 py-1.5 text-xs text-slate-700 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200"
                   >
                     {submissions.map((s) => (
                       <option key={s.id} value={s.id}>

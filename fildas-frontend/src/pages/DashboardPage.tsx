@@ -1,7 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import Alert from "../components/ui/Alert";
-import Button from "../components/ui/Button";
 import Tooltip from "../components/ui/Tooltip";
 import Skeleton from "../components/ui/loader/Skeleton";
 
@@ -19,16 +18,14 @@ import DashboardRecentActivity from "../components/dashboard/DashboardRecentActi
 // Admin-only components
 import AdminStatGrid from "../components/dashboard/AdminStatGrid";
 import AdminUsersByRoleChart from "../components/dashboard/AdminUsersByRoleChart";
-import AdminRecentUsers from "../components/dashboard/AdminRecentUsers";
 import AdminActivityBarChart from "../components/dashboard/AdminActivityBarChart";
+import AdminDocumentPhaseChart from "../components/dashboard/AdminDocumentPhaseChart";
 
 import { useDashboardData } from "../hooks/useDashboardData";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import {
   getUserRole,
   isQA,
-  isOfficeStaff,
-  isOfficeHead,
 } from "../lib/roleFilters";
 import { getAuthUser } from "../lib/auth";
 import {
@@ -51,7 +48,7 @@ const Card: React.FC<{
   onLinkClick?: () => void;
 }> = ({ title, sub, link, children, className = "", onLinkClick }) => (
   <div
-    className={`rounded-md border border-slate-200 bg-white px-4 py-4 dark:border-surface-400 dark:bg-surface-500 ${className}`}
+    className={`rounded-xl border border-slate-200 bg-white px-4 py-4 dark:border-surface-400 dark:bg-surface-500 ${className}`}
   >
     <div className="mb-4 flex items-start justify-between gap-2">
       <div>
@@ -84,9 +81,9 @@ const QADashboard: React.FC<
 > = ({
   stats,
   pending,
-  monitoring,
   recentActivity,
   report,
+  pendingRequestsCount,
   loading,
   navigate,
 }) => {
@@ -105,21 +102,23 @@ const QADashboard: React.FC<
 
   return (
     <div className="space-y-5">
+      {/* Stat cards */}
       <DashboardStatRow
         role="QA"
         stats={stats}
         pendingCount={pending.length}
-        monitoringCount={monitoring.length}
+        pendingRequestsCount={pendingRequestsCount}
         loading={loading}
       />
 
-      {/* Row 1: Volume trend + Stage delay */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      {/* Row 1: Volume trend (primary, wider) + Status donut */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <Card
           title="Document volume"
           sub="Created vs approved per month."
           link={{ label: "Full reports", to: "/reports" }}
           onLinkClick={() => navigate("/reports")}
+          className="lg:col-span-2"
         >
           {loading ? (
             <Skeleton className="h-44 w-full rounded-md" />
@@ -127,6 +126,58 @@ const QADashboard: React.FC<
             <VolumeTrendChart data={report.volume_series} height={180} />
           )}
         </Card>
+        <Card
+          title="Document summary"
+          sub="Status breakdown."
+          link={{ label: "Open library", to: "/documents" }}
+          onLinkClick={() => navigate("/documents")}
+        >
+          {loading ? (
+            <div className="flex flex-col items-center gap-3">
+              <Skeleton className="h-36 w-36 rounded-full" />
+              <Skeleton className="h-3 w-3/4" />
+            </div>
+          ) : (
+            <StatusDonutChart
+              segments={donutSegments}
+              centerValue={stats?.total ?? 0}
+              centerLabel="total"
+              size={148}
+            />
+          )}
+        </Card>
+      </div>
+
+      {/* KPI metric strip — between chart rows */}
+      {(report.kpis || loading) && (
+        <div className="flex flex-wrap gap-3">
+          {[
+            { label: "Avg cycle time", value: report.kpis?.cycle_time_avg_days.toFixed(1) ?? "—", suffix: "d", color: "text-violet-600 dark:text-violet-400" },
+            { label: "First-pass yield", value: report.kpis?.first_pass_yield_pct.toFixed(1) ?? "—", suffix: "%", color: "text-emerald-600 dark:text-emerald-400" },
+            { label: "Ping-pong ratio", value: report.kpis?.pingpong_ratio.toFixed(2) ?? "—", suffix: "×", color: "text-amber-600 dark:text-amber-400" },
+          ].map((kpi) => (
+            <div
+              key={kpi.label}
+              className="flex items-center gap-2.5 rounded-md border border-slate-200 bg-white px-3.5 py-2 dark:border-surface-400 dark:bg-surface-500"
+            >
+              {loading ? (
+                <Skeleton className="h-4 w-20" />
+              ) : (
+                <>
+                  <span className={`text-base font-bold tabular-nums ${kpi.color}`}>
+                    {kpi.value}
+                    <span className="text-xs font-normal ml-0.5">{kpi.suffix}</span>
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{kpi.label}</span>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Row 2: Stage delay + Workflow by cluster */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card
           title="Stage delay"
           sub="Average processing time per workflow stage."
@@ -136,34 +187,9 @@ const QADashboard: React.FC<
           {loading ? (
             <Skeleton className="h-44 w-full rounded-md" />
           ) : (
-            <StageDelayChart data={report.stage_delays} height={180} />
-          )}
-        </Card>
-      </div>
-
-      {/* Row 2: Donut + Cluster bar */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Card
-          title="Document summary"
-          sub="Status breakdown across all documents."
-          link={{ label: "Open library", to: "/documents" }}
-          onLinkClick={() => navigate("/documents")}
-        >
-          {loading ? (
-            <div className="flex items-center gap-6">
-              <Skeleton className="h-40 w-40 rounded-full" />
-              <div className="space-y-3 flex-1">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
-            </div>
-          ) : (
-            <StatusDonutChart
-              segments={donutSegments}
-              centerValue={stats?.total ?? 0}
-              centerLabel="total"
-              size={160}
+            <StageDelayChart
+              data={report.stage_delays.filter((s) => s.count > 0 || s.avg_hours > 0)}
+              height={180}
             />
           )}
         </Card>
@@ -176,64 +202,17 @@ const QADashboard: React.FC<
           {loading ? (
             <Skeleton className="h-44 w-full rounded-md" />
           ) : (
-            <ComplianceClusterBarChart height={180} data={report.clusters} />
+            <ComplianceClusterBarChart
+              height={180}
+              data={report.clusters.filter(
+                (c) => c.in_review + c.sent_to_qa + c.approved + c.returned > 0
+              )}
+            />
           )}
         </Card>
       </div>
 
-      {/* KPI strip */}
-      {report.kpis && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {[
-            {
-              label: "Total created",
-              value: report.kpis.total_created,
-              suffix: "",
-            },
-            {
-              label: "Final approved",
-              value: report.kpis.total_approved_final,
-              suffix: "",
-            },
-            {
-              label: "First-pass yield",
-              value: report.kpis.first_pass_yield_pct.toFixed(1),
-              suffix: "%",
-            },
-            {
-              label: "Ping-pong ratio",
-              value: report.kpis.pingpong_ratio.toFixed(2),
-              suffix: "x",
-            },
-            {
-              label: "Avg cycle time",
-              value: report.kpis.cycle_time_avg_days.toFixed(1),
-              suffix: "d",
-            },
-          ].map((kpi) => (
-            <div
-              key={kpi.label}
-              className="rounded-md border border-slate-200 bg-white px-3 py-3 dark:border-surface-400 dark:bg-surface-500"
-            >
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {kpi.label}
-              </p>
-              {loading ? (
-                <Skeleton className="mt-2 h-6 w-16" />
-              ) : (
-                <p className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">
-                  {kpi.value}
-                  <span className="text-sm font-normal text-slate-400">
-                    {kpi.suffix}
-                  </span>
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Row 3: Pending + Activity */}
+      {/* Row 3: Pending tasks + Recent activity */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <DashboardPendingList items={pending} loading={loading} />
         <Card
@@ -275,7 +254,7 @@ const OfficeDashboard: React.FC<
         role={role}
         stats={stats}
         pendingCount={pending.length}
-        monitoringCount={0}
+        pendingRequestsCount={0}
         loading={loading}
       />
 
@@ -377,66 +356,74 @@ const AdminDashboard: React.FC<
   }
 > = ({ adminStats, recentActivity, loading, navigate }) => (
   <div className="space-y-5">
+    {/* Stat cards */}
     <AdminStatGrid data={adminStats} loading={loading} />
 
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+    {/* Row 1: Document phase breakdown + Users by role */}
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
       <Card
-        title="System activity"
-        sub="Total actions logged per month."
-        link={{ label: "View all activity", to: "/activity-logs" }}
-        onLinkClick={() => navigate("/activity-logs")}
+        title="Documents by phase"
+        sub="Current workflow stage of all documents."
+        link={{ label: "Open library", to: "/documents" }}
+        onLinkClick={() => navigate("/documents")}
+        className="lg:col-span-2"
       >
         {loading ? (
           <Skeleton className="h-44 w-full rounded-xl" />
         ) : (
-          <AdminActivityBarChart
-            data={adminStats?.activity_series ?? []}
+          <AdminDocumentPhaseChart
+            byPhase={adminStats?.documents.by_phase}
             height={180}
           />
         )}
       </Card>
       <Card
         title="Users by role"
-        sub="Distribution of user roles in the system."
-        link={{ label: "Manage users", to: "/admin/users" }}
-        onLinkClick={() => navigate("/admin/users")}
+        sub="Role distribution."
+        link={{ label: "Manage users", to: "/user-manager" }}
+        onLinkClick={() => navigate("/user-manager")}
       >
         {loading ? (
-          <div className="flex items-center gap-6">
-            <Skeleton className="h-36 w-36 rounded-full" />
-            <div className="space-y-2 flex-1">
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-4/5" />
-              <Skeleton className="h-3 w-3/5" />
-            </div>
+          <div className="space-y-2">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-5 w-full rounded" />
+            ))}
           </div>
         ) : (
-          <AdminUsersByRoleChart data={adminStats?.users.by_role ?? []} />
+          <AdminUsersByRoleChart
+            active={adminStats?.users.active ?? 0}
+            inactive={adminStats?.users.inactive ?? 0}
+          />
         )}
       </Card>
     </div>
 
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-      <Card
-        title="Recent registrations"
-        sub="Latest user accounts created."
-        link={{ label: "Manage users", to: "/user-manager" }}
-        onLinkClick={() => navigate("/user-manager")}
-      >
-        <AdminRecentUsers
-          users={adminStats?.users.recent ?? []}
-          loading={loading}
+    {/* Row 2: Activity trend (full width) */}
+    <Card
+      title="System activity"
+      sub="Total actions logged per month."
+      link={{ label: "View all activity", to: "/activity-logs" }}
+      onLinkClick={() => navigate("/activity-logs")}
+    >
+      {loading ? (
+        <Skeleton className="h-44 w-full rounded-xl" />
+      ) : (
+        <AdminActivityBarChart
+          data={adminStats?.activity_series ?? []}
+          height={180}
         />
-      </Card>
-      <Card
-        title="Recent activity"
-        sub="Latest system actions."
-        link={{ label: "View all", to: "/activity-logs" }}
-        onLinkClick={() => navigate("/activity-logs")}
-      >
-        <DashboardRecentActivity logs={recentActivity} loading={loading} />
-      </Card>
-    </div>
+      )}
+    </Card>
+
+    {/* Row 3: Recent activity */}
+    <Card
+      title="Recent activity"
+      sub="Latest actions across the system."
+      link={{ label: "View all", to: "/activity-logs" }}
+      onLinkClick={() => navigate("/activity-logs")}
+    >
+      <DashboardRecentActivity logs={recentActivity} loading={loading} />
+    </Card>
   </div>
 );
 
@@ -448,7 +435,7 @@ const DashboardPage: React.FC = () => {
   const { loading, error } = dashData;
 
   const isAdmin = role === "ADMIN" || role === "SYSADMIN";
-  const canCreate = isQA(role) || isOfficeStaff(role) || isOfficeHead(role);
+
 
   const { refresh, refreshing } = usePageBurstRefresh(dashData.reload);
 
@@ -541,11 +528,6 @@ const DashboardPage: React.FC = () => {
               </button>
             </Tooltip>
 
-            {canCreate && (
-              <Button variant="primary" size="sm" onClick={() => navigate("/documents/create")}>
-                + New document
-              </Button>
-            )}
           </div>
         </div>
       </div>

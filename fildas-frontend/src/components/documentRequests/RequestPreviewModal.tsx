@@ -22,7 +22,7 @@ export default function RequestPreviewModal({ url, filename, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="relative flex flex-col w-full max-w-4xl h-[90vh] rounded-2xl overflow-hidden bg-white shadow-2xl dark:bg-surface-500"
+        className="relative flex flex-col w-full max-w-4xl h-[90vh] rounded-xl overflow-hidden bg-white shadow-2xl dark:bg-surface-500"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-surface-400 dark:bg-surface-600">
@@ -32,13 +32,13 @@ export default function RequestPreviewModal({ url, filename, onClose }: Props) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => window.open(url, "_blank")}
-              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300"
+              className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300"
             >
               <Download size={12} /> Download
             </button>
             <button
               onClick={onClose}
-              className="flex items-center justify-center h-7 w-7 rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition dark:hover:bg-surface-400 dark:hover:text-slate-200"
+              className="flex items-center justify-center h-7 w-7 rounded-md text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition dark:hover:bg-surface-400 dark:hover:text-slate-200"
             >
               <XCircle size={14} />
             </button>

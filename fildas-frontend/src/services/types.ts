@@ -57,6 +57,8 @@ export interface Document {
   updated_at: string;
 
   tags?: string[];
+  effective_date?: string | null;
+  distributed_at?: string | null;
 }
 
 export type Paginated<T> = {
@@ -316,7 +318,12 @@ export type AdminDashboardStats = {
     }[];
   };
   offices: { total: number; active: number };
-  documents: { total: number; distributed: number; in_progress: number };
+  documents: {
+    total: number;
+    distributed: number;
+    in_progress: number;
+    by_phase?: Record<string, number>;
+  };
   activity_series: { label: string; count: number }[];
 };
 

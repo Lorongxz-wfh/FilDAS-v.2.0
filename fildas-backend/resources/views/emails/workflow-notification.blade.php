@@ -15,10 +15,10 @@
     .card     { background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06); }
 
     /* Header */
-    .header        { background: #0f172a; padding: 20px 28px; display: flex; align-items: center; gap: 14px; }
+    .header        { background: #0f172a; padding: 20px 28px; display: flex; align-items: center; gap: 20px; }
     .header-logo   { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: #fff; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
     .header-logo img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; }
-    .header-title  { color: #f8fafc; font-size: 15px; font-weight: 700; letter-spacing: -0.2px; }
+    .header-title  { color: #f8fafc; font-size: 15px; font-weight: 700; letter-spacing: -0.2px; line-height: 1.3; }
     .header-sub    { color: #64748b; font-size: 11px; margin-top: 2px; }
 
     /* Status banner */

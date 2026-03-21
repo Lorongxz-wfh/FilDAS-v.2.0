@@ -15,6 +15,7 @@ const CreateDocumentPage = React.lazy(
 const InboxPage = React.lazy(() => import("./pages/InboxPage"));
 const ArchivePage = React.lazy(() => import("./pages/ArchivePage"));
 const ReportsPage = React.lazy(() => import("./pages/ReportsPage"));
+const AdminReportsPage = React.lazy(() => import("./pages/AdminReportsPage"));
 const ReportExportPage = React.lazy(() => import("./pages/ReportExportPage"));
 const SettingsPage = React.lazy(() => import("./pages/SettingsPage"));
 const MyActivityPage = React.lazy(() => import("./pages/MyActivityPage"));
@@ -41,11 +42,27 @@ const MyWorkQueueListPage = React.lazy(() => import("./pages/MyWorkQueueListPage
 
 import ProtectedLayout from "./lib/guards/ProtectedLayout";
 import RequireRole from "./lib/guards/RequireRole";
+import { getUserRole } from "./lib/roleFilters";
+
+// Routes /reports to the role-appropriate page
+const ReportsRoute: React.FC = () => {
+  const role = getUserRole();
+  return role === "ADMIN" || role === "SYSADMIN"
+    ? <AdminReportsPage />
+    : <ReportsPage />;
+};
 
 export default function App() {
   return (
     <Suspense
-      fallback={<div className="p-4 text-sm text-slate-600">Loading…</div>}
+      fallback={
+        <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-surface-600 z-50">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 rounded-full border-2 border-sky-500 border-t-transparent animate-spin" />
+            <span className="text-xs text-slate-400 dark:text-slate-500 tracking-wide">Loading…</span>
+          </div>
+        </div>
+      }
     >
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -81,72 +98,33 @@ export default function App() {
             element={<DocumentRequestPage />}
           />
 
-          {/* Back-compat (optional): redirect old compliance URLs */}
-          <Route
-            path="/compliance"
-            element={<Navigate to="/document-requests" replace />}
-          />
-          <Route
-            path="/compliance/create"
-            element={<Navigate to="/document-requests/create" replace />}
-          />
-          <Route
-            path="/compliance/inbox"
-            element={<Navigate to="/document-requests" replace />}
-          />
-          <Route
-            path="/compliance/:id"
-            element={<Navigate to="/document-requests/:id" replace />}
-          />
+          {/* Back-compat */}
+          <Route path="/compliance" element={<Navigate to="/document-requests" replace />} />
+          <Route path="/compliance/create" element={<Navigate to="/document-requests/create" replace />} />
+          <Route path="/compliance/inbox" element={<Navigate to="/document-requests" replace />} />
+          <Route path="/compliance/:id" element={<Navigate to="/document-requests/:id" replace />} />
 
           {/* Document view (library/finished) */}
           <Route path="/documents/:id/view" element={<DocumentViewPage />} />
-          {/* DocumentFlow is ok to open normally */}
           <Route path="/documents/:id" element={<DocumentFlowPage />} />
-
-          {/* All workflow docs — full table across all statuses */}
           <Route path="/documents/all" element={<MyWorkQueueListPage />} />
-
-          {/* Document library should be reachable from sidebar */}
           <Route path="/documents" element={<DocumentLibraryPage />} />
 
-          {/* Create can be opened from anywhere, but still role-protected */}
-          <Route
-            element={
-              <RequireRole allow={["QA", "OFFICE_STAFF", "OFFICE_HEAD"]} />
-            }
-          >
+          <Route element={<RequireRole allow={["QA", "OFFICE_STAFF", "OFFICE_HEAD"]} />}>
             <Route path="/documents/create" element={<CreateDocumentPage />} />
           </Route>
 
-          {/* Remove RequestDocumentPage for now (old flow). */}
-          <Route
-            path="/documents/request"
-            element={<Navigate to="/documents/create" replace />}
-          />
+          <Route path="/documents/request" element={<Navigate to="/documents/create" replace />} />
 
-          {/* Role-limited pages */}
           <Route
             element={
-              <RequireRole
-                allow={[
-                  "PRESIDENT",
-                  "VPAA",
-                  "QA",
-                  "SYSADMIN",
-                  "ADMIN",
-                  "VPAD",
-                  "VPF",
-                  "VPR",
-                ]}
-              />
+              <RequireRole allow={["PRESIDENT","VPAA","QA","SYSADMIN","ADMIN","VPAD","VPF","VPR"]} />
             }
           >
-            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/reports" element={<ReportsRoute />} />
             <Route path="/reports/export" element={<ReportExportPage />} />
           </Route>
 
-          {/* Settings — all authenticated users */}
           <Route path="/settings" element={<SettingsPage />} />
 
           <Route element={<RequireRole allow={["QA", "SYSADMIN", "ADMIN"]} />}>
@@ -158,10 +136,7 @@ export default function App() {
             <Route path="/office-manager" element={<OfficeManagerPage />} />
           </Route>
 
-          {/* Templates — all authenticated users */}
           <Route path="/templates" element={<TemplatesPage />} />
-
-          {/* Archive is authenticated */}
           <Route path="/archive" element={<ArchivePage />} />
         </Route>
 

@@ -48,9 +48,9 @@ const AdminOfficeDropdown: React.FC<Props> = ({
 
     const load = async () => {
       try {
-        const data = await getAdminOffices();
+        const res = await getAdminOffices({ per_page: 500 });
         if (!alive) return;
-        setOffices(data);
+        setOffices(res.data);
       } catch (e) {
         console.error("Failed to load admin offices", e);
       } finally {
@@ -128,7 +128,7 @@ const AdminOfficeDropdown: React.FC<Props> = ({
       </div>
 
       {isOpen && !disabled && (
-        <div className="absolute z-10 mt-1 w-full rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 shadow-lg">
+        <div className="absolute z-10 mt-1 w-full rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 shadow-lg">
           <ul className="max-h-56 overflow-y-auto">
             {loading ? (
               <li className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">

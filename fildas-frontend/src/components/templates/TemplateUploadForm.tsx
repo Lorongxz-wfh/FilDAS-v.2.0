@@ -95,7 +95,7 @@ const TemplateUploadForm: React.FC<Props> = ({ onUploaded, canChooseScope = fals
         <label className={labelCls}>
           File <span className="text-rose-500">*</span>
         </label>
-        <p className="mb-2 text-[11px] text-slate-400 dark:text-slate-500">
+        <p className="mb-2 text-xs text-slate-400 dark:text-slate-500">
           PDF, Word, Excel, or PowerPoint — max {MAX_MB} MB
         </p>
         <input
@@ -106,7 +106,7 @@ const TemplateUploadForm: React.FC<Props> = ({ onUploaded, canChooseScope = fals
           className="block w-full text-sm text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 dark:file:bg-surface-500 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-slate-600 dark:file:text-slate-300 hover:file:bg-slate-200 dark:hover:file:bg-surface-400 disabled:opacity-50 transition"
         />
         {file && (
-          <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+          <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
             {file.name} &mdash; {(file.size / 1024).toFixed(0)} KB
           </p>
         )}
@@ -122,7 +122,7 @@ const TemplateUploadForm: React.FC<Props> = ({ onUploaded, canChooseScope = fals
               onClick={() => setIsGlobal(false)}
               disabled={loading}
               className={[
-                "flex flex-1 items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-medium transition",
+                "flex flex-1 items-center gap-2 rounded-md border px-3 py-2.5 text-xs font-medium transition",
                 !isGlobal
                   ? "border-brand-400 bg-brand-50 text-brand-700 dark:border-brand-600 dark:bg-brand-950/30 dark:text-brand-400"
                   : "border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-500",
@@ -136,7 +136,7 @@ const TemplateUploadForm: React.FC<Props> = ({ onUploaded, canChooseScope = fals
               onClick={() => setIsGlobal(true)}
               disabled={loading}
               className={[
-                "flex flex-1 items-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-medium transition",
+                "flex flex-1 items-center gap-2 rounded-md border px-3 py-2.5 text-xs font-medium transition",
                 isGlobal
                   ? "border-brand-400 bg-brand-50 text-brand-700 dark:border-brand-600 dark:bg-brand-950/30 dark:text-brand-400"
                   : "border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-500",

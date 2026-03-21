@@ -178,7 +178,8 @@ const TemplateList: React.FC<Props> = ({
       loading={false}
       onRowClick={onSelect}
       emptyMessage="No templates match your filters."
-      gridTemplateColumns="auto 1fr auto auto auto auto auto"
+      gridTemplateColumns="60px 1fr 70px 70px 130px 100px 90px"
+      className="flex-1"
     />
   );
 };

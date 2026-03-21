@@ -34,11 +34,11 @@ const AdminStatGrid: React.FC<Props> = ({ data, loading }) => {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-md border border-slate-200 bg-white px-4 py-3 dark:border-surface-400 dark:bg-surface-500"
+          className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-surface-400 dark:bg-surface-500"
         >
           <div className="flex items-center justify-between">
             <p className="text-xs text-slate-500 dark:text-slate-400">

@@ -248,7 +248,7 @@ const SearchBar: React.FC = () => {
       </div>
 
       {searchOpen && searchQuery.trim() && (
-        <div className="absolute left-0 right-0 top-full mt-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 shadow-md overflow-hidden">
+        <div className="absolute left-0 right-0 top-full mt-1 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 shadow-md overflow-hidden">
           {searchLoading && totalResults === 0 ? (
             <div className="px-3 py-4">
               <SkeletonList rows={3} rowClassName="h-8 rounded-md" />

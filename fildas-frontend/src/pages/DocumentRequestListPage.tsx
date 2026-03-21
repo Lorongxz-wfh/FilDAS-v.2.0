@@ -206,7 +206,7 @@ export default function DocumentRequestListPage() {
       setLoading(true);
       setError(null);
       try {
-        const baseParams = { q: qDebounced.trim() || undefined, per_page: 25, page };
+        const baseParams = { q: qDebounced.trim() || undefined, per_page: 10, page };
         let data: any;
 
         if (tab === "all") {

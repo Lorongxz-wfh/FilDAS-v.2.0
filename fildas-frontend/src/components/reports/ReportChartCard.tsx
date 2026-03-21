@@ -48,7 +48,7 @@ const ReportChartCard: React.FC<Props> = ({
       ref={cardRef}
       className={`rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden ${className}`}
     >
-      <div className="flex items-start justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-5 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-5 py-4">
         <div>
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             {title}
@@ -67,7 +67,7 @@ const ReportChartCard: React.FC<Props> = ({
                 type="button"
                 onClick={() => setOpen((v) => !v)}
                 disabled={exporting}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 transition disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 transition disabled:opacity-50"
               >
                 <Download size={12} />
                 {exporting ? "Exporting…" : "Export"}

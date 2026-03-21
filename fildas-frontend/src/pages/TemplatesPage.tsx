@@ -8,7 +8,7 @@ import EmptyState from "../components/ui/EmptyState";
 import RefreshButton from "../components/ui/RefreshButton";
 import { useToast } from "../components/ui/toast/ToastContext";
 import { Search, X, ChevronDown, Tag, LayoutGrid, List } from "lucide-react";
-import { inputCls } from "../utils/formStyles";
+import { inputCls, selectCls } from "../utils/formStyles";
 import { getAuthUser } from "../lib/auth";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 
@@ -186,7 +186,7 @@ const TemplatesPage: React.FC = () => {
         </div>
 
         {/* Filter bar */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0 px-4 py-2.5 border-b border-slate-200 dark:border-surface-400">
+        <div className={`flex flex-wrap items-center gap-2 shrink-0 py-2.5 ${viewMode === "grid" ? "border-b border-slate-200 dark:border-surface-400" : ""}`}>
           {/* Search */}
           <div className="relative w-full sm:w-64">
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
@@ -208,24 +208,18 @@ const TemplatesPage: React.FC = () => {
             )}
           </div>
 
-          {/* Scope pills */}
-          <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 p-1">
-            {(["all", "global", "mine"] as const).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setScope(s)}
-                className={[
-                  "rounded-md px-3 py-1 text-xs font-medium capitalize transition",
-                  scope === s
-                    ? "bg-white dark:bg-surface-500 text-slate-900 dark:text-slate-100 shadow-sm border border-slate-200 dark:border-surface-300"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
-                ].join(" ")}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+          {/* Scope select */}
+          {canChooseScope && (
+            <select
+              value={scope}
+              onChange={(e) => setScope(e.target.value as typeof scope)}
+              className={selectCls}
+            >
+              <option value="all">All</option>
+              <option value="global">Global</option>
+              <option value="mine">Mine</option>
+            </select>
+          )}
 
           {/* Tags dropdown */}
           <div ref={tagDropdownRef} className="relative">
@@ -233,7 +227,7 @@ const TemplatesPage: React.FC = () => {
               type="button"
               onClick={() => setTagDropdownOpen((v) => !v)}
               className={[
-                "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition",
+                "flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition",
                 activeTag
                   ? "border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-700 dark:bg-brand-950/30 dark:text-brand-400"
                   : "border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400",
@@ -256,7 +250,7 @@ const TemplatesPage: React.FC = () => {
             {tagDropdownOpen && (
               <div className="absolute left-0 top-full mt-1.5 z-20 w-52 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 shadow-lg overflow-hidden">
                 <div className="px-3 py-2 border-b border-slate-100 dark:border-surface-400">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                     Filter by tag
                   </p>
                 </div>
@@ -272,7 +266,7 @@ const TemplatesPage: React.FC = () => {
                         type="button"
                         onClick={() => { setActiveTag(tag === activeTag ? null : tag); setTagDropdownOpen(false); }}
                         className={[
-                          "w-full rounded-lg px-3 py-1.5 text-left text-xs font-medium transition",
+                          "w-full rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
                           activeTag === tag
                             ? "bg-brand-50 dark:bg-brand-950/30 text-brand-700 dark:text-brand-400"
                             : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-500",
@@ -291,7 +285,7 @@ const TemplatesPage: React.FC = () => {
             <button
               type="button"
               onClick={() => { setQ(""); setScope("all"); setActiveTag(null); }}
-              className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+              className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
             >
               Clear
             </button>
@@ -299,18 +293,18 @@ const TemplatesPage: React.FC = () => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {error ? (
-            <div className="p-4">
-              <Alert variant="danger">
-                {error}{" "}
-                <button type="button" className="underline" onClick={fetchTemplates}>
-                  Retry
-                </button>
-              </Alert>
-            </div>
-          ) : viewMode === "grid" ? (
-            loading ? (
+        {error ? (
+          <div className="p-4 shrink-0">
+            <Alert variant="danger">
+              {error}{" "}
+              <button type="button" className="underline" onClick={fetchTemplates}>
+                Retry
+              </button>
+            </Alert>
+          </div>
+        ) : viewMode === "grid" ? (
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {loading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
                 {Array.from({ length: 10 }).map((_, i) => (
                   <div key={i} className="rounded-xl bg-slate-100 dark:bg-surface-600 animate-pulse aspect-3/4" />
@@ -337,8 +331,10 @@ const TemplatesPage: React.FC = () => {
                   />
                 ))}
               </div>
-            )
-          ) : (
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col flex-1 min-h-0">
             <TemplateList
               templates={filtered}
               loading={loading}
@@ -346,8 +342,8 @@ const TemplatesPage: React.FC = () => {
               onDeleteClick={handleDeleteClick}
               onSelect={setSelectedTemplate}
             />
-          )}
-        </div>
+          </div>
+        )}
       </PageFrame>
 
       <TemplateDetailPanel

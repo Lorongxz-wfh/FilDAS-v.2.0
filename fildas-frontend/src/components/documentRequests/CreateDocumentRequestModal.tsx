@@ -115,14 +115,14 @@ export default function CreateDocumentRequestModal({ open, onClose }: Props) {
       <button
         type="button"
         onClick={handleClose}
-        className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+        className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
       >
         Cancel
       </button>
       <button
         type="button"
         onClick={handleConfirm}
-        className="rounded-lg bg-brand-500 hover:bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition"
+        className="rounded-md bg-brand-500 hover:bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition"
       >
         Continue
       </button>
@@ -183,7 +183,7 @@ export default function CreateDocumentRequestModal({ open, onClose }: Props) {
                     {opt.label}
                   </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   {opt.desc}
                 </p>
               </button>
@@ -222,7 +222,7 @@ export default function CreateDocumentRequestModal({ open, onClose }: Props) {
                 <span className="text-rose-500 normal-case">*</span>
               </label>
               {selectedOfficeIds.length > 0 && (
-                <span className="text-[11px] font-medium text-brand-500 dark:text-brand-400">
+                <span className="text-xs font-medium text-brand-500 dark:text-brand-400">
                   {selectedOfficeIds.length} selected
                 </span>
               )}
@@ -239,7 +239,7 @@ export default function CreateDocumentRequestModal({ open, onClose }: Props) {
                 {selectedOffices.map((o) => (
                   <span
                     key={o.id}
-                    className="inline-flex items-center gap-1 rounded-full border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/30 px-2.5 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-400"
+                    className="inline-flex items-center gap-1 rounded-full border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/30 px-2.5 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-400"
                   >
                     {o.code}
                     <button
@@ -269,7 +269,7 @@ export default function CreateDocumentRequestModal({ open, onClose }: Props) {
             />
             {selectedOffice && (
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/30 px-2.5 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-400">
+                <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/30 px-2.5 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-400">
                   {selectedOffice.code} — {selectedOffice.name}
                   <button
                     type="button"
@@ -285,7 +285,7 @@ export default function CreateDocumentRequestModal({ open, onClose }: Props) {
         )}
 
         {error && (
-          <div className="rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-xs font-medium text-rose-700 dark:text-rose-400">
+          <div className="rounded-md border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-xs font-medium text-rose-700 dark:text-rose-400">
             {error}
           </div>
         )}

@@ -27,6 +27,7 @@ const NotificationBell: React.FC = () => {
     const n = await getUnreadNotificationCount();
     if (n > prevUnreadRef.current) {
       playNotificationChime();
+      window.dispatchEvent(new Event("page:remote-refresh"));
     }
     prevUnreadRef.current = n;
     setNotifUnread(n);
@@ -125,7 +126,7 @@ const NotificationBell: React.FC = () => {
       </button>
 
       {isNotifOpen && (
-        <div className="absolute right-4 top-14 w-72 rounded-md border border-slate-200 bg-white shadow-md dark:border-surface-400 dark:bg-surface-500">
+        <div className="absolute right-4 top-14 w-72 rounded-xl border border-slate-200 bg-white shadow-md dark:border-surface-400 dark:bg-surface-500">
           <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 dark:border-surface-400">
             <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">
               Inbox

@@ -54,8 +54,10 @@ export function usePageBurstRefresh(onRefresh: () => Promise<void> | void) {
       startBurst();
     };
     window.addEventListener("notifications:refresh", handler);
+    window.addEventListener("page:remote-refresh", handler);
     return () => {
       window.removeEventListener("notifications:refresh", handler);
+      window.removeEventListener("page:remote-refresh", handler);
       stopBurst();
     };
   }, [startBurst, stopBurst]);

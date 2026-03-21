@@ -28,12 +28,6 @@ class UserSeeder extends Seeder
             return $id;
         };
 
-        $csOfficeId = Office::where('code', 'CS')->value('id');
-        if (!$csOfficeId) {
-            throw new \RuntimeException('Office not found for code=CS');
-        }
-
-
         $vpRole   = Role::where('name', 'vp')->firstOrFail();
         $presRole = Role::where('name', 'president')->firstOrFail();
 
@@ -63,7 +57,7 @@ class UserSeeder extends Seeder
 
                 'password' => Hash::make('Posa123'),
                 'role_id'  => $deptRole->id,
-                'office_id' => $officeId('CS'),
+                'office_id' => $officeId('CCS'),
             ]
         );
 
@@ -95,7 +89,7 @@ class UserSeeder extends Seeder
 
                 'password' => Hash::make('password'),
                 'role_id'  => $vpRole->id,
-                'office_id' => $officeId('VAD'),
+                'office_id' => $officeId('VPAD'),
             ]
         );
 
@@ -111,7 +105,7 @@ class UserSeeder extends Seeder
 
                 'password' => Hash::make('password'),
                 'role_id'  => $vpRole->id,
-                'office_id' => $officeId('VFI'),
+                'office_id' => $officeId('VPFIN'),
 
             ]
         );
@@ -127,7 +121,7 @@ class UserSeeder extends Seeder
 
                 'password' => Hash::make('password'),
                 'role_id'  => $vpRole->id,
-                'office_id' => $officeId('VRQ'),
+                'office_id' => $officeId('VPREQA'),
 
             ]
         );
@@ -160,7 +154,7 @@ class UserSeeder extends Seeder
 
                 'password' => Hash::make('password'),
                 'role_id'  => $deptRole->id,
-                'office_id' => $officeId('CS'),
+                'office_id' => $officeId('CCS'),
             ]
         );
 
@@ -175,7 +169,7 @@ class UserSeeder extends Seeder
 
                 'password' => Hash::make('password'),
                 'role_id'  => $officeHeadRole->id,
-                'office_id' => (int) $csOfficeId,
+                'office_id' => $officeId('CCS'),
             ]
         );
 
@@ -190,7 +184,7 @@ class UserSeeder extends Seeder
 
                 'password' => Hash::make('password'),
                 'role_id'  => $vpRole->id,
-                'office_id' => $officeId('VAR'),
+                'office_id' => $officeId('VPAA'),
             ]
         );
 
@@ -219,7 +213,7 @@ class UserSeeder extends Seeder
                 'profile_photo_path' => null,
                 'password'           => Hash::make('password'),
                 'role_id'            => $officeHeadRole->id,
-                'office_id'          => $officeId('CB'),
+                'office_id'          => $officeId('CBA'),
             ]
         );
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   listDocumentsPage,
   getCurrentUserOfficeId,
@@ -16,214 +16,31 @@ import {
 } from "../lib/roleFilters";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import Button from "../components/ui/Button";
-import Table, { type TableColumn } from "../components/ui/Table";
+import Table from "../components/ui/Table";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
 import ShareDocumentModal from "../components/documents/ShareDocumentModal";
-import {
-  Search,
-  X,
-  BookOpen,
-  FileText,
-  Share2,
-  Users,
-  ArrowDownToLine,
-  FileStack,
-} from "lucide-react";
+import { Search, X } from "lucide-react";
 import { inputCls, selectCls } from "../utils/formStyles";
-import { formatDate } from "../utils/formatters";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import Alert from "../components/ui/Alert";
 import DateRangeInput from "../components/ui/DateRangeInput";
 import RefreshButton from "../components/ui/RefreshButton";
 
-// ── Type badge ───────────────────────────────────────────────────────────────
-const TYPE_STYLES: Record<string, string> = {
-  internal: "bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
-  external: "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-  forms: "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
-};
+import {
+  type LibTab,
+  TAB_LABELS,
+  TAB_ICONS,
+  type LibraryItem,
+  docToLibraryItem,
+  reqToLibraryItem,
+} from "./documentLibrary/documentLibraryTypes";
+import {
+  buildBaseDocColumns,
+  buildSharedColumns,
+  buildRequestedColumns,
+  buildAllColumns,
+} from "./documentLibrary/DocumentLibraryColumns";
 
-function TypeBadge({ type }: { type: string }) {
-  const cls =
-    TYPE_STYLES[type?.toLowerCase()] ??
-    "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300";
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${cls}`}
-    >
-      {type || "—"}
-    </span>
-  );
-}
-
-// ── Mode badge (document request mode) ───────────────────────────────────────
-function ModeBadge({ mode }: { mode: string }) {
-  const isMultiDoc = mode === "multi_doc";
-  return (
-    <span
-      className={[
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
-        isMultiDoc
-          ? "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-400"
-          : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-400",
-      ].join(" ")}
-    >
-      {isMultiDoc ? (
-        <FileStack className="h-2.5 w-2.5" />
-      ) : (
-        <Users className="h-2.5 w-2.5" />
-      )}
-      {isMultiDoc ? "Multi-Doc" : "Multi-Office"}
-    </span>
-  );
-}
-
-// ── Source badge ─────────────────────────────────────────────────────────────
-function SourceBadge({ source }: { source: "created" | "requested" | "shared" }) {
-  const map = {
-    created: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
-    requested: "bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-400",
-    shared: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
-  };
-  const label = { created: "Created", requested: "Requested", shared: "Shared" };
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${map[source]}`}
-    >
-      {label[source]}
-    </span>
-  );
-}
-
-// ── Tab type ─────────────────────────────────────────────────────────────────
-type LibTab = "all" | "created" | "requested" | "shared";
-
-const TAB_LABELS: Record<LibTab, string> = {
-  all: "All",
-  created: "Created",
-  requested: "Requested",
-  shared: "Shared",
-};
-
-const TAB_ICONS: Record<LibTab, React.ReactNode> = {
-  all: <BookOpen className="h-3.5 w-3.5" />,
-  created: <FileText className="h-3.5 w-3.5" />,
-  requested: <ArrowDownToLine className="h-3.5 w-3.5" />,
-  shared: <Users className="h-3.5 w-3.5" />,
-};
-
-// ── Unified All-tab item ──────────────────────────────────────────────────────
-type LibraryItem = {
-  _key: string;
-  source: "created" | "shared" | "requested";
-  title: string;
-  subtitle?: string;
-  doctype?: string;
-  mode?: string;
-  office?: string;
-  version?: number;
-  date: string;
-  docId?: number;
-  reqId?: number;
-  recipId?: number;
-  itemId?: number;
-};
-
-function docToLibraryItem(doc: Document, source: "created" | "shared"): LibraryItem {
-  return {
-    _key: `doc-${doc.id}`,
-    source,
-    title: doc.title,
-    subtitle: doc.code ?? undefined,
-    doctype: doc.doctype,
-    office: (doc as any).ownerOffice?.name ?? undefined,
-    version: doc.version_number,
-    date: doc.created_at,
-    docId: doc.id,
-  };
-}
-
-function reqToLibraryItem(row: any): LibraryItem {
-  return {
-    _key: `req-${row.request_id}-${row.row_id ?? row.recipient_id}`,
-    source: "requested",
-    title: row.item_title ?? row.batch_title,
-    subtitle: row.item_title ? row.batch_title : undefined,
-    mode: row.batch_mode,
-    office: row.office_name,
-    date: row.created_at,
-    reqId: row.request_id,
-    recipId: row.recipient_id,
-    itemId: row.item_id ?? undefined,
-  };
-}
-
-// ── Doc title cell ────────────────────────────────────────────────────────────
-function DocTitle({ doc }: { doc: Document }) {
-  return (
-    <div className="min-w-0">
-      <div className="font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-        {doc.title}
-      </div>
-      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-        {doc.code && (
-          <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500">
-            {doc.code}
-          </span>
-        )}
-        {(doc as any).ownerOffice && (
-          <span className="text-[11px] text-slate-400 dark:text-slate-500">
-            {(doc as any).ownerOffice.name}
-          </span>
-        )}
-        {Array.isArray((doc as any).tags) && (doc as any).tags.length > 0 && (
-          <div className="flex items-center gap-1">
-            {(doc as any).tags.slice(0, 2).map((t: any) => {
-              const name = typeof t === "string" ? t : t.name;
-              return (
-                <span
-                  key={name}
-                  className="rounded-full border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-1.5 py-0 text-[10px] text-slate-400 dark:text-slate-500"
-                >
-                  {name}
-                </span>
-              );
-            })}
-            {(doc as any).tags.length > 2 && (
-              <span className="text-[10px] text-slate-400">
-                +{(doc as any).tags.length - 2}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Share button cell ─────────────────────────────────────────────────────────
-const ShareCell: React.FC<{
-  doc: Document;
-  canShare: boolean;
-  onShare: (id: number) => void;
-}> = ({ doc, canShare, onShare }) => {
-  if (!canShare) return null;
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onShare(doc.id);
-      }}
-      className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 transition cursor-pointer"
-    >
-      <Share2 className="h-2.5 w-2.5" />
-      Share
-    </button>
-  );
-};
-
-// ── Main page ─────────────────────────────────────────────────────────────────
 export default function DocumentLibraryPage() {
   const navigate = useNavigate();
   const role = getUserRole();
@@ -246,7 +63,7 @@ export default function DocumentLibraryPage() {
   const [dateTo, setDateTo] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // ── State: Created / Shared tabs (both use listDocumentsPage) ─────────────
+  // ── State: Created / Shared tabs ──────────────────────────────────────────
   const [docRows, setDocRows] = useState<Document[]>([]);
   const [docPage, setDocPage] = useState(1);
   const [docHasMore, setDocHasMore] = useState(true);
@@ -302,7 +119,7 @@ export default function DocumentLibraryPage() {
         const scope = isAdmin ? "all" : tab === "created" ? "owned" : "shared";
         const res = await listDocumentsPage({
           page: docPage,
-          perPage: 25,
+          perPage: 10,
           q: qDebounced.trim() || undefined,
           status: "Distributed",
           doctype: typeFilter !== "ALL" ? typeFilter : undefined,
@@ -342,7 +159,7 @@ export default function DocumentLibraryPage() {
         const res = await listDocumentRequestIndividual({
           status: "accepted",
           q: qDebounced.trim() || undefined,
-          per_page: 25,
+          per_page: 10,
           page: reqPage,
         });
         if (!alive) return;
@@ -380,7 +197,7 @@ export default function DocumentLibraryPage() {
           allDocHasMore
             ? listDocumentsPage({
                 page: allDocPage,
-                perPage: 25,
+                perPage: 10,
                 q: qDebounced.trim() || undefined,
                 status: "Distributed",
                 doctype: typeFilter !== "ALL" ? typeFilter : undefined,
@@ -393,7 +210,7 @@ export default function DocumentLibraryPage() {
             ? listDocumentRequestIndividual({
                 status: "accepted",
                 q: qDebounced.trim() || undefined,
-                per_page: 25,
+                per_page: 10,
                 page: allReqPage,
               })
             : null,
@@ -455,201 +272,13 @@ export default function DocumentLibraryPage() {
 
   const { refresh, refreshing } = usePageBurstRefresh(reloadLibrary);
 
-  // ── Table columns ─────────────────────────────────────────────────────────
+  // ── Column definitions ────────────────────────────────────────────────────
+  const handleShare = (id: number) => { setShareDocId(id); setShareOpen(true); };
 
-  const baseDocColumns: TableColumn<Document>[] = useMemo(
-    () => [
-      {
-        key: "type",
-        header: "Type",
-        render: (doc) => <TypeBadge type={doc.doctype} />,
-      },
-      {
-        key: "document",
-        header: "Document",
-        render: (doc) => <DocTitle doc={doc} />,
-      },
-      {
-        key: "version",
-        header: "Ver.",
-        align: "center" as const,
-        render: (doc) => (
-          <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
-            v{doc.version_number}
-          </span>
-        ),
-      },
-      {
-        key: "created",
-        header: "Created",
-        render: (doc) => (
-          <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-            {formatDate(doc.created_at)}
-          </span>
-        ),
-      },
-    ],
-    [],
-  );
-
-  const sharedColumns: TableColumn<Document>[] = useMemo(() => {
-    if (!canShare) return baseDocColumns;
-    return [
-      ...baseDocColumns,
-      {
-        key: "actions",
-        header: "",
-        align: "right" as const,
-        render: (doc) => (
-          <ShareCell
-            doc={doc}
-            canShare={canShare}
-            onShare={(id) => {
-              setShareDocId(id);
-              setShareOpen(true);
-            }}
-          />
-        ),
-      },
-    ];
-  }, [baseDocColumns, canShare]);
-
-  const requestedColumns: TableColumn<any>[] = useMemo(() => {
-    const cols: TableColumn<any>[] = [
-      {
-        key: "mode",
-        header: "Type",
-        render: (r) => <ModeBadge mode={r.batch_mode} />,
-      },
-      {
-        key: "request",
-        header: "Request",
-        render: (r) => (
-          <div className="min-w-0">
-            <div className="font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-              {r.item_title ?? r.batch_title}
-            </div>
-            {r.item_title && (
-              <div className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                {r.batch_title}
-              </div>
-            )}
-          </div>
-        ),
-      },
-    ];
-
-    if (isQaAdmin) {
-      cols.push({
-        key: "office",
-        header: "Office",
-        render: (r) => (
-          <div className="min-w-0">
-            <div className="text-xs text-slate-600 dark:text-slate-300 truncate">
-              {r.office_name ?? "—"}
-            </div>
-            {r.office_code && (
-              <div className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
-                {r.office_code}
-              </div>
-            )}
-          </div>
-        ),
-      });
-    }
-
-    cols.push(
-      {
-        key: "status",
-        header: "Status",
-        render: () => (
-          <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wide border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400">
-            ACCEPTED
-          </span>
-        ),
-      },
-      {
-        key: "date",
-        header: "Date",
-        render: (r) => (
-          <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-            {formatDate(r.created_at)}
-          </span>
-        ),
-      },
-    );
-
-    return cols;
-  }, [isQaAdmin]);
-
-  const allColumns: TableColumn<LibraryItem>[] = useMemo(
-    () => [
-      {
-        key: "source",
-        header: "Source",
-        render: (item) => <SourceBadge source={item.source} />,
-      },
-      {
-        key: "title",
-        header: "Title",
-        render: (item) => (
-          <div className="min-w-0">
-            <div className="font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-              {item.title}
-            </div>
-            {item.subtitle && (
-              <div className="font-mono text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                {item.subtitle}
-              </div>
-            )}
-          </div>
-        ),
-      },
-      {
-        key: "type",
-        header: "Type",
-        render: (item) =>
-          item.doctype ? (
-            <TypeBadge type={item.doctype} />
-          ) : item.mode ? (
-            <ModeBadge mode={item.mode} />
-          ) : null,
-      },
-      {
-        key: "office",
-        header: "Office",
-        render: (item) => (
-          <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
-            {item.office ?? "—"}
-          </span>
-        ),
-      },
-      {
-        key: "meta",
-        header: "Ver. / Status",
-        render: (item) =>
-          item.version != null ? (
-            <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
-              v{item.version}
-            </span>
-          ) : (
-            <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wide border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400">
-              ACCEPTED
-            </span>
-          ),
-      },
-      {
-        key: "date",
-        header: "Date",
-        render: (item) => (
-          <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-            {formatDate(item.date)}
-          </span>
-        ),
-      },
-    ],
-    [],
-  );
+  const baseDocColumns = useMemo(() => buildBaseDocColumns(), []);
+  const sharedColumns  = useMemo(() => buildSharedColumns(canShare, handleShare), [canShare]);
+  const requestedColumns = useMemo(() => buildRequestedColumns(isQaAdmin), [isQaAdmin]);
+  const allColumns     = useMemo(() => buildAllColumns(), []);
 
   // ── Navigation ────────────────────────────────────────────────────────────
   const handleDocClick = (doc: Document) =>
@@ -676,8 +305,8 @@ export default function DocumentLibraryPage() {
   };
 
   // ── Grid templates ────────────────────────────────────────────────────────
-  const createdGrid   = "80px 1fr 60px 110px";
-  const sharedGrid    = canShare ? "80px 1fr 60px 110px 80px" : "80px 1fr 60px 110px";
+  const createdGrid   = "80px 1fr 60px 100px 110px";
+  const sharedGrid    = canShare ? "80px 1fr 60px 100px 110px 80px" : "80px 1fr 60px 100px 110px";
   const requestedGrid = isQaAdmin ? "110px 1fr 160px 120px 110px" : "110px 1fr 120px 110px";
   const allGrid       = "90px 1fr 110px 150px 80px 110px";
 
@@ -758,7 +387,6 @@ export default function DocumentLibraryPage() {
           )}
         </div>
 
-        {/* Type filter — not applicable for Requested tab */}
         {tab !== "requested" && (
           <select
             value={typeFilter}
@@ -772,7 +400,6 @@ export default function DocumentLibraryPage() {
           </select>
         )}
 
-        {/* Date filter — only for doc-based tabs */}
         {(tab === "created" || tab === "shared") && (
           <DateRangeInput
             from={dateFrom}
@@ -791,7 +418,7 @@ export default function DocumentLibraryPage() {
               setDateFrom("");
               setDateTo("");
             }}
-            className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+            className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
           >
             Clear
           </button>

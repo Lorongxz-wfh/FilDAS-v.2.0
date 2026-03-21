@@ -11,6 +11,7 @@ import {
   type ComplianceReportResponse as ComplianceReport,
   type AdminDashboardStats,
 } from "../services/documents";
+import { listDocumentRequests } from "../services/documentRequests";
 import { isQA, type UserRole } from "../lib/roleFilters";
 
 const emptyReport: ComplianceReport = {
@@ -35,6 +36,7 @@ export type DashboardData = {
   recentActivity: ActivityLogItem[];
   report: ComplianceReport;
   adminStats: AdminDashboardStats | null;
+  pendingRequestsCount: number;
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
@@ -46,15 +48,13 @@ export function useDashboardData(role: UserRole): DashboardData {
   const [monitoring, setMonitoring] = useState<WorkQueueItem[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityLogItem[]>([]);
   const [report, setReport] = useState<ComplianceReport>(emptyReport);
-  const [adminStats, setAdminStats] = useState<AdminDashboardStats | null>(
-    null,
-  );
+  const [adminStats, setAdminStats] = useState<AdminDashboardStats | null>(null);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const isAdmin = role === "ADMIN" || role === "SYSADMIN";
 
-  // Ref so reload() can call the latest load() without closure issues
   const loadRef = useCallback(
     async (silent = false) => {
       if (!silent) setLoading(true);
@@ -67,28 +67,31 @@ export function useDashboardData(role: UserRole): DashboardData {
           ]);
           setAdminStats(adminData);
           setRecentActivity(activityData.data ?? []);
-        } else {
-          const scope = isQA(role) ? "all" : "office";
-          const promises: Promise<unknown>[] = [
-            getDocumentStats(),
-            getWorkQueue(),
-            listActivityLogs({ scope, per_page: 8 }),
-          ];
-          if (isQA(role)) promises.push(getComplianceReport());
-
-          const results = await Promise.all(promises);
-          const [statsData, queueData, activityData, reportData] = results as [
-            DocumentStats,
-            { assigned: WorkQueueItem[]; monitoring: WorkQueueItem[] },
-            { data: ActivityLogItem[] },
-            ComplianceReport | undefined,
-          ];
-
+        } else if (isQA(role)) {
+          const [statsData, queueData, activityData, reportData, reqData] =
+            await Promise.all([
+              getDocumentStats(),
+              getWorkQueue(),
+              listActivityLogs({ scope: "all", per_page: 8 }),
+              getComplianceReport(),
+              listDocumentRequests({ per_page: 1 }),
+            ]);
           setStats(statsData);
           setPending(queueData.assigned ?? []);
           setMonitoring(queueData.monitoring ?? []);
           setRecentActivity(activityData.data ?? []);
-          if (reportData) setReport(reportData);
+          setReport(reportData);
+          setPendingRequestsCount(reqData?.meta?.total ?? 0);
+        } else {
+          const [statsData, queueData, activityData] = await Promise.all([
+            getDocumentStats(),
+            getWorkQueue(),
+            listActivityLogs({ scope: "office", per_page: 8 }),
+          ]);
+          setStats(statsData);
+          setPending(queueData.assigned ?? []);
+          setMonitoring(queueData.monitoring ?? []);
+          setRecentActivity(activityData.data ?? []);
         }
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Failed to load dashboard.");
@@ -116,6 +119,7 @@ export function useDashboardData(role: UserRole): DashboardData {
     recentActivity,
     report,
     adminStats,
+    pendingRequestsCount,
     loading,
     error,
     reload,

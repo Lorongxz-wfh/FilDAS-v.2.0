@@ -77,14 +77,14 @@ const WorkflowTaskPanel: React.FC<Props> = ({
       {/* Header row */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
             Current task
           </p>
           <p className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
             {isTasksReady ? currentStep.label : "Loading…"}
           </p>
           {nextStep && (
-            <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500 truncate">
+            <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500 truncate">
               Next → {nextStep.label}
             </p>
           )}
@@ -93,7 +93,7 @@ const WorkflowTaskPanel: React.FC<Props> = ({
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           <span
             className={[
-              "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+              "rounded-full px-2 py-0.5 text-xs font-semibold",
               !isTasksReady
                 ? "bg-slate-100 text-slate-500 dark:bg-surface-400 dark:text-slate-400"
                 : canAct
@@ -109,7 +109,7 @@ const WorkflowTaskPanel: React.FC<Props> = ({
           </span>
 
           {taskChanged && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 dark:bg-sky-900/40 px-2 py-0.5 text-[10px] font-semibold text-sky-700 dark:text-sky-400 animate-pulse">
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 dark:bg-sky-900/40 px-2 py-0.5 text-xs font-semibold text-sky-700 dark:text-sky-400 animate-pulse">
               <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
               Workflow updated
             </span>
@@ -119,7 +119,7 @@ const WorkflowTaskPanel: React.FC<Props> = ({
             <button
               type="button"
               onClick={stopBurstPolling}
-              className="text-[10px] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+              className="text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
             >
               Stop live updates
             </button>
@@ -138,27 +138,27 @@ const WorkflowTaskPanel: React.FC<Props> = ({
         ) : (
           <>
             {/* From (your office — who sent it) */}
-            <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-surface-600/50 border border-slate-200 dark:border-surface-400 px-3 py-2">
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
+            <div className="flex items-center justify-between gap-2 rounded-md bg-slate-50 dark:bg-surface-600/50 border border-slate-200 dark:border-surface-400 px-3 py-2">
+              <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">
                 From
               </span>
               <div className="flex items-center gap-1.5">
                 {canAct && (
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                 )}
-                <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 text-right truncate">
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 text-right truncate">
                   {myOfficeName ?? "—"}
                 </span>
               </div>
             </div>
 
             {/* To (assigned office — who needs to act) */}
-            <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-surface-600/50 border border-slate-200 dark:border-surface-400 px-3 py-2">
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
+            <div className="flex items-center justify-between gap-2 rounded-md bg-slate-50 dark:bg-surface-600/50 border border-slate-200 dark:border-surface-400 px-3 py-2">
+              <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">
                 For
               </span>
               <span
-                className={`text-[11px] font-semibold text-right truncate ${canAct ? "text-emerald-700 dark:text-emerald-400" : "text-slate-800 dark:text-slate-200"}`}
+                className={`text-xs font-semibold text-right truncate ${canAct ? "text-emerald-700 dark:text-emerald-400" : "text-slate-800 dark:text-slate-200"}`}
               >
                 {assignedOfficeName ?? "—"}
               </span>
@@ -166,11 +166,11 @@ const WorkflowTaskPanel: React.FC<Props> = ({
 
             {/* Phase */}
             {currentTask && (
-              <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-surface-600/50 border border-slate-200 dark:border-surface-400 px-3 py-2">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
+              <div className="flex items-center justify-between gap-2 rounded-md bg-slate-50 dark:bg-surface-600/50 border border-slate-200 dark:border-surface-400 px-3 py-2">
+                <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">
                   Phase
                 </span>
-                <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200 capitalize text-right">
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 capitalize text-right">
                   {currentTask.phase}
                 </span>
               </div>
@@ -178,11 +178,11 @@ const WorkflowTaskPanel: React.FC<Props> = ({
 
             {/* Date started */}
             {openedAt && (
-              <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 dark:bg-surface-600/50 border border-slate-200 dark:border-surface-400 px-3 py-2">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
+              <div className="flex items-center justify-between gap-2 rounded-md bg-slate-50 dark:bg-surface-600/50 border border-slate-200 dark:border-surface-400 px-3 py-2">
+                <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">
                   Started
                 </span>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 text-right">
+                <span className="text-xs text-slate-500 dark:text-slate-400 text-right">
                   {openedAt}
                 </span>
               </div>
@@ -190,7 +190,7 @@ const WorkflowTaskPanel: React.FC<Props> = ({
 
             {/* No task warning */}
             {!currentTask && (
-              <p className="text-[11px] text-rose-600 dark:text-rose-400 px-1">
+              <p className="text-xs text-rose-600 dark:text-rose-400 px-1">
                 No open workflow task found for this version.
               </p>
             )}

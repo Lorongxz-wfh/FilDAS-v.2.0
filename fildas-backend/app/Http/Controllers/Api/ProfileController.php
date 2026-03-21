@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\WorkflowNotificationMail;
 use App\Traits\LogsActivityTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -57,6 +59,28 @@ class ProfileController extends Controller
         $user->save();
 
         $this->logActivity('profile.password_changed', 'Changed account password', $user->id, $user->office_id);
+
+        // Security email — always sent regardless of notification preferences
+        if ($user->email) {
+            try {
+                $name    = trim($user->first_name . ' ' . $user->last_name) ?: $user->email;
+                $appUrl  = rtrim(env('FRONTEND_URL', config('app.url')), '/');
+                $appName = config('app.name', 'FilDAS');
+                Mail::to($user->email)->queue(new WorkflowNotificationMail(
+                    recipientName:  $name,
+                    notifTitle:     'Your password was changed',
+                    notifBody:      'Your ' . $appName . ' account password was successfully changed. If you did not make this change, contact your administrator immediately.',
+                    documentTitle:  'Account Security',
+                    documentStatus: 'Password Changed',
+                    isReject:       false,
+                    actorName:      $name,
+                    documentId:     null,
+                    cardLabel:      'Account',
+                    appUrl:         $appUrl,
+                    appName:        $appName,
+                ));
+            } catch (\Throwable) {}
+        }
 
         return response()->json(['message' => 'Password updated successfully.']);
     }
