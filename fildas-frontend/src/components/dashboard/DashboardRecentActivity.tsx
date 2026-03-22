@@ -68,14 +68,13 @@ const getEventMeta = (event: string): EventMeta => {
   };
 };
 
-
 const DashboardRecentActivity: React.FC<Props> = ({ logs, loading }) => {
   return (
-    <div className="min-h-52.5 divide-y divide-slate-200 dark:divide-surface-400">
+    <div className="min-h-[210px] divide-y divide-slate-100 dark:divide-surface-400">
       {loading ? (
         Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="flex items-start gap-3 py-3">
-            <Skeleton className="mt-0.5 h-2 w-2 rounded-full" />
+            <Skeleton className="mt-0.5 h-6 w-6 rounded" />
             <div className="flex-1 space-y-1.5">
               <Skeleton className="h-3.5 w-2/3" />
               <Skeleton className="h-3 w-1/4" />
@@ -83,30 +82,33 @@ const DashboardRecentActivity: React.FC<Props> = ({ logs, loading }) => {
           </div>
         ))
       ) : logs.length === 0 ? (
-        <div className="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+        <div className="py-10 text-center text-sm text-slate-400 dark:text-slate-500">
           No activity yet.
         </div>
       ) : (
         logs.slice(0, 5).map((log) => {
           const meta = getEventMeta(log.event);
           return (
-            <div key={log.id} className="flex items-start gap-3 py-3">
+            <div key={log.id} className="flex items-start gap-3 py-2.5">
+              {/* Event icon */}
               <div
-                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${meta.bg} ${meta.text}`}
+                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded ${meta.bg} ${meta.text}`}
               >
                 {meta.icon}
               </div>
+
+              {/* Event text */}
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-slate-800 dark:text-slate-200">
+                <p className="text-sm text-slate-800 dark:text-slate-200 leading-snug">
                   <span className="font-medium">{log.event}</span>
-                  {log.label ? (
+                  {log.label && (
                     <span className="text-slate-500 dark:text-slate-400">
                       {" "}
                       — {log.label}
                     </span>
-                  ) : null}
+                  )}
                 </p>
-                <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+                <p className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
                   {formatRelative(log.created_at)}
                 </p>
               </div>

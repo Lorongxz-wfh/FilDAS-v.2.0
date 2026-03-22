@@ -288,9 +288,9 @@ const MyWorkQueuePage: React.FC = () => {
       </div>
 
       {/* Main 2-col layout */}
-      <div className="flex gap-5 flex-col lg:flex-row flex-1 min-h-0">
+      <div className="flex gap-4 flex-col lg:flex-row flex-1 min-h-0">
         {/* Queue panel */}
-        <div className="flex flex-col flex-1 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+        <div className="flex flex-col flex-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
           {/* Panel header + tabs */}
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-4 py-3">
             <div>
@@ -306,27 +306,27 @@ const MyWorkQueuePage: React.FC = () => {
                   ? "Distributed documents you were involved in"
                   : tab === "active"
                     ? "Assigned to your office — action required"
-                    : "All active + Distributed Documents"}
+                    : "All active and distributed documents"}
               </p>
             </div>
 
-            {/* Tab switcher */}
-            <div className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 p-1">
+            {/* Tab switcher — ERPNext style: plain underline tabs */}
+            <div className="flex items-center gap-0.5">
               {tabs.map((t) => (
                 <button
                   key={t.value}
                   type="button"
                   onClick={() => setTab(t.value)}
                   className={[
-                    "rounded px-3 py-1 text-xs font-medium capitalize transition",
+                    "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded transition-colors",
                     tab === t.value
-                      ? "bg-white dark:bg-surface-500 text-slate-900 dark:text-slate-100 shadow-sm border border-slate-200 dark:border-surface-400"
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
+                      ? "bg-slate-100 dark:bg-surface-400 text-slate-900 dark:text-slate-100"
+                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400",
                   ].join(" ")}
                 >
                   {t.label}
                   {t.count != null && (
-                    <span className="ml-1.5 inline-flex items-center justify-center rounded bg-slate-100 dark:bg-surface-400 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                    <span className="inline-flex items-center justify-center rounded bg-slate-200 dark:bg-surface-300 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
                       {t.count}
                     </span>
                   )}
@@ -365,7 +365,7 @@ const MyWorkQueuePage: React.FC = () => {
               finishedLoading && finishedDocs.length === 0 ? (
                 <SkeletonList rows={4} rowClassName="h-14 rounded-md" />
               ) : finishedDocs.length === 0 ? (
-                <div className="flex h-full min-h-40 items-center justify-center rounded-xl border border-dashed border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600">
+                <div className="flex h-full min-h-40 items-center justify-center rounded-md border border-dashed border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600">
                   <div className="text-center">
                     <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded bg-slate-100 dark:bg-surface-400 text-slate-400 dark:text-slate-500">
                       <CheckCircle2 className="h-4 w-4" />
@@ -450,8 +450,8 @@ const MyWorkQueuePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Recent activity panel — workflow only */}
-        <div className="flex flex-col lg:w-80 shrink-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden max-h-96 lg:max-h-none">
+        {/* Recent activity panel */}
+        <div className="flex flex-col lg:w-72 shrink-0 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden max-h-96 lg:max-h-none">
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -468,9 +468,9 @@ const MyWorkQueuePage: React.FC = () => {
                   state: { category: "workflow" },
                 })
               }
-              className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+              className="text-xs font-medium text-brand-500 hover:text-brand-400 dark:text-brand-400 transition-colors"
             >
-              View all
+              View all →
             </button>
           </div>
 

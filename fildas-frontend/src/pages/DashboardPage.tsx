@@ -23,10 +23,7 @@ import AdminDocumentPhaseChart from "../components/dashboard/AdminDocumentPhaseC
 
 import { useDashboardData } from "../hooks/useDashboardData";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
-import {
-  getUserRole,
-  isQA,
-} from "../lib/roleFilters";
+import { getUserRole, isQA } from "../lib/roleFilters";
 import { getAuthUser } from "../lib/auth";
 import {
   FolderOpen,
@@ -34,42 +31,41 @@ import {
   Inbox,
   Clock,
   RefreshCw,
-  Hand,
-  CheckCircle2,
 } from "lucide-react";
 
-// ─── Shared card wrapper ───────────────────────────────────────────────────
+// ─── Card ─────────────────────────────────────────────────────────────────
 const Card: React.FC<{
   title: string;
   sub?: string;
-  link?: { label: string; to: string };
+  action?: { label: string; onClick: () => void };
   children: React.ReactNode;
   className?: string;
-  onLinkClick?: () => void;
-}> = ({ title, sub, link, children, className = "", onLinkClick }) => (
+}> = ({ title, sub, action, children, className = "" }) => (
   <div
-    className={`rounded-xl border border-slate-200 bg-white px-4 py-4 dark:border-surface-400 dark:bg-surface-500 ${className}`}
+    className={`rounded-md border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 ${className}`}
   >
-    <div className="mb-4 flex items-start justify-between gap-2">
-      <div>
-        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+    <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-surface-400 px-4 py-3">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight">
           {title}
         </p>
         {sub && (
-          <p className="text-xs text-slate-500 dark:text-slate-400">{sub}</p>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            {sub}
+          </p>
         )}
       </div>
-      {link && (
+      {action && (
         <button
           type="button"
-          onClick={onLinkClick}
-          className="shrink-0 text-xs font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400"
+          onClick={action.onClick}
+          className="shrink-0 text-xs font-medium text-brand-500 hover:text-brand-400 dark:text-brand-400 transition-colors"
         >
-          {link.label} →
+          {action.label} →
         </button>
       )}
     </div>
-    {children}
+    <div className="px-4 py-4">{children}</div>
   </div>
 );
 
@@ -101,8 +97,7 @@ const QADashboard: React.FC<
   ];
 
   return (
-    <div className="space-y-5">
-      {/* Stat cards */}
+    <div className="space-y-4">
       <DashboardStatRow
         role="QA"
         stats={stats}
@@ -111,29 +106,34 @@ const QADashboard: React.FC<
         loading={loading}
       />
 
-      {/* Row 1: Volume trend (primary, wider) + Status donut */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      {/* Row 1: Volume trend + Status donut */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card
           title="Document volume"
           sub="Created vs approved per month."
-          link={{ label: "Full reports", to: "/reports" }}
-          onLinkClick={() => navigate("/reports")}
+          action={{
+            label: "Full reports",
+            onClick: () => navigate("/reports"),
+          }}
           className="lg:col-span-2"
         >
           {loading ? (
-            <Skeleton className="h-44 w-full rounded-md" />
+            <Skeleton className="h-44 w-full rounded" />
           ) : (
-            <VolumeTrendChart data={report.volume_series} height={180} />
+            <VolumeTrendChart data={report.volume_series} height={176} />
           )}
         </Card>
+
         <Card
           title="Document summary"
           sub="Status breakdown."
-          link={{ label: "Open library", to: "/documents" }}
-          onLinkClick={() => navigate("/documents")}
+          action={{
+            label: "Open library",
+            onClick: () => navigate("/documents"),
+          }}
         >
           {loading ? (
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-3 py-4">
               <Skeleton className="h-36 w-36 rounded-full" />
               <Skeleton className="h-3 w-3/4" />
             </div>
@@ -148,13 +148,28 @@ const QADashboard: React.FC<
         </Card>
       </div>
 
-      {/* KPI metric strip — between chart rows */}
+      {/* KPI strip */}
       {(report.kpis || loading) && (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2">
           {[
-            { label: "Avg cycle time", value: report.kpis?.cycle_time_avg_days.toFixed(1) ?? "—", suffix: "d", color: "text-violet-600 dark:text-violet-400" },
-            { label: "First-pass yield", value: report.kpis?.first_pass_yield_pct.toFixed(1) ?? "—", suffix: "%", color: "text-emerald-600 dark:text-emerald-400" },
-            { label: "Ping-pong ratio", value: report.kpis?.pingpong_ratio.toFixed(2) ?? "—", suffix: "×", color: "text-amber-600 dark:text-amber-400" },
+            {
+              label: "Avg cycle time",
+              value: report.kpis?.cycle_time_avg_days.toFixed(1) ?? "—",
+              suffix: "d",
+              color: "text-violet-600 dark:text-violet-400",
+            },
+            {
+              label: "First-pass yield",
+              value: report.kpis?.first_pass_yield_pct.toFixed(1) ?? "—",
+              suffix: "%",
+              color: "text-emerald-600 dark:text-emerald-400",
+            },
+            {
+              label: "Ping-pong ratio",
+              value: report.kpis?.pingpong_ratio.toFixed(2) ?? "—",
+              suffix: "×",
+              color: "text-amber-600 dark:text-amber-400",
+            },
           ].map((kpi) => (
             <div
               key={kpi.label}
@@ -164,11 +179,17 @@ const QADashboard: React.FC<
                 <Skeleton className="h-4 w-20" />
               ) : (
                 <>
-                  <span className={`text-base font-bold tabular-nums ${kpi.color}`}>
+                  <span
+                    className={`text-base font-bold tabular-nums ${kpi.color}`}
+                  >
                     {kpi.value}
-                    <span className="text-xs font-normal ml-0.5">{kpi.suffix}</span>
+                    <span className="ml-0.5 text-xs font-normal">
+                      {kpi.suffix}
+                    </span>
                   </span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">{kpi.label}</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {kpi.label}
+                  </span>
                 </>
               )}
             </div>
@@ -176,50 +197,59 @@ const QADashboard: React.FC<
         </div>
       )}
 
-      {/* Row 2: Stage delay + Workflow by cluster */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      {/* Row 2: Stage delay + Cluster */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card
           title="Stage delay"
           sub="Average processing time per workflow stage."
-          link={{ label: "Full reports", to: "/reports" }}
-          onLinkClick={() => navigate("/reports")}
+          action={{
+            label: "Full reports",
+            onClick: () => navigate("/reports"),
+          }}
         >
           {loading ? (
-            <Skeleton className="h-44 w-full rounded-md" />
+            <Skeleton className="h-44 w-full rounded" />
           ) : (
             <StageDelayChart
-              data={report.stage_delays.filter((s) => s.count > 0 || s.avg_hours > 0)}
-              height={180}
+              data={report.stage_delays.filter(
+                (s) => s.count > 0 || s.avg_hours > 0,
+              )}
+              height={176}
             />
           )}
         </Card>
+
         <Card
           title="Workflow by cluster"
           sub="Document status per office cluster."
-          link={{ label: "Full reports", to: "/reports" }}
-          onLinkClick={() => navigate("/reports")}
+          action={{
+            label: "Full reports",
+            onClick: () => navigate("/reports"),
+          }}
         >
           {loading ? (
-            <Skeleton className="h-44 w-full rounded-md" />
+            <Skeleton className="h-44 w-full rounded" />
           ) : (
             <ComplianceClusterBarChart
-              height={180}
+              height={176}
               data={report.clusters.filter(
-                (c) => c.in_review + c.sent_to_qa + c.approved + c.returned > 0
+                (c) => c.in_review + c.sent_to_qa + c.approved + c.returned > 0,
               )}
             />
           )}
         </Card>
       </div>
 
-      {/* Row 3: Pending tasks + Recent activity */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      {/* Row 3: Pending + Recent activity */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <DashboardPendingList items={pending} loading={loading} />
         <Card
           title="Recent activity"
           sub="Latest actions in the system."
-          link={{ label: "View all", to: "/activity-logs" }}
-          onLinkClick={() => navigate("/activity-logs")}
+          action={{
+            label: "View all",
+            onClick: () => navigate("/activity-logs"),
+          }}
         >
           <DashboardRecentActivity logs={recentActivity} loading={loading} />
         </Card>
@@ -249,7 +279,7 @@ const OfficeDashboard: React.FC<
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <DashboardStatRow
         role={role}
         stats={stats}
@@ -258,17 +288,19 @@ const OfficeDashboard: React.FC<
         loading={loading}
       />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card
           title="My document summary"
           sub="Status of documents assigned to your office."
-          link={{ label: "Open library", to: "/documents" }}
-          onLinkClick={() => navigate("/documents")}
+          action={{
+            label: "Open library",
+            onClick: () => navigate("/documents"),
+          }}
         >
           {loading ? (
             <div className="flex items-center gap-6">
               <Skeleton className="h-40 w-40 rounded-full" />
-              <div className="space-y-3 flex-1">
+              <div className="flex-1 space-y-3">
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-3/4" />
               </div>
@@ -284,31 +316,31 @@ const OfficeDashboard: React.FC<
         </Card>
 
         <Card title="Quick actions">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5">
             {[
               {
-                label: "View my documents",
+                label: "My documents",
                 path: "/documents",
                 icon: FolderOpen,
-                color: "text-sky-500 bg-sky-50 dark:bg-sky-950/40",
+                iconCls: "text-sky-500 bg-sky-50 dark:bg-sky-950/40",
               },
               {
                 label: "Work queue",
                 path: "/work-queue",
                 icon: ClipboardList,
-                color: "text-brand-500 bg-brand-50 dark:bg-brand-950/30",
+                iconCls: "text-brand-500 bg-brand-50 dark:bg-brand-950/30",
               },
               {
-                label: "Document requests",
+                label: "Doc requests",
                 path: "/document-requests",
                 icon: Inbox,
-                color: "text-violet-500 bg-violet-50 dark:bg-violet-950/40",
+                iconCls: "text-violet-500 bg-violet-50 dark:bg-violet-950/40",
               },
               {
                 label: "Activity logs",
                 path: "/activity-logs",
                 icon: Clock,
-                color: "text-amber-500 bg-amber-50 dark:bg-amber-950/40",
+                iconCls: "text-amber-500 bg-amber-50 dark:bg-amber-950/40",
               },
             ].map((item) => {
               const Icon = item.icon;
@@ -317,12 +349,12 @@ const OfficeDashboard: React.FC<
                   key={item.path}
                   type="button"
                   onClick={() => navigate(item.path)}
-                  className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-left transition hover:bg-slate-100 dark:border-surface-400 dark:bg-surface-600 dark:hover:bg-surface-400"
+                  className="flex items-center gap-2.5 rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-left transition-colors hover:bg-slate-100 dark:border-surface-400 dark:bg-surface-600 dark:hover:bg-surface-400"
                 >
                   <div
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded ${item.color}`}
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded ${item.iconCls}`}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-3.5 w-3.5" />
                   </div>
                   <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
                     {item.label}
@@ -334,13 +366,15 @@ const OfficeDashboard: React.FC<
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <DashboardPendingList items={pending} loading={loading} />
         <Card
           title="Recent activity"
           sub="Latest actions in the system."
-          link={{ label: "View all", to: "/activity-logs" }}
-          onLinkClick={() => navigate("/activity-logs")}
+          action={{
+            label: "View all",
+            onClick: () => navigate("/activity-logs"),
+          }}
         >
           <DashboardRecentActivity logs={recentActivity} loading={loading} />
         </Card>
@@ -355,33 +389,36 @@ const AdminDashboard: React.FC<
     navigate: ReturnType<typeof useNavigate>;
   }
 > = ({ adminStats, recentActivity, loading, navigate }) => (
-  <div className="space-y-5">
-    {/* Stat cards */}
+  <div className="space-y-4">
     <AdminStatGrid data={adminStats} loading={loading} />
 
-    {/* Row 1: Document phase breakdown + Users by role */}
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <Card
         title="Documents by phase"
         sub="Current workflow stage of all documents."
-        link={{ label: "Open library", to: "/documents" }}
-        onLinkClick={() => navigate("/documents")}
+        action={{
+          label: "Open library",
+          onClick: () => navigate("/documents"),
+        }}
         className="lg:col-span-2"
       >
         {loading ? (
-          <Skeleton className="h-44 w-full rounded-xl" />
+          <Skeleton className="h-44 w-full rounded" />
         ) : (
           <AdminDocumentPhaseChart
             byPhase={adminStats?.documents.by_phase}
-            height={180}
+            height={176}
           />
         )}
       </Card>
+
       <Card
         title="Users by role"
         sub="Role distribution."
-        link={{ label: "Manage users", to: "/user-manager" }}
-        onLinkClick={() => navigate("/user-manager")}
+        action={{
+          label: "Manage users",
+          onClick: () => navigate("/user-manager"),
+        }}
       >
         {loading ? (
           <div className="space-y-2">
@@ -398,29 +435,28 @@ const AdminDashboard: React.FC<
       </Card>
     </div>
 
-    {/* Row 2: Activity trend (full width) */}
     <Card
       title="System activity"
       sub="Total actions logged per month."
-      link={{ label: "View all activity", to: "/activity-logs" }}
-      onLinkClick={() => navigate("/activity-logs")}
+      action={{
+        label: "View all activity",
+        onClick: () => navigate("/activity-logs"),
+      }}
     >
       {loading ? (
-        <Skeleton className="h-44 w-full rounded-xl" />
+        <Skeleton className="h-44 w-full rounded" />
       ) : (
         <AdminActivityBarChart
           data={adminStats?.activity_series ?? []}
-          height={180}
+          height={176}
         />
       )}
     </Card>
 
-    {/* Row 3: Recent activity */}
     <Card
       title="Recent activity"
       sub="Latest actions across the system."
-      link={{ label: "View all", to: "/activity-logs" }}
-      onLinkClick={() => navigate("/activity-logs")}
+      action={{ label: "View all", onClick: () => navigate("/activity-logs") }}
     >
       <DashboardRecentActivity logs={recentActivity} loading={loading} />
     </Card>
@@ -433,22 +469,20 @@ const DashboardPage: React.FC = () => {
   const role = getUserRole();
   const dashData = useDashboardData(role);
   const { loading, error } = dashData;
-
   const isAdmin = role === "ADMIN" || role === "SYSADMIN";
-
-
   const { refresh, refreshing } = usePageBurstRefresh(dashData.reload);
 
-  // Greeting data (previously in DashboardGreeting)
   const user = getAuthUser();
   const firstName =
     user?.first_name?.trim() || user?.full_name?.split(" ")[0] || "there";
-  const initials = (user?.full_name ?? "")
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
-    .join("") || "?";
+  const initials =
+    (user?.full_name ?? "")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase())
+      .join("") || "?";
+
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -461,47 +495,40 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-0 flex flex-1 flex-col overflow-hidden">
-      {/* ── Greeting header (replaces PageFrame title bar) ── */}
-      <div className="shrink-0 border-b border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-600 px-4 sm:px-6 py-4">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
+      {/* ── Page header ── */}
+      <div className="shrink-0 border-b border-slate-200 bg-slate-50 dark:border-surface-400 dark:bg-surface-600 px-5 py-3.5">
+        <div className="flex items-center justify-between gap-4">
           {/* Left: avatar + greeting */}
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md overflow-hidden bg-brand-100 dark:bg-brand-900/40 text-sm font-bold text-brand-600 dark:text-brand-300 border border-brand-200 dark:border-brand-800">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md overflow-hidden bg-slate-100 dark:bg-surface-400 text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-surface-300">
               {(user as any)?.profile_photo_url ? (
                 <img
                   src={(user as any).profile_photo_url}
                   alt={user?.full_name ?? ""}
                   className="h-full w-full object-cover"
                 />
-              ) : initials}
+              ) : (
+                initials
+              )}
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+              <p className="text-[11px] font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">
                 Dashboard &middot; {today}
               </p>
-              <h1 className="flex items-center gap-1.5 text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
+              <h1 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">
                 {greeting}, {firstName}
-                <Hand className="h-4 w-4 text-amber-400 shrink-0" />
               </h1>
-              <p className="text-xs text-slate-400 dark:text-slate-500">
-                {loading
-                  ? "Loading your workspace…"
-                  : pendingCount > 0
-                    ? `${pendingCount} task${pendingCount !== 1 ? "s" : ""} need${pendingCount === 1 ? "s" : ""} your attention`
-                    : "Everything is up to date"}
-              </p>
             </div>
           </div>
 
-          {/* Right: pending badge + actions */}
+          {/* Right: status badge + refresh */}
           <div className="flex shrink-0 items-center gap-2">
-            {/* Pending / all-caught-up badge */}
-            {!loading && (
-              pendingCount > 0 ? (
+            {!loading &&
+              (pendingCount > 0 ? (
                 <div className="hidden sm:flex items-center gap-1.5 rounded border border-rose-200 bg-rose-50 px-2.5 py-1 dark:border-rose-800 dark:bg-rose-950/30">
-                  <span className="relative flex h-2 w-2">
+                  <span className="relative flex h-1.5 w-1.5">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-500" />
                   </span>
                   <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">
                     {pendingCount} pending
@@ -509,32 +536,32 @@ const DashboardPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="hidden sm:flex items-center gap-1.5 rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 dark:border-emerald-800 dark:bg-emerald-950/30">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
                     All caught up
                   </span>
                 </div>
-              )
-            )}
+              ))}
 
             <Tooltip text="Refresh dashboard" side="bottom">
               <button
                 type="button"
                 onClick={refresh}
                 disabled={refreshing || loading}
-                className="cursor-pointer flex items-center justify-center h-8 w-8 rounded border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
+                className="cursor-pointer flex items-center justify-center h-8 w-8 rounded border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition-colors"
               >
-                <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+                />
               </button>
             </Tooltip>
-
           </div>
         </div>
       </div>
 
-      {/* ── Scrollable content ── */}
+      {/* ── Scrollable body ── */}
       <div className="flex-1 overflow-y-auto">
-        <div className="px-4 py-4 sm:px-6 sm:py-5 space-y-5">
+        <div className="px-5 py-4 space-y-4">
           {error && <Alert variant="danger">{error}</Alert>}
 
           {isAdmin ? (

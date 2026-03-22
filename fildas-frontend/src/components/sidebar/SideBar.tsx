@@ -53,12 +53,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Doc/request/template create actions shown for ADMIN only when debug mode is on
-  const DOC_CREATE_ROUTES = ["/documents/create", "/document-requests", "/templates"];
+  const DOC_CREATE_ROUTES = [
+    "/documents/create",
+    "/document-requests",
+    "/templates",
+  ];
   const visibleNewActions = newActions.filter((a) => {
     if (!a.roles) return true;
     if (a.roles.includes(role)) return true;
-    if (role === "ADMIN" && adminDebugMode && DOC_CREATE_ROUTES.includes(a.to)) return true;
+    if (role === "ADMIN" && adminDebugMode && DOC_CREATE_ROUTES.includes(a.to))
+      return true;
     return false;
   });
 
@@ -81,7 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Collapse toggle — only pulled outside when collapsed to avoid clipping */}
+      {/* Collapse toggle — only pulled outside when collapsed */}
       {collapsed && (
         <button
           type="button"
@@ -104,22 +108,17 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         className={[
-          // Desktop: sticky sidebar
           "md:flex md:flex-col md:h-screen md:sticky md:top-0 md:shrink-0",
-          // Mobile: fixed drawer
           "fixed inset-y-0 left-0 z-50 flex flex-col h-full",
           "border-r border-slate-200 bg-white",
           "dark:border-surface-400 dark:bg-surface-500",
           "transition-[width,transform] duration-200 ease-in-out",
-          // Mobile open/close
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-          // Width
           collapsed ? "w-14" : "w-64 md:w-56",
         ].join(" ")}
       >
-        {/* Logo header */}
+        {/* Logo header — unchanged sizing */}
         <div className="shrink-0 flex items-center justify-between border-b border-slate-200 dark:border-surface-400 px-2 h-13.5">
-          {/* Logo — collapsed: expands sidebar | expanded: navigates to dashboard */}
           <div
             className="flex items-center gap-2 min-w-0 overflow-hidden cursor-pointer"
             onClick={collapsed ? toggle : () => navigate("/dashboard")}
@@ -139,7 +138,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
 
-          {/* Collapse toggle — inside sidebar only when expanded */}
           {!collapsed && (
             <button
               type="button"
@@ -152,7 +150,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* New button — only show if user has at least one visible action */}
+        {/* New button — same size, style updated to ERPNext neutral */}
         {visibleNewActions.length > 0 && (
           <div className="shrink-0 px-2 py-3" ref={newRef}>
             <div className="relative">
@@ -160,20 +158,23 @@ const Sidebar: React.FC<SidebarProps> = ({
                 type="button"
                 onClick={() => setNewOpen((o) => !o)}
                 className={[
-                  "cursor-pointer flex items-center rounded-md text-sm font-semibold transition-all",
-                  "bg-brand-500 hover:bg-brand-600 text-white",
+                  "cursor-pointer flex items-center rounded-md text-sm font-semibold transition-colors duration-150",
+                  // ERPNext-style: neutral bordered button instead of heavy brand fill
+                  "bg-white hover:bg-slate-50 dark:bg-surface-400 dark:hover:bg-surface-300",
+                  "text-slate-700 dark:text-slate-200",
+                  "border border-slate-300 dark:border-surface-300",
                   collapsed
                     ? "justify-center w-full px-0 h-9"
                     : "gap-2 px-4 h-9",
                 ].join(" ")}
                 title={collapsed ? "New" : undefined}
               >
-                <Plus className="h-4 w-4 shrink-0" />
+                <Plus className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-300" />
                 {!collapsed && <span>New</span>}
               </button>
 
               {newOpen && (
-                <div className="absolute left-0 top-full mt-1 z-50 w-52 rounded-xl border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-500 shadow-md py-1">
+                <div className="absolute left-0 top-full mt-1 z-50 w-52 rounded-md border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-500 shadow-md py-1">
                   {visibleNewActions.map((action) => {
                     const Icon = action.icon;
                     return (
@@ -200,7 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {/* Admin debug mode indicator */}
+        {/* Admin debug mode indicator — unchanged */}
         {isAdminUser && adminDebugMode && (
           <div className="shrink-0 px-2 pb-1">
             <div
@@ -221,25 +222,21 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {/* Nav */}
+        {/* Nav — same sizing, active style updated to ERPNext flat fill */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 space-y-5">
           {navGroups.map((group) => {
             const visibleItems = group.items.filter(
               (item) => !item.roles || item.roles.includes(role),
             );
-
             if (visibleItems.length === 0) return null;
 
             return (
               <div key={group.label}>
-                {/* Group label — hidden when collapsed */}
                 {!collapsed && (
-                  <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
                     {group.label}
                   </p>
                 )}
-
-                {/* Divider when collapsed */}
                 {collapsed && (
                   <div className="mb-1.5 mx-2 border-t border-slate-200 dark:border-surface-400" />
                 )}
@@ -248,7 +245,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {visibleItems.map((item) => {
                     const Icon = item.icon;
                     return (
-                      <li key={item.to} className="relative">
+                      <li key={item.to}>
                         <NavLink
                           to={item.to}
                           end={
@@ -258,29 +255,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                           title={collapsed ? item.label : undefined}
                           className={({ isActive }) =>
                             [
-                              "cursor-pointer group flex w-full items-center rounded-md text-sm font-medium transition-all",
+                              "group flex w-full items-center rounded-md text-sm font-medium transition-colors duration-150 cursor-pointer",
                               collapsed
                                 ? "justify-center px-0 py-2"
                                 : "gap-3 px-3 py-2",
                               isActive
-                                ? "bg-brand-50 text-brand-500 dark:bg-surface-400 dark:text-brand-300"
+                                ? // ERPNext active: flat gray fill, no left bar
+                                  "bg-slate-100 dark:bg-surface-400 text-slate-800 dark:text-slate-100"
                                 : "text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-surface-400 dark:hover:text-slate-200",
                             ].join(" ")
                           }
                         >
                           {({ isActive }) => (
                             <>
-                              {/* Left accent bar */}
-                              <span
-                                className={[
-                                  "absolute left-0 h-6 w-0.5 rounded-r-full transition-all",
-                                  isActive
-                                    ? "bg-brand-400 opacity-100"
-                                    : "opacity-0",
-                                ].join(" ")}
-                              />
-
-                              {/* Icon */}
                               <Icon
                                 className={[
                                   "h-4 w-4 shrink-0 transition-colors",
@@ -289,8 +276,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     : "text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300",
                                 ].join(" ")}
                               />
-
-                              {/* Label — hidden when collapsed */}
                               {!collapsed && (
                                 <span className="truncate">{item.label}</span>
                               )}
@@ -305,31 +290,25 @@ const Sidebar: React.FC<SidebarProps> = ({
             );
           })}
         </nav>
-        {/* Bottom strip: Settings + profile + logout */}
+
+        {/* Bottom strip — unchanged sizing */}
         <div className="shrink-0 border-t border-slate-200 dark:border-surface-400">
-          {/* Settings nav item */}
           <div className="px-2 pt-2">
             <NavLink
               to={settingsNavItem.to}
               title={collapsed ? settingsNavItem.label : undefined}
               className={({ isActive }) =>
                 [
-                  "cursor-pointer group relative flex w-full items-center rounded-md text-sm font-medium transition-all",
+                  "group relative flex w-full items-center rounded-md text-sm font-medium transition-colors duration-150 cursor-pointer",
                   collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
                   isActive
-                    ? "bg-brand-50 text-brand-500 dark:bg-surface-400 dark:text-brand-300"
+                    ? "bg-slate-100 dark:bg-surface-400 text-slate-800 dark:text-slate-100"
                     : "text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-surface-400 dark:hover:text-slate-200",
                 ].join(" ")
               }
             >
               {({ isActive }) => (
                 <>
-                  <span
-                    className={[
-                      "absolute left-0 h-6 w-0.5 rounded-r-full transition-all",
-                      isActive ? "bg-brand-400 opacity-100" : "opacity-0",
-                    ].join(" ")}
-                  />
                   <Settings
                     className={[
                       "h-4 w-4 shrink-0 transition-colors",
@@ -346,7 +325,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             </NavLink>
           </div>
 
-          {/* Profile + logout */}
           <div
             className={["px-2 pb-3 pt-1", collapsed ? "" : "px-3"].join(" ")}
           >
@@ -377,7 +355,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                       alt={user?.full_name ?? ""}
                       className="h-full w-full object-cover"
                     />
-                  ) : (initials || "?")}
+                  ) : (
+                    initials || "?"
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">

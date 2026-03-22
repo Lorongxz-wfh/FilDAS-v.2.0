@@ -39,9 +39,9 @@ const SectionCard: React.FC<{
   subtitle: string;
   children: React.ReactNode;
 }> = ({ icon, title, subtitle, children }) => (
-  <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
-    <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 dark:border-surface-400">
-      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 dark:bg-surface-400 text-slate-500 dark:text-slate-300">
+  <div className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+    <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-200 dark:border-surface-400">
+      <div className="flex h-7 w-7 items-center justify-center rounded bg-slate-100 dark:bg-surface-400 text-slate-500 dark:text-slate-300">
         {icon}
       </div>
       <div>
@@ -51,7 +51,7 @@ const SectionCard: React.FC<{
         <p className="text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
       </div>
     </div>
-    <div className="px-6 py-5">{children}</div>
+    <div className="px-5 py-5">{children}</div>
   </div>
 );
 
@@ -62,7 +62,7 @@ const SaveButton: React.FC<{
   <button
     type="submit"
     disabled={loading}
-    className="rounded-md bg-sky-500 hover:bg-sky-600 disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white transition"
+    className="rounded-md bg-brand-500 hover:bg-brand-400 disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white transition-colors"
   >
     {loading ? "Saving…" : label}
   </button>
@@ -325,7 +325,11 @@ const SettingsPage: React.FC = () => {
     .join("");
 
   return (
-    <PageFrame title="Settings" onBack={() => navigate(-1)} contentClassName="flex flex-col gap-6">
+    <PageFrame
+      title="Settings"
+      onBack={() => navigate(-1)}
+      contentClassName="flex flex-col gap-6"
+    >
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left col — account */}
         <div className="lg:col-span-2 flex flex-col gap-6">
@@ -353,7 +357,7 @@ const SettingsPage: React.FC = () => {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={photoLoading}
-                  className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-sky-500 hover:bg-sky-600 text-white shadow transition disabled:opacity-50"
+                  className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-500 hover:bg-brand-400 text-white shadow transition-colors disabled:opacity-50"
                 >
                   <Camera className="h-3 w-3" />
                 </button>
@@ -370,7 +374,7 @@ const SettingsPage: React.FC = () => {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={photoLoading}
-                    className="text-xs font-medium text-sky-600 dark:text-sky-400 hover:underline disabled:opacity-50"
+                    className="text-xs font-medium text-brand-500 dark:text-brand-400 hover:underline disabled:opacity-50"
                   >
                     {photoLoading ? "Uploading…" : "Change photo"}
                   </button>

@@ -33,8 +33,11 @@ const DashboardStatRow: React.FC<Props> = ({
       label: "Action needed",
       value: pendingCount,
       icon: <Bell className="h-4 w-4" />,
-      iconColor: "text-rose-500 dark:text-rose-400",
-      valueColor: "text-rose-600 dark:text-rose-400",
+      iconColor: "text-rose-400 dark:text-rose-400",
+      valueColor:
+        pendingCount > 0
+          ? "text-rose-600 dark:text-rose-400"
+          : "text-slate-900 dark:text-slate-100",
       sub: pendingCount === 1 ? "task waiting" : "tasks waiting",
     },
     {
@@ -65,7 +68,7 @@ const DashboardStatRow: React.FC<Props> = ({
       label: "Pending requests",
       value: pendingRequestsCount,
       icon: <Inbox className="h-4 w-4" />,
-      iconColor: "text-sky-500 dark:text-sky-400",
+      iconColor: "text-sky-400 dark:text-sky-400",
       valueColor: "text-slate-900 dark:text-slate-100",
       sub: "open doc requests",
     },
@@ -76,8 +79,11 @@ const DashboardStatRow: React.FC<Props> = ({
       label: "Action needed",
       value: pendingCount,
       icon: <Bell className="h-4 w-4" />,
-      iconColor: "text-rose-500 dark:text-rose-400",
-      valueColor: "text-rose-600 dark:text-rose-400",
+      iconColor: "text-rose-400 dark:text-rose-400",
+      valueColor:
+        pendingCount > 0
+          ? "text-rose-600 dark:text-rose-400"
+          : "text-slate-900 dark:text-slate-100",
       sub: pendingCount === 1 ? "task waiting" : "tasks waiting",
     },
     {
@@ -110,28 +116,37 @@ const DashboardStatRow: React.FC<Props> = ({
 
   return (
     <div
-      className={`grid gap-3 ${isQA(role) ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" : "grid-cols-2 sm:grid-cols-4"}`}
+      className={`grid gap-3 ${
+        isQA(role)
+          ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+          : "grid-cols-2 sm:grid-cols-4"
+      }`}
     >
       {items.map((item) => (
         <div
           key={item.label}
-          className="min-w-0 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-surface-400 dark:bg-surface-500"
+          className="min-w-0 rounded-md border border-slate-200 bg-white px-4 py-3.5 dark:border-surface-400 dark:bg-surface-500"
         >
+          {/* Label + icon row */}
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-tight">
               {item.label}
             </p>
             <span className={`shrink-0 ${item.iconColor}`}>{item.icon}</span>
           </div>
 
+          {/* Value */}
           {loading ? (
             <Skeleton className="mt-3 h-7 w-14" />
           ) : (
-            <p className={`mt-2 text-2xl font-bold leading-none ${item.valueColor}`}>
+            <p
+              className={`mt-2.5 text-2xl font-bold tabular-nums leading-none ${item.valueColor}`}
+            >
               {item.value}
             </p>
           )}
 
+          {/* Sub-label */}
           {item.sub && (
             <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
               {item.sub}
