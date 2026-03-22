@@ -119,7 +119,7 @@ const DocumentPreviewPanel: React.FC<Props> = ({
   onDragLeave,
   onFileSelect,
   isActiveApprover = false,
-  approverHasDownloaded = false,
+  // approverHasDownloaded = false,
   onApproverDownload,
   onApproverUpload,
 }) => {
