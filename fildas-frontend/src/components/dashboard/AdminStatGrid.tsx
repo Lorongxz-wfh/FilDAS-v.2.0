@@ -10,7 +10,7 @@ const AdminStatGrid: React.FC<Props> = ({ data, loading }) => {
     {
       label: "Total users",
       value: data?.users.total ?? 0,
-      sub: `${data?.users.active ?? 0} active`,
+      sub: `${data?.users.active ?? 0} active · ${data?.users.online ?? 0} online now`,
       icon: <Users className="h-4 w-4" />,
     },
     {

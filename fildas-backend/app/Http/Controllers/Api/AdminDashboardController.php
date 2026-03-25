@@ -15,8 +15,12 @@ class AdminDashboardController extends Controller
     public function stats(Request $request)
     {
         // User counts
-        $totalUsers  = User::count();
-        $activeUsers = User::whereNull('disabled_at')->count();
+        $totalUsers     = User::count();
+        $activeUsers    = User::whereNull('disabled_at')->count();
+        $onlineUsers    = User::whereNull('disabled_at')
+            ->whereNotNull('last_active_at')
+            ->where('last_active_at', '>=', now()->subMinutes(30))
+            ->count();
 
         // Users by role
         $usersByRole = User::query()
@@ -108,6 +112,7 @@ class AdminDashboardController extends Controller
                 'total'        => $totalUsers,
                 'active'       => $activeUsers,
                 'inactive'     => $totalUsers - $activeUsers,
+                'online'       => $onlineUsers,
                 'by_role'      => $usersByRole,
                 'recent'       => $recentUsers,
             ],

@@ -251,8 +251,11 @@ class DocumentRequestController extends Controller
     public function inbox(Request $request)
     {
         $user     = $request->user();
+        $role     = $this->roleName($request);
+        $isAdmin  = in_array($role, ['admin', 'sysadmin'], true);
         $officeId = (int) ($user?->office_id ?? 0);
-        if ($officeId <= 0) {
+
+        if (!$isAdmin && $officeId <= 0) {
             return response()->json(['message' => 'Your account has no office assigned.'], 422);
         }
 
@@ -262,17 +265,24 @@ class DocumentRequestController extends Controller
         ]);
         $perPage = (int) ($data['per_page'] ?? 25);
 
-        $q = DB::table('document_requests as r')
-            ->join('document_request_recipients as rr', 'rr.request_id', '=', 'r.id')
-            ->where('rr.office_id', $officeId)
-            ->orderByDesc('r.id')
-            ->select([
-                'r.*',
-                'rr.id as recipient_id',
-                'rr.status as recipient_status',
-                'rr.last_submitted_at',
-                'rr.last_reviewed_at',
-            ]);
+        if ($isAdmin) {
+            // Admin: see all requests globally
+            $q = DB::table('document_requests as r')
+                ->orderByDesc('r.id')
+                ->select(['r.*']);
+        } else {
+            $q = DB::table('document_requests as r')
+                ->join('document_request_recipients as rr', 'rr.request_id', '=', 'r.id')
+                ->where('rr.office_id', $officeId)
+                ->orderByDesc('r.id')
+                ->select([
+                    'r.*',
+                    'rr.id as recipient_id',
+                    'rr.status as recipient_status',
+                    'rr.last_submitted_at',
+                    'rr.last_reviewed_at',
+                ]);
+        }
 
         if (!empty($data['q'])) {
             $term = trim($data['q']);

@@ -29,7 +29,8 @@ import { replaceDocumentVersionFileWithProgress } from "../services/documents";
 import { useToast } from "../components/ui/toast/ToastContext";
 import { getUserRole } from "../lib/roleFilters";
 import { getAuthUser } from "../lib/auth";
-import { Library, Loader2, Copy, Check } from "lucide-react";
+import { Library, Loader2, Copy, Check, FileX } from "lucide-react";
+import { normalizeError } from "../lib/normalizeError";
 
 const DocumentFlowPage: React.FC = () => {
   const params = useParams();
@@ -66,6 +67,9 @@ const DocumentFlowPage: React.FC = () => {
   const handleBack = () => {
     navigate(backTo);
   };
+
+  const stateCrumbs: { label: string; to?: string }[] =
+    (location.state as any)?.breadcrumbs ?? [];
 
   const [document, setDocument] = useState<Document | null>(null);
   const [allVersions, setAllVersions] = useState<DocumentVersion[]>([]);
@@ -227,38 +231,46 @@ const refreshAndSelectBest = React.useCallback(
     const load = async () => {
       setError(null);
       setLoading(true);
-      try {
-        const [docData, versions] = await Promise.all([
-          getDocument(id),
-          getDocumentVersions(id),
-        ]);
+      // Retry up to 3 times with a short delay — document creation can be slow
+      // enough that the first fetch lands before all records are ready.
+      let lastErr: any = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
         if (!alive) return;
-        const sorted = [...versions].sort(
-          (a, b) => Number(b.version_number) - Number(a.version_number),
-        );
-        setDocument(docData);
-        setAllVersions(sorted);
-        const best =
-          (selectedVersionId
-            ? sorted.find((v) => v.id === selectedVersionId)
-            : null) ??
-          sorted[0] ??
-          null;
-        setSelectedVersion(best);
-        setSearchParams((prev) => {
-          const p = new URLSearchParams(prev);
-          if (best) p.set("version_id", String(best.id));
-          else p.delete("version_id");
-          p.delete("version");
-          return p;
-        });
-      } catch (err: any) {
-        if (!alive) return;
-        setError(err?.message ?? "Failed to load document");
-      } finally {
-        if (!alive) return;
-        setLoading(false);
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 800));
+        try {
+          const [docData, versions] = await Promise.all([
+            getDocument(id),
+            getDocumentVersions(id),
+          ]);
+          if (!alive) return;
+          const sorted = [...versions].sort(
+            (a, b) => Number(b.version_number) - Number(a.version_number),
+          );
+          setDocument(docData);
+          setAllVersions(sorted);
+          const best =
+            (selectedVersionId
+              ? sorted.find((v) => v.id === selectedVersionId)
+              : null) ??
+            sorted[0] ??
+            null;
+          setSelectedVersion(best);
+          setSearchParams((prev) => {
+            const p = new URLSearchParams(prev);
+            if (best) p.set("version_id", String(best.id));
+            else p.delete("version_id");
+            p.delete("version");
+            return p;
+          });
+          setLoading(false);
+          return; // success — exit retry loop
+        } catch (err: any) {
+          lastErr = err;
+        }
       }
+      if (!alive) return;
+      setError(normalizeError(lastErr));
+      setLoading(false);
     };
     load();
     return () => {
@@ -331,16 +343,33 @@ const refreshAndSelectBest = React.useCallback(
     return (
       <div className="flex flex-col gap-3">
         <BackButton onClick={handleBack} />
-        <Alert variant="danger">Invalid document id.</Alert>
+        <Alert variant="error">Invalid document id.</Alert>
       </div>
     );
   }
 
   if (!loading && (error || !document)) {
+    const isNotFound =
+      !document ||
+      (error ?? "").toLowerCase().includes("not found") ||
+      (error ?? "").toLowerCase().includes("could not be found");
     return (
-      <div className="flex flex-col gap-3">
-        <BackButton onClick={handleBack} />
-        <Alert variant="danger">{error ?? "Document not found."}</Alert>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 dark:bg-rose-950/30 text-rose-400 dark:text-rose-500">
+          <FileX className="h-8 w-8" />
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+            {isNotFound ? "Document not found" : "Failed to load document"}
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+            {error ??
+              "This document doesn't exist or you may not have access to it."}
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleBack}>
+          Go back
+        </Button>
       </div>
     );
   }
@@ -367,6 +396,7 @@ const refreshAndSelectBest = React.useCallback(
   return (
     <>
       <DocFrame
+        breadcrumbs={stateCrumbs}
         title={
           <div className="min-w-0">
             <div className="flex flex-wrap items-start gap-2 min-w-0">
@@ -391,7 +421,7 @@ const refreshAndSelectBest = React.useCallback(
                 {loading ? (
                   <Skeleton className="h-5 w-20 rounded-full" />
                 ) : (
-                  <span className="rounded-full bg-sky-50 dark:bg-sky-950/40 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-400">
+                  <span className="rounded border border-slate-200 dark:border-surface-300 bg-slate-50 dark:bg-surface-400 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
                     {headerState?.status ?? current?.status ?? "-"}
                   </span>
                 )}
@@ -427,7 +457,7 @@ const refreshAndSelectBest = React.useCallback(
               ) : (document as any)?.reserved_code ? (
                 <>
                   {(document as any).reserved_code}
-                  <span className="rounded-full bg-amber-100 dark:bg-amber-950/40 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400 normal-case tracking-normal">
+                  <span className="rounded border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600 dark:text-amber-300 normal-case tracking-normal">
                     pending
                   </span>
                 </>
@@ -445,16 +475,22 @@ const refreshAndSelectBest = React.useCallback(
         actions={
           <div className="flex flex-wrap gap-2">
             <RefreshButton
-              onClick={async () => {
+              onRefresh={async () => {
                 setIsRefreshing(true);
+                const prevStatus = selectedVersion?.status;
+                const prevVersionCount = allVersions.length;
                 try {
                   await refreshAndSelectBest({ preferVersionId: selectedVersion?.id });
-                } catch { /* silent */ } finally {
+                  const statusChanged = selectedVersion?.status !== prevStatus;
+                  const newVersionAdded = allVersions.length > prevVersionCount;
+                  if (statusChanged || newVersionAdded) return "Document updated.";
+                  return "Already up to date.";
+                } finally {
                   setIsRefreshing(false);
                 }
               }}
               loading={isRefreshing}
-              title="Refresh"
+              title="Refresh document"
             />
             {current?.status === "Distributed" && isOwner && (
               <Button
@@ -497,7 +533,7 @@ const refreshAndSelectBest = React.useCallback(
             ) : (
               (headerState?.headerActions ?? []).map((a: any) => {
                 const isThis = processingKey === a.key;
-                const isBusy = !!processingKey || isLoadingSelectedVersion;
+                const isBusy = !!processingKey || isLoadingSelectedVersion || pendingUploadPct !== null;
                 return (
                   <Button
                     key={a.key}
@@ -532,7 +568,7 @@ const refreshAndSelectBest = React.useCallback(
                       : "secondary"
                 }
                 onClick={() => a.onClick()}
-                disabled={!!processingKey || isLoadingSelectedVersion}
+                disabled={!!processingKey || isLoadingSelectedVersion || pendingUploadPct !== null}
               >
                 {a.label}
               </Button>
@@ -543,20 +579,20 @@ const refreshAndSelectBest = React.useCallback(
         left={
           <div className="relative">
             {pendingUploadPct !== null && (
-              <div className="mb-3 w-full rounded-md border-l-4 border-sky-400 dark:border-sky-600 bg-sky-50 dark:bg-sky-950/30 px-4 py-2.5 flex items-center gap-4">
+              <div className="mb-3 w-full rounded-md border-l-4 border-brand-300 dark:border-brand-500 bg-brand-50 dark:bg-brand-950/20 px-4 py-2.5 flex items-center gap-4">
                 <div className="flex items-center gap-2 shrink-0">
-                  <Loader2 className="animate-spin h-3.5 w-3.5 text-sky-500" />
-                  <span className="text-xs font-medium text-sky-700 dark:text-sky-400">
+                  <Loader2 className="animate-spin h-3.5 w-3.5 text-brand-400 dark:text-brand-300" />
+                  <span className="text-xs font-medium text-brand-600 dark:text-brand-300">
                     Uploading file…
                   </span>
                 </div>
-                <div className="flex-1 h-1.5 rounded-full bg-sky-100 dark:bg-sky-900/40 overflow-hidden">
+                <div className="flex-1 h-1.5 rounded-full bg-brand-100 dark:bg-brand-900/30 overflow-hidden">
                   <div
-                    className="h-full bg-sky-500 transition-[width] duration-200"
+                    className="h-full bg-brand-400 dark:bg-brand-300 transition-[width] duration-200"
                     style={{ width: `${Math.max(2, pendingUploadPct)}%` }}
                   />
                 </div>
-                <span className="shrink-0 text-xs font-semibold text-sky-600 dark:text-sky-400">
+                <span className="shrink-0 text-xs font-semibold text-brand-500 dark:text-brand-300">
                   {pendingUploadPct}%
                 </span>
               </div>

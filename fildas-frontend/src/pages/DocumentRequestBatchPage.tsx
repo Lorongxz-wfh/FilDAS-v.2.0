@@ -212,6 +212,7 @@ export default function DocumentRequestBatchPage() {
     <PageFrame
       title={req.title ?? `Request #${requestId}`}
       onBack={() => navigate("/document-requests")}
+      breadcrumbs={[{ label: "Document Requests", to: "/document-requests" }]}
       right={
         <div className="flex items-center gap-2">
           <button
@@ -424,6 +425,7 @@ export default function DocumentRequestBatchPage() {
                         onClick={() =>
                           navigate(
                             `/document-requests/${requestId}/items/${item.id}`,
+                            { state: { breadcrumbs: [{ label: "Document Requests", to: "/document-requests" }, { label: req.title ?? `Request #${requestId}`, to: `/document-requests/${requestId}` }] } },
                           )
                         }
                         className="group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-surface-400 transition"
@@ -461,6 +463,7 @@ export default function DocumentRequestBatchPage() {
                       onClick={() =>
                         navigate(
                           `/document-requests/${requestId}/recipients/${r.id}`,
+                          { state: { breadcrumbs: [{ label: "Document Requests", to: "/document-requests" }, { label: req.title ?? `Request #${requestId}`, to: `/document-requests/${requestId}` }] } },
                         )
                       }
                       className="group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-surface-400 transition"

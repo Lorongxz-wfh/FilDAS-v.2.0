@@ -16,6 +16,7 @@ const EVENT_DOT: Record<string, string> = {
   "workflow.returned_for_check":     "bg-amber-400",
   "workflow.returned_to_draft":      "bg-amber-400",
   "document.created":          "bg-slate-400",
+  "document.field_changed":    "bg-slate-400",
   "version.revision_created":  "bg-slate-400",
 };
 
@@ -33,6 +34,7 @@ const EVENT_LABEL: Record<string, string> = {
   "workflow.returned_for_check":     "Returned for check",
   "workflow.returned_to_draft":      "Returned to draft",
   "document.created":          "Document created",
+  "document.field_changed":    "Details updated",
   "version.revision_created":  "Revision started",
   "version.file_uploaded":     "File uploaded",
   "version.file_replaced":     "File replaced",
@@ -41,6 +43,36 @@ const EVENT_LABEL: Record<string, string> = {
   "version.updated":           "Version updated",
   "version.downloaded":        "File downloaded",
 };
+
+const FIELD_LABEL: Record<string, string> = {
+  title:          "Title",
+  description:    "Description",
+  effective_date: "Effective date",
+};
+
+type FieldChange = { field: string; old: string | null; new: string | null };
+
+function FieldChangeDiff({ changes }: { changes: FieldChange[] }) {
+  return (
+    <div className="mt-1.5 space-y-1.5">
+      {changes.map((c, i) => (
+        <div key={i} className="rounded border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-600 text-[11px] overflow-hidden">
+          <div className="px-2 py-0.5 bg-slate-100 dark:bg-surface-500 text-slate-500 dark:text-slate-400 font-medium border-b border-slate-200 dark:border-surface-400">
+            {FIELD_LABEL[c.field] ?? c.field}
+          </div>
+          <div className="flex divide-x divide-slate-200 dark:divide-surface-400">
+            <div className="flex-1 px-2 py-1 text-slate-400 dark:text-slate-500 line-through min-w-0">
+              <span className="block truncate">{c.old ?? <em className="not-italic opacity-50">empty</em>}</span>
+            </div>
+            <div className="flex-1 px-2 py-1 text-slate-700 dark:text-slate-300 min-w-0">
+              <span className="block truncate">{c.new ?? <em className="not-italic opacity-50">empty</em>}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 type Props = {
   isLoading: boolean;
@@ -73,6 +105,10 @@ const DocumentActivityPanel: React.FC<Props> = ({
           {logs.map((l) => {
             const dotCls = EVENT_DOT[l.event] ?? "bg-sky-400";
             const displayLabel = l.label || EVENT_LABEL[l.event] || l.event;
+            const changes: FieldChange[] | null =
+              l.event === "document.field_changed" && Array.isArray(l.meta?.changes)
+                ? (l.meta.changes as FieldChange[])
+                : null;
             return (
               <div
                 key={l.id}
@@ -83,7 +119,10 @@ const DocumentActivityPanel: React.FC<Props> = ({
                   <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
                     {displayLabel}
                   </p>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                  {changes && changes.length > 0 && (
+                    <FieldChangeDiff changes={changes} />
+                  )}
+                  <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
                     {l.created_at ? formatWhen(l.created_at) : ""}
                   </p>
                 </div>

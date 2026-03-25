@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { Globe, Building2 } from "lucide-react";
-import { uploadTemplate, type DocumentTemplate } from "../../services/templates";
+import {
+  uploadTemplate,
+  type DocumentTemplate,
+} from "../../services/templates";
 import { useToast } from "../ui/toast/ToastContext";
 import Alert from "../ui/Alert";
 import Button from "../ui/Button";
@@ -8,13 +11,20 @@ import { inputCls, labelCls } from "../../utils/formStyles";
 
 type Props = {
   onUploaded: (template: DocumentTemplate) => void;
+  onUploadStart?: (name: string) => void;
+  onUploadError?: () => void;
   canChooseScope?: boolean;
 };
 
 const ALLOWED_EXT = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx";
 const MAX_MB = 20;
 
-const TemplateUploadForm: React.FC<Props> = ({ onUploaded, canChooseScope = false }) => {
+const TemplateUploadForm: React.FC<Props> = ({
+  onUploaded,
+  onUploadStart,
+  onUploadError,
+  canChooseScope = false,
+}) => {
   const { push } = useToast();
 
   const [name, setName] = useState("");
@@ -36,11 +46,21 @@ const TemplateUploadForm: React.FC<Props> = ({ onUploaded, canChooseScope = fals
     e.preventDefault();
     setError(null);
 
-    if (!name.trim()) { setError("Name is required."); return; }
-    if (!file) { setError("Please select a file."); return; }
-    if (file.size > MAX_MB * 1024 * 1024) { setError(`File must be under ${MAX_MB} MB.`); return; }
+    if (!name.trim()) {
+      setError("Name is required.");
+      return;
+    }
+    if (!file) {
+      setError("Please select a file.");
+      return;
+    }
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setError(`File must be under ${MAX_MB} MB.`);
+      return;
+    }
 
     setLoading(true);
+    onUploadStart?.(name.trim());
     try {
       const template = await uploadTemplate({
         name,
@@ -48,10 +68,15 @@ const TemplateUploadForm: React.FC<Props> = ({ onUploaded, canChooseScope = fals
         file,
         ...(canChooseScope ? { is_global: isGlobal } : {}),
       });
-      push({ type: "success", title: "Template uploaded", message: template.name });
+      push({
+        type: "success",
+        title: "Template uploaded",
+        message: template.name,
+      });
       onUploaded(template);
       reset();
     } catch (e: any) {
+      onUploadError?.();
       setError(e?.message ?? "Upload failed.");
     } finally {
       setLoading(false);
@@ -124,8 +149,8 @@ const TemplateUploadForm: React.FC<Props> = ({ onUploaded, canChooseScope = fals
               className={[
                 "flex flex-1 items-center gap-2 rounded-md border px-3 py-2.5 text-xs font-medium transition",
                 !isGlobal
-                  ? "border-brand-400 bg-brand-50 text-brand-700 dark:border-brand-600 dark:bg-brand-950/30 dark:text-brand-400"
-                  : "border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-500",
+                  ? "border-brand-300 dark:border-brand-500 bg-slate-100 dark:bg-surface-400 text-slate-700 dark:text-slate-200"
+                  : "border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-500 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-surface-400",
               ].join(" ")}
             >
               <Building2 className="h-3.5 w-3.5 shrink-0" />
@@ -138,8 +163,8 @@ const TemplateUploadForm: React.FC<Props> = ({ onUploaded, canChooseScope = fals
               className={[
                 "flex flex-1 items-center gap-2 rounded-md border px-3 py-2.5 text-xs font-medium transition",
                 isGlobal
-                  ? "border-brand-400 bg-brand-50 text-brand-700 dark:border-brand-600 dark:bg-brand-950/30 dark:text-brand-400"
-                  : "border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-500",
+                  ? "border-brand-300 dark:border-brand-500 bg-slate-100 dark:bg-surface-400 text-slate-700 dark:text-slate-200"
+                  : "border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-500 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-surface-400",
               ].join(" ")}
             >
               <Globe className="h-3.5 w-3.5 shrink-0" />
@@ -151,7 +176,13 @@ const TemplateUploadForm: React.FC<Props> = ({ onUploaded, canChooseScope = fals
 
       {/* Actions */}
       <div className="flex items-center justify-end gap-2 pt-1">
-        <Button type="button" variant="outline" size="sm" onClick={reset} disabled={loading}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={reset}
+          disabled={loading}
+        >
           Clear
         </Button>
         <Button type="submit" variant="primary" size="sm" disabled={loading}>

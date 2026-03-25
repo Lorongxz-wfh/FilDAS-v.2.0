@@ -12,6 +12,8 @@ export function getStoredTheme(): Theme {
 
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;
+  // Kill all transitions before the class swap so colors change atomically
+  root.classList.add("theme-switching");
   if (theme === "dark") {
     root.classList.add("dark");
   } else {
@@ -20,4 +22,10 @@ export function applyTheme(theme: Theme) {
   try {
     localStorage.setItem(THEME_KEY, theme);
   } catch {}
+  // Re-enable transitions after the browser has painted the new theme
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      root.classList.remove("theme-switching");
+    });
+  });
 }

@@ -103,10 +103,10 @@ const DocumentRightPanel: React.FC<Props> = ({
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${
                     document.doctype === "internal"
-                      ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
+                      ? "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300 border border-slate-200 dark:border-surface-300"
                       : document.doctype === "external"
-                        ? "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400"
-                        : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                        ? "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300 border border-slate-200 dark:border-surface-300"
+                        : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-200 dark:border-amber-900"
                   }`}
                 >
                   {document.doctype}
@@ -190,7 +190,7 @@ const DocumentRightPanel: React.FC<Props> = ({
                 className={[
                   "px-2.5 py-0.5 text-xs font-medium rounded transition",
                   activeSideTab === tab
-                    ? "text-sky-600 dark:text-sky-400 font-semibold"
+                    ? "text-slate-900 dark:text-slate-100 font-semibold"
                     : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
                 ].join(" ")}
               >
@@ -203,7 +203,7 @@ const DocumentRightPanel: React.FC<Props> = ({
                 {tab === "comments" &&
                   newMessageCount === 0 &&
                   messages.length > 0 && (
-                    <span className="ml-1 rounded-full bg-sky-100 dark:bg-sky-900/40 px-1.5 text-xs font-bold text-sky-600 dark:text-sky-400">
+                    <span className="ml-1 rounded-full bg-slate-200 dark:bg-surface-300 px-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
                       {messages.length}
                     </span>
                   )}

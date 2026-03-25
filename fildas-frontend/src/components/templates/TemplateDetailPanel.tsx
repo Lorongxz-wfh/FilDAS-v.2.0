@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import type { DocumentTemplate } from "../../services/templates";
 import {
   templateFileTypeLabel,
-  templateFileTypeColor,
   downloadTemplate,
 } from "../../services/templates";
 import {
@@ -11,6 +10,7 @@ import {
   type TempPreview,
 } from "../../services/previews";
 import { useToast } from "../ui/toast/ToastContext";
+import { Download, Trash2, X } from "lucide-react";
 
 type Props = {
   template: DocumentTemplate | null;
@@ -149,18 +149,16 @@ const TemplateDetailPanel: React.FC<Props> = ({
             <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 dark:border-surface-400 bg-slate-50/80 dark:bg-surface-600/80 px-5 py-4">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span
-                    className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-bold tracking-wide ${templateFileTypeColor(template.mime_type)}`}
-                  >
+                  <span className="inline-flex items-center rounded bg-slate-100 dark:bg-surface-400 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     {templateFileTypeLabel(template.mime_type)}
                   </span>
 
                   {template.is_global ? (
-                    <span className="inline-flex items-center rounded-full bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-400">
+                    <span className="inline-flex items-center rounded bg-sky-50 dark:bg-sky-950/30 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:text-sky-400">
                       Global
                     </span>
                   ) : template.office ? (
-                    <span className="inline-flex items-center rounded-full bg-slate-100 dark:bg-surface-400 border border-slate-200 dark:border-surface-300 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                    <span className="inline-flex items-center rounded bg-slate-100 dark:bg-surface-400 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">
                       {template.office.code}
                     </span>
                   ) : null}
@@ -191,9 +189,9 @@ const TemplateDetailPanel: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400 transition"
+                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 dark:text-slate-500 dark:hover:bg-surface-400 transition"
               >
-                ✕
+                <X className="h-3.5 w-3.5" />
               </button>
             </div>
 
@@ -203,9 +201,10 @@ const TemplateDetailPanel: React.FC<Props> = ({
                 type="button"
                 disabled={downloading}
                 onClick={handleDownload}
-                className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-50"
               >
-                {downloading ? "Downloading…" : "↓ Download"}
+                <Download className="h-3.5 w-3.5" />
+                {downloading ? "Downloading…" : "Download"}
               </button>
 
               {template.can_delete && (
@@ -213,8 +212,9 @@ const TemplateDetailPanel: React.FC<Props> = ({
                   type="button"
                   disabled={isDeleting}
                   onClick={() => onDeleteClick(template.id)}
-                  className="inline-flex items-center rounded-md border border-rose-200 dark:border-rose-800 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 transition hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 dark:hover:border-rose-800 dark:hover:bg-rose-950/30 dark:hover:text-rose-400 disabled:opacity-50"
                 >
+                  <Trash2 className="h-3.5 w-3.5" />
                   {isDeleting ? "Deleting…" : "Delete"}
                 </button>
               )}

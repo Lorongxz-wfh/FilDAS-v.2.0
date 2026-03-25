@@ -58,7 +58,7 @@ Route::get('/document-request-submission-files/{file}/download', [DocumentReques
     ->middleware('signed');
 
 // ── Authenticated ──────────────────────────────────────────────────────────
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class])->group(function () {
 
     // ── Auth ───────────────────────────────────────────────────────────────
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -134,8 +134,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/profile/notification-preferences',     [\App\Http\Controllers\Api\ProfileController::class, 'updateNotificationPreferences']);
 
     // ── Reports ────────────────────────────────────────────────────────────────
-    Route::get('/reports/approval',    [ReportsController::class, 'approval']);
-    Route::get('/reports/compliance',  [ReportsController::class, 'compliance']);
+    Route::get('/reports/approval',     [ReportsController::class, 'approval']);
+    Route::get('/reports/compliance',   [ReportsController::class, 'compliance']);
+    Route::get('/reports/flow-health',  [ReportsController::class, 'flowHealth']);
+    Route::get('/reports/requests',     [ReportsController::class, 'requests']);
 
     // ── Document Requests ──────────────────────────────────────────────────
     Route::get('/document-requests/{request}/messages',  [DocumentRequestMessageController::class, 'index']);

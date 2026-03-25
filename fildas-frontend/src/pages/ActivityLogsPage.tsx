@@ -46,17 +46,24 @@ const ActivityLogsPage: React.FC = () => {
   const [initialLoading, setInitialLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Ref mirrors hasMore so the effect reads current value without it as a dep
+  const hasMoreRef = React.useRef(true);
+  // Guard: skip the effect-based fetch while a manual refresh is in flight
+  const manualRefreshInProgress = React.useRef(false);
+
   React.useEffect(() => {
     setRows([]);
     setPage(1);
+    hasMoreRef.current = true;
     setHasMore(true);
     setInitialLoading(true);
   }, [scope, qDebounced, category, dateFrom, dateTo]);
 
   React.useEffect(() => {
+    if (manualRefreshInProgress.current) return; // skip during manual refresh
     let alive = true;
     const load = async () => {
-      if (!hasMore && page > 1) return;
+      if (!hasMoreRef.current && page > 1) return;
       setLoading(true);
       setError(null);
       try {
@@ -73,11 +80,12 @@ const ActivityLogsPage: React.FC = () => {
         const incoming = res.data ?? [];
         setRows((prev) => (page === 1 ? incoming : [...prev, ...incoming]));
         const meta = res.meta ?? null;
-        setHasMore(
+        const more =
           meta?.current_page != null &&
-            meta?.last_page != null &&
-            meta.current_page < meta.last_page,
-        );
+          meta?.last_page != null &&
+          meta.current_page < meta.last_page;
+        hasMoreRef.current = more;
+        setHasMore(more);
       } catch (e: any) {
         if (!alive) return;
         setError(e?.message ?? "Failed to load activity logs.");
@@ -91,7 +99,9 @@ const ActivityLogsPage: React.FC = () => {
     return () => {
       alive = false;
     };
-  }, [page, scope, qDebounced, category, dateFrom, dateTo, hasMore]);
+  // hasMore intentionally omitted — tracked via hasMoreRef to avoid re-trigger
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, scope, qDebounced, category, dateFrom, dateTo]);
 
   // Navigate from activity row
   const handleRowNavigate = async (row: any) => {
@@ -129,7 +139,50 @@ const ActivityLogsPage: React.FC = () => {
     setError(null);
   };
 
-  const { refresh, refreshing } = usePageBurstRefresh(reloadLogs);
+  const { refreshing } = usePageBurstRefresh(reloadLogs);
+
+  // Direct fetch for the manual refresh button — returns a smart message
+  const firstIdRef = React.useRef<number | null>(null);
+  const refresh = React.useCallback(async (): Promise<string | void> => {
+    const prevFirstId = firstIdRef.current;
+    manualRefreshInProgress.current = true;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await listActivityLogs({
+        scope,
+        q: qDebounced.trim() || undefined,
+        page: 1,
+        per_page: 10,
+        category: category || undefined,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+      });
+      const incoming = res.data ?? [];
+      firstIdRef.current = incoming[0]?.id ?? null;
+      setRows(incoming);
+      setPage(1);
+      const meta = res.meta ?? null;
+      const more =
+        meta?.current_page != null &&
+        meta?.last_page != null &&
+        meta.current_page < meta.last_page;
+      hasMoreRef.current = more;
+      setHasMore(more);
+      setError(null); // ensure any stale concurrent error is cleared
+      setInitialLoading(false);
+      if (prevFirstId === null) return; // initial load
+      return incoming[0]?.id !== prevFirstId
+        ? "Logs updated."
+        : "Already up to date.";
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load activity logs.");
+      throw e;
+    } finally {
+      setLoading(false);
+      manualRefreshInProgress.current = false;
+    }
+  }, [scope, qDebounced, category, dateFrom, dateTo]);
 
   const columns: TableColumn<any>[] = [
     {
@@ -193,7 +246,7 @@ const ActivityLogsPage: React.FC = () => {
       right={
         <div className="flex items-center gap-2">
           <RefreshButton
-            onClick={refresh}
+            onRefresh={refresh}
             loading={refreshing}
             title="Refresh logs"
           />
@@ -270,6 +323,7 @@ const ActivityLogsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setQ("")}
+                title="Clear"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
                 <X className="h-3.5 w-3.5" />

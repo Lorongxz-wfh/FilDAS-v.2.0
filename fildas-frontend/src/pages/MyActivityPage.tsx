@@ -201,6 +201,7 @@ const MyActivityPage: React.FC = () => {
   return (
     <PageFrame
       title="My Activity"
+      breadcrumbs={[{ label: "Activity Logs", to: "/activity-logs" }]}
       contentClassName="flex flex-col gap-4 h-full"
       onBack={() => navigate(-1)}
     >
@@ -218,6 +219,7 @@ const MyActivityPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setQ("")}
+              title="Clear"
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
             >
               <X className="h-3.5 w-3.5" />

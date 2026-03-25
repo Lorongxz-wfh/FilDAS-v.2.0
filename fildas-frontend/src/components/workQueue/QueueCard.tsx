@@ -49,7 +49,7 @@ const QueueCard: React.FC<QueueCardProps> = ({ item, onClick }) => {
       {/* Action indicator */}
       <div className="shrink-0">
         {item.can_act ? (
-          <span className="inline-flex items-center rounded border border-brand-200 dark:border-brand-800 bg-brand-50 dark:bg-brand-950/30 px-2 py-0.5 text-[10px] font-semibold text-brand-600 dark:text-brand-400">
+          <span className="inline-flex items-center rounded bg-brand-300 px-2.5 py-1 text-[10px] font-semibold text-white">
             Action needed
           </span>
         ) : (

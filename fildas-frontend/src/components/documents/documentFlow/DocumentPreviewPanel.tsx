@@ -190,7 +190,7 @@ const DocumentPreviewPanel: React.FC<Props> = ({
                 type="button"
                 onClick={openModal}
                 title="View fullscreen"
-                className="cursor-pointer flex items-center justify-center h-7 w-7 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-500 dark:text-slate-400 hover:bg-sky-50 hover:border-sky-300 hover:text-sky-700 dark:hover:bg-sky-950/30 dark:hover:border-sky-700 dark:hover:text-sky-400 transition shadow-sm"
+                className="cursor-pointer flex items-center justify-center h-7 w-7 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-500 dark:text-slate-400 hover:bg-slate-50 hover:text-slate-700 dark:hover:bg-surface-400 dark:hover:text-slate-200 transition shadow-sm"
               >
                 <Maximize2 size={13} />
               </button>
@@ -256,7 +256,7 @@ const DocumentPreviewPanel: React.FC<Props> = ({
               className={`flex h-full flex-col items-center justify-center p-8 text-center text-sm border-2 border-dashed m-3 rounded-xl transition ${
                 filePath
                   ? "border-slate-200 dark:border-surface-400"
-                  : "border-slate-300 hover:border-sky-400 hover:bg-sky-50 dark:border-surface-400 dark:hover:border-sky-700 dark:hover:bg-sky-950/20"
+                  : "border-slate-300 hover:border-slate-400 hover:bg-slate-50 dark:border-surface-400 dark:hover:border-surface-300 dark:hover:bg-surface-400"
               }`}
             >
               <div className="mb-3 h-12 w-12 rounded-full bg-slate-100 dark:bg-surface-400 flex items-center justify-center">
@@ -283,7 +283,7 @@ const DocumentPreviewPanel: React.FC<Props> = ({
                   : "Drag & drop or click to browse · PDF, Word, Excel, PowerPoint · max 10MB"}
               </p>
               {!!filePath && (
-                <p className="mt-3 text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-surface-400 px-2 py-0.5 rounded-full">
+                <p className="mt-3 text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-surface-400 px-2 py-0.5 rounded">
                   {originalFilename ?? ""}
                 </p>
               )}

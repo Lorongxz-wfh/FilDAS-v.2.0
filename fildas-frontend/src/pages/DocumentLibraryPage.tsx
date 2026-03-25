@@ -281,8 +281,10 @@ export default function DocumentLibraryPage() {
   const allColumns     = useMemo(() => buildAllColumns(), []);
 
   // ── Navigation ────────────────────────────────────────────────────────────
+  const libCrumbs = [{ label: "Library", to: "/documents" }];
+
   const handleDocClick = (doc: Document) =>
-    navigate(`/documents/${doc.id}/view`, { state: { from: "/documents" } });
+    navigate(`/documents/${doc.id}/view`, { state: { from: "/documents", breadcrumbs: libCrumbs } });
 
   const handleReqRowClick = (row: any) => {
     if (row.row_type === "item") {
@@ -296,7 +298,7 @@ export default function DocumentLibraryPage() {
 
   const handleAllItemClick = (item: LibraryItem) => {
     if (item.docId) {
-      navigate(`/documents/${item.docId}/view`, { state: { from: "/documents" } });
+      navigate(`/documents/${item.docId}/view`, { state: { from: "/documents", breadcrumbs: libCrumbs } });
     } else if (item.itemId) {
       navigate(`/document-requests/${item.reqId}/items/${item.itemId}`);
     } else if (item.reqId && item.recipId) {
@@ -323,7 +325,7 @@ export default function DocumentLibraryPage() {
       right={
         <div className="flex items-center gap-2">
           <RefreshButton
-            onClick={refresh}
+            onRefresh={refresh}
             loading={refreshing}
             title="Refresh library"
           />
@@ -380,6 +382,7 @@ export default function DocumentLibraryPage() {
             <button
               type="button"
               onClick={() => setQ("")}
+              title="Clear"
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
             >
               <X className="h-3.5 w-3.5" />

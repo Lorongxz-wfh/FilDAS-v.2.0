@@ -19,6 +19,31 @@ class ClusterAnalysisService
     }
 
     /**
+     * Return all office IDs whose cluster matches $clusterCode.
+     * Includes the cluster office itself and all offices under it.
+     */
+    public function officeIdsForCluster(string $clusterCode): array
+    {
+        $offices = Office::all(['id', 'code', 'parent_office_id']);
+        $officeById = [];
+        foreach ($offices as $o) {
+            $officeById[(int)$o->id] = [
+                'code'             => $o->code,
+                'parent_office_id' => $o->parent_office_id ? (int)$o->parent_office_id : null,
+            ];
+        }
+
+        $ids = [];
+        foreach ($offices as $o) {
+            $cluster = $this->clusterByOfficeId((int)$o->id, $officeById);
+            if ($cluster === $clusterCode) {
+                $ids[] = (int)$o->id;
+            }
+        }
+        return $ids;
+    }
+
+    /**
      * Walk up the office hierarchy to find the cluster code for a given office.
      *
      * @param array $officeById  Keyed by office ID, each value: ['code'=>..., 'parent_office_id'=>...]

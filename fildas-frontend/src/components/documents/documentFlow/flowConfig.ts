@@ -167,31 +167,83 @@ export const flowStepsOffice: FlowStep[] = [
 /** Human-readable label for each workflow action code. */
 export const ACTION_LABELS: Record<string, string> = {
   CANCEL_DOCUMENT: "Cancel document",
-  QA_SEND_TO_OFFICE_REVIEW: "Send for review",
-  QA_OFFICE_FORWARD_TO_VP: "Forward to VP",
-  QA_OFFICE_RETURN_TO_QA: "Return to QA",
-  QA_VP_SEND_BACK_TO_QA: "Send back to QA",
+  QA_SEND_TO_OFFICE_REVIEW: "Submit for review",
+  QA_OFFICE_FORWARD_TO_VP: "Reviewed",
+  QA_OFFICE_RETURN_TO_QA: "Return",
+  QA_VP_SEND_BACK_TO_QA: "Return",
   QA_START_OFFICE_APPROVAL: "Start approval",
-  QA_OFFICE_FORWARD_TO_VP_APPROVAL: "Forward to VP for approval",
-  QA_VP_FORWARD_TO_PRESIDENT: "Forward to President",
-  QA_PRESIDENT_SEND_BACK_TO_QA: "Send back to QA",
-  QA_REGISTER: "Register document",
-  QA_DISTRIBUTE: "Distribute document",
-  OFFICE_SEND_TO_HEAD: "Send to Office Head",
-  OFFICE_HEAD_FORWARD_TO_VP: "Forward to VP",
-  OFFICE_HEAD_RETURN_TO_STAFF: "Return to staff",
-  OFFICE_VP_SEND_BACK_TO_STAFF: "Send back to staff",
-  OFFICE_SEND_TO_QA_APPROVAL: "Send to QA for approval",
-  OFFICE_QA_RETURN_TO_STAFF: "Return to staff",
-  OFFICE_QA_APPROVE: "Approve",
-  OFFICE_REGISTER: "Register document",
-  OFFICE_DISTRIBUTE: "Distribute document",
-  CUSTOM_FORWARD: "Forward",
-  CUSTOM_START_APPROVAL: "Start approval phase",
+  QA_OFFICE_FORWARD_TO_VP_APPROVAL: "Approved",
+  QA_VP_FORWARD_TO_PRESIDENT: "Approved",
+  QA_PRESIDENT_SEND_BACK_TO_QA: "Return",
+  QA_REGISTER: "Register",
+  QA_DISTRIBUTE: "Distribute",
+  OFFICE_SEND_TO_HEAD: "Submit for review",
+  OFFICE_HEAD_FORWARD_TO_VP: "Reviewed",
+  OFFICE_HEAD_RETURN_TO_STAFF: "Return",
+  OFFICE_VP_SEND_BACK_TO_STAFF: "Return",
+  OFFICE_SEND_TO_QA_APPROVAL: "Start approval",
+  OFFICE_QA_RETURN_TO_STAFF: "Return",
+  OFFICE_QA_APPROVE: "Approved",
+  OFFICE_REGISTER: "Register",
+  OFFICE_DISTRIBUTE: "Distribute",
+  CUSTOM_FORWARD: "Reviewed",
+  CUSTOM_START_APPROVAL: "Start approval",
   CUSTOM_START_FINALIZATION: "Start finalization",
-  CUSTOM_REGISTER: "Register document",
-  CUSTOM_DISTRIBUTE: "Distribute document",
+  CUSTOM_REGISTER: "Register",
+  CUSTOM_DISTRIBUTE: "Distribute",
   REJECT: "Reject",
+};
+
+/** Contextual confirmation message for each workflow action code. */
+export const ACTION_CONFIRM_MESSAGES: Record<string, string> = {
+  QA_SEND_TO_OFFICE_REVIEW:
+    "This document will be submitted for review and assigned to the recipient office.",
+  QA_OFFICE_FORWARD_TO_VP:
+    "You are confirming that you have reviewed this document. It will be forwarded to the VP for further review.",
+  QA_OFFICE_RETURN_TO_QA:
+    "This document will be returned to QA.",
+  QA_VP_SEND_BACK_TO_QA:
+    "This document will be returned to QA for a final check before the approval phase.",
+  QA_START_OFFICE_APPROVAL:
+    "This will move the document into the approval phase and notify the approving office.",
+  QA_OFFICE_FORWARD_TO_VP_APPROVAL:
+    "You are confirming your approval of this document. It will be forwarded to the VP for approval.",
+  QA_VP_FORWARD_TO_PRESIDENT:
+    "You are confirming your approval. This document will be forwarded to the President for final sign-off.",
+  QA_PRESIDENT_SEND_BACK_TO_QA:
+    "This document will be returned to QA after final approval.",
+  QA_REGISTER:
+    "This will officially register the document and assign it a document number.",
+  QA_DISTRIBUTE:
+    "This will finalize and distribute the document to all recipients. This action cannot be undone.",
+  OFFICE_SEND_TO_HEAD:
+    "This document will be submitted to the Office Head for review.",
+  OFFICE_HEAD_FORWARD_TO_VP:
+    "You are confirming that you have reviewed this document. It will be forwarded to the VP for further review.",
+  OFFICE_HEAD_RETURN_TO_STAFF:
+    "This document will be returned to the originating office staff.",
+  OFFICE_VP_SEND_BACK_TO_STAFF:
+    "This document will be returned to the office staff for a final check before the approval phase.",
+  OFFICE_SEND_TO_QA_APPROVAL:
+    "This will move the document into the approval phase.",
+  OFFICE_QA_RETURN_TO_STAFF:
+    "This document will be returned to the office staff.",
+  OFFICE_QA_APPROVE:
+    "You are confirming your approval of this document.",
+  OFFICE_REGISTER:
+    "This will officially register the document and assign it a document number.",
+  OFFICE_DISTRIBUTE:
+    "This will finalize and distribute the document to all recipients. This action cannot be undone.",
+  CUSTOM_FORWARD:
+    "This will forward the document to the next recipient in the workflow.",
+  CUSTOM_START_APPROVAL:
+    "This will move the document into the approval phase.",
+  CUSTOM_START_FINALIZATION:
+    "This will move the document into the finalization phase.",
+  CUSTOM_REGISTER:
+    "This will officially register the document and assign it a document number.",
+  CUSTOM_DISTRIBUTE:
+    "This will finalize and distribute the document to all recipients. This action cannot be undone.",
 };
 
 /** Sort order for workflow actions — lower = higher priority in the UI. */

@@ -1,0 +1,283 @@
+import React from "react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Cell,
+  PieChart,
+  Pie,
+  Legend,
+  Label,
+} from "recharts";
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+export type PhaseDistributionDatum = {
+  phase: string;
+  count: number;
+};
+
+export type PhaseDistributionVariant =
+  | "stacked-bar"
+  | "donut"
+  | "stat-cards"
+  | "vertical-bar";
+
+// ── Default color map ──────────────────────────────────────────────────────────
+
+const DEFAULT_COLORS: Record<string, string> = {
+  Draft: "#94a3b8",
+  Review: "#38bdf8",
+  Approval: "#a855f7",
+  Finalization: "#f59e0b",
+  Completed: "#34d399",
+};
+
+const fallback = "#94a3b8";
+
+const resolveColor = (
+  phase: string,
+  colorMap?: Record<string, string>,
+): string => (colorMap ?? DEFAULT_COLORS)[phase] ?? fallback;
+
+// ── Tooltip ────────────────────────────────────────────────────────────────────
+
+const ChartTooltip = ({ active, payload, total }: any) => {
+  if (!active || !payload?.length) return null;
+  const { name, value } = payload[0];
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white dark:border-surface-300 dark:bg-surface-500 px-3 py-2 shadow-md text-xs">
+      <p className="font-semibold text-slate-700 dark:text-slate-200 mb-0.5">
+        {name}
+      </p>
+      <p className="text-slate-500 dark:text-slate-400">
+        {value} docs &middot; {total ? Math.round((value / total) * 100) : 0}%
+      </p>
+    </div>
+  );
+};
+
+// ── Variant: Stacked horizontal bar ───────────────────────────────────────────
+
+const StackedBar: React.FC<{
+  data: PhaseDistributionDatum[];
+  colorMap?: Record<string, string>;
+}> = ({ data, colorMap }) => {
+  const total = data.reduce((s, d) => s + d.count, 0);
+  return (
+    <div className="space-y-4">
+      <div className="flex h-7 w-full overflow-hidden rounded-md">
+        {data.map((d) => (
+          <div
+            key={d.phase}
+            title={`${d.phase}: ${d.count}`}
+            style={{
+              width: `${total ? (d.count / total) * 100 : 0}%`,
+              backgroundColor: resolveColor(d.phase, colorMap),
+            }}
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-x-5 gap-y-2">
+        {data.map((d) => {
+          const p = total ? Math.round((d.count / total) * 100) : 0;
+          return (
+            <div
+              key={d.phase}
+              className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400"
+            >
+              <span
+                className="h-2 w-2 rounded-full shrink-0"
+                style={{ backgroundColor: resolveColor(d.phase, colorMap) }}
+              />
+              <span>{d.phase}</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
+                {d.count}
+              </span>
+              <span className="text-slate-400 dark:text-slate-500">({p}%)</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ── Variant: Donut ─────────────────────────────────────────────────────────────
+
+const DonutChart: React.FC<{
+  data: PhaseDistributionDatum[];
+  height: number;
+  colorMap?: Record<string, string>;
+}> = ({ data, height, colorMap }) => {
+  const total = data.reduce((s, d) => s + d.count, 0);
+  const pieData = data.map((d) => ({ name: d.phase, value: d.count }));
+
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <PieChart>
+        <Pie
+          data={pieData}
+          cx="50%"
+          cy="45%"
+          innerRadius="48%"
+          outerRadius="66%"
+          dataKey="value"
+          paddingAngle={2}
+          stroke="none"
+        >
+          <Label
+            content={({ viewBox }: any) => {
+              const { cx, cy } = viewBox;
+              return (
+                <g>
+                  <text
+                    x={cx}
+                    y={cy - 8}
+                    textAnchor="middle"
+                    dominantBaseline="auto"
+                    style={{
+                      fontSize: 22,
+                      fontWeight: 700,
+                      fill: "currentColor",
+                    }}
+                  >
+                    {total}
+                  </text>
+                  <text
+                    x={cx}
+                    y={cy + 10}
+                    textAnchor="middle"
+                    dominantBaseline="hanging"
+                    style={{ fontSize: 10, fill: "#94a3b8" }}
+                  >
+                    total
+                  </text>
+                </g>
+              );
+            }}
+          />
+          {pieData.map((entry) => (
+            <Cell key={entry.name} fill={resolveColor(entry.name, colorMap)} />
+          ))}
+        </Pie>
+        <Tooltip
+          content={(props: any) => <ChartTooltip {...props} total={total} />}
+        />
+        <Legend
+          iconType="circle"
+          iconSize={8}
+          wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+        />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+};
+
+// ── Variant: Stat cards ────────────────────────────────────────────────────────
+
+const StatCards: React.FC<{
+  data: PhaseDistributionDatum[];
+  colorMap?: Record<string, string>;
+}> = ({ data, colorMap }) => {
+  const total = data.reduce((s, d) => s + d.count, 0);
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      {data.map((d) => {
+        const p = total ? Math.round((d.count / total) * 100) : 0;
+        const color = resolveColor(d.phase, colorMap);
+        return (
+          <div
+            key={d.phase}
+            className="rounded-lg border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-4 py-3"
+          >
+            <div className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">
+              {d.count}
+            </div>
+            <div className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+              {d.phase}
+            </div>
+            <div className="mt-2.5 h-1 w-full rounded-full bg-slate-200 dark:bg-surface-400 overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${p}%`, backgroundColor: color }}
+              />
+            </div>
+            <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+              {p}%
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ── Variant: Vertical bar ──────────────────────────────────────────────────────
+
+const VerticalBar: React.FC<{
+  data: PhaseDistributionDatum[];
+  height: number;
+  colorMap?: Record<string, string>;
+}> = ({ data, height, colorMap }) => {
+  const total = data.reduce((s, d) => s + d.count, 0);
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart
+        data={data}
+        margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
+        barCategoryGap="40%"
+      >
+        <XAxis
+          dataKey="phase"
+          tick={{ fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <YAxis
+          allowDecimals={false}
+          tick={{ fontSize: 11 }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <Tooltip
+          content={(props: any) => <ChartTooltip {...props} total={total} />}
+          cursor={{ fill: "rgba(148,163,184,0.07)" }}
+        />
+        <Bar
+          dataKey="count"
+          name="Documents"
+          radius={[4, 4, 0, 0]}
+          maxBarSize={40}
+        >
+          {data.map((d) => (
+            <Cell key={d.phase} fill={resolveColor(d.phase, colorMap)} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+};
+
+// ── Main export ────────────────────────────────────────────────────────────────
+
+const PhaseDistributionChart: React.FC<{
+  data: PhaseDistributionDatum[];
+  variant: PhaseDistributionVariant;
+  height?: number;
+  /** Optional color override — keys are phase/status names, values are hex colors */
+  colorMap?: Record<string, string>;
+}> = ({ data, variant, height = 220, colorMap }) => {
+  if (variant === "stacked-bar")
+    return <StackedBar data={data} colorMap={colorMap} />;
+  if (variant === "donut")
+    return <DonutChart data={data} height={height} colorMap={colorMap} />;
+  if (variant === "stat-cards")
+    return <StatCards data={data} colorMap={colorMap} />;
+  return <VerticalBar data={data} height={height} colorMap={colorMap} />;
+};
+
+export default PhaseDistributionChart;

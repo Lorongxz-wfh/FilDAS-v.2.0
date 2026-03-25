@@ -158,18 +158,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                 type="button"
                 onClick={() => setNewOpen((o) => !o)}
                 className={[
-                  "cursor-pointer flex items-center rounded-md text-sm font-semibold transition-colors duration-150",
-                  // ERPNext-style: neutral bordered button instead of heavy brand fill
-                  "bg-white hover:bg-slate-50 dark:bg-surface-400 dark:hover:bg-surface-300",
-                  "text-slate-700 dark:text-slate-200",
-                  "border border-slate-300 dark:border-surface-300",
+                  "cursor-pointer flex items-center rounded-md text-sm font-semibold transition-all duration-150",
+                  "bg-sky-600 hover:bg-sky-700 active:bg-sky-800",
+                  "text-white shadow-sm",
                   collapsed
                     ? "justify-center w-full px-0 h-9"
                     : "gap-2 px-4 h-9",
                 ].join(" ")}
                 title={collapsed ? "New" : undefined}
               >
-                <Plus className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-300" />
+                <Plus className="h-4 w-4 shrink-0" />
                 {!collapsed && <span>New</span>}
               </button>
 

@@ -1,5 +1,6 @@
 import React from "react";
 import BackButton from "../ui/buttons/BackButton";
+import Breadcrumb, { type BreadcrumbItem } from "../ui/Breadcrumb";
 
 type Props = {
   // Left header
@@ -8,6 +9,7 @@ type Props = {
   actions?: React.ReactNode;
   onBack?: () => void;
   onBackDisabled?: boolean;
+  breadcrumbs?: BreadcrumbItem[];
 
   // Right header
   rightHeader: React.ReactNode;
@@ -28,6 +30,7 @@ export default function DocFrame({
   actions,
   onBack,
   onBackDisabled,
+  breadcrumbs,
   rightHeader,
   left,
   right,
@@ -45,6 +48,9 @@ export default function DocFrame({
         <div className="flex flex-1 min-w-0 items-center gap-3 px-4 py-2 sm:px-6 sm:py-3">
           {onBack && <BackButton onClick={onBack} disabled={onBackDisabled} />}
           <div className="flex min-w-0 flex-1 flex-col">
+            {breadcrumbs && breadcrumbs.length > 0 && (
+              <Breadcrumb items={breadcrumbs} />
+            )}
             <div className="min-w-0 text-base font-semibold text-slate-900 dark:text-slate-100 leading-snug">
               {title}
             </div>

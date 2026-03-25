@@ -171,6 +171,8 @@ export default function DocumentRequestListPage() {
   const [initialLoading, setInitialLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
+  const hasMoreRef = React.useRef(true);
+
   const qDebounced = useDebouncedValue(q, 400);
   const navigate = useNavigate();
 
@@ -195,6 +197,7 @@ export default function DocumentRequestListPage() {
   React.useEffect(() => {
     setRows([]);
     setPage(1);
+    hasMoreRef.current = true;
     setHasMore(true);
     setInitialLoading(true);
   }, [tab, qDebounced, status, recipientStatus, isQaAdmin]);
@@ -202,7 +205,7 @@ export default function DocumentRequestListPage() {
   React.useEffect(() => {
     let alive = true;
     const load = async () => {
-      if (!hasMore && page > 1) return;
+      if (!hasMoreRef.current && page > 1) return;
       setLoading(true);
       setError(null);
       try {
@@ -224,11 +227,12 @@ export default function DocumentRequestListPage() {
         if (!alive) return;
         const incoming = Array.isArray(data?.data) ? data.data : [];
         setRows((prev) => (page === 1 ? incoming : [...prev, ...incoming]));
-        setHasMore(
+        const more =
           data?.current_page != null &&
-            data?.last_page != null &&
-            data.current_page < data.last_page,
-        );
+          data?.last_page != null &&
+          data.current_page < data.last_page;
+        hasMoreRef.current = more;
+        setHasMore(more);
       } catch (e: any) {
         if (!alive) return;
         setError(e?.response?.data?.message ?? e?.message ?? "Failed to load.");
@@ -240,7 +244,9 @@ export default function DocumentRequestListPage() {
     };
     load();
     return () => { alive = false; };
-  }, [tab, page, qDebounced, status, recipientStatus, isQaAdmin, hasMore]);
+  // hasMore intentionally omitted — tracked via hasMoreRef to avoid re-trigger
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, page, qDebounced, status, recipientStatus, isQaAdmin]);
 
   function handleBatchRowClick(row: any) {
     // Batches tab: row.id = batch id, row.recipient_id from inbox
@@ -370,7 +376,7 @@ export default function DocumentRequestListPage() {
       right={
         <div className="flex items-center gap-2">
           <RefreshButton
-            onClick={refreshRequests}
+            onRefresh={refreshRequests}
             loading={refreshingRequests}
             disabled={loading}
             title="Refresh requests"
@@ -433,6 +439,7 @@ export default function DocumentRequestListPage() {
             <button
               type="button"
               onClick={() => setQ("")}
+              title="Clear"
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
             >
               <X className="h-3.5 w-3.5" />

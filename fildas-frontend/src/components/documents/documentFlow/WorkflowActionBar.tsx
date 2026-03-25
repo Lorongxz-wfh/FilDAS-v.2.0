@@ -108,7 +108,7 @@ const WorkflowActionBar: React.FC<Props> = ({
             ? "Reject document"
             : isCancel
               ? "Cancel document"
-              : `Confirm: ${confirmAction?.label}`
+              : confirmAction?.label ?? "Confirm"
         }
         onClose={() => setConfirmAction(null)}
         widthClassName="max-w-md"
@@ -140,9 +140,8 @@ const WorkflowActionBar: React.FC<Props> = ({
             </div>
           ) : (
             <p className="text-sm text-slate-700 dark:text-slate-300">
-              Are you sure you want to{" "}
-              <span className="font-semibold">{confirmAction?.label}</span>?
-              This action cannot be undone.
+              {confirmAction?.confirmMessage ??
+                `Are you sure you want to ${confirmAction?.label}? This action cannot be undone.`}
             </p>
           )}
 
@@ -158,7 +157,7 @@ const WorkflowActionBar: React.FC<Props> = ({
             </Button>
             <Button
               type="button"
-              variant={isReject ? "danger" : "primary"}
+              variant={isReject || isCancel ? "danger" : "primary"}
               size="sm"
               disabled={isChangingStatus}
               onClick={handleConfirm}
@@ -167,7 +166,9 @@ const WorkflowActionBar: React.FC<Props> = ({
                 ? "Processing…"
                 : isReject
                   ? "Reject"
-                  : "Confirm"}
+                  : isCancel
+                    ? "Confirm cancellation"
+                    : "Confirm"}
             </Button>
           </div>
         </div>

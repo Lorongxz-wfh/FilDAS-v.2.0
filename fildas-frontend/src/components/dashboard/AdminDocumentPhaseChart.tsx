@@ -63,7 +63,17 @@ const AdminDocumentPhaseChart: React.FC<Props> = ({ byPhase, height = 180 }) => 
         />
         <Tooltip
           cursor={{ fill: "rgba(148,163,184,0.08)" }}
-          contentStyle={{ borderRadius: 8, fontSize: 12 }}
+          content={({ active, payload, label }: any) => {
+            if (!active || !payload?.length) return null;
+            return (
+              <div className="rounded-lg border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-500 px-3 py-2 shadow-md text-xs">
+                <p className="font-semibold text-slate-700 dark:text-slate-200 mb-0.5">{label}</p>
+                <p className="text-slate-500 dark:text-slate-400">
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">{payload[0].value}</span> documents
+                </p>
+              </div>
+            );
+          }}
         />
         <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={20}>
           {data.map((entry, i) => (

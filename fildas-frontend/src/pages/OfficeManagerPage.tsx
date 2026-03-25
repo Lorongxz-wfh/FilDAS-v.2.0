@@ -177,6 +177,7 @@ export function OfficeManagerPage() {
             <button
               type="button"
               onClick={() => setQ("")}
+              title="Clear"
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
             >
               <X className="h-3.5 w-3.5" />

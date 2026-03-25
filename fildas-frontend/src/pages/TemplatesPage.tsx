@@ -82,7 +82,8 @@ const TemplatesPage: React.FC = () => {
     let list = templates;
     if (scope === "global") list = list.filter((t) => t.is_global);
     if (scope === "mine") list = list.filter((t) => t.can_delete);
-    if (activeTag) list = list.filter((t) => (t.tags ?? []).includes(activeTag));
+    if (activeTag)
+      list = list.filter((t) => (t.tags ?? []).includes(activeTag));
     if (debouncedQ) {
       list = list.filter(
         (t) =>
@@ -100,14 +101,24 @@ const TemplatesPage: React.FC = () => {
     localStorage.setItem("templates_view", mode);
   };
 
-  const fetchTemplates = useCallback(async () => {
+  const templateIdsRef = React.useRef<string>("");
+
+  const fetchTemplates = useCallback(async (): Promise<string | void> => {
+    const prevIds = templateIdsRef.current;
     setLoading(true);
     setError(null);
     try {
       const data = await listTemplates();
+      const newIds = data.map((t) => t.id).join(",");
+      templateIdsRef.current = newIds;
       setTemplates(data);
+      if (!prevIds) return; // initial load — suppress message
+      return newIds === prevIds
+        ? "Already up to date."
+        : `Updated — ${data.length} template${data.length !== 1 ? "s" : ""} loaded.`;
     } catch (e: any) {
       setError(e?.message ?? "Failed to load templates.");
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -126,15 +137,31 @@ const TemplatesPage: React.FC = () => {
       setSelectedTemplate((prev) => (prev?.id === id ? null : prev));
       push({ type: "success", title: "Deleted", message: "Template removed." });
     } catch (e: any) {
-      push({ type: "error", title: "Delete failed", message: e?.message ?? "Unknown error" });
+      push({
+        type: "error",
+        title: "Delete failed",
+        message: e?.message ?? "Unknown error",
+      });
     } finally {
       setDeletingId(null);
     }
   };
 
+  // Optimistic upload state
+  const [uploadingName, setUploadingName] = useState<string | null>(null);
+
+  const handleUploadStart = (name: string) => {
+    setUploadingName(name);
+    setModalOpen(false);
+  };
+
   const handleUploaded = (template: DocumentTemplate) => {
     setTemplates((prev) => [template, ...prev]);
-    setModalOpen(false);
+    setUploadingName(null);
+  };
+
+  const handleUploadError = () => {
+    setUploadingName(null);
   };
 
   const hasActiveFilters = q || scope !== "all" || activeTag;
@@ -154,7 +181,11 @@ const TemplatesPage: React.FC = () => {
         contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
         right={
           <div className="flex items-center gap-2">
-            <RefreshButton onClick={fetchTemplates} loading={loading} title="Refresh templates" />
+            <RefreshButton
+              onRefresh={fetchTemplates}
+              loading={loading}
+              title="Refresh templates"
+            />
             {canUpload && (
               <Button
                 type="button"
@@ -170,11 +201,19 @@ const TemplatesPage: React.FC = () => {
       >
         {/* View tabs + refresh */}
         <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0">
-          <button type="button" onClick={() => setView("grid")} className={tabCls(viewMode === "grid")}>
+          <button
+            type="button"
+            onClick={() => setView("grid")}
+            className={tabCls(viewMode === "grid")}
+          >
             <LayoutGrid className="h-3.5 w-3.5" />
             Grid
           </button>
-          <button type="button" onClick={() => setView("list")} className={tabCls(viewMode === "list")}>
+          <button
+            type="button"
+            onClick={() => setView("list")}
+            className={tabCls(viewMode === "list")}
+          >
             <List className="h-3.5 w-3.5" />
             List
           </button>
@@ -186,7 +225,9 @@ const TemplatesPage: React.FC = () => {
         </div>
 
         {/* Filter bar */}
-        <div className={`flex flex-wrap items-center gap-2 shrink-0 py-2.5 ${viewMode === "grid" ? "border-b border-slate-200 dark:border-surface-400" : ""}`}>
+        <div
+          className={`flex flex-wrap items-center gap-2 shrink-0 py-2.5 ${viewMode === "grid" ? "border-b border-slate-200 dark:border-surface-400" : ""}`}
+        >
           {/* Search */}
           <div className="relative w-full sm:w-64">
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
@@ -201,6 +242,7 @@ const TemplatesPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setQ("")}
+                title="Clear"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
               >
                 <X className="h-3.5 w-3.5" />
@@ -237,7 +279,10 @@ const TemplatesPage: React.FC = () => {
               {activeTag ?? "Tags"}
               {activeTag ? (
                 <span
-                  onClick={(e) => { e.stopPropagation(); setActiveTag(null); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveTag(null);
+                  }}
                   className="ml-0.5 rounded hover:bg-brand-100 dark:hover:bg-brand-900/40 p-0.5"
                 >
                   <X className="h-3 w-3" />
@@ -264,7 +309,10 @@ const TemplatesPage: React.FC = () => {
                       <button
                         key={tag}
                         type="button"
-                        onClick={() => { setActiveTag(tag === activeTag ? null : tag); setTagDropdownOpen(false); }}
+                        onClick={() => {
+                          setActiveTag(tag === activeTag ? null : tag);
+                          setTagDropdownOpen(false);
+                        }}
                         className={[
                           "w-full rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
                           activeTag === tag
@@ -284,7 +332,11 @@ const TemplatesPage: React.FC = () => {
           {hasActiveFilters && (
             <button
               type="button"
-              onClick={() => { setQ(""); setScope("all"); setActiveTag(null); }}
+              onClick={() => {
+                setQ("");
+                setScope("all");
+                setActiveTag(null);
+              }}
               className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
             >
               Clear
@@ -292,12 +344,44 @@ const TemplatesPage: React.FC = () => {
           )}
         </div>
 
+        {/* Optimistic upload banner */}
+        {uploadingName && (
+          <div className="shrink-0 flex items-center gap-2.5 border-b border-slate-200 dark:border-surface-400 bg-sky-50 dark:bg-sky-950/20 px-4 py-2.5">
+            <svg
+              className="h-3.5 w-3.5 animate-spin text-sky-500 shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+              />
+            </svg>
+            <p className="text-xs text-sky-700 dark:text-sky-400">
+              Uploading <span className="font-semibold">{uploadingName}</span>…
+            </p>
+          </div>
+        )}
+
         {/* Content */}
         {error ? (
           <div className="p-4 shrink-0">
             <Alert variant="danger">
               {error}{" "}
-              <button type="button" className="underline" onClick={fetchTemplates}>
+              <button
+                type="button"
+                className="underline"
+                onClick={fetchTemplates}
+              >
                 Retry
               </button>
             </Alert>
@@ -307,12 +391,19 @@ const TemplatesPage: React.FC = () => {
             {loading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
                 {Array.from({ length: 10 }).map((_, i) => (
-                  <div key={i} className="rounded-xl bg-slate-100 dark:bg-surface-600 animate-pulse aspect-3/4" />
+                  <div
+                    key={i}
+                    className="rounded-xl bg-slate-100 dark:bg-surface-600 animate-pulse aspect-3/4"
+                  />
                 ))}
               </div>
             ) : filtered.length === 0 ? (
               <EmptyState
-                label={templates.length === 0 ? "No templates yet." : "No templates match your filters."}
+                label={
+                  templates.length === 0
+                    ? "No templates yet."
+                    : "No templates match your filters."
+                }
                 description={
                   templates.length === 0
                     ? "Upload the first template using the button above."
@@ -359,7 +450,12 @@ const TemplatesPage: React.FC = () => {
         onClose={() => setModalOpen(false)}
         widthClassName="max-w-lg"
       >
-        <TemplateUploadForm onUploaded={handleUploaded} canChooseScope={canChooseScope} />
+        <TemplateUploadForm
+          onUploaded={handleUploaded}
+          onUploadStart={handleUploadStart}
+          onUploadError={handleUploadError}
+          canChooseScope={canChooseScope}
+        />
       </Modal>
     </>
   );

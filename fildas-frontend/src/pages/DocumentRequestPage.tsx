@@ -1,5 +1,5 @@
 import React from "react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams, useLocation } from "react-router-dom";
 import PageFrame from "../components/layout/PageFrame";
 import { getAuthUser } from "../lib/auth";
 import {
@@ -32,6 +32,7 @@ import { inputCls } from "../utils/formStyles";
 export default function DocumentRequestPage() {
   const navigate = useNavigate();
   const params = useParams();
+  const location = useLocation();
   const me = getAuthUser();
   if (!me) return <Navigate to="/login" replace />;
 
@@ -165,6 +166,10 @@ export default function DocumentRequestPage() {
     isItemView && req?.item_title
       ? req.item_title
       : (req?.title ?? `Request #${requestId}`);
+
+  const stateCrumbs: { label: string; to?: string }[] =
+    (location.state as any)?.breadcrumbs ??
+    [{ label: "Document Requests", to: "/document-requests" }];
 
   // Effective due date — individual override > batch due
   const effectiveDueAt = isItemView
@@ -497,7 +502,7 @@ export default function DocumentRequestPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <PageFrame title={pageTitle} onBack={() => navigate(backUrl)}>
+    <PageFrame title={pageTitle} onBack={() => navigate(backUrl)} breadcrumbs={stateCrumbs}>
       <div className="grid h-full min-h-0 overflow-hidden grid-cols-1 gap-5 lg:grid-cols-12">
         {/* ── LEFT ── */}
         <section className="lg:col-span-7 min-w-0 flex flex-col gap-5">

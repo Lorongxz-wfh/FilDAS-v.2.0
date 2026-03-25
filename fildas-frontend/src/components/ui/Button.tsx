@@ -1,12 +1,16 @@
 import React from "react";
+import Tooltip from "./Tooltip";
 
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
 type Size = "xs" | "sm" | "md" | "lg";
+type Side = "top" | "bottom" | "left" | "right";
 
 export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
   size?: Size;
   loading?: boolean;
+  tooltip?: string;
+  tooltipSide?: Side;
 };
 
 const base =
@@ -14,7 +18,7 @@ const base =
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-brand-300 text-white hover:bg-brand-400 dark:bg-brand-300 dark:hover:bg-brand-400",
+    "bg-brand-400 text-white hover:bg-brand-500 dark:bg-brand-300 dark:hover:bg-brand-400",
   secondary:
     "bg-surface-500 text-white hover:bg-surface-400 dark:bg-surface-400 dark:hover:bg-surface-300",
   outline:
@@ -22,7 +26,7 @@ const variants: Record<Variant, string> = {
   ghost:
     "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-surface-500",
   danger:
-    "border border-rose-300 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:bg-transparent dark:text-rose-400 dark:hover:bg-rose-950/40",
+    "border border-rose-300 bg-white text-rose-700 hover:bg-rose-50 hover:border-rose-400 dark:border-rose-900 dark:bg-transparent dark:text-rose-300 dark:hover:bg-rose-950/15 dark:hover:border-rose-800",
 };
 
 const sizes: Record<Size, string> = {
@@ -36,12 +40,14 @@ export default function Button({
   variant = "outline",
   size = "sm",
   loading = false,
+  tooltip,
+  tooltipSide = "top",
   disabled,
   className = "",
   children,
   ...props
 }: ButtonProps) {
-  return (
+  const btn = (
     <button
       {...props}
       disabled={disabled || loading}
@@ -50,4 +56,9 @@ export default function Button({
       {loading ? "Loading..." : children}
     </button>
   );
+
+  if (tooltip) {
+    return <Tooltip text={tooltip} side={tooltipSide}>{btn}</Tooltip>;
+  }
+  return btn;
 }

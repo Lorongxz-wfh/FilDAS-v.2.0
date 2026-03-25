@@ -121,10 +121,19 @@ class DocumentController extends Controller
                 ->value('cnt') ?? 0);
         }
 
+        $byPhase = [
+            'draft'        => (clone $visibleDocs)->whereHas('latestVersion', fn($q) => $q->whereIn('status', ['Draft', 'Office Draft']))->count(),
+            'review'       => (clone $visibleDocs)->whereHas('latestVersion', fn($q) => $q->where('status', 'like', '%Review%')->orWhere('status', 'like', '%Check%'))->count(),
+            'approval'     => (clone $visibleDocs)->whereHas('latestVersion', fn($q) => $q->where('status', 'like', '%Approval%'))->count(),
+            'finalization' => (clone $visibleDocs)->whereHas('latestVersion', fn($q) => $q->where(function ($r) { $r->where('status', 'like', '%Registration%')->orWhere('status', 'like', '%Distribution%'); }))->count(),
+            'distributed'  => $distributed,
+        ];
+
         return response()->json([
             'total' => $total,
             'pending' => $pending,
             'distributed' => $distributed,
+            'by_phase' => $byPhase,
         ]);
     }
 
@@ -577,14 +586,24 @@ class DocumentController extends Controller
             'semester' => 'sometimes|nullable|string|max:20',
         ]);
 
+        // Capture field diffs before saving
+        $changes = [];
+        foreach ($data as $field => $newVal) {
+            $oldVal = $document->{$field};
+            if ((string) $oldVal !== (string) ($newVal ?? '')) {
+                $changes[] = ['field' => $field, 'old' => $oldVal, 'new' => $newVal];
+            }
+        }
+
         $document->fill($data);
         $document->save();
 
         $user = $request->user();
-        $this->logActivity('document.updated', 'Updated document metadata', $user?->id, $user?->office_id, [
-            'document_id' => $document->id,
-            'fields'      => array_keys($data),
-        ], $document->id);
+        if (!empty($changes)) {
+            $this->logActivity('document.field_changed', 'Updated document details', $user?->id, $user?->office_id, [
+                'changes' => $changes,
+            ], $document->id);
+        }
 
         return new DocumentResource($document->load(['ownerOffice', 'latestVersion']));
     }
@@ -796,6 +815,19 @@ class DocumentController extends Controller
             'effective_date' => 'nullable|date',
         ]);
 
+        // Capture field diffs before saving
+        $changes = [];
+        if (array_key_exists('description', $data) && (string)($version->description ?? '') !== (string)($data['description'] ?? '')) {
+            $changes[] = ['field' => 'description', 'old' => $version->description, 'new' => $data['description'] ?? null];
+        }
+        if (array_key_exists('effective_date', $data)) {
+            $oldDate = $version->effective_date ? \Carbon\Carbon::parse($version->effective_date)->format('Y-m-d') : null;
+            $newDate = $data['effective_date'] ? \Carbon\Carbon::parse($data['effective_date'])->format('Y-m-d') : null;
+            if ($oldDate !== $newDate) {
+                $changes[] = ['field' => 'effective_date', 'old' => $oldDate, 'new' => $newDate];
+            }
+        }
+
         $version->description = array_key_exists('description', $data)
             ? ($data['description'] ?? null)
             : $version->description;
@@ -806,14 +838,12 @@ class DocumentController extends Controller
 
         $version->save();
 
-        $this->logActivity('version.updated', 'Updated draft version fields', $request->user()?->id, $request->user()?->office_id, [
-            'version_number' => $version->version_number,
-            'status' => $version->status,
-            'changed' => [
-                'description' => array_key_exists('description', $data),
-                'effective_date' => array_key_exists('effective_date', $data),
-            ],
-        ], $version->document_id, $version->id);
+        $user = $request->user();
+        if (!empty($changes)) {
+            $this->logActivity('document.field_changed', 'Updated draft version fields', $user?->id, $user?->office_id, [
+                'changes' => $changes,
+            ], $version->document_id, $version->id);
+        }
 
         return response()->json(['version' => $version->fresh()], 200);
     }

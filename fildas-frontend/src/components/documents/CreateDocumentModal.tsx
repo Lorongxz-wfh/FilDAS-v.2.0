@@ -344,18 +344,18 @@ export default function FlowSelectModal({
                     <React.Fragment key={i}>
                       <span
                         className={[
-                          "rounded-full px-2 py-0.5 text-xs font-semibold",
+                          "rounded px-2 py-0.5 text-xs font-medium",
                           node.includes("✓")
-                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
                             : node === "Register" || node === "Distribute"
-                              ? "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400"
+                              ? "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-400"
                               : "bg-white dark:bg-surface-500 border border-slate-200 dark:border-surface-400 text-slate-600 dark:text-slate-300",
                         ].join(" ")}
                       >
                         {node}
                       </span>
                       {i < phase.nodes.length - 1 && (
-                        <span className="text-slate-300 dark:text-slate-600 text-xs">
+                        <span className="text-slate-400 dark:text-slate-600 text-xs">
                           →
                         </span>
                       )}
@@ -368,7 +368,7 @@ export default function FlowSelectModal({
         )}
 
         {error && (
-          <div className="rounded-md border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-xs font-medium text-rose-700 dark:text-rose-400">
+          <div className="rounded-md border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/15 px-4 py-3 text-xs font-medium text-rose-700 dark:text-rose-300">
             {error}
           </div>
         )}

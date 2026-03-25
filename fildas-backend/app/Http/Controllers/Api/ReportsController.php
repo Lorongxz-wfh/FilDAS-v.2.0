@@ -6,10 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Office;
 use App\Models\WorkflowTask;
 use App\Models\DocumentVersion;
+use App\Models\DocumentRequest;
+use App\Models\DocumentRequestRecipient;
 use App\Services\Reports\ClusterAnalysisService;
 use App\Services\WorkflowSteps;
 use App\Traits\RoleNameTrait;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ReportsController extends Controller
 {
@@ -328,6 +331,14 @@ class ReportsController extends Controller
             }
         };
 
+        // Pre-seed the last 6 months with zeros when using monthly bucket and no explicit date range,
+        // so the chart always shows a consistent range even when data is sparse.
+        if ($bucket === 'monthly' && empty($data['date_from'])) {
+            for ($i = 5; $i >= 0; $i--) {
+                $ensureVol(\Carbon\Carbon::now()->subMonths($i)->format('Y-m'));
+            }
+        }
+
         // Created versions (ALL created versions; not filtered by parent)
         $createdQ = DocumentVersion::query()->select(['id', 'created_at']);
         if (!empty($data['date_from'])) $createdQ->whereDate('created_at', '>=', $data['date_from']);
@@ -410,19 +421,22 @@ class ReportsController extends Controller
         $cycleSecondsTotal = 0;
         $cycleCount = 0;
 
-        // stage buckets — build tracking structure from canonical step groupings
-        $stageBuckets = [];
-        foreach (WorkflowSteps::reportStageGroups() as $stageName => $steps) {
-            $stageBuckets[$stageName] = [
-                'steps'         => $steps,
-                'total_seconds' => 0,
-                'task_count'    => 0,
-                'version_ids'   => [],
-            ];
-        }
-
-
-        // If you choose Option B later, we’ll add: 'Drafting' => ['steps' => ['office_draft'], ...]
+        // stage buckets — split by routing_mode (default vs custom flow)
+        $stageGroupDefs = WorkflowSteps::reportStageGroups();
+        $initBuckets = function () use ($stageGroupDefs): array {
+            $b = [];
+            foreach ($stageGroupDefs as $stageName => $stepList) {
+                $row = [];
+                $row["steps"] = $stepList;
+                $row["total_seconds"] = 0;
+                $row["task_count"] = 0;
+                $row["version_ids"] = [];
+                $b[$stageName] = $row;
+            }
+            return $b;
+        };
+        $stageBucketsDefault = $initBuckets();
+        $stageBucketsCustom  = $initBuckets();
 
         // Index tasks per version for quick lookup
         $tasksByVersion = [];
@@ -472,6 +486,10 @@ class ReportsController extends Controller
         // Stage delay (B): only tasks belonging to final-distributed versions
         $approvedVidSet = array_fill_keys($approvedVersionIds, true);
 
+        // Lookup routing_mode per version so we can split default vs custom
+        $versionRoutingModes = DocumentVersion::whereIn('id', $approvedVersionIds)
+            ->pluck('routing_mode', 'id');
+
         // Stage delay: average per step group (use opened_at -> completed_at)
         foreach ($tasks as $t) {
             $vid = (int) $t->document_version_id;
@@ -486,11 +504,20 @@ class ReportsController extends Controller
             $sec = $startDt->diffInSeconds($endDt, false);
             if ($sec < 0) $sec = abs($sec);
 
-            foreach ($stageBuckets as $stageName => $cfg) {
-                if (in_array($t->step, $cfg['steps'], true)) {
-                    $stageBuckets[$stageName]['total_seconds'] += $sec;
-                    $stageBuckets[$stageName]['task_count'] += 1;
-                    $stageBuckets[$stageName]['version_ids'][$vid] = true; // unique versions per stage
+            $routingMode  = $versionRoutingModes[$vid] ?? 'default';
+            $targetBuckets = ($routingMode === 'custom') ? $stageBucketsCustom : $stageBucketsDefault;
+
+            foreach ($targetBuckets as $stageName => $cfg) {
+                if (in_array($t->step, $cfg["steps"], true)) {
+                    if ($routingMode === 'custom') {
+                        $stageBucketsCustom[$stageName]['total_seconds'] += $sec;
+                        $stageBucketsCustom[$stageName]['task_count'] += 1;
+                        $stageBucketsCustom[$stageName]['version_ids'][$vid] = true;
+                    } else {
+                        $stageBucketsDefault[$stageName]['total_seconds'] += $sec;
+                        $stageBucketsDefault[$stageName]['task_count'] += 1;
+                        $stageBucketsDefault[$stageName]['version_ids'][$vid] = true;
+                    }
                     break;
                 }
             }
@@ -498,20 +525,99 @@ class ReportsController extends Controller
 
         $cycleTimeAvgDays = $cycleCount ? round(($cycleSecondsTotal / $cycleCount) / 86400, 2) : 0;
 
-        $stageDelays = [];
-        foreach ($stageBuckets as $stageName => $cfg) {
-            $taskCount = (int) ($cfg['task_count'] ?? 0);
-            $versionCount = is_array($cfg['version_ids'] ?? null) ? count($cfg['version_ids']) : 0;
+        // Helper: convert a bucket array to the output format
+        $buildDelays = function (array $buckets): array {
+            $out = [];
+            foreach ($buckets as $stageName => $cfg) {
+                $taskCount    = (int) ($cfg['task_count'] ?? 0);
+                $versionCount = is_array($cfg['version_ids'] ?? null) ? count($cfg['version_ids']) : 0;
+                $avgHours     = $taskCount ? round(($cfg['total_seconds'] / $taskCount) / 3600, 2) : 0;
+                $out[] = [
+                    'stage'      => $stageName,
+                    'avg_hours'  => $avgHours,
+                    'count'      => $versionCount,
+                    'task_count' => $taskCount,
+                ];
+            }
+            return $out;
+        };
 
-            $avgHours = $taskCount ? round(($cfg['total_seconds'] / $taskCount) / 3600, 2) : 0;
+        $stageDelaysDefault = $buildDelays($stageBucketsDefault);
+        $stageDelaysCustom  = $buildDelays($stageBucketsCustom);
 
-            $stageDelays[] = [
-                'stage' => $stageName,
-                'avg_hours' => $avgHours,        // avg duration per task (still meaningful)
-                'count' => $versionCount,        // unique distributed versions that hit this stage
-                'task_count' => $taskCount,      // (optional) keep for debugging/insight
-            ];
+        // Pooled (backwards-compatible)
+        $stageBucketsPooled = $initBuckets();
+        foreach ([$stageBucketsDefault, $stageBucketsCustom] as $src) {
+            foreach ($src as $stageName => $cfg) {
+                $stageBucketsPooled[$stageName]['total_seconds'] += $cfg['total_seconds'];
+                $stageBucketsPooled[$stageName]['task_count']    += $cfg['task_count'];
+                foreach ($cfg['version_ids'] as $k => $v) {
+                    $stageBucketsPooled[$stageName]['version_ids'][$k] = true;
+                }
+            }
         }
+        $stageDelays = $buildDelays($stageBucketsPooled);
+
+        // ── Phase distribution (live snapshot of all documents by status) ────
+        $latestVersions = DocumentVersion::query()
+            ->whereIn('id', function ($q) {
+                $q->selectRaw('MAX(id)')
+                    ->from('document_versions')
+                    ->groupBy('document_id');
+            })
+            ->get(['status']);
+
+        $phaseMap = ['Draft' => 0, 'Review' => 0, 'Approval' => 0, 'Finalization' => 0, 'Completed' => 0, 'Cancelled' => 0];
+        foreach ($latestVersions as $v) {
+            $s = $v->status ?? '';
+            $sl = strtolower($s);
+
+            if ($sl === 'distributed') {
+                $phaseMap['Completed']++;
+            } elseif ($sl === 'cancelled' || $sl === 'superseded') {
+                $phaseMap['Cancelled']++;
+            } elseif (str_contains($s, 'Registration') || ($sl !== 'distributed' && str_contains($s, 'Distribution'))) {
+                $phaseMap['Finalization']++;
+            } elseif (str_contains($s, 'Review')) {
+                $phaseMap['Review']++;
+            } elseif (str_contains($s, 'Approval') || str_contains($s, 'Check')) {
+                $phaseMap['Approval']++;
+            } else {
+                $phaseMap['Draft']++; // 'Draft', 'Office Draft', etc.
+            }
+        }
+        $phaseDistribution = array_values(array_filter(
+            array_map(fn ($k) => ['phase' => $k, 'count' => $phaseMap[$k]], array_keys($phaseMap)),
+            fn ($x) => $x['count'] > 0
+        ));
+
+        // ── Waiting on QA ────────────────────────────────────────────────────
+        $waitingOnQa = WorkflowTask::query()
+            ->whereIn('status', ['pending', 'in_progress'])
+            ->where('assigned_office_id', $qaOfficeId)
+            ->count();
+
+        // ── Revision stats ───────────────────────────────────────────────────
+        $versionCounts = DB::table('document_versions')
+            ->selectRaw('document_id, count(*) as v_count')
+            ->groupBy('document_id')
+            ->get();
+        $docsOnV2Plus = $versionCounts->where('v_count', '>=', 2)->count();
+        $avgVersions  = $versionCounts->count() ? round($versionCounts->avg('v_count'), 1) : 0;
+
+        // ── Routing split ────────────────────────────────────────────────────
+        $routingCounts = DB::table('document_versions')
+            ->selectRaw('routing_mode, count(distinct document_id) as cnt')
+            ->whereNotNull('routing_mode')
+            ->groupBy('routing_mode')
+            ->get()
+            ->pluck('cnt', 'routing_mode');
+        $routingDefault = (int) ($routingCounts['default'] ?? 0);
+        $routingCustom  = (int) ($routingCounts['custom'] ?? 0);
+
+        // ── Live open task counts by phase ───────────────────────────────────
+        $inReviewCount   = WorkflowTask::whereIn('status', ['pending', 'in_progress'])->where('phase', 'review')->count();
+        $inApprovalCount = WorkflowTask::whereIn('status', ['pending', 'in_progress'])->where('phase', 'approval')->count();
 
         return response()->json([
             'clusters' => array_values($acc),
@@ -520,14 +626,328 @@ class ReportsController extends Controller
 
             'volume_series' => $volumeSeries,
             'kpis' => [
-                'total_created' => $totalCreated,
+                'total_created'        => $totalCreated,
                 'total_approved_final' => $totalApprovedFinal,
                 'first_pass_yield_pct' => $firstPassYieldPct,
-                'pingpong_ratio' => $pingPongRatio,
-                'cycle_time_avg_days' => $cycleTimeAvgDays,
+                'pingpong_ratio'       => $pingPongRatio,
+                'cycle_time_avg_days'  => $cycleTimeAvgDays,
             ],
-            'stage_delays' => $stageDelays,
+            'stage_delays'         => $stageDelays,
+            'stage_delays_default' => $stageDelaysDefault,
+            'stage_delays_custom'  => $stageDelaysCustom,
+            'phase_distribution'   => $phaseDistribution,
+            'waiting_on_qa'      => $waitingOnQa,
+            'revision_stats'     => ['docs_on_v2_plus' => $docsOnV2Plus, 'avg_versions' => $avgVersions],
+            'routing_split'      => ['default_flow' => $routingDefault, 'custom_flow' => $routingCustom],
+            'in_review_count'    => $inReviewCount,
+            'in_approval_count'  => $inApprovalCount,
+        ]);
+    }
 
+    // GET /api/reports/flow-health
+    public function flowHealth(Request $request)
+    {
+        $user     = $request->user();
+        $roleName = $this->roleNameOf($user);
+        $qaOfficeId = (int) ($this->clusterAnalysis->officeIdByCode('QA') ?? 0);
+        $userOfficeId = (int) ($user?->office_id ?? 0);
+        $isQA = ($roleName === 'qa') || ($qaOfficeId && $userOfficeId === $qaOfficeId);
+
+        if (!$isQA) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $data = $request->validate([
+            'date_from'  => 'nullable|date',
+            'date_to'    => 'nullable|date',
+            'date_field' => 'nullable|in:created,completed',
+            'parent'     => 'nullable|in:ALL,PO,VAd,VA,VF,VR',
+            'bucket'     => 'nullable|in:daily,weekly,monthly,yearly,total',
+        ]);
+        $dateField  = $data['date_field'] ?? 'completed';
+        $dateColumn = $dateField === 'created' ? 'created_at' : 'completed_at';
+        $parent     = $data['parent'] ?? 'ALL';
+        $bucket     = $data['bucket'] ?? 'monthly';
+
+        // Resolve office IDs for the selected cluster (when not ALL)
+        $clusterOfficeIds = null;
+        if ($parent !== 'ALL') {
+            $clusterOfficeIds = $this->clusterAnalysis->officeIdsForCluster($parent);
+        }
+
+        // ── Return by stage ───────────────────────────────────────────────────
+        $taskQuery = WorkflowTask::query()
+            ->whereIn('status', ['returned', 'rejected', 'completed'])
+            ->whereNotNull('step');
+        if (!empty($data['date_from'])) $taskQuery->whereDate($dateColumn, '>=', $data['date_from']);
+        if (!empty($data['date_to']))   $taskQuery->whereDate($dateColumn, '<=', $data['date_to']);
+        if ($clusterOfficeIds !== null) $taskQuery->whereIn('assigned_office_id', $clusterOfficeIds);
+        $allTasks = $taskQuery->get(['step', 'status', $dateColumn]);
+
+        $stageGroups = WorkflowSteps::reportStageGroups();
+        $byStage = [];
+        foreach ($stageGroups as $stageName => $steps) {
+            $byStage[$stageName] = ['stage' => $stageName, 'returns' => 0, 'total' => 0];
+        }
+        foreach ($allTasks as $t) {
+            foreach ($stageGroups as $stageName => $steps) {
+                if (in_array($t->step, $steps, true)) {
+                    $byStage[$stageName]['total']++;
+                    if (in_array($t->status, ['returned', 'rejected'], true)) {
+                        $byStage[$stageName]['returns']++;
+                    }
+                    break;
+                }
+            }
+        }
+        $returnByStage = array_values(array_filter($byStage, fn ($s) => $s['total'] > 0));
+
+        // ── Return trend (monthly) ─────────────────────────────────────────────
+        $actorByStep = [
+            'Office'    => ['qa_office_review', 'office_head_review', 'custom_office_review',
+                            'qa_office_approval', 'office_head_approval', 'custom_office_approval'],
+            'VP'        => ['qa_vp_review', 'qa_vp_approval', 'office_vp_review', 'office_vp_approval'],
+            'President' => ['qa_pres_approval', 'office_pres_approval'],
+            'QA'        => ['qa_review_final_check', 'qa_approval_final_check',
+                            'office_review_final_check', 'office_approval_final_check',
+                            'custom_review_back_to_owner', 'custom_approval_back_to_owner'],
+        ];
+        $stepToActor = [];
+        foreach ($actorByStep as $actor => $steps) {
+            foreach ($steps as $step) $stepToActor[$step] = $actor;
+        }
+
+        // Bucket → Carbon format + seed window
+        $bucketFmt = match ($bucket) {
+            'daily'   => 'Y-m-d',
+            'weekly'  => 'Y-W',
+            'yearly'  => 'Y',
+            'total'   => 'total',
+            default   => 'Y-m',  // monthly
+        };
+        $seedPeriods = match ($bucket) {
+            'daily'   => 30,
+            'weekly'  => 12,
+            'yearly'  => 5,
+            'total'   => 0,
+            default   => 6,
+        };
+
+        $trendAcc = [];
+        $emptyRow = fn ($lbl) => ['label' => $lbl, 'Office' => 0, 'VP' => 0, 'President' => 0, 'QA' => 0];
+
+        if ($bucketFmt !== 'total') {
+            for ($i = ($seedPeriods - 1); $i >= 0; $i--) {
+                $label = match ($bucket) {
+                    'daily'  => \Carbon\Carbon::now()->subDays($i)->format($bucketFmt),
+                    'weekly' => \Carbon\Carbon::now()->subWeeks($i)->format($bucketFmt),
+                    'yearly' => \Carbon\Carbon::now()->subYears($i)->format($bucketFmt),
+                    default  => \Carbon\Carbon::now()->subMonths($i)->format($bucketFmt),
+                };
+                $trendAcc[$label] = $emptyRow($label);
+            }
+        } else {
+            $trendAcc['All time'] = $emptyRow('All time');
+        }
+
+        $returnedQuery = WorkflowTask::query()
+            ->whereIn('status', ['returned', 'rejected'])
+            ->whereNotNull('completed_at')
+            ->whereNotNull('step');
+        if ($clusterOfficeIds !== null) $returnedQuery->whereIn('assigned_office_id', $clusterOfficeIds);
+        $returnedTasks = $returnedQuery->get(['step', 'completed_at']);
+
+        foreach ($returnedTasks as $t) {
+            $label = $bucketFmt === 'total'
+                ? 'All time'
+                : \Carbon\Carbon::parse($t->completed_at)->format($bucketFmt);
+            if (!isset($trendAcc[$label])) {
+                $trendAcc[$label] = $emptyRow($label);
+            }
+            $actor = $stepToActor[$t->step] ?? null;
+            if ($actor) $trendAcc[$label][$actor]++;
+        }
+        $returnTrend = array_values($trendAcc);
+        if ($bucketFmt !== 'total') {
+            usort($returnTrend, fn ($a, $b) => strcmp($a['label'], $b['label']));
+        }
+
+        // ── Bottleneck (current pending tasks) ─────────────────────────────────
+        $bottleneckQuery = WorkflowTask::query()
+            ->whereIn('status', ['pending', 'in_progress'])
+            ->whereNotNull('assigned_office_id')
+            ->whereNotNull('opened_at')
+            ->with('assignedOffice:id,name');
+        if ($clusterOfficeIds !== null) $bottleneckQuery->whereIn('assigned_office_id', $clusterOfficeIds);
+        $pendingTasks = $bottleneckQuery->get(['assigned_office_id', 'opened_at']);
+
+        $bottleneckAcc = [];
+        $now = \Carbon\Carbon::now();
+        foreach ($pendingTasks as $t) {
+            $oid = (int) $t->assigned_office_id;
+            $bottleneckAcc[$oid] ??= [
+                'office'      => $t->assignedOffice?->name ?? "Office #$oid",
+                'total_hours' => 0,
+                'task_count'  => 0,
+            ];
+            $bottleneckAcc[$oid]['total_hours'] += \Carbon\Carbon::parse($t->opened_at)->diffInHours($now);
+            $bottleneckAcc[$oid]['task_count']++;
+        }
+        $bottleneck = collect($bottleneckAcc)
+            ->map(fn ($row) => [
+                'office'     => $row['office'],
+                'avg_hours'  => $row['task_count'] ? round($row['total_hours'] / $row['task_count'], 1) : 0,
+                'task_count' => $row['task_count'],
+            ])
+            ->sortByDesc('avg_hours')
+            ->values()
+            ->all();
+
+        return response()->json([
+            'return_by_stage' => $returnByStage,
+            'return_trend'    => $returnTrend,
+            'bottleneck'      => $bottleneck,
+        ]);
+    }
+
+    // GET /api/reports/requests
+    public function requests(Request $request)
+    {
+        $user     = $request->user();
+        $roleName = $this->roleNameOf($user);
+        $qaOfficeId = (int) ($this->clusterAnalysis->officeIdByCode('QA') ?? 0);
+        $userOfficeId = (int) ($user?->office_id ?? 0);
+        $isQA    = ($roleName === 'qa') || ($qaOfficeId && $userOfficeId === $qaOfficeId);
+        $isAdmin = in_array($roleName, ['admin', 'sysadmin'], true);
+
+        if (!$isQA && !$isAdmin) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $data = $request->validate([
+            'date_from' => 'nullable|date',
+            'date_to'   => 'nullable|date',
+            'bucket'    => 'nullable|in:daily,weekly,monthly,yearly,total',
+        ]);
+        $bucket   = $data['bucket'] ?? 'monthly';
+        $dateFrom = $data['date_from'] ?? null;
+        $dateTo   = $data['date_to'] ?? null;
+
+        $reqQuery = DocumentRequest::query();
+        if ($dateFrom) $reqQuery->whereDate('created_at', '>=', $dateFrom);
+        if ($dateTo)   $reqQuery->whereDate('created_at', '<=', $dateTo);
+        $requests = $reqQuery->get(['id', 'status', 'mode', 'due_at', 'created_at']);
+
+        $total     = $requests->count();
+        $open      = $requests->where('status', 'open')->count();
+        $closed    = $requests->where('status', 'closed')->count();
+        $cancelled = $requests->where('status', 'cancelled')->count();
+        $overdue   = $requests->where('status', 'open')
+            ->filter(fn ($r) => $r->due_at && \Carbon\Carbon::parse($r->due_at)->isPast())
+            ->count();
+
+        $requestIds = $requests->pluck('id')->toArray();
+        $recipients = DocumentRequestRecipient::query()
+            ->whereIn('request_id', $requestIds)
+            ->with(['submissions', 'office:id,name'])
+            ->get(['id', 'request_id', 'status', 'office_id']);
+
+        $totalRecipients = $recipients->count();
+        $submitted       = $recipients->filter(fn ($r) => $r->submissions->isNotEmpty())->count();
+        $accepted        = $recipients->where('status', 'accepted')->count();
+        $rejected        = $recipients->where('status', 'rejected')->count();
+        $acceptanceRate  = $submitted ? round(($accepted / $submitted) * 100) : 0;
+        $avgResubmissions = $recipients->count()
+            ? round($recipients->avg(fn ($r) => $r->submissions->count()), 1)
+            : 0;
+
+        // Attempt distribution
+        $submissionCounts = $recipients->map(fn ($r) => $r->submissions->count());
+        $attempt1    = $submissionCounts->filter(fn ($c) => $c === 1)->count();
+        $attempt2    = $submissionCounts->filter(fn ($c) => $c === 2)->count();
+        $attempt3plus = $submissionCounts->filter(fn ($c) => $c >= 3)->count();
+
+        // Mode split
+        $multiOffice = $requests->filter(fn ($r) => $r->isMultiOffice())->count();
+        $multiDoc    = $requests->filter(fn ($r) => $r->isMultiDoc())->count();
+
+        // Volume series
+        $bucketLabel = function (?string $iso) use ($bucket): ?string {
+            if (!$iso) return null;
+            $dt = \Carbon\Carbon::parse($iso);
+            return match ($bucket) {
+                'total'   => 'Total',
+                'daily'   => $dt->format('Y-m-d'),
+                'weekly'  => $dt->copy()->startOfWeek(\Carbon\Carbon::MONDAY)->format('Y-m-d'),
+                'yearly'  => $dt->format('Y'),
+                default   => $dt->format('Y-m'),
+            };
+        };
+        $volumeAcc = [];
+        if ($bucket === 'monthly' && !$dateFrom) {
+            for ($i = 5; $i >= 0; $i--) {
+                $l = \Carbon\Carbon::now()->subMonths($i)->format('Y-m');
+                $volumeAcc[$l] = ['label' => $l, 'created' => 0, 'approved_final' => 0];
+            }
+        }
+        foreach ($requests as $r) {
+            $l = $bucketLabel($r->created_at?->toISOString());
+            if (!$l) continue;
+            $volumeAcc[$l] ??= ['label' => $l, 'created' => 0, 'approved_final' => 0];
+            $volumeAcc[$l]['created']++;
+            if ($r->status === 'closed') $volumeAcc[$l]['approved_final']++;
+        }
+        $volumeSeries = array_values($volumeAcc);
+        usort($volumeSeries, fn ($a, $b) => strcmp($a['label'], $b['label']));
+
+        // Office acceptance rate
+        $officeAcc = [];
+        foreach ($recipients as $r) {
+            $oid  = (int) $r->office_id;
+            $name = $r->office?->name ?? "Office #$oid";
+            $officeAcc[$oid] ??= ['office' => $name, 'sent' => 0, 'accepted' => 0, 'rejected' => 0];
+            $officeAcc[$oid]['sent']++;
+            if ($r->status === 'accepted') $officeAcc[$oid]['accepted']++;
+            if ($r->status === 'rejected') $officeAcc[$oid]['rejected']++;
+        }
+        $officeAcceptance = collect($officeAcc)
+            ->map(fn ($row) => [
+                ...$row,
+                'rate' => $row['sent'] ? round(($row['accepted'] / $row['sent']) * 100) : 0,
+            ])
+            ->sortBy('rate')
+            ->values()
+            ->all();
+
+        return response()->json([
+            'kpis' => [
+                'total'              => $total,
+                'open'               => $open,
+                'closed'             => $closed,
+                'cancelled'          => $cancelled,
+                'acceptance_rate'    => $acceptanceRate,
+                'avg_resubmissions'  => $avgResubmissions,
+                'overdue'            => $overdue,
+            ],
+            'status_distribution' => [
+                ['phase' => 'Open',      'count' => $open],
+                ['phase' => 'Closed',    'count' => $closed],
+                ['phase' => 'Cancelled', 'count' => $cancelled],
+            ],
+            'funnel' => [
+                ['stage' => 'Recipients sent', 'count' => $totalRecipients, 'color' => '#94a3b8'],
+                ['stage' => 'Submitted',       'count' => $submitted,       'color' => '#38bdf8'],
+                ['stage' => 'Accepted',        'count' => $accepted,        'color' => '#34d399'],
+                ['stage' => 'Rejected',        'count' => $rejected,        'color' => '#f43f5e'],
+            ],
+            'attempt_distribution' => [
+                ['attempt' => '1st pass',      'count' => $attempt1],
+                ['attempt' => '2nd attempt',   'count' => $attempt2],
+                ['attempt' => '3rd+ attempt',  'count' => $attempt3plus],
+            ],
+            'mode_split'       => ['multi_office' => $multiOffice, 'multi_doc' => $multiDoc],
+            'volume_series'    => $volumeSeries,
+            'office_acceptance' => $officeAcceptance,
         ]);
     }
 }

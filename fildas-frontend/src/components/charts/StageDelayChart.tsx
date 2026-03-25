@@ -24,6 +24,29 @@ const COLORS: Record<string, string> = {
   Registration: "#0ea5e9",
 };
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-500 px-3 py-2 shadow-md text-xs">
+      <p className="font-semibold text-slate-700 dark:text-slate-200 mb-0.5">{label}</p>
+      <p className="text-slate-500 dark:text-slate-400">
+        Avg hold:{" "}
+        <span className="font-semibold text-slate-800 dark:text-slate-100">
+          {payload[0].value}h
+        </span>
+      </p>
+      {payload[0].payload?.count != null && (
+        <p className="text-slate-500 dark:text-slate-400">
+          Versions:{" "}
+          <span className="font-semibold text-slate-800 dark:text-slate-100">
+            {payload[0].payload.count}
+          </span>
+        </p>
+      )}
+    </div>
+  );
+};
+
 const StageDelayChart: React.FC<{ data: StageDelay[]; height?: number }> = ({
   data,
   height = 200,
@@ -41,7 +64,7 @@ const StageDelayChart: React.FC<{ data: StageDelay[]; height?: number }> = ({
         tick={{ fontSize: 11 }}
         width={80}
       />
-      <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+      <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(148,163,184,0.06)" }} />
       <Bar dataKey="avg_hours" radius={[0, 4, 4, 0]}>
         <LabelList
           dataKey="avg_hours"

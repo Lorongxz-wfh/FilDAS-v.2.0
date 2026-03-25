@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   getDocumentStats,
@@ -18,10 +18,11 @@ import {
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
+import RefreshButton from "../components/ui/RefreshButton";
 import SkeletonList from "../components/ui/loader/SkeletonList";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
-import { RefreshCw, CheckCircle2, Search, X } from "lucide-react";
+import { CheckCircle2, Search, X } from "lucide-react";
 import StatCard from "../components/workQueue/StatCard";
 import QueueCard from "../components/workQueue/QueueCard";
 import FinishedCard from "../components/workQueue/FinishedCard";
@@ -180,6 +181,8 @@ const MyWorkQueuePage: React.FC = () => {
     );
   };
 
+  const queueCountRef = useRef(0);
+
   const loadAll = useCallback(async () => {
     const [s, a, q] = await Promise.all([
       getDocumentStats().catch(() => null),
@@ -190,10 +193,13 @@ const MyWorkQueuePage: React.FC = () => {
       }).catch(() => ({ data: [] })),
       getWorkQueue().catch(() => ({ assigned: [], monitoring: [] })),
     ]);
+    const assigned = (q as any)?.assigned ?? [];
+    const monitoring = (q as any)?.monitoring ?? [];
+    queueCountRef.current = assigned.length + monitoring.length;
     if (s) setStats(s);
     setRecentActivity((a as any)?.data ?? []);
-    setAssignedItems((q as any)?.assigned ?? []);
-    setMonitoringItems((q as any)?.monitoring ?? []);
+    setAssignedItems(assigned);
+    setMonitoringItems(monitoring);
     if (tab === "done") {
       setFinishedDocs([]);
       setFinishedPage(1);
@@ -201,7 +207,7 @@ const MyWorkQueuePage: React.FC = () => {
     }
   }, [tab, loadFinished, isAdmin]);
 
-  const { refresh, refreshing } = usePageBurstRefresh(loadAll);
+  const { refreshing } = usePageBurstRefresh(loadAll);
 
   // ── Tabs config ────────────────────────────────────────────────────────────
   const tabs: { value: QueueTab; label: string; count?: number }[] = [
@@ -224,17 +230,15 @@ const MyWorkQueuePage: React.FC = () => {
       contentClassName="flex flex-col min-h-0 gap-5 h-full"
       right={
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={refresh}
-            disabled={refreshing || loading}
+          <RefreshButton
+            onRefresh={async () => {
+              const prevCount = queueCountRef.current;
+              await loadAll();
+              return queueCountRef.current !== prevCount ? "Queue updated." : "Already up to date.";
+            }}
+            loading={refreshing || loading}
             title="Refresh queue"
-            className="flex items-center justify-center h-7 w-7 rounded border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
-            />
-          </button>
+          />
           <Button
             type="button"
             variant="outline"
@@ -350,6 +354,7 @@ const MyWorkQueuePage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSearch("")}
+                    title="Clear"
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                   >
                     <X className="h-3.5 w-3.5" />

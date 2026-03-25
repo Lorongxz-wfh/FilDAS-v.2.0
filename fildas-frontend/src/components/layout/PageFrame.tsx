@@ -1,11 +1,13 @@
 import React from "react";
 import PageHeading from "../ui/PageHeading";
+import Breadcrumb, { type BreadcrumbItem } from "../ui/Breadcrumb";
 
 type Props = {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   right?: React.ReactNode;
   onBack?: () => void;
+  breadcrumbs?: BreadcrumbItem[];
   contentClassName?: string;
   className?: string;
   children: React.ReactNode;
@@ -16,6 +18,7 @@ export default function PageFrame({
   subtitle,
   right,
   onBack,
+  breadcrumbs,
   contentClassName = "",
   className = "",
   children,
@@ -30,7 +33,7 @@ export default function PageFrame({
       <div className="shrink-0 border-b border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-600">
         <div className="flex items-center min-h-15 px-4 sm:px-6 py-2">
           <div className="flex flex-1 items-center justify-between gap-2 sm:gap-4">
-            {/* Left: back arrow + title */}
+            {/* Left: back arrow + breadcrumbs + title */}
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               {onBack && (
                 <button
@@ -54,7 +57,12 @@ export default function PageFrame({
                   </svg>
                 </button>
               )}
-              <PageHeading title={title} subtitle={subtitle} />
+              <div className="flex flex-col gap-0.5 min-w-0">
+                {breadcrumbs && breadcrumbs.length > 0 && (
+                  <Breadcrumb items={breadcrumbs} />
+                )}
+                <PageHeading title={title} subtitle={subtitle} />
+              </div>
             </div>
 
             {/* Right: action buttons */}

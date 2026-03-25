@@ -6,7 +6,6 @@ import Skeleton from "../components/ui/loader/Skeleton";
 
 // Shared charts
 import StatusDonutChart from "../components/charts/StatusDonutChart";
-import ComplianceClusterBarChart from "../components/charts/ComplianceClusterBarChart";
 import VolumeTrendChart from "../components/charts/VolumeTrendChart";
 import StageDelayChart from "../components/charts/StageDelayChart";
 
@@ -149,92 +148,88 @@ const QADashboard: React.FC<
       </div>
 
       {/* KPI strip */}
-      {(report.kpis || loading) && (
-        <div className="flex flex-wrap gap-2">
-          {[
-            {
-              label: "Avg cycle time",
-              value: report.kpis?.cycle_time_avg_days.toFixed(1) ?? "—",
-              suffix: "d",
-              color: "text-violet-600 dark:text-violet-400",
-            },
-            {
-              label: "First-pass yield",
-              value: report.kpis?.first_pass_yield_pct.toFixed(1) ?? "—",
-              suffix: "%",
-              color: "text-emerald-600 dark:text-emerald-400",
-            },
-            {
-              label: "Ping-pong ratio",
-              value: report.kpis?.pingpong_ratio.toFixed(2) ?? "—",
-              suffix: "×",
-              color: "text-amber-600 dark:text-amber-400",
-            },
-          ].map((kpi) => (
-            <div
-              key={kpi.label}
-              className="flex items-center gap-2.5 rounded-md border border-slate-200 bg-white px-3.5 py-2 dark:border-surface-400 dark:bg-surface-500"
-            >
-              {loading ? (
-                <Skeleton className="h-4 w-20" />
-              ) : (
-                <>
-                  <span
-                    className={`text-base font-bold tabular-nums ${kpi.color}`}
-                  >
-                    {kpi.value}
-                    <span className="ml-0.5 text-xs font-normal">
-                      {kpi.suffix}
-                    </span>
-                  </span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    {kpi.label}
-                  </span>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        {[
+          {
+            label: "Avg cycle time",
+            value: loading ? null : (report.kpis?.cycle_time_avg_days.toFixed(1) ?? "—"),
+            suffix: "d",
+            color: "text-violet-600 dark:text-violet-400",
+          },
+          {
+            label: "First-pass yield",
+            value: loading ? null : (report.kpis?.first_pass_yield_pct.toFixed(1) ?? "—"),
+            suffix: "%",
+            color: "text-emerald-600 dark:text-emerald-400",
+          },
+          {
+            label: "Ping-pong ratio",
+            value: loading ? null : (report.kpis?.pingpong_ratio.toFixed(2) ?? "—"),
+            suffix: "×",
+            color: "text-amber-600 dark:text-amber-400",
+          },
+          {
+            label: "Waiting on QA",
+            value: loading ? null : String(report.waiting_on_qa ?? 0),
+            suffix: "",
+            color: (report.waiting_on_qa ?? 0) > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-200",
+          },
+          {
+            label: "In review",
+            value: loading ? null : String(report.in_review_count ?? 0),
+            suffix: "",
+            color: "text-sky-600 dark:text-sky-400",
+          },
+          {
+            label: "In approval",
+            value: loading ? null : String(report.in_approval_count ?? 0),
+            suffix: "",
+            color: "text-indigo-600 dark:text-indigo-400",
+          },
+        ].map((kpi) => (
+          <div
+            key={kpi.label}
+            className="flex flex-col gap-0.5 rounded-md border border-slate-200 bg-white px-3.5 py-2.5 dark:border-surface-400 dark:bg-surface-500"
+          >
+            {kpi.value === null ? (
+              <Skeleton className="h-5 w-12 mb-1" />
+            ) : (
+              <span className={`text-lg font-bold tabular-nums leading-none ${kpi.color}`}>
+                {kpi.value}
+                {kpi.suffix && <span className="ml-0.5 text-xs font-normal">{kpi.suffix}</span>}
+              </span>
+            )}
+            <span className="text-xs text-slate-500 dark:text-slate-400">{kpi.label}</span>
+          </div>
+        ))}
+      </div>
 
-      {/* Row 2: Stage delay + Cluster */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* Row 2: Phase breakdown (wide) + Stage delay */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card
+          title="Documents by phase"
+          sub="Current document distribution across workflow phases."
+          action={{ label: "Open library", onClick: () => navigate("/documents") }}
+          className="lg:col-span-2"
+        >
+          {loading ? (
+            <Skeleton className="h-44 w-full rounded" />
+          ) : (
+            <AdminDocumentPhaseChart byPhase={stats?.by_phase} height={176} />
+          )}
+        </Card>
+
         <Card
           title="Stage delay"
           sub="Average processing time per workflow stage."
-          action={{
-            label: "Full reports",
-            onClick: () => navigate("/reports"),
-          }}
+          action={{ label: "Full reports", onClick: () => navigate("/reports") }}
         >
           {loading ? (
             <Skeleton className="h-44 w-full rounded" />
           ) : (
             <StageDelayChart
-              data={report.stage_delays.filter(
-                (s) => s.count > 0 || s.avg_hours > 0,
-              )}
+              data={report.stage_delays.filter((s) => s.count > 0 || s.avg_hours > 0)}
               height={176}
-            />
-          )}
-        </Card>
-
-        <Card
-          title="Workflow by cluster"
-          sub="Document status per office cluster."
-          action={{
-            label: "Full reports",
-            onClick: () => navigate("/reports"),
-          }}
-        >
-          {loading ? (
-            <Skeleton className="h-44 w-full rounded" />
-          ) : (
-            <ComplianceClusterBarChart
-              height={176}
-              data={report.clusters.filter(
-                (c) => c.in_review + c.sent_to_qa + c.approved + c.returned > 0,
-              )}
             />
           )}
         </Card>
@@ -525,19 +520,19 @@ const DashboardPage: React.FC = () => {
           <div className="flex shrink-0 items-center gap-2">
             {!loading &&
               (pendingCount > 0 ? (
-                <div className="hidden sm:flex items-center gap-1.5 rounded border border-rose-200 bg-rose-50 px-2.5 py-1 dark:border-rose-800 dark:bg-rose-950/30">
+                <div className="hidden sm:flex items-center gap-1.5 rounded border border-rose-200 bg-rose-50 px-2.5 py-1 dark:border-rose-900 dark:bg-rose-950/15">
                   <span className="relative flex h-1.5 w-1.5">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
                     <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-500" />
                   </span>
-                  <span className="text-xs font-semibold text-rose-700 dark:text-rose-400">
+                  <span className="text-xs font-semibold text-rose-700 dark:text-rose-300">
                     {pendingCount} pending
                   </span>
                 </div>
               ) : (
-                <div className="hidden sm:flex items-center gap-1.5 rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 dark:border-emerald-800 dark:bg-emerald-950/30">
+                <div className="hidden sm:flex items-center gap-1.5 rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 dark:border-emerald-900 dark:bg-emerald-950/15">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                     All caught up
                   </span>
                 </div>
@@ -562,7 +557,7 @@ const DashboardPage: React.FC = () => {
       {/* ── Scrollable body ── */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-5 py-4 space-y-4">
-          {error && <Alert variant="danger">{error}</Alert>}
+          {!loading && error && <Alert variant="danger">{error}</Alert>}
 
           {isAdmin ? (
             <AdminDashboard {...dashData} navigate={navigate} />

@@ -3,6 +3,7 @@ import {
   Navigate,
   useNavigate,
   useParams,
+  useLocation,
 } from "react-router-dom";
 import PageFrame from "../components/layout/PageFrame";
 import { getAuthUser } from "../lib/auth";
@@ -70,10 +71,13 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
 export default function DocumentViewPage() {
   const navigate = useNavigate();
   const params = useParams();
+  const location = useLocation();
   const me = getAuthUser();
   if (!me) return <Navigate to="/login" replace />;
 
   const docId = Number(params.id);
+  const parentCrumbs: { label: string; to?: string }[] =
+    (location.state as any)?.breadcrumbs ?? [{ label: "Library", to: "/documents" }];
   if (!Number.isFinite(docId) || docId <= 0) return <Navigate to="/documents" replace />;
 
   const role = getUserRole();
@@ -273,6 +277,7 @@ export default function DocumentViewPage() {
     <PageFrame
       title={doc.title}
       onBack={() => navigate("/documents")}
+      breadcrumbs={parentCrumbs}
       right={
         <div className="flex items-center gap-2">
           {canShare && (
@@ -292,7 +297,7 @@ export default function DocumentViewPage() {
               type="button"
               variant="primary"
               size="sm"
-              onClick={() => navigate(`/documents/${docId}${version?.id ? `?version_id=${version.id}` : ""}`, { state: { from: `/documents/${docId}/view` } })}
+              onClick={() => navigate(`/documents/${docId}${version?.id ? `?version_id=${version.id}` : ""}`, { state: { from: `/documents/${docId}/view`, breadcrumbs: [...parentCrumbs, { label: doc.title, to: `/documents/${docId}/view` }] } })}
             >
               <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
               Open flow

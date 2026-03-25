@@ -78,7 +78,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
             <div
               className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold shadow-sm ${
                 isCurrent
-                  ? "bg-sky-600 text-white"
+                  ? "bg-brand-400 text-white"
                   : "bg-white text-slate-600 border border-slate-200 dark:bg-surface-500 dark:text-slate-300 dark:border-surface-300"
               }`}
             >
@@ -86,7 +86,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
             </div>
             <span
               className={`mt-2 text-[11px] font-medium leading-snug ${
-                isCurrent ? "text-sky-800 dark:text-sky-300" : "text-slate-600 dark:text-slate-400"
+                isCurrent ? "text-slate-900 dark:text-slate-100 font-semibold" : "text-slate-600 dark:text-slate-400"
               }`}
               title={step.label}
             >
@@ -112,7 +112,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                   <div
                     className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold shadow-sm ${
                       stepIsCurrent
-                        ? "bg-sky-600 text-white"
+                        ? "bg-brand-400 text-white"
                         : stepIsCompleted
                           ? "bg-emerald-500 text-white"
                           : "bg-white text-slate-600 border border-slate-200 dark:bg-surface-500 dark:text-slate-300 dark:border-surface-300"
@@ -123,7 +123,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                   <span
                     className={`mt-1.5 text-center text-[10px] font-medium leading-tight line-clamp-2 ${
                       stepIsCurrent
-                        ? "text-sky-800 dark:text-sky-300"
+                        ? "text-slate-900 dark:text-slate-100 font-semibold"
                         : stepIsCompleted
                           ? "text-slate-700 dark:text-slate-300"
                           : "text-slate-500 dark:text-slate-400"
@@ -140,7 +140,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                         stepIsCompleted
                           ? "bg-emerald-400"
                           : stepIsCurrent
-                            ? "bg-sky-300 dark:bg-sky-800"
+                            ? "bg-brand-300 dark:bg-brand-700"
                             : "bg-slate-200 dark:bg-surface-300"
                       }`}
                     />
@@ -151,7 +151,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                         stepIsCompleted
                           ? "text-emerald-400"
                           : stepIsCurrent
-                            ? "text-sky-300 dark:text-sky-800"
+                            ? "text-brand-300 dark:text-brand-700"
                             : "text-slate-300 dark:text-surface-300"
                       }`}
                     >
@@ -184,7 +184,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                   routeStepsCount > 0
-                    ? "bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-800"
+                    ? "bg-slate-100 text-slate-600 border border-slate-200 dark:bg-surface-400 dark:text-slate-300 dark:border-surface-300"
                     : "bg-slate-50 text-slate-600 border border-slate-200 dark:bg-surface-400 dark:text-slate-300 dark:border-surface-300"
                 }`}
               >
@@ -198,7 +198,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                   <div className="h-full w-1/3 rounded-full bg-slate-300 dark:bg-surface-300 animate-pulse" />
                 ) : (
                   <div
-                    className="h-full rounded-full bg-sky-500 transition-all duration-500"
+                    className="h-full rounded-full bg-brand-400 transition-all duration-500"
                     style={{ width: `${progressPct}%` }}
                   />
                 )}
@@ -207,7 +207,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                 <div className="h-3 w-16 rounded-full bg-slate-300 dark:bg-surface-300 animate-pulse shrink-0" />
               ) : (
                 <div className="shrink-0 flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-sky-600 dark:text-sky-400">
+                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
                     {currentPhase.label}
                   </span>
                   <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
@@ -300,7 +300,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                           <span
                             className={`h-2 w-2 shrink-0 rounded-full ${
                               isCurrent
-                                ? "bg-sky-500"
+                                ? "bg-brand-400 dark:bg-brand-300"
                                 : isCompleted
                                   ? "bg-emerald-500"
                                   : "bg-slate-300 dark:bg-surface-300"
@@ -309,7 +309,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                           <span
                             className={`flex-1 min-w-0 text-xs font-semibold ${
                               isCurrent
-                                ? "text-sky-800 dark:text-sky-300"
+                                ? "text-slate-900 dark:text-slate-100 font-semibold"
                                 : isCompleted
                                   ? "text-slate-600 dark:text-slate-300"
                                   : "text-slate-400 dark:text-slate-500"
@@ -319,7 +319,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                           </span>
                           {isCurrent && (
                             <Circle
-                              className="shrink-0 h-3.5 w-3.5 text-sky-500 dark:text-sky-400 animate-pulse fill-sky-100 dark:fill-sky-950/60"
+                              className="shrink-0 h-3.5 w-3.5 text-brand-400 dark:text-brand-300 animate-pulse"
                               strokeWidth={2}
                             />
                           )}
@@ -416,7 +416,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                         onClick={() => setSelectedPhaseId(phase.id)}
                         className={`flex-1 min-w-0 rounded-lg border px-3 py-2 text-left transition-colors cursor-pointer ${
                           isCurrent
-                            ? "border-sky-200 bg-sky-50 dark:border-sky-800 dark:bg-sky-950/40"
+                            ? "border-brand-400/50 bg-brand-50 dark:border-brand-400/40 dark:bg-brand-500/10"
                             : selectedPhaseId === phase.id
                               ? "border-slate-400 bg-slate-100 dark:border-slate-400 dark:bg-surface-400/60"
                               : isCompleted
@@ -429,7 +429,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                             <span
                               className={`h-2.5 w-2.5 shrink-0 rounded-full ${
                                 isCurrent
-                                  ? "bg-sky-600"
+                                  ? "bg-brand-400 dark:bg-brand-300"
                                   : isCompleted
                                     ? "bg-slate-400 dark:bg-slate-500"
                                     : "bg-slate-300 dark:bg-surface-300"
@@ -438,7 +438,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                             <span
                               className={`text-xs font-semibold truncate ${
                                 isCurrent
-                                  ? "text-sky-800 dark:text-sky-300"
+                                  ? "text-slate-900 dark:text-slate-100 font-semibold"
                                   : isCompleted
                                     ? "text-slate-400 dark:text-slate-500"
                                     : "text-slate-400 dark:text-slate-500"
@@ -450,7 +450,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                           </div>
                           {isCurrent && (
                             <Circle
-                              className="shrink-0 h-4 w-4 text-sky-500 dark:text-sky-400 animate-pulse fill-sky-100 dark:fill-sky-950/60"
+                              className="shrink-0 h-4 w-4 text-brand-400 dark:text-brand-300 animate-pulse"
                               strokeWidth={2}
                             />
                           )}
@@ -476,7 +476,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                               isCompleted
                                 ? "text-slate-300 dark:text-slate-600"
                                 : isCurrent
-                                  ? "text-sky-400"
+                                  ? "text-brand-300 dark:text-brand-400"
                                   : "text-slate-300 dark:text-surface-300"
                             }`}
                             fill="currentColor"

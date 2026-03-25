@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { setAuthUser } from "../lib/auth";
 import logoUrl from "../assets/FCU Logo.png";
 import { Eye, EyeOff, CheckCircle2, Sun, Moon } from "lucide-react";
+import { useTheme } from "../hooks/useTheme";
 
 const API_BASE =
   (import.meta.env.VITE_API_BASE_URL as string) || "http://127.0.0.1:8000/api";
@@ -14,15 +15,7 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [dark, setDark] = useState(() =>
-    document.documentElement.classList.contains("dark"),
-  );
-
-  const toggleDark = () => {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-  };
+  const { theme, toggle: toggleDark } = useTheme();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +68,7 @@ const LoginPage: React.FC = () => {
         onClick={toggleDark}
         className="absolute top-4 right-4 z-20 flex items-center justify-center h-8 w-8 rounded-md bg-white/10 hover:bg-white/20 border border-white/20 text-white backdrop-blur-sm transition"
       >
-        {dark ? <Sun size={15} /> : <Moon size={15} />}
+        {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
       </button>
 
       {/* Card container */}

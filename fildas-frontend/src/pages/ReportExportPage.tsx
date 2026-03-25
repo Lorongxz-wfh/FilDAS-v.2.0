@@ -273,6 +273,7 @@ const ReportExportPage: React.FC = () => {
     <PageFrame
       title="Export Reports"
       onBack={() => navigate("/reports")}
+      breadcrumbs={[{ label: "Reports", to: "/reports" }]}
       contentClassName="flex flex-col gap-5"
       right={
         <button

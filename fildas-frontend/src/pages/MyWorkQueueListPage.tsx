@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import { useNavigate } from "react-router-dom";
 import { listDocumentsPage, type Document } from "../services/documents";
@@ -88,6 +88,9 @@ export default function MyWorkQueueListPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const hasMoreRef = useRef(true);
+  const manualRefreshInProgress = useRef(false);
+
   useEffect(() => {
     const t = window.setTimeout(() => setQDebounced(q), 300);
     return () => window.clearTimeout(t);
@@ -96,6 +99,7 @@ export default function MyWorkQueueListPage() {
   useEffect(() => {
     setRows([]);
     setPage(1);
+    hasMoreRef.current = true;
     setHasMore(true);
     setInitialLoading(true);
   }, [tab, qDebounced, typeFilter, dateFrom, dateTo]);
@@ -103,9 +107,10 @@ export default function MyWorkQueueListPage() {
   const statusParam = tab === "done" ? "Distributed" : undefined;
 
   useEffect(() => {
+    if (manualRefreshInProgress.current) return;
     let alive = true;
     const load = async () => {
-      if (!hasMore && page > 1) return;
+      if (!hasMoreRef.current && page > 1) return;
       setLoading(true);
       setError(null);
       try {
@@ -121,11 +126,12 @@ export default function MyWorkQueueListPage() {
         if (!alive) return;
         const incoming = res.data ?? [];
         setRows((prev) => (page === 1 ? incoming : [...prev, ...incoming]));
-        setHasMore(
+        const more =
           res.meta?.current_page != null &&
-            res.meta?.last_page != null &&
-            res.meta.current_page < res.meta.last_page,
-        );
+          res.meta?.last_page != null &&
+          res.meta.current_page < res.meta.last_page;
+        hasMoreRef.current = more;
+        setHasMore(more);
       } catch (e: any) {
         if (!alive) return;
         setError(e?.message ?? "Failed to load documents.");
@@ -137,7 +143,9 @@ export default function MyWorkQueueListPage() {
     };
     load();
     return () => { alive = false; };
-  }, [page, qDebounced, statusParam, typeFilter, dateFrom, dateTo, hasMore]);
+  // hasMore intentionally omitted — tracked via hasMoreRef to avoid re-trigger
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, qDebounced, statusParam, typeFilter, dateFrom, dateTo]);
 
   const reload = useCallback(() => {
     setRows([]);
@@ -146,7 +154,48 @@ export default function MyWorkQueueListPage() {
     setInitialLoading(true);
   }, []);
 
-  const { refresh, refreshing } = usePageBurstRefresh(reload);
+  const { refreshing } = usePageBurstRefresh(reload);
+
+  const firstDocIdRef = useRef<number | null>(null);
+  const refresh = useCallback(async (): Promise<string | void> => {
+    const prevFirstId = firstDocIdRef.current;
+    manualRefreshInProgress.current = true;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await listDocumentsPage({
+        page: 1,
+        perPage: 12,
+        q: qDebounced.trim() || undefined,
+        status: statusParam,
+        doctype: typeFilter || undefined,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+      });
+      const incoming = res.data ?? [];
+      firstDocIdRef.current = incoming[0]?.id ?? null;
+      setRows(incoming);
+      setPage(1);
+      const more =
+        res.meta?.current_page != null &&
+        res.meta?.last_page != null &&
+        res.meta.current_page < res.meta.last_page;
+      hasMoreRef.current = more;
+      setHasMore(more);
+      setError(null); // clear any stale concurrent error
+      setInitialLoading(false);
+      if (prevFirstId === null) return;
+      return incoming[0]?.id !== prevFirstId
+        ? "Documents updated."
+        : "Already up to date.";
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load documents.");
+      throw e;
+    } finally {
+      setLoading(false);
+      manualRefreshInProgress.current = false;
+    }
+  }, [qDebounced, statusParam, typeFilter, dateFrom, dateTo]);
 
   const displayRows = useMemo(() => {
     if (tab === "active") {
@@ -253,10 +302,11 @@ export default function MyWorkQueueListPage() {
     <PageFrame
       title="Workflow Documents"
       onBack={() => navigate("/work-queue")}
+      breadcrumbs={[{ label: "Work Queue", to: "/work-queue" }]}
       contentClassName="flex flex-col min-h-0 h-full"
       right={
         <div className="flex items-center gap-2">
-          <RefreshButton onClick={refresh} loading={loading || refreshing} title="Refresh" />
+          <RefreshButton onRefresh={refresh} loading={loading || refreshing} title="Refresh" />
           {canCreate && (
             <Button
               type="button"
@@ -293,7 +343,7 @@ export default function MyWorkQueueListPage() {
             className={`${inputCls} pl-9 pr-8`}
           />
           {q && (
-            <button type="button" onClick={() => setQ("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+            <button type="button" onClick={() => setQ("")} title="Clear" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
               <X className="h-3.5 w-3.5" />
             </button>
           )}
@@ -342,7 +392,7 @@ export default function MyWorkQueueListPage() {
             hasFilters       ? "No documents match your filters." :
             "No workflow documents found."
           }
-          onRowClick={(doc) => navigate(`/documents/${doc.id}`, { state: { from: "/documents/all" } })}
+          onRowClick={(doc) => navigate(`/documents/${doc.id}`, { state: { from: "/documents/all", breadcrumbs: [{ label: "Work Queue", to: "/work-queue" }, { label: "All Documents", to: "/documents/all" }] } })}
           hasMore={tab !== "active" && hasMore}
           onLoadMore={() => setPage((p) => p + 1)}
         />

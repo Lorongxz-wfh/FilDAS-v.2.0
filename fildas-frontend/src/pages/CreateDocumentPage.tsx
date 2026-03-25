@@ -281,6 +281,7 @@ export default function CreateDocumentPage() {
           cleanupTempPreview(tempPreview);
           navigate(-1);
         }}
+        breadcrumbs={[{ label: "Work Queue", to: "/work-queue" }]}
         contentClassName="flex flex-col gap-4 h-full"
         right={
           <button
@@ -312,20 +313,20 @@ export default function CreateDocumentPage() {
                   <React.Fragment key={i}>
                     <span
                       className={[
-                        "whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shrink-0",
+                        "whitespace-nowrap rounded px-2.5 py-1 text-xs font-medium shrink-0",
                         node.type === "check"
-                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
                           : node.type === "action"
-                            ? "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400"
+                            ? "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-400"
                             : node.type === "creator"
-                              ? "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400 ring-1 ring-sky-200 dark:ring-sky-800"
+                              ? "bg-brand-50 text-brand-700 dark:bg-brand-950/20 dark:text-brand-300 ring-1 ring-brand-200 dark:ring-brand-900"
                               : "bg-white dark:bg-surface-600 border border-slate-200 dark:border-surface-400 text-slate-600 dark:text-slate-300",
                       ].join(" ")}
                     >
                       {node.label}
                     </span>
                     {i < chainNodes.length - 1 && (
-                      <span className="text-slate-300 dark:text-slate-600 text-xs shrink-0">
+                      <span className="text-slate-400 dark:text-slate-600 text-xs shrink-0">
                         →
                       </span>
                     )}
@@ -408,7 +409,7 @@ export default function CreateDocumentPage() {
                                 value={type}
                                 checked={doctype === type}
                                 onChange={() => setDoctype(type)}
-                                className="accent-sky-500"
+                                className="accent-brand-400"
                               />
                               <span className="text-sm text-slate-700 dark:text-slate-300 capitalize">
                                 {type}
@@ -523,15 +524,15 @@ export default function CreateDocumentPage() {
                         <input
                           type="file"
                           required
-                          disabled={loading}
+                          disabled={loading || previewLoading}
                           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                          className="block w-full text-sm text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-sky-50 dark:file:bg-sky-950/40 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-sky-700 dark:file:text-sky-400 hover:file:bg-sky-100 disabled:opacity-60"
+                          className="block w-full text-sm text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 dark:file:bg-surface-400 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-slate-600 dark:file:text-slate-300 hover:file:bg-slate-200 dark:hover:file:bg-surface-300 disabled:opacity-60"
                         />
                         {loading && (
                           <div className="w-24 shrink-0">
                             <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-surface-400 overflow-hidden">
                               <div
-                                className="h-full bg-sky-500 transition-[width]"
+                                className="h-full bg-brand-400 dark:bg-brand-300 transition-[width]"
                                 style={{ width: `${Math.max(2, uploadPct)}%` }}
                               />
                             </div>
@@ -544,7 +545,7 @@ export default function CreateDocumentPage() {
                     </Field>
 
                     {error && (
-                      <div className="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-xs text-rose-700 dark:text-rose-400">
+                      <div className="rounded-md border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/15 px-4 py-3 text-xs text-rose-700 dark:text-rose-300">
                         <p className="font-medium">{error}</p>
                         {fieldErrors && (
                           <ul className="mt-1 list-disc pl-4 space-y-0.5">
@@ -576,7 +577,7 @@ export default function CreateDocumentPage() {
                       <button
                         type="submit"
                         disabled={loading}
-                        className="rounded-md bg-sky-500 hover:bg-sky-600 disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white transition"
+                        className="rounded-md bg-brand-400 hover:bg-brand-500 dark:bg-brand-300 dark:hover:bg-brand-400 disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white transition"
                       >
                         {loading ? "Creating…" : "Save document"}
                       </button>
@@ -605,13 +606,16 @@ export default function CreateDocumentPage() {
                       </p>
                     </div>
                   ) : previewLoading ? (
-                    <div className="flex h-full items-center justify-center">
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
-                        Generating preview…
-                      </p>
+                    <div className="h-full w-full rounded-md bg-slate-100 dark:bg-surface-400 animate-pulse flex flex-col gap-3 p-5">
+                      <div className="h-3.5 w-3/4 rounded bg-slate-200 dark:bg-surface-300" />
+                      <div className="h-3.5 w-full rounded bg-slate-200 dark:bg-surface-300" />
+                      <div className="h-3.5 w-5/6 rounded bg-slate-200 dark:bg-surface-300" />
+                      <div className="h-3.5 w-2/3 rounded bg-slate-200 dark:bg-surface-300" />
+                      <div className="mt-2 h-3.5 w-full rounded bg-slate-200 dark:bg-surface-300" />
+                      <div className="h-3.5 w-4/5 rounded bg-slate-200 dark:bg-surface-300" />
                     </div>
                   ) : previewError ? (
-                    <div className="rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 p-4 text-xs text-rose-700 dark:text-rose-400">
+                    <div className="rounded-md border border-rose-200 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/15 p-4 text-xs text-rose-700 dark:text-rose-300">
                       {previewError}
                       <p className="mt-1 opacity-70">
                         You can still save without a preview.

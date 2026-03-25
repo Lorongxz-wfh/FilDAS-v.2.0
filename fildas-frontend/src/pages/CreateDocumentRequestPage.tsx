@@ -353,6 +353,7 @@ export default function CreateDocumentRequestPage() {
         items.forEach((it) => cleanupPreview(it.tempPreview));
         navigate(-1);
       }}
+      breadcrumbs={[{ label: "Document Requests", to: "/document-requests" }]}
       contentClassName="flex flex-col gap-4 h-full"
     >
       {/* Mode + recipients bar */}

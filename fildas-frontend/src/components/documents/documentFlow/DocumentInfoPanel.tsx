@@ -146,7 +146,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
             className={[
               "px-2.5 py-1 rounded-md text-xs font-medium transition",
               activeTab === tab
-                ? "bg-sky-100 dark:bg-sky-950/40 text-sky-700 dark:text-sky-400"
+                ? "bg-slate-100 dark:bg-surface-400 text-slate-900 dark:text-slate-100 font-semibold"
                 : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-surface-400",
             ].join(" ")}
           >
@@ -157,7 +157,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
           <button
             type="button"
             onClick={handleEditOpen}
-            className="ml-auto flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 border border-sky-200 dark:border-sky-800 transition"
+            className="ml-auto flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-surface-400 border border-slate-200 dark:border-surface-300 transition"
           >
             <Pencil className="h-2.5 w-2.5" />
             Edit
@@ -177,7 +177,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
               type="button"
               onClick={handleSave}
               disabled={isSaving}
-              className="rounded-md px-2 py-0.5 text-xs font-medium text-white bg-sky-500 hover:bg-sky-600 disabled:opacity-50 transition flex items-center gap-1"
+              className="rounded-md px-2 py-0.5 text-xs font-medium text-white bg-brand-400 hover:bg-brand-500 dark:bg-brand-300 dark:hover:bg-brand-400 disabled:opacity-50 transition flex items-center gap-1"
             >
               {isSaving && <Loader2 className="animate-spin h-2.5 w-2.5" />}
               Save
@@ -190,7 +190,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
       {activeTab === "details" && (
         <div className="space-y-1.5">
           {isEditing ? (
-            <div className="rounded-md bg-slate-50 dark:bg-surface-600/50 border border-sky-200 dark:border-sky-800 px-3 py-2">
+            <div className="rounded-md bg-slate-50 dark:bg-surface-600/50 border border-slate-200 dark:border-surface-300 px-3 py-2">
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">
                 Title
                 {!isDraftStatus && (
@@ -207,9 +207,9 @@ const DocumentInfoPanel: React.FC<Props> = ({
                   if (e.key === "Escape") handleCancel();
                 }}
                 disabled={isSaving || !isDraftStatus}
-                className={`w-full rounded-md border px-2 py-1 text-xs text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-sky-400 ${
+                className={`w-full rounded-md border px-2 py-1 text-xs text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-brand-400/30 ${
                   isDraftStatus
-                    ? "border-sky-300 dark:border-sky-700 bg-white dark:bg-surface-500"
+                    ? "border-slate-300 dark:border-surface-300 bg-white dark:bg-surface-500"
                     : "border-slate-200 dark:border-surface-400 bg-slate-100 dark:bg-surface-600 opacity-60 cursor-not-allowed"
                 }`}
               />
@@ -226,7 +226,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
               ) : (document as any).reserved_code ? (
                 <span className="flex items-center gap-1.5">
                   {(document as any).reserved_code}
-                  <span className="rounded-full bg-amber-100 dark:bg-amber-950/40 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400">
+                  <span className="rounded border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600 dark:text-amber-300">
                     pending
                   </span>
                 </span>
@@ -280,7 +280,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
           )}
 
           {isEditing ? (
-            <div className="rounded-md bg-slate-50 dark:bg-surface-600/50 border border-sky-200 dark:border-sky-800 px-3 py-2">
+            <div className="rounded-md bg-slate-50 dark:bg-surface-600/50 border border-slate-200 dark:border-surface-300 px-3 py-2">
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-1.5">
                 Tags{" "}
                 <span className="text-slate-400 font-normal">
@@ -291,7 +291,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
                 {tagsDraft.map((tag) => (
                   <span
                     key={tag}
-                    className="flex items-center gap-1 rounded-full bg-sky-100 dark:bg-sky-950/40 px-2 py-0.5 text-xs font-medium text-sky-700 dark:text-sky-300"
+                    className="flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-surface-400 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-surface-300"
                   >
                     {tag}
                     <button
@@ -310,7 +310,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
                 onKeyDown={handleTagInputKeyDown}
                 disabled={isSaving}
                 placeholder="Add tag…"
-                className="w-full rounded-md border border-sky-300 dark:border-sky-700 bg-white dark:bg-surface-500 px-2 py-1 text-xs text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-sky-400"
+                className="w-full rounded-md border border-slate-300 dark:border-surface-300 bg-white dark:bg-surface-500 px-2 py-1 text-xs text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-brand-400/30"
               />
             </div>
           ) : tags.length > 0 ? (

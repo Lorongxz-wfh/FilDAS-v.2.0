@@ -53,3 +53,9 @@
     background-color: #f1f5f9;
   }
 }
+
+/* Suppresses all transitions during theme switch to prevent color-change stagger */
+.theme-switching,
+.theme-switching * {
+  transition: none !important;
+}

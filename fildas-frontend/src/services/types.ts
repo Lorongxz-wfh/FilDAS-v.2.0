@@ -216,8 +216,43 @@ export type ComplianceReportResponse = {
 
   volume_series: ComplianceVolumeSeriesDatum[];
   kpis: ComplianceKpis;
-
   stage_delays: ComplianceStageDelayDatum[];
+
+  // Extended fields (wired from backend)
+  phase_distribution?: { phase: string; count: number }[];
+  waiting_on_qa?: number;
+  revision_stats?: { docs_on_v2_plus: number; avg_versions: number };
+  routing_split?: { default_flow: number; custom_flow: number };
+  in_review_count?: number;
+  in_approval_count?: number;
+  stage_delays_default?: ComplianceStageDelayDatum[];
+  stage_delays_custom?: ComplianceStageDelayDatum[];
+};
+
+export type FlowHealthReport = {
+  return_by_stage: { stage: string; returns: number; total: number }[];
+  return_trend: { label: string; Office: number; VP: number; President: number; QA: number }[];
+  bottleneck: { office: string; avg_hours: number; task_count: number }[];
+};
+
+export type RequestsReportKpis = {
+  total: number;
+  open: number;
+  closed: number;
+  cancelled: number;
+  acceptance_rate: number;
+  avg_resubmissions: number;
+  overdue: number;
+};
+
+export type RequestsReport = {
+  kpis: RequestsReportKpis;
+  status_distribution: { phase: string; count: number }[];
+  funnel: { stage: string; count: number; color: string }[];
+  attempt_distribution: { attempt: string; count: number }[];
+  mode_split: { multi_office: number; multi_doc: number };
+  volume_series: { label: string; created: number; approved_final: number }[];
+  office_acceptance: { office: string; sent: number; accepted: number; rejected: number; rate: number }[];
 };
 
 export interface DocumentMessageSender {
@@ -299,6 +334,7 @@ export type DocumentStats = {
   total: number;
   pending: number;
   distributed: number;
+  by_phase?: Record<string, number>;
 };
 
 export type AdminDashboardStats = {
@@ -306,6 +342,7 @@ export type AdminDashboardStats = {
     total: number;
     active: number;
     inactive: number;
+    online?: number;
     by_role: { role: string; count: number }[];
     recent: {
       id: number;

@@ -318,6 +318,7 @@ const InboxPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setSearch("")}
+              title="Clear"
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
             >
               <X className="h-3.5 w-3.5" />

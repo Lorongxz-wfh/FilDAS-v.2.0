@@ -37,6 +37,7 @@ return new class extends Migration
             // Account status
             $table->timestamp('disabled_at')->nullable();
             $table->foreignId('disabled_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamp('last_active_at')->nullable();
 
             $table->rememberToken();
             $table->timestamps();
