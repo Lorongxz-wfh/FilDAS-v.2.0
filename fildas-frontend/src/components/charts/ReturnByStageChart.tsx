@@ -301,7 +301,7 @@ const ReturnByStageChart: React.FC<{
   variant: ReturnByStageVariant;
   height?: number;
 }> = ({ data, trendData = [], variant, height = 220 }) => {
-  const isEmpty = variant === "trend" ? !trendData?.length : !data?.length;
+  const isEmpty = variant === "line" ? !trendData?.length : !data?.length;
   if (isEmpty) return <EmptyChart height={height} />;
   if (variant === "horizontal")
     return <HorizontalBar data={data} height={height} />;
