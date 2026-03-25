@@ -1,4 +1,15 @@
 import React from "react";
+import { BarChart2 } from "lucide-react";
+
+const EmptyChart = ({ height = 200 }: { height?: number }) => (
+  <div
+    className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 dark:border-surface-300 bg-slate-50/50 dark:bg-surface-600/30 text-slate-400 dark:text-slate-500"
+    style={{ height }}
+  >
+    <BarChart2 className="h-5 w-5 opacity-40" />
+    <span className="text-xs font-medium">No data available</span>
+  </div>
+);
 import {
   ResponsiveContainer,
   BarChart,
@@ -50,7 +61,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 const StageDelayChart: React.FC<{ data: StageDelay[]; height?: number }> = ({
   data,
   height = 200,
-}) => (
+}) => {
+  if (!data?.length) return <EmptyChart height={height} />;
+  return (
   <ResponsiveContainer width="100%" height={height}>
     <BarChart
       data={data}
@@ -81,6 +94,7 @@ const StageDelayChart: React.FC<{ data: StageDelay[]; height?: number }> = ({
       </Bar>
     </BarChart>
   </ResponsiveContainer>
-);
+  );
+};
 
 export default StageDelayChart;

@@ -1,4 +1,15 @@
 import React from "react";
+import { BarChart2 } from "lucide-react";
+
+const EmptyChart = ({ height = 220 }: { height?: number }) => (
+  <div
+    className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 dark:border-surface-300 bg-slate-50/50 dark:bg-surface-600/30 text-slate-400 dark:text-slate-500"
+    style={{ height }}
+  >
+    <BarChart2 className="h-5 w-5 opacity-40" />
+    <span className="text-xs font-medium">No data available</span>
+  </div>
+);
 import {
   ResponsiveContainer,
   BarChart,
@@ -271,6 +282,7 @@ const PhaseDistributionChart: React.FC<{
   /** Optional color override — keys are phase/status names, values are hex colors */
   colorMap?: Record<string, string>;
 }> = ({ data, variant, height = 220, colorMap }) => {
+  if (!data?.length) return <EmptyChart height={height} />;
   if (variant === "stacked-bar")
     return <StackedBar data={data} colorMap={colorMap} />;
   if (variant === "donut")

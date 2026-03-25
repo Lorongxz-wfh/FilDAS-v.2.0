@@ -1,3 +1,5 @@
+import React from "react";
+import { BarChart2 } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -33,11 +35,22 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
+const EmptyChart = ({ height = 280 }: { height?: number }) => (
+  <div
+    className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 dark:border-surface-300 bg-slate-50/50 dark:bg-surface-600/30 text-slate-400 dark:text-slate-500"
+    style={{ height }}
+  >
+    <BarChart2 className="h-5 w-5 opacity-40" />
+    <span className="text-xs font-medium">No data available</span>
+  </div>
+);
+
 export default function ComplianceClusterBarChart(props: {
   data: ComplianceClusterDatum[];
   height?: number;
 }) {
   const height = props.height ?? 280;
+  if (!props.data?.length) return <EmptyChart height={height} />;
 
   return (
     <div style={{ width: "100%", height: "100%", minHeight: height }}>

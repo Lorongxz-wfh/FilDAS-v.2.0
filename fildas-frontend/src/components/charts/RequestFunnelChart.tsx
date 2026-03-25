@@ -1,4 +1,12 @@
 import React from "react";
+import { BarChart2 } from "lucide-react";
+
+const EmptyChart = () => (
+  <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 dark:border-surface-300 bg-slate-50/50 dark:bg-surface-600/30 text-slate-400 dark:text-slate-500 py-10">
+    <BarChart2 className="h-5 w-5 opacity-40" />
+    <span className="text-xs font-medium">No data available</span>
+  </div>
+);
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -11,6 +19,7 @@ export type FunnelStep = {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 const RequestFunnelChart: React.FC<{ data: FunnelStep[] }> = ({ data }) => {
+  if (!data?.length) return <EmptyChart />;
   const max = data[0]?.count ?? 1;
 
   return (

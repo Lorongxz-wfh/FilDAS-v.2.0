@@ -1,4 +1,15 @@
 import React from "react";
+import { BarChart2 } from "lucide-react";
+
+const EmptyChart = ({ height = 220 }: { height?: number }) => (
+  <div
+    className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 dark:border-surface-300 bg-slate-50/50 dark:bg-surface-600/30 text-slate-400 dark:text-slate-500"
+    style={{ height }}
+  >
+    <BarChart2 className="h-5 w-5 opacity-40" />
+    <span className="text-xs font-medium">No data available</span>
+  </div>
+);
 import {
   ResponsiveContainer,
   BarChart,
@@ -290,6 +301,8 @@ const ReturnByStageChart: React.FC<{
   variant: ReturnByStageVariant;
   height?: number;
 }> = ({ data, trendData = [], variant, height = 220 }) => {
+  const isEmpty = variant === "trend" ? !trendData?.length : !data?.length;
+  if (isEmpty) return <EmptyChart height={height} />;
   if (variant === "horizontal")
     return <HorizontalBar data={data} height={height} />;
   if (variant === "grouped") return <GroupedBar data={data} height={height} />;
