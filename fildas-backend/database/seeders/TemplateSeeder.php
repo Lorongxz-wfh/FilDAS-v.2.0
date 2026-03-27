@@ -12,21 +12,40 @@ use App\Models\User;
 
 class TemplateSeeder extends Seeder
 {
+    /** Generate a minimal but valid 3-page-less PDF in memory (no external file needed). */
+    private function makePdf(): string
+    {
+        $header = "%PDF-1.4\n";
+        $obj1   = "1 0 obj\n<</Type /Catalog /Pages 2 0 R>>\nendobj\n";
+        $obj2   = "2 0 obj\n<</Type /Pages /Kids [3 0 R] /Count 1>>\nendobj\n";
+        $obj3   = "3 0 obj\n<</Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]>>\nendobj\n";
+
+        $off1    = strlen($header);
+        $off2    = $off1 + strlen($obj1);
+        $off3    = $off2 + strlen($obj2);
+        $xrefPos = $off3 + strlen($obj3);
+
+        $xref = "xref\n0 4\n"
+            . "0000000000 65535 f \n"
+            . sprintf("%010d 00000 n \n", $off1)
+            . sprintf("%010d 00000 n \n", $off2)
+            . sprintf("%010d 00000 n \n", $off3)
+            . "trailer\n<</Size 4 /Root 1 0 R>>\nstartxref\n{$xrefPos}\n%%EOF";
+
+        return $header . $obj1 . $obj2 . $obj3 . $xref;
+    }
+
     public function run(): void
     {
         $fixturePdf = database_path('seeders/fixtures/lorem_ipsum.pdf');
-        $hasPdf = file_exists($fixturePdf);
-
-        if (!$hasPdf) {
-            $this->command->warn(
-                'Fixture PDF not found at database/seeders/fixtures/lorem_ipsum.pdf — ' .
-                'templates will be seeded without files.'
-            );
-        }
+        $hasPdf     = file_exists($fixturePdf);
 
         $qa      = User::where('email', 'qa@example.com')->firstOrFail();
         $disk    = config('filesystems.default');
-        $pdfSize = $hasPdf ? filesize($fixturePdf) : 0;
+
+        // Use fixture PDF if available, otherwise generate a minimal valid PDF
+        $pdfContent = $hasPdf ? file_get_contents($fixturePdf) : $this->makePdf();
+        $pdfSize    = strlen($pdfContent);
 
         $officeId = fn (?string $code): ?int =>
             $code ? Office::where('code', $code)->value('id') : null;
@@ -114,13 +133,9 @@ class TemplateSeeder extends Seeder
                 continue;
             }
 
-            $storedPath = null;
-
-            if ($hasPdf) {
-                $uuid       = Str::uuid();
-                $storedPath = 'document_templates/' . $uuid . '.pdf';
-                Storage::disk($disk)->put($storedPath, file_get_contents($fixturePdf));
-            }
+            $uuid       = Str::uuid();
+            $storedPath = 'document_templates/' . $uuid . '.pdf';
+            Storage::disk($disk)->put($storedPath, $pdfContent);
 
             $template = DocumentTemplate::create([
                 'name'              => $def['name'],
