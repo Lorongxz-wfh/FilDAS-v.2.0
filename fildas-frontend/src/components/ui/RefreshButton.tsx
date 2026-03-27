@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { useToastSafe } from "./toast/ToastContext";
 import Tooltip from "./Tooltip";
@@ -19,6 +20,8 @@ interface RefreshButtonProps {
   title?: string;
   tooltipSide?: Side;
   className?: string;
+  /** Cooldown duration in ms after completion to prevent spam. Default 5000. */
+  cooldownMs?: number;
 }
 
 export default function RefreshButton({
@@ -29,34 +32,45 @@ export default function RefreshButton({
   title = "Refresh",
   tooltipSide = "bottom",
   className = "",
+  cooldownMs = 5000,
 }: RefreshButtonProps) {
   const toast = useToastSafe();
+  const [internalLoading, setInternalLoading] = useState(false);
+  const [onCooldown, setOnCooldown] = useState(false);
 
   const handleClick = async () => {
     if (onRefresh) {
+      setInternalLoading(true);
       try {
         const result = await onRefresh();
-        if (result === false) return; // caller suppressed toast
+        if (result === false) return;
         const message = typeof result === "string" ? result : "Page refreshed.";
         toast?.push({ type: "info", message, durationMs: 2500 });
       } catch (err) {
         toast?.push({ type: "error", message: normalizeError(err) });
+      } finally {
+        setInternalLoading(false);
+        setOnCooldown(true);
+        setTimeout(() => setOnCooldown(false), cooldownMs);
       }
     } else {
       onClick?.();
     }
   };
 
+  const isSpinning = loading || internalLoading;
+  const isDisabled = disabled || loading || internalLoading || onCooldown;
+
   return (
-    <Tooltip text={title} side={tooltipSide}>
+    <Tooltip text={onCooldown ? "Just refreshed" : title} side={tooltipSide}>
       <button
         type="button"
         onClick={handleClick}
-        disabled={disabled || loading}
+        disabled={isDisabled}
         className={`flex items-center justify-center h-8 w-8 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition ${className}`}
         aria-label={title}
       >
-        <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+        <RefreshCw className={`h-3.5 w-3.5 ${isSpinning ? "animate-spin" : ""}`} />
       </button>
     </Tooltip>
   );

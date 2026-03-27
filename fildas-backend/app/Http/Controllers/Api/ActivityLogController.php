@@ -40,7 +40,9 @@ class ActivityLogController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $roleName = $this->roleNameOf($user);
         $userOfficeId = (int) ($user?->office_id ?? 0);
+        $canSeeAll = in_array($roleName, ['qa', 'admin', 'sysadmin', 'office_head'], true);
 
         $data = $request->validate([
             'scope' => 'nullable|in:office,mine,document,request,all',
@@ -157,7 +159,13 @@ class ActivityLogController extends Controller
                     ->orWhere('target_office_id', $userOfficeId);
             });
         } else {
-            // scope=all => no additional constraints
+            // scope=all: QA/admin see everything; office_head scoped to their office; others see their office too
+            if (!$canSeeAll || ($roleName === 'office_head' && $userOfficeId)) {
+                $q->where(function ($qq) use ($userOfficeId) {
+                    $qq->where('actor_office_id', $userOfficeId)
+                        ->orWhere('target_office_id', $userOfficeId);
+                });
+            }
         }
 
         $paginated = $q->with([

@@ -15,6 +15,9 @@ import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import {
   listTemplates,
   deleteTemplate,
+  invalidateTemplatesCache,
+  appendToTemplatesCache,
+  removeFromTemplatesCache,
   type DocumentTemplate,
 } from "../services/templates";
 
@@ -103,8 +106,29 @@ const TemplatesPage: React.FC = () => {
 
   const templateIdsRef = React.useRef<string>("");
 
+  // Initial mount — serve from cache if available, no loading flash on revisit
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setError(null);
+    listTemplates()
+      .then((data) => {
+        if (!alive) return;
+        templateIdsRef.current = data.map((t) => t.id).join(",");
+        setTemplates(data);
+      })
+      .catch((e: any) => {
+        if (!alive) return;
+        setError(e?.message ?? "Failed to load templates.");
+      })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, []);
+
+  // Refresh button — always bypasses cache and re-fetches from server
   const fetchTemplates = useCallback(async (): Promise<string | void> => {
     const prevIds = templateIdsRef.current;
+    invalidateTemplatesCache();
     setLoading(true);
     setError(null);
     try {
@@ -112,7 +136,6 @@ const TemplatesPage: React.FC = () => {
       const newIds = data.map((t) => t.id).join(",");
       templateIdsRef.current = newIds;
       setTemplates(data);
-      if (!prevIds) return; // initial load — suppress message
       return newIds === prevIds
         ? "Already up to date."
         : `Updated — ${data.length} template${data.length !== 1 ? "s" : ""} loaded.`;
@@ -124,15 +147,12 @@ const TemplatesPage: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
-
   const handleDeleteClick = async (id: number) => {
     if (!window.confirm("Delete this template? This cannot be undone.")) return;
     setDeletingId(id);
     try {
       await deleteTemplate(id);
+      removeFromTemplatesCache(id);
       setTemplates((prev) => prev.filter((t) => t.id !== id));
       setSelectedTemplate((prev) => (prev?.id === id ? null : prev));
       push({ type: "success", title: "Deleted", message: "Template removed." });
@@ -156,6 +176,7 @@ const TemplatesPage: React.FC = () => {
   };
 
   const handleUploaded = (template: DocumentTemplate) => {
+    appendToTemplatesCache(template);
     setTemplates((prev) => [template, ...prev]);
     setUploadingName(null);
   };
@@ -393,8 +414,14 @@ const TemplatesPage: React.FC = () => {
                 {Array.from({ length: 10 }).map((_, i) => (
                   <div
                     key={i}
-                    className="rounded-xl bg-slate-100 dark:bg-surface-600 animate-pulse aspect-3/4"
-                  />
+                    className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 animate-pulse overflow-hidden aspect-3/4 flex flex-col"
+                  >
+                    <div className="flex-1 bg-slate-100 dark:bg-surface-600" />
+                    <div className="p-2.5 space-y-1.5">
+                      <div className="h-2.5 rounded bg-slate-100 dark:bg-surface-600" style={{ width: `${55 + (i % 4) * 10}%` }} />
+                      <div className="h-2 rounded bg-slate-100 dark:bg-surface-600" style={{ width: `${35 + (i % 3) * 8}%` }} />
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : filtered.length === 0 ? (

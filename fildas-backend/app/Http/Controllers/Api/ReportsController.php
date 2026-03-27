@@ -35,27 +35,27 @@ class ReportsController extends Controller
         $roleName = $this->roleNameOf($user);
         $userOfficeId = (int) ($user?->office_id ?? 0);
 
-        // QA-only for now (your requirement)
         $qaOfficeId = (int) ($this->clusterAnalysis->officeIdByCode('QA') ?? 0);
         $isQA = ($roleName === 'qa') || ($qaOfficeId && $userOfficeId === $qaOfficeId);
-
         $isAdmin = in_array($roleName, ['admin', 'sysadmin'], true);
+        $isOfficeHead = ($roleName === 'office_head');
 
-        if (!$isQA && !$isAdmin) {
+        if (!$isQA && !$isAdmin && !$isOfficeHead) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
-        $data = $request->validate([
-            'date_from' => 'nullable|date',
-            'date_to'   => 'nullable|date',
-            'bucket'    => 'nullable|in:daily,weekly,monthly,yearly,total',
-            'scope'     => 'nullable|in:clusters,offices',
-            'parent'    => 'nullable|in:ALL,PO,VAd,VA,VF,VR',
-            'date_field' => 'nullable|in:created,completed',
 
+        $data = $request->validate([
+            'date_from'  => 'nullable|date',
+            'date_to'    => 'nullable|date',
+            'bucket'     => 'nullable|in:daily,weekly,monthly,yearly,total',
+            'scope'      => 'nullable|in:clusters,offices',
+            'parent'     => 'nullable|in:ALL,PO,VAd,VA,VF,VR',
+            'date_field' => 'nullable|in:created,completed',
+            'office_id'  => 'nullable|integer|exists:offices,id',
         ]);
 
         $bucket = $data['bucket'] ?? 'monthly';
-        $scope  = $data['scope'] ?? 'clusters';
+        $scope  = $data['scope'] ?? 'offices';
         $parent = $data['parent'] ?? 'ALL';
         $dateField = $data['date_field'] ?? 'completed';
         $dateColumn = $dateField === 'created' ? 'created_at' : 'completed_at';
@@ -72,6 +72,17 @@ class ReportsController extends Controller
 
         // If parent filter is set, only include that cluster in the output (exclude others).
         $allowedClusters = ($parent !== 'ALL') ? [$parent] : $clusters;
+
+        // Office IDs for filtering — single office, cluster filter, or office_head scoped to own office
+        $officeId = isset($data['office_id']) ? (int) $data['office_id'] : null;
+        $clusterOfficeIds = null;
+        if ($officeId) {
+            $clusterOfficeIds = [$officeId];
+        } elseif ($parent !== 'ALL') {
+            $clusterOfficeIds = $this->clusterAnalysis->officeIdsForCluster($parent);
+        } elseif ($isOfficeHead && $userOfficeId) {
+            $clusterOfficeIds = [$userOfficeId];
+        }
 
         $acc = [];
         foreach ($allowedClusters as $c) {
@@ -102,6 +113,9 @@ class ReportsController extends Controller
         }
         if (!empty($data['date_to'])) {
             $taskQuery->whereDate($dateColumn, '<=', $data['date_to']);
+        }
+        if ($clusterOfficeIds !== null) {
+            $taskQuery->whereIn('assigned_office_id', $clusterOfficeIds);
         }
 
         $tasks = $taskQuery->get([
@@ -339,10 +353,18 @@ class ReportsController extends Controller
             }
         }
 
-        // Created versions (ALL created versions; not filtered by parent)
+        // Created versions, filtered by date range and optionally by cluster
         $createdQ = DocumentVersion::query()->select(['id', 'created_at']);
         if (!empty($data['date_from'])) $createdQ->whereDate('created_at', '>=', $data['date_from']);
         if (!empty($data['date_to']))   $createdQ->whereDate('created_at', '<=', $data['date_to']);
+        if ($clusterOfficeIds !== null) {
+            $createdQ->whereExists(function ($q) use ($clusterOfficeIds) {
+                $q->select(DB::raw(1))
+                    ->from('documents')
+                    ->whereColumn('documents.id', 'document_versions.document_id')
+                    ->whereIn('documents.owner_office_id', $clusterOfficeIds);
+            });
+        }
 
         $createdRows = $createdQ->get();
         foreach ($createdRows as $v) {
@@ -363,9 +385,10 @@ class ReportsController extends Controller
         $approvedRows = $approvedQ->get();
 
         foreach ($approvedRows as $v) {
-            // Parent filter for approved_final: require that version touched an allowed cluster (if parent != ALL)
-            if ($parent !== 'ALL') {
+            // Filter approved_final by cluster or office when a filter is active
+            if ($clusterOfficeIds !== null) {
                 $flags = $versionFlags[(int)$v->id] ?? null;
+                if (!$flags) continue; // version not touched by this cluster/office
                 $clustersTouched = array_keys($flags['clusters'] ?? []);
                 $clusterKey = in_array('PO', $clustersTouched, true) ? 'PO' : ($clustersTouched[0] ?? null);
                 if (!$clusterKey || !isset($acc[$clusterKey])) continue;
@@ -437,6 +460,13 @@ class ReportsController extends Controller
         };
         $stageBucketsDefault = $initBuckets();
         $stageBucketsCustom  = $initBuckets();
+
+        // Phase buckets — merged across routing modes, stores individual durations for median
+        $phaseGroupDefs = WorkflowSteps::reportPhaseGroups();
+        $phaseBuckets = [];
+        foreach ($phaseGroupDefs as $phaseName => $stepList) {
+            $phaseBuckets[$phaseName] = ['steps' => $stepList, 'durations' => [], 'version_ids' => []];
+        }
 
         // Index tasks per version for quick lookup
         $tasksByVersion = [];
@@ -521,6 +551,15 @@ class ReportsController extends Controller
                     break;
                 }
             }
+
+            // Fill phase buckets (merged, all routing modes)
+            foreach ($phaseBuckets as $phaseName => $cfg) {
+                if (in_array($t->step, $cfg['steps'], true)) {
+                    $phaseBuckets[$phaseName]['durations'][] = $sec;
+                    $phaseBuckets[$phaseName]['version_ids'][$vid] = true;
+                    break;
+                }
+            }
         }
 
         $cycleTimeAvgDays = $cycleCount ? round(($cycleSecondsTotal / $cycleCount) / 86400, 2) : 0;
@@ -545,6 +584,34 @@ class ReportsController extends Controller
         $stageDelaysDefault = $buildDelays($stageBucketsDefault);
         $stageDelaysCustom  = $buildDelays($stageBucketsCustom);
 
+        // Helper: phase-based delays with median
+        $buildPhaseDelays = function (array $buckets): array {
+            $out = [];
+            foreach ($buckets as $phaseName => $cfg) {
+                $durations    = $cfg['durations'] ?? [];
+                $taskCount    = count($durations);
+                $versionCount = count($cfg['version_ids'] ?? []);
+                sort($durations);
+                $median = 0;
+                if ($taskCount > 0) {
+                    $mid    = (int) floor($taskCount / 2);
+                    $median = ($taskCount % 2 === 0)
+                        ? round(($durations[$mid - 1] + $durations[$mid]) / 2 / 3600, 2)
+                        : round($durations[$mid] / 3600, 2);
+                }
+                $avg = $taskCount ? round(array_sum($durations) / $taskCount / 3600, 2) : 0;
+                $out[] = [
+                    'stage'        => $phaseName,
+                    'median_hours' => $median,
+                    'avg_hours'    => $avg,
+                    'count'        => $versionCount,
+                    'task_count'   => $taskCount,
+                ];
+            }
+            return $out;
+        };
+        $stageDelaysByPhase = $buildPhaseDelays($phaseBuckets);
+
         // Pooled (backwards-compatible)
         $stageBucketsPooled = $initBuckets();
         foreach ([$stageBucketsDefault, $stageBucketsCustom] as $src) {
@@ -558,14 +625,30 @@ class ReportsController extends Controller
         }
         $stageDelays = $buildDelays($stageBucketsPooled);
 
-        // ── Phase distribution (live snapshot of all documents by status) ────
-        $latestVersions = DocumentVersion::query()
+        // ── Phase distribution (current status of documents, filtered by cluster + date) ────
+        $phaseQuery = DocumentVersion::query()
             ->whereIn('id', function ($q) {
                 $q->selectRaw('MAX(id)')
                     ->from('document_versions')
                     ->groupBy('document_id');
-            })
-            ->get(['status']);
+            });
+        if ($clusterOfficeIds !== null || !empty($data['date_from']) || !empty($data['date_to'])) {
+            $phaseQuery->whereExists(function ($q) use ($clusterOfficeIds, $data) {
+                $q->select(DB::raw(1))
+                    ->from('documents')
+                    ->whereColumn('documents.id', 'document_versions.document_id');
+                if ($clusterOfficeIds !== null) {
+                    $q->whereIn('documents.owner_office_id', $clusterOfficeIds);
+                }
+                if (!empty($data['date_from'])) {
+                    $q->whereDate('documents.created_at', '>=', $data['date_from']);
+                }
+                if (!empty($data['date_to'])) {
+                    $q->whereDate('documents.created_at', '<=', $data['date_to']);
+                }
+            });
+        }
+        $latestVersions = $phaseQuery->get(['status']);
 
         $phaseMap = ['Draft' => 0, 'Review' => 0, 'Approval' => 0, 'Finalization' => 0, 'Completed' => 0, 'Cancelled' => 0];
         foreach ($latestVersions as $v) {
@@ -597,27 +680,132 @@ class ReportsController extends Controller
             ->where('assigned_office_id', $qaOfficeId)
             ->count();
 
-        // ── Revision stats ───────────────────────────────────────────────────
-        $versionCounts = DB::table('document_versions')
-            ->selectRaw('document_id, count(*) as v_count')
-            ->groupBy('document_id')
-            ->get();
+        // ── Revision stats (date + cluster filtered) ─────────────────────────
+        $revisionBase = DB::table('document_versions as dv')
+            ->selectRaw('dv.document_id, count(*) as v_count')
+            ->groupBy('dv.document_id');
+        if (!empty($data['date_from'])) $revisionBase->whereDate('dv.created_at', '>=', $data['date_from']);
+        if (!empty($data['date_to']))   $revisionBase->whereDate('dv.created_at', '<=', $data['date_to']);
+        if ($clusterOfficeIds !== null) {
+            $revisionBase->whereExists(function ($q) use ($clusterOfficeIds) {
+                $q->select(DB::raw(1))
+                    ->from('documents as d')
+                    ->whereColumn('d.id', 'dv.document_id')
+                    ->whereIn('d.owner_office_id', $clusterOfficeIds);
+            });
+        }
+        $versionCounts = $revisionBase->get();
         $docsOnV2Plus = $versionCounts->where('v_count', '>=', 2)->count();
         $avgVersions  = $versionCounts->count() ? round($versionCounts->avg('v_count'), 1) : 0;
 
-        // ── Routing split ────────────────────────────────────────────────────
-        $routingCounts = DB::table('document_versions')
-            ->selectRaw('routing_mode, count(distinct document_id) as cnt')
-            ->whereNotNull('routing_mode')
-            ->groupBy('routing_mode')
-            ->get()
-            ->pluck('cnt', 'routing_mode');
+        // ── Routing split (date + cluster filtered) ───────────────────────────
+        $routingBase = DB::table('document_versions as dv')
+            ->selectRaw('dv.routing_mode, count(distinct dv.document_id) as cnt')
+            ->whereNotNull('dv.routing_mode')
+            ->groupBy('dv.routing_mode');
+        if (!empty($data['date_from'])) $routingBase->whereDate('dv.created_at', '>=', $data['date_from']);
+        if (!empty($data['date_to']))   $routingBase->whereDate('dv.created_at', '<=', $data['date_to']);
+        if ($clusterOfficeIds !== null) {
+            $routingBase->whereExists(function ($q) use ($clusterOfficeIds) {
+                $q->select(DB::raw(1))
+                    ->from('documents as d')
+                    ->whereColumn('d.id', 'dv.document_id')
+                    ->whereIn('d.owner_office_id', $clusterOfficeIds);
+            });
+        }
+        $routingCounts  = $routingBase->get()->pluck('cnt', 'routing_mode');
         $routingDefault = (int) ($routingCounts['default'] ?? 0);
         $routingCustom  = (int) ($routingCounts['custom'] ?? 0);
 
-        // ── Live open task counts by phase ───────────────────────────────────
-        $inReviewCount   = WorkflowTask::whereIn('status', ['pending', 'in_progress'])->where('phase', 'review')->count();
-        $inApprovalCount = WorkflowTask::whereIn('status', ['pending', 'in_progress'])->where('phase', 'approval')->count();
+        // ── Live open task counts by phase (filtered by cluster if selected) ──
+        $openTaskBase = WorkflowTask::whereIn('status', ['pending', 'in_progress']);
+        if ($clusterOfficeIds !== null) {
+            $openTaskBase->whereIn('assigned_office_id', $clusterOfficeIds);
+        }
+        $inReviewCount   = (clone $openTaskBase)->where('phase', 'review')->count();
+        $inApprovalCount = (clone $openTaskBase)->where('phase', 'approval')->count();
+
+        // ── Doctype distribution ──────────────────────────────────────────────────
+        $doctypeQ = DB::table('document_versions as dv')
+            ->join('documents as d', 'd.id', '=', 'dv.document_id')
+            ->selectRaw('d.doctype, count(*) as cnt')
+            ->groupBy('d.doctype');
+        if (!empty($data['date_from'])) $doctypeQ->whereDate('dv.created_at', '>=', $data['date_from']);
+        if (!empty($data['date_to']))   $doctypeQ->whereDate('dv.created_at', '<=', $data['date_to']);
+        if ($clusterOfficeIds !== null) $doctypeQ->whereIn('d.owner_office_id', $clusterOfficeIds);
+        $doctypeDistribution = $doctypeQ->get()->map(fn($r) => [
+            'doctype' => $r->doctype ?? 'unknown',
+            'count'   => (int) $r->cnt,
+        ])->values()->all();
+
+        // ── Creation by office (top 10, split by doctype) ────────────────────────
+        $creationRawQ = DB::table('document_versions as dv')
+            ->join('documents as d', 'd.id', '=', 'dv.document_id')
+            ->join('offices as o', 'o.id', '=', 'd.owner_office_id')
+            ->selectRaw('o.code as office_code, o.name as office_name, d.doctype, count(*) as cnt')
+            ->groupBy('o.code', 'o.name', 'd.doctype')
+            ->orderBy('o.code');
+        if (!empty($data['date_from'])) $creationRawQ->whereDate('dv.created_at', '>=', $data['date_from']);
+        if (!empty($data['date_to']))   $creationRawQ->whereDate('dv.created_at', '<=', $data['date_to']);
+        if ($clusterOfficeIds !== null) $creationRawQ->whereIn('d.owner_office_id', $clusterOfficeIds);
+
+        $creationRaw = $creationRawQ->get();
+
+        // Aggregate into per-office rows with doctype buckets
+        $creationMap = [];
+        foreach ($creationRaw as $r) {
+            $key = $r->office_code;
+            $creationMap[$key] ??= [
+                'office_code' => $r->office_code,
+                'office_name' => $r->office_name,
+                'internal'    => 0,
+                'external'    => 0,
+                'forms'       => 0,
+                'total'       => 0,
+            ];
+            $doctype = $r->doctype ?? 'internal';
+            if (isset($creationMap[$key][$doctype])) {
+                $creationMap[$key][$doctype] += (int) $r->cnt;
+            }
+            $creationMap[$key]['total'] += (int) $r->cnt;
+        }
+
+        // Sort by total desc, take top 10
+        usort($creationMap, fn($a, $b) => $b['total'] - $a['total']);
+        $creationByOffice = array_values(array_slice($creationMap, 0, 10));
+
+        // ── Lifecycle funnel ──────────────────────────────────────────────────────
+        $createdVersionIds = $createdRows->pluck('id')->map(fn($id) => (int) $id)->toArray();
+
+        $passedReviewCount = empty($createdVersionIds) ? 0 :
+            WorkflowTask::whereIn('document_version_id', $createdVersionIds)
+                ->where('phase', 'approval')
+                ->distinct('document_version_id')
+                ->count('document_version_id');
+
+        $passedApprovalCount = empty($createdVersionIds) ? 0 :
+            WorkflowTask::whereIn('document_version_id', $createdVersionIds)
+                ->whereIn('phase', ['finalization', 'registration'])
+                ->distinct('document_version_id')
+                ->count('document_version_id');
+
+        $distributedFunnelCount = empty($createdVersionIds) ? 0 :
+            DocumentVersion::whereIn('id', $createdVersionIds)
+                ->whereNotNull('distributed_at')
+                ->count();
+
+        $cancelledFunnelCount = empty($createdVersionIds) ? 0 :
+            DocumentVersion::whereIn('id', $createdVersionIds)
+                ->whereIn('status', ['cancelled', 'superseded'])
+                ->count();
+
+        $lifecycleFunnel = [
+            ['stage' => 'Created',            'count' => count($createdVersionIds)],
+            ['stage' => 'Completed Review',   'count' => $passedReviewCount],
+            ['stage' => 'Completed Approval', 'count' => $passedApprovalCount],
+            ['stage' => 'Distributed',        'count' => $distributedFunnelCount],
+            ['stage' => 'Cancelled',          'count' => $cancelledFunnelCount],
+        ];
 
         return response()->json([
             'clusters' => array_values($acc),
@@ -632,15 +820,19 @@ class ReportsController extends Controller
                 'pingpong_ratio'       => $pingPongRatio,
                 'cycle_time_avg_days'  => $cycleTimeAvgDays,
             ],
-            'stage_delays'         => $stageDelays,
-            'stage_delays_default' => $stageDelaysDefault,
-            'stage_delays_custom'  => $stageDelaysCustom,
+            'stage_delays'          => $stageDelays,
+            'stage_delays_default'  => $stageDelaysDefault,
+            'stage_delays_custom'   => $stageDelaysCustom,
+            'stage_delays_by_phase' => $stageDelaysByPhase,
             'phase_distribution'   => $phaseDistribution,
             'waiting_on_qa'      => $waitingOnQa,
             'revision_stats'     => ['docs_on_v2_plus' => $docsOnV2Plus, 'avg_versions' => $avgVersions],
             'routing_split'      => ['default_flow' => $routingDefault, 'custom_flow' => $routingCustom],
             'in_review_count'    => $inReviewCount,
             'in_approval_count'  => $inApprovalCount,
+            'doctype_distribution' => $doctypeDistribution,
+            'creation_by_office'   => $creationByOffice,
+            'lifecycle_funnel'     => $lifecycleFunnel,
         ]);
     }
 
@@ -652,8 +844,10 @@ class ReportsController extends Controller
         $qaOfficeId = (int) ($this->clusterAnalysis->officeIdByCode('QA') ?? 0);
         $userOfficeId = (int) ($user?->office_id ?? 0);
         $isQA = ($roleName === 'qa') || ($qaOfficeId && $userOfficeId === $qaOfficeId);
+        $isAdmin = in_array($roleName, ['admin', 'sysadmin'], true);
+        $isOfficeHead = ($roleName === 'office_head');
 
-        if (!$isQA) {
+        if (!$isQA && !$isAdmin && !$isOfficeHead) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -663,16 +857,22 @@ class ReportsController extends Controller
             'date_field' => 'nullable|in:created,completed',
             'parent'     => 'nullable|in:ALL,PO,VAd,VA,VF,VR',
             'bucket'     => 'nullable|in:daily,weekly,monthly,yearly,total',
+            'office_id'  => 'nullable|integer|exists:offices,id',
         ]);
         $dateField  = $data['date_field'] ?? 'completed';
         $dateColumn = $dateField === 'created' ? 'created_at' : 'completed_at';
         $parent     = $data['parent'] ?? 'ALL';
         $bucket     = $data['bucket'] ?? 'monthly';
 
-        // Resolve office IDs for the selected cluster (when not ALL)
+        // Resolve office IDs for filtering — single office, cluster, or office_head scoped to own office
+        $officeId = isset($data['office_id']) ? (int) $data['office_id'] : null;
         $clusterOfficeIds = null;
-        if ($parent !== 'ALL') {
+        if ($officeId) {
+            $clusterOfficeIds = [$officeId];
+        } elseif ($parent !== 'ALL') {
             $clusterOfficeIds = $this->clusterAnalysis->officeIdsForCluster($parent);
+        } elseif ($isOfficeHead && $userOfficeId) {
+            $clusterOfficeIds = [$userOfficeId];
         }
 
         // ── Return by stage ───────────────────────────────────────────────────
@@ -819,8 +1019,9 @@ class ReportsController extends Controller
         $userOfficeId = (int) ($user?->office_id ?? 0);
         $isQA    = ($roleName === 'qa') || ($qaOfficeId && $userOfficeId === $qaOfficeId);
         $isAdmin = in_array($roleName, ['admin', 'sysadmin'], true);
+        $isOfficeHead = ($roleName === 'office_head');
 
-        if (!$isQA && !$isAdmin) {
+        if (!$isQA && !$isAdmin && !$isOfficeHead) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -836,6 +1037,10 @@ class ReportsController extends Controller
         $reqQuery = DocumentRequest::query();
         if ($dateFrom) $reqQuery->whereDate('created_at', '>=', $dateFrom);
         if ($dateTo)   $reqQuery->whereDate('created_at', '<=', $dateTo);
+        // Office heads see only requests where their office is a recipient
+        if ($isOfficeHead && $userOfficeId) {
+            $reqQuery->whereHas('recipients', fn ($q) => $q->where('office_id', $userOfficeId));
+        }
         $requests = $reqQuery->get(['id', 'status', 'mode', 'due_at', 'created_at']);
 
         $total     = $requests->count();

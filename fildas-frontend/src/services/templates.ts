@@ -37,23 +37,51 @@ export type UploadTemplatePayload = {
   is_global?: boolean;
 };
 
+// ── In-memory cache ───────────────────────────────────────────────────────────
+// Stores the full unfiltered list. Client-side filtering means we only ever
+// need one cached result. Invalidate on upload/delete; page mount uses cache.
+
+let _cache: DocumentTemplate[] | null = null;
+
+export function invalidateTemplatesCache(): void {
+  _cache = null;
+}
+
+export function appendToTemplatesCache(template: DocumentTemplate): void {
+  if (_cache) _cache = [template, ..._cache];
+}
+
+export function removeFromTemplatesCache(id: number): void {
+  if (_cache) _cache = _cache.filter((t) => t.id !== id);
+}
+
 // ── API calls ─────────────────────────────────────────────────────────────────
 
 /**
  * List templates visible to the current user.
- * Pass q to search by name / description / filename.
+ * Unfiltered requests are served from cache when available.
  */
 export async function listTemplates(opts?: {
   q?: string;
   tag?: string;
 }): Promise<DocumentTemplate[]> {
+  const isUnfiltered = !opts?.q && !opts?.tag;
+
+  if (isUnfiltered && _cache) {
+    return _cache;
+  }
+
   const params: Record<string, string> = {};
   if (opts?.q?.trim()) params.q = opts.q.trim();
   if (opts?.tag?.trim()) params.tag = opts.tag.trim();
   const res = await api.get("/templates", {
     params: Object.keys(params).length ? params : undefined,
   });
-  return (res.data?.data ?? []) as DocumentTemplate[];
+  const data = (res.data?.data ?? []) as DocumentTemplate[];
+
+  if (isUnfiltered) _cache = data;
+
+  return data;
 }
 
 export async function updateTemplateTags(

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { pageCache } from "../lib/pageCache";
 import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
 import Table, { type TableColumn } from "../components/ui/Table";
@@ -17,11 +18,12 @@ export function OfficeManagerPage() {
   const [statusFilter, setStatusFilter] = useState<"active" | "disabled" | "all">("active");
   const [typeFilter, setTypeFilter] = useState("");
 
-  const [items, setItems] = useState<AdminOffice[]>([]);
+  const _oc = pageCache.get<AdminOffice>("offices", '{"q":"","status":"active","type":""}', 10 * 60_000);
+  const [items, setItems] = useState<AdminOffice[]>(_oc?.rows ?? []);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(_oc?.hasMore ?? true);
+  const [loading, setLoading] = useState(!_oc);
+  const [initialLoading, setInitialLoading] = useState(!_oc);
   const [error, setError] = useState<string | null>(null);
 
   const location = useLocation();
@@ -40,6 +42,7 @@ export function OfficeManagerPage() {
   }, [q]);
 
   const load = useCallback(async (pageNum: number) => {
+    const filterKey = JSON.stringify({ q: qDebounced.trim(), status: statusFilter, type: typeFilter });
     try {
       setLoading(true);
       setError(null);
@@ -50,8 +53,10 @@ export function OfficeManagerPage() {
         page: pageNum,
         per_page: 10,
       });
+      const more = res.meta.current_page < res.meta.last_page;
       setItems((prev) => (pageNum === 1 ? res.data : [...prev, ...res.data]));
-      setHasMore(res.meta.current_page < res.meta.last_page);
+      setHasMore(more);
+      if (pageNum === 1) pageCache.set("offices", filterKey, res.data, more);
     } catch (e: any) {
       setError(e?.message ?? "Failed to load offices");
     } finally {

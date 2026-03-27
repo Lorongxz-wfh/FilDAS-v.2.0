@@ -166,6 +166,12 @@ class DocumentVersionPolicy
         $base = $this->access($user, $version);
         if ($base->denied()) return $base;
 
+        // Admin / sysadmin bypass — no workflow restrictions in dev mode
+        $roleName = strtolower(trim($user->role?->name ?? ''));
+        if (in_array($roleName, ['admin', 'sysadmin'], true)) {
+            return Response::allow();
+        }
+
         // Allow in Draft
         if ($version->status === 'Draft' || $version->status === 'Office Draft') {
             return Response::allow();

@@ -220,11 +220,13 @@ export default function MyWorkQueueListPage() {
       {
         key: "status",
         header: "Status",
+        skeletonShape: "badge",
         render: (doc) => <StatusBadge status={doc.status} />,
       },
       {
         key: "title",
         header: "Document",
+        skeletonShape: "double",
         render: (doc) => (
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
@@ -247,6 +249,7 @@ export default function MyWorkQueueListPage() {
       {
         key: "code",
         header: "Code",
+        skeletonShape: "narrow",
         render: (doc) => (
           <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
             {doc.code || "—"}
@@ -259,6 +262,7 @@ export default function MyWorkQueueListPage() {
       cols.push({
         key: "office",
         header: "Office",
+        skeletonShape: "text",
         render: (doc) => (
           <span className="text-xs text-slate-500 dark:text-slate-400">
             {doc.ownerOffice?.name ?? "—"}
@@ -271,6 +275,7 @@ export default function MyWorkQueueListPage() {
       {
         key: "version",
         header: "Ver.",
+        skeletonShape: "badge",
         align: "center",
         render: (doc) => (
           <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
@@ -281,6 +286,7 @@ export default function MyWorkQueueListPage() {
       {
         key: "created",
         header: "Created",
+        skeletonShape: "narrow",
         align: "right",
         render: (doc) => (
           <span className="text-xs text-slate-400 dark:text-slate-500">

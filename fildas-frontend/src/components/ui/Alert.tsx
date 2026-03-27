@@ -4,23 +4,23 @@ type Variant = "info" | "success" | "warning" | "error" | "danger";
 type Style = "box" | "accent"; // box = full border, accent = left-border stripe
 
 const boxStyles: Record<Variant, string> = {
-  info:    "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-300",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300",
-  warning: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300",
+  info:    "border-slate-200 bg-slate-50 text-slate-800 dark:border-surface-300 dark:bg-surface-400 dark:text-slate-200",
+  success: "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-300",
+  warning: "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300",
   error:   "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/15 dark:text-rose-300",
   danger:  "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/15 dark:text-rose-300",
 };
 
 const accentStyles: Record<Variant, { wrap: string; icon: string; border: string }> = {
-  info:    { wrap: "bg-sky-50 dark:bg-sky-950/30",     icon: "text-sky-500 dark:text-sky-400",     border: "border-l-4 border-sky-400 dark:border-sky-600" },
-  success: { wrap: "bg-emerald-50 dark:bg-emerald-950/30", icon: "text-emerald-500 dark:text-emerald-400", border: "border-l-4 border-emerald-400 dark:border-emerald-600" },
-  warning: { wrap: "bg-amber-50 dark:bg-amber-950/30", icon: "text-amber-500 dark:text-amber-400", border: "border-l-4 border-amber-400 dark:border-amber-600" },
-  error:   { wrap: "bg-rose-50 dark:bg-rose-950/15",   icon: "text-rose-500 dark:text-rose-400",   border: "border-l-4 border-rose-400 dark:border-rose-800" },
-  danger:  { wrap: "bg-rose-50 dark:bg-rose-950/15",   icon: "text-rose-500 dark:text-rose-400",   border: "border-l-4 border-rose-400 dark:border-rose-800" },
+  info:    { wrap: "bg-slate-50 dark:bg-surface-400",           icon: "text-slate-500 dark:text-slate-300",      border: "border-l-4 border-brand-400 dark:border-brand-300" },
+  success: { wrap: "bg-emerald-50 dark:bg-emerald-950/20",      icon: "text-emerald-500 dark:text-emerald-400",  border: "border-l-4 border-emerald-400 dark:border-emerald-600" },
+  warning: { wrap: "bg-amber-50 dark:bg-amber-950/20",          icon: "text-amber-500 dark:text-amber-400",      border: "border-l-4 border-amber-400 dark:border-amber-600" },
+  error:   { wrap: "bg-rose-50 dark:bg-rose-950/15",            icon: "text-rose-500 dark:text-rose-400",        border: "border-l-4 border-rose-400 dark:border-rose-800" },
+  danger:  { wrap: "bg-rose-50 dark:bg-rose-950/15",            icon: "text-rose-500 dark:text-rose-400",        border: "border-l-4 border-rose-400 dark:border-rose-800" },
 };
 
 const titleStyles: Record<Variant, string> = {
-  info:    "text-sky-700 dark:text-sky-300",
+  info:    "text-slate-800 dark:text-slate-100",
   success: "text-emerald-700 dark:text-emerald-300",
   warning: "text-amber-800 dark:text-amber-300",
   error:   "text-rose-700 dark:text-rose-300",
@@ -28,7 +28,7 @@ const titleStyles: Record<Variant, string> = {
 };
 
 const bodyStyles: Record<Variant, string> = {
-  info:    "text-sky-600 dark:text-sky-400",
+  info:    "text-slate-600 dark:text-slate-400",
   success: "text-emerald-600 dark:text-emerald-400",
   warning: "text-amber-700 dark:text-amber-400",
   error:   "text-rose-600 dark:text-rose-400",

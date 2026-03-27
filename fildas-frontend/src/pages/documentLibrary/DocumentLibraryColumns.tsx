@@ -78,16 +78,19 @@ export function buildBaseDocColumns(): TableColumn<Document>[] {
     {
       key: "type",
       header: "Type",
+      skeletonShape: "badge",
       render: (doc) => <TypeBadge type={doc.doctype} />,
     },
     {
       key: "document",
       header: "Document",
+      skeletonShape: "double",
       render: (doc) => <DocTitle doc={doc} />,
     },
     {
       key: "version",
       header: "Ver.",
+      skeletonShape: "badge",
       align: "center" as const,
       render: (doc) => (
         <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
@@ -98,6 +101,7 @@ export function buildBaseDocColumns(): TableColumn<Document>[] {
     {
       key: "effective_date",
       header: "Effective",
+      skeletonShape: "narrow",
       render: (doc) => (
         <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
           {doc.effective_date ? (
@@ -111,6 +115,7 @@ export function buildBaseDocColumns(): TableColumn<Document>[] {
     {
       key: "created",
       header: "Created",
+      skeletonShape: "narrow",
       render: (doc) => (
         <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
           {formatDate(doc.created_at)}
@@ -144,11 +149,13 @@ export function buildRequestedColumns(isQaAdmin: boolean): TableColumn<any>[] {
     {
       key: "mode",
       header: "Type",
+      skeletonShape: "badge",
       render: (r) => <ModeBadge mode={r.batch_mode} />,
     },
     {
       key: "request",
       header: "Request",
+      skeletonShape: "double",
       render: (r) => (
         <div className="min-w-0">
           <div className="font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
@@ -187,6 +194,7 @@ export function buildRequestedColumns(isQaAdmin: boolean): TableColumn<any>[] {
     {
       key: "status",
       header: "Status",
+      skeletonShape: "badge",
       render: () => (
         <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wide border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400">
           ACCEPTED
@@ -196,6 +204,7 @@ export function buildRequestedColumns(isQaAdmin: boolean): TableColumn<any>[] {
     {
       key: "date",
       header: "Date",
+      skeletonShape: "narrow",
       render: (r) => (
         <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
           {formatDate(r.created_at)}
@@ -212,11 +221,13 @@ export function buildAllColumns(): TableColumn<LibraryItem>[] {
     {
       key: "source",
       header: "Source",
+      skeletonShape: "badge",
       render: (item) => <SourceBadge source={item.source} />,
     },
     {
       key: "title",
       header: "Title",
+      skeletonShape: "double",
       render: (item) => (
         <div className="min-w-0">
           <div className="font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
@@ -233,6 +244,7 @@ export function buildAllColumns(): TableColumn<LibraryItem>[] {
     {
       key: "type",
       header: "Type",
+      skeletonShape: "badge",
       render: (item) =>
         item.doctype ? (
           <TypeBadge type={item.doctype} />
@@ -243,6 +255,7 @@ export function buildAllColumns(): TableColumn<LibraryItem>[] {
     {
       key: "office",
       header: "Office",
+      skeletonShape: "text",
       render: (item) => (
         <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
           {item.office ?? "—"}
@@ -252,6 +265,7 @@ export function buildAllColumns(): TableColumn<LibraryItem>[] {
     {
       key: "meta",
       header: "Ver. / Status",
+      skeletonShape: "badge",
       render: (item) =>
         item.version != null ? (
           <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">
@@ -266,6 +280,7 @@ export function buildAllColumns(): TableColumn<LibraryItem>[] {
     {
       key: "date",
       header: "Date",
+      skeletonShape: "narrow",
       render: (item) => (
         <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
           {formatDate(item.date)}

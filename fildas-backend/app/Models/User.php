@@ -49,12 +49,18 @@ class User extends Authenticatable
     ];
 
 
-    protected $appends = ['full_name', 'profile_photo_url'];
+    protected $appends = ['full_name', 'profile_photo_url', 'signature_url'];
 
     public function getProfilePhotoUrlAttribute(): ?string
     {
         if (!$this->profile_photo_path) return null;
         return asset('storage/' . $this->profile_photo_path);
+    }
+
+    public function getSignatureUrlAttribute(): ?string
+    {
+        if (!$this->signature_path) return null;
+        return asset('storage/' . $this->signature_path);
     }
 
     /**

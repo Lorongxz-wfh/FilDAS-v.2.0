@@ -1,4 +1,4 @@
-// import React from "react";
+import { CalendarDays } from "lucide-react";
 
 interface DateRangeInputProps {
   from: string;
@@ -8,6 +8,9 @@ interface DateRangeInputProps {
   className?: string;
 }
 
+const dateCls =
+  "rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 outline-none focus:border-brand-400 transition [color-scheme:light] dark:[color-scheme:dark]";
+
 export default function DateRangeInput({
   from,
   to,
@@ -16,26 +19,24 @@ export default function DateRangeInput({
   className = "",
 }: DateRangeInputProps) {
   return (
-    <div
-      className={`flex items-center gap-0 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1.5 ${className}`}
-    >
-      <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500 mr-1.5">
-        From
-      </span>
-      <input
-        type="date"
-        value={from}
-        onChange={(e) => onFromChange(e.target.value)}
-        className="bg-transparent outline-none text-xs text-slate-600 dark:text-slate-300"
-      />
-      <span className="shrink-0 text-xs text-slate-400 dark:text-slate-500 mx-1.5">
-        To
-      </span>
+    <div className={`flex items-center gap-1.5 ${className}`}>
+      <div className="relative flex items-center">
+        <CalendarDays className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+        <input
+          type="date"
+          value={from}
+          onChange={(e) => onFromChange(e.target.value)}
+          className={`${dateCls} pl-8`}
+          placeholder="From"
+        />
+      </div>
+      <span className="text-xs text-slate-400 dark:text-slate-500 select-none">—</span>
       <input
         type="date"
         value={to}
         onChange={(e) => onToChange(e.target.value)}
-        className="bg-transparent outline-none text-xs text-slate-600 dark:text-slate-300"
+        className={dateCls}
+        placeholder="To"
       />
     </div>
   );

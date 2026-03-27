@@ -1,15 +1,5 @@
 import React from "react";
 import { BarChart2 } from "lucide-react";
-
-const EmptyChart = ({ height = 200 }: { height?: number }) => (
-  <div
-    className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 dark:border-surface-300 bg-slate-50/50 dark:bg-surface-600/30 text-slate-400 dark:text-slate-500"
-    style={{ height }}
-  >
-    <BarChart2 className="h-5 w-5 opacity-40" />
-    <span className="text-xs font-medium">No data available</span>
-  </div>
-);
 import {
   ResponsiveContainer,
   BarChart,
@@ -24,76 +14,176 @@ import {
 export type StageDelay = {
   stage: string;
   avg_hours: number;
+  median_hours?: number;
   count: number;
   task_count: number;
 };
 
-const COLORS: Record<string, string> = {
-  Office: "#6366f1",
-  VP: "#f59e0b",
-  QA: "#10b981",
-  Registration: "#0ea5e9",
+// Phase colour palette
+const PHASE_COLORS: Record<string, string> = {
+  Review:      "#38bdf8", // sky-400
+  Approval:    "#a78bfa", // violet-400
+  Finalization: "#34d399", // emerald-400
 };
+const FALLBACK_COLOR = "#94a3b8";
+
+const phaseColor = (stage: string) => PHASE_COLORS[stage] ?? FALLBACK_COLOR;
+
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+
+const ChartSkeleton = ({ height = 200 }: { height?: number }) => (
+  <div style={{ height }} className="flex flex-col justify-center gap-4 px-4 py-3">
+    {[70, 50, 85].map((w, i) => (
+      <div key={i} className="flex items-center gap-3">
+        <div className="w-20 h-2.5 animate-pulse rounded bg-slate-100 dark:bg-surface-400 shrink-0" />
+        <div className="animate-pulse rounded-r-sm bg-slate-100 dark:bg-surface-400 h-5" style={{ width: `${w}%` }} />
+      </div>
+    ))}
+  </div>
+);
+
+// ── Empty ─────────────────────────────────────────────────────────────────────
+
+const EmptyChart = ({ height = 200 }: { height?: number }) => (
+  <div
+    className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 dark:border-surface-300 bg-slate-50/50 dark:bg-surface-600/30 text-slate-400 dark:text-slate-500"
+    style={{ height }}
+  >
+    <BarChart2 className="h-5 w-5 opacity-40" />
+    <span className="text-xs font-medium">No data available</span>
+  </div>
+);
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
+  const d: StageDelay = payload[0].payload;
   return (
-    <div className="rounded-lg border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-500 px-3 py-2 shadow-md text-xs">
-      <p className="font-semibold text-slate-700 dark:text-slate-200 mb-0.5">{label}</p>
+    <div className="rounded-lg border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-500 px-3 py-2.5 shadow-md text-xs space-y-0.5">
+      <p className="font-semibold text-slate-700 dark:text-slate-200 mb-1">{label}</p>
       <p className="text-slate-500 dark:text-slate-400">
-        Avg hold:{" "}
+        Median:{" "}
         <span className="font-semibold text-slate-800 dark:text-slate-100">
-          {payload[0].value}h
+          {d.median_hours != null ? `${d.median_hours}h` : "—"}
         </span>
       </p>
-      {payload[0].payload?.count != null && (
-        <p className="text-slate-500 dark:text-slate-400">
-          Versions:{" "}
-          <span className="font-semibold text-slate-800 dark:text-slate-100">
-            {payload[0].payload.count}
-          </span>
-        </p>
-      )}
+      <p className="text-slate-500 dark:text-slate-400">
+        Avg:{" "}
+        <span className="font-semibold text-slate-800 dark:text-slate-100">
+          {d.avg_hours}h
+        </span>
+      </p>
+      <p className="text-slate-500 dark:text-slate-400">
+        Tasks:{" "}
+        <span className="font-semibold text-slate-800 dark:text-slate-100">
+          {d.task_count}
+        </span>{" "}
+        across{" "}
+        <span className="font-semibold text-slate-800 dark:text-slate-100">
+          {d.count}
+        </span>{" "}
+        docs
+      </p>
     </div>
   );
 };
 
-const StageDelayChart: React.FC<{ data: StageDelay[]; height?: number }> = ({
-  data,
-  height = 200,
-}) => {
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+const StageDelayChart: React.FC<{
+  data: StageDelay[];
+  height?: number;
+  loading?: boolean;
+}> = ({ data, height = 200, loading = false }) => {
+  if (loading) return <ChartSkeleton height={height} />;
   if (!data?.length) return <EmptyChart height={height} />;
+
+  // Use median_hours if present, fall back to avg_hours
+  const chartData = data.map((d) => ({
+    ...d,
+    display_hours: d.median_hours ?? d.avg_hours,
+  }));
+
+  // Identify the bottleneck (highest median/avg)
+  const bottleneckStage = chartData.reduce(
+    (best, d) => (d.display_hours > best.display_hours ? d : best),
+    chartData[0],
+  ).stage;
+
+  const maxVal = Math.max(...chartData.map((d) => d.display_hours), 0.1);
+
   return (
-  <ResponsiveContainer width="100%" height={height}>
-    <BarChart
-      data={data}
-      layout="vertical"
-      margin={{ top: 4, right: 40, left: 20, bottom: 0 }}
-    >
-      <XAxis type="number" tick={{ fontSize: 11 }} unit="h" />
-      <YAxis
-        type="category"
-        dataKey="stage"
-        tick={{ fontSize: 11 }}
-        width={80}
-      />
-      <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(148,163,184,0.06)" }} />
-      <Bar dataKey="avg_hours" radius={[0, 4, 4, 0]}>
-        <LabelList
-          dataKey="avg_hours"
-          position="right"
-          formatter={(v: unknown) => {
-            const n = v as number;
-            return n > 0 ? `${n.toFixed(1)}h` : "—";
-          }}
-          style={{ fontSize: 11 }}
-        />
-        {data.map((entry) => (
-          <Cell key={entry.stage} fill={COLORS[entry.stage] ?? "#94a3b8"} />
+    <div className="flex flex-col gap-3">
+      {/* Legend row */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1">
+        {chartData.map((d) => (
+          <div key={d.stage} className="flex items-center gap-1.5">
+            <span
+              className="h-2 w-2 rounded-full shrink-0"
+              style={{ backgroundColor: phaseColor(d.stage) }}
+            />
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">{d.stage}</span>
+            {d.stage === bottleneckStage && d.display_hours > 0 && (
+              <span className="rounded-full bg-rose-100 dark:bg-rose-900/30 px-1.5 py-px text-[10px] font-semibold text-rose-600 dark:text-rose-400 leading-none">
+                slowest
+              </span>
+            )}
+          </div>
         ))}
-      </Bar>
-    </BarChart>
-  </ResponsiveContainer>
+      </div>
+
+      {/* Chart */}
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart
+          data={chartData}
+          layout="vertical"
+          margin={{ top: 0, right: 52, left: 4, bottom: 0 }}
+          barCategoryGap="28%"
+        >
+          <XAxis
+            type="number"
+            domain={[0, maxVal * 1.15]}
+            tick={{ fontSize: 10 }}
+            unit="h"
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            type="category"
+            dataKey="stage"
+            tick={{ fontSize: 12, fontWeight: 500 }}
+            width={88}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(148,163,184,0.06)" }} />
+          <Bar dataKey="display_hours" radius={[0, 4, 4, 0]} maxBarSize={28}>
+            <LabelList
+              dataKey="display_hours"
+              position="right"
+              formatter={(v: unknown) => {
+                const n = v as number;
+                return n > 0 ? `${n}h` : "—";
+              }}
+              style={{ fontSize: 11 }}
+            />
+            {chartData.map((entry) => (
+              <Cell
+                key={entry.stage}
+                fill={phaseColor(entry.stage)}
+                opacity={entry.stage === bottleneckStage ? 1 : 0.65}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+
+      {/* Footnote */}
+      <p className="text-[10px] text-slate-400 dark:text-slate-500 px-1">
+        Median task hold time · completed documents only · all routing modes
+      </p>
+    </div>
   );
 };
 

@@ -7,6 +7,8 @@ export type AuthUser = {
   suffix: string | null;
   profile_photo_path: string | null;
   profile_photo_url?: string | null;
+  signature_path?: string | null;
+  signature_url?: string | null;
   email: string;
   role: string;
 

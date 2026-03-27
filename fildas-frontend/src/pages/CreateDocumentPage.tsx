@@ -18,6 +18,7 @@ import FlowSelectModal, {
   type FlowSelection,
 } from "../components/documents/CreateDocumentModal";
 import { Pencil } from "lucide-react";
+import SelectDropdown from "../components/ui/SelectDropdown";
 
 const Field: React.FC<{
   label: string;
@@ -319,7 +320,7 @@ export default function CreateDocumentPage() {
                           : node.type === "action"
                             ? "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-400"
                             : node.type === "creator"
-                              ? "bg-brand-50 text-brand-700 dark:bg-brand-950/20 dark:text-brand-300 ring-1 ring-brand-200 dark:ring-brand-900"
+                              ? "bg-brand-400/10 text-brand-600 dark:bg-brand-400/15 dark:text-brand-300 ring-1 ring-brand-400/30 dark:ring-brand-400/20"
                               : "bg-white dark:bg-surface-600 border border-slate-200 dark:border-surface-400 text-slate-600 dark:text-slate-300",
                       ].join(" ")}
                     >
@@ -371,17 +372,14 @@ export default function CreateDocumentPage() {
                   <div className="px-5 py-5 flex flex-col gap-5">
                     {isAdminUser && (
                       <Field label="Acting as office" required hint="Document will be created on behalf of this office.">
-                        <select
-                          value={actingOfficeId ?? ""}
-                          onChange={(e) => setActingOfficeId(Number(e.target.value) || null)}
-                          required
-                          className={inputCls}
-                        >
-                          <option value="">Select an office…</option>
-                          {allOffices.map((o) => (
-                            <option key={o.id} value={o.id}>{o.name}</option>
-                          ))}
-                        </select>
+                        <SelectDropdown
+                          value={actingOfficeId}
+                          onChange={(v) => setActingOfficeId(v ? Number(v) : null)}
+                          options={allOffices.map((o) => ({ value: o.id, label: o.name, sublabel: o.code }))}
+                          placeholder="Select an office…"
+                          searchable
+                          clearable={false}
+                        />
                       </Field>
                     )}
 

@@ -36,34 +36,34 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 shadow-2xl">
-        <div className="px-5 py-4 border-b border-slate-100 dark:border-surface-400">
-          <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-            Start revision
-          </h2>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            Optionally describe why this document is being revised.
-          </p>
-        </div>
-        <div className="px-5 py-4">
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1.5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-md rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 shadow-xl p-6">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+          Start revision
+        </h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+          Optionally describe why this document is being revised.
+        </p>
+
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
             Revision reason{" "}
             <span className="font-normal text-slate-400">(optional)</span>
           </label>
           <textarea
-            className="w-full rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-500 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"
             rows={3}
             maxLength={1000}
             placeholder="e.g. Updated to reflect new compliance requirements…"
             value={revisionReason}
             onChange={(e) => setRevisionReason(e.target.value)}
+            className="block w-full rounded-md border border-slate-300 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-brand-400 dark:focus:border-brand-300 resize-none transition"
           />
           <p className="mt-1 text-right text-xs text-slate-400">
             {revisionReason.length}/1000
           </p>
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 dark:border-surface-400 flex justify-end gap-2">
+
+        <div className="flex justify-end gap-2">
           <Button
             type="button"
             variant="outline"
@@ -77,7 +77,7 @@ const RevisionModal: React.FC<RevisionModalProps> = ({
             type="button"
             variant="primary"
             size="sm"
-            disabled={isRevising}
+            loading={isRevising}
             onClick={handleRevise}
           >
             {isRevising ? "Creating…" : "Start revision"}

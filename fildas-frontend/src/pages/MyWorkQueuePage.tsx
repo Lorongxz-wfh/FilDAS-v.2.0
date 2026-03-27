@@ -19,13 +19,35 @@ import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
 import RefreshButton from "../components/ui/RefreshButton";
-import SkeletonList from "../components/ui/loader/SkeletonList";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import { CheckCircle2, Search, X } from "lucide-react";
 import StatCard from "../components/workQueue/StatCard";
 import QueueCard from "../components/workQueue/QueueCard";
 import FinishedCard from "../components/workQueue/FinishedCard";
+
+// ── Skeletons ──────────────────────────────────────────────────────────────
+function QueueCardSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div className="space-y-2 animate-pulse">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-3 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-3"
+        >
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="h-3 rounded bg-slate-100 dark:bg-surface-400" style={{ width: `${55 + (i % 4) * 10}%` }} />
+            <div className="flex items-center gap-2">
+              <div className="h-2.5 rounded bg-slate-100 dark:bg-surface-400" style={{ width: "80px" }} />
+              <div className="h-4 rounded bg-slate-100 dark:bg-surface-400" style={{ width: "60px" }} />
+            </div>
+          </div>
+          <div className="h-6 w-6 rounded bg-slate-100 dark:bg-surface-400 shrink-0" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // ── Main page ──────────────────────────────────────────────────────────────
 type QueueTab = "all" | "active" | "done";
@@ -348,7 +370,7 @@ const MyWorkQueuePage: React.FC = () => {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search by title or code…"
-                  className="w-full rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 pl-9 pr-8 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100 dark:focus:ring-brand-900/30 transition"
+                  className="w-full rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 pl-9 pr-8 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-brand-400 transition"
                 />
                 {search && (
                   <button
@@ -368,7 +390,7 @@ const MyWorkQueuePage: React.FC = () => {
           <div className="flex-1 overflow-y-auto px-4 py-4">
             {tab === "done" ? (
               finishedLoading && finishedDocs.length === 0 ? (
-                <SkeletonList rows={4} rowClassName="h-14 rounded-md" />
+                <QueueCardSkeleton rows={4} />
               ) : finishedDocs.length === 0 ? (
                 <div className="flex h-full min-h-40 items-center justify-center rounded-md border border-dashed border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600">
                   <div className="text-center">
@@ -415,7 +437,7 @@ const MyWorkQueuePage: React.FC = () => {
                 </div>
               )
             ) : loading ? (
-              <SkeletonList rows={4} rowClassName="h-14 rounded-md" />
+              <QueueCardSkeleton rows={4} />
             ) : (
               (() => {
                 const displayItems = filterItems(
@@ -481,7 +503,17 @@ const MyWorkQueuePage: React.FC = () => {
 
           <div className="flex-1 overflow-y-auto px-3 py-3">
             {loadingActivity ? (
-              <SkeletonList rows={5} rowClassName="h-12 rounded-md" />
+              <div className="space-y-1.5 animate-pulse">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-start gap-2.5 px-1 py-1.5">
+                    <div className="mt-0.5 h-3.5 w-3.5 rounded-full bg-slate-100 dark:bg-surface-400 shrink-0" />
+                    <div className="flex-1 space-y-1">
+                      <div className="h-2.5 rounded bg-slate-100 dark:bg-surface-400" style={{ width: `${50 + (i % 4) * 12}%` }} />
+                      <div className="h-2 rounded bg-slate-100 dark:bg-surface-400" style={{ width: "45%" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : recentActivity.length === 0 ? (
               <div className="flex h-full min-h-30 items-center justify-center">
                 <p className="text-xs text-slate-400 dark:text-slate-500">

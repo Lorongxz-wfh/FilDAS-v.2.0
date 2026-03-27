@@ -295,12 +295,25 @@ const LineTrend: React.FC<{ data: ReturnTrendItem[]; height: number }> = ({
 
 // ── Main export ────────────────────────────────────────────────────────────────
 
+const ChartSkeleton = ({ height = 220 }: { height?: number }) => (
+  <div style={{ height }} className="flex flex-col justify-center gap-3 px-4 py-3">
+    {[75, 50, 90, 35, 60].map((w, i) => (
+      <div key={i} className="flex items-center gap-3">
+        <div className="w-32 h-2.5 animate-pulse rounded bg-slate-100 dark:bg-surface-400 shrink-0" />
+        <div className="animate-pulse rounded-r-sm bg-slate-100 dark:bg-surface-400 h-4" style={{ width: `${w}%` }} />
+      </div>
+    ))}
+  </div>
+);
+
 const ReturnByStageChart: React.FC<{
   data: ReturnByStageItem[];
   trendData?: ReturnTrendItem[];
   variant: ReturnByStageVariant;
   height?: number;
-}> = ({ data, trendData = [], variant, height = 220 }) => {
+  loading?: boolean;
+}> = ({ data, trendData = [], variant, height = 220, loading = false }) => {
+  if (loading) return <ChartSkeleton height={height} />;
   const isEmpty = variant === "line" ? !trendData?.length : !data?.length;
   if (isEmpty) return <EmptyChart height={height} />;
   if (variant === "horizontal")

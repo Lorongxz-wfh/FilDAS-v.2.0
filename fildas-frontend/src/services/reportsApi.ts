@@ -45,6 +45,10 @@ export async function getComplianceReport(
       in_approval_count: res.data?.in_approval_count ?? 0,
       stage_delays_default: (res.data?.stage_delays_default ?? []) as ComplianceStageDelayDatum[],
       stage_delays_custom: (res.data?.stage_delays_custom ?? []) as ComplianceStageDelayDatum[],
+      stage_delays_by_phase: (res.data?.stage_delays_by_phase ?? []) as ComplianceStageDelayDatum[],
+      doctype_distribution: res.data?.doctype_distribution ?? [],
+      creation_by_office: res.data?.creation_by_office ?? [],
+      lifecycle_funnel: res.data?.lifecycle_funnel ?? [],
     };
   } catch (e: any) {
     const status = e?.response?.status;
@@ -63,6 +67,7 @@ export async function getFlowHealthReport(params?: {
   date_field?: "created" | "completed";
   parent?: string;
   bucket?: string;
+  office_id?: number;
 }): Promise<FlowHealthReport> {
   try {
     const api = await getApi();

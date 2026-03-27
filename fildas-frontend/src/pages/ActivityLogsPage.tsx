@@ -1,5 +1,6 @@
 import React from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { pageCache } from "../lib/pageCache";
 import { getAuthUser } from "../lib/auth";
 import PageFrame from "../components/layout/PageFrame";
 import Table, { type TableColumn } from "../components/ui/Table";
@@ -23,6 +24,8 @@ const ActivityLogsPage: React.FC = () => {
   const me = getAuthUser();
   if (!me) return <Navigate to="/login" replace />;
 
+  const isOfficeHead = me.role === "OFFICE_HEAD";
+
   const navigate = useNavigate();
 
   const [tab, setTab] = React.useState<TabView>("log");
@@ -39,11 +42,12 @@ const ActivityLogsPage: React.FC = () => {
     return () => window.clearTimeout(t);
   }, [q]);
 
-  const [rows, setRows] = React.useState<any[]>([]);
+  const _alc = pageCache.get<any>("activity-logs", '{"q":"","scope":"all","category":"","dateFrom":"","dateTo":""}', 2 * 60_000);
+  const [rows, setRows] = React.useState<any[]>(_alc?.rows ?? []);
   const [page, setPage] = React.useState(1);
-  const [hasMore, setHasMore] = React.useState(true);
+  const [hasMore, setHasMore] = React.useState(_alc?.hasMore ?? true);
   const [loading, setLoading] = React.useState(false);
-  const [initialLoading, setInitialLoading] = React.useState(true);
+  const [initialLoading, setInitialLoading] = React.useState(!_alc);
   const [error, setError] = React.useState<string | null>(null);
 
   // Ref mirrors hasMore so the effect reads current value without it as a dep
@@ -86,6 +90,10 @@ const ActivityLogsPage: React.FC = () => {
           meta.current_page < meta.last_page;
         hasMoreRef.current = more;
         setHasMore(more);
+        if (page === 1) {
+          const filterKey = JSON.stringify({ q: qDebounced.trim(), scope, category, dateFrom, dateTo });
+          pageCache.set("activity-logs", filterKey, incoming, more);
+        }
       } catch (e: any) {
         if (!alive) return;
         setError(e?.message ?? "Failed to load activity logs.");
@@ -129,7 +137,7 @@ const ActivityLogsPage: React.FC = () => {
     }
   };
 
-  const hasFilters = category || q || dateFrom || dateTo || scope !== "all";
+  const hasFilters = category || q || dateFrom || dateTo || (!isOfficeHead && scope !== "all");
 
   const reloadLogs = () => {
     setRows([]);
@@ -188,6 +196,7 @@ const ActivityLogsPage: React.FC = () => {
     {
       key: "when",
       header: "When",
+      skeletonShape: "narrow",
       render: (r) => (
         <span className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
           {formatDateTime(r.created_at)}
@@ -197,6 +206,7 @@ const ActivityLogsPage: React.FC = () => {
     {
       key: "event",
       header: "Event",
+      skeletonShape: "text",
       render: (r) => (
         <span className="font-medium text-slate-800 dark:text-slate-200 truncate block group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
           {friendlyEvent(r.event)}
@@ -206,6 +216,7 @@ const ActivityLogsPage: React.FC = () => {
     {
       key: "label",
       header: "Label",
+      skeletonShape: "text",
       render: (r) => (
         <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
           {r.label ?? "—"}
@@ -215,6 +226,7 @@ const ActivityLogsPage: React.FC = () => {
     {
       key: "actor",
       header: "Actor",
+      skeletonShape: "double",
       render: (r) => (
         <div className="min-w-0">
           <div className="text-xs text-slate-700 dark:text-slate-300 truncate">
@@ -231,6 +243,7 @@ const ActivityLogsPage: React.FC = () => {
     {
       key: "doc",
       header: "Doc",
+      skeletonShape: "text",
       render: (r) => (
         <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
           {r.document?.title ?? (r.document_id ? `#${r.document_id}` : "—")}
@@ -288,15 +301,21 @@ const ActivityLogsPage: React.FC = () => {
       {/* Log tab — filters */}
       {tab === "log" && (
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <select
-            value={scope}
-            onChange={(e) => setScope(e.target.value as Scope)}
-            className={selectCls}
-          >
-            <option value="all">All</option>
-            <option value="office">My office</option>
-            <option value="mine">Mine</option>
-          </select>
+          {isOfficeHead ? (
+            <span className="inline-flex items-center rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400">
+              {me.office?.name ?? "Your office"}
+            </span>
+          ) : (
+            <select
+              value={scope}
+              onChange={(e) => setScope(e.target.value as Scope)}
+              className={selectCls}
+            >
+              <option value="all">All</option>
+              <option value="office">My office</option>
+              <option value="mine">Mine</option>
+            </select>
+          )}
 
           <select
             value={category}
@@ -343,7 +362,7 @@ const ActivityLogsPage: React.FC = () => {
               type="button"
               onClick={() => {
                 setQ("");
-                setScope("all");
+                if (!isOfficeHead) setScope("all");
                 setCategory("");
                 setDateFrom("");
                 setDateTo("");

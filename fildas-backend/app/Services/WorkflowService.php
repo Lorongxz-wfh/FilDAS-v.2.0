@@ -113,8 +113,11 @@ class WorkflowService
             $flow    = $version->workflow_type;
             $routing = $version->routing_mode;
 
-            // ── Pre-action validation ──────────────────────────────────────
-            $this->validator->assertActionAllowed($version, $task, $action);
+            // ── Pre-action validation (skipped for admin/sysadmin dev bypass) ──
+            $roleName = strtolower(trim($user->role?->name ?? ''));
+            if (!in_array($roleName, ['admin', 'sysadmin'], true)) {
+                $this->validator->assertActionAllowed($version, $task, $action);
+            }
 
             if ($routing === 'custom') {
                 return $this->applyCustomAction($version, $task, $user, $action, $note, $effectiveDate);

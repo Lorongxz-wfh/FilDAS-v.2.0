@@ -161,7 +161,7 @@ const LoginPage: React.FC = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="qa@example.com"
                 required
-                className="w-full rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-brand-400 focus:bg-white dark:focus:bg-surface-600 focus:ring-2 focus:ring-brand-100 dark:focus:ring-brand-900/30 transition"
+                className="w-full rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-brand-400 focus:bg-white dark:focus:bg-surface-600 transition"
               />
             </div>
 
@@ -177,7 +177,7 @@ const LoginPage: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-4 py-2.5 pr-16 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-400 focus:bg-white dark:focus:bg-surface-600 focus:ring-2 focus:ring-brand-100 dark:focus:ring-brand-900/30 transition"
+                  className="w-full rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-4 py-2.5 pr-16 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-400 focus:bg-white dark:focus:bg-surface-600 transition"
                 />
                 <button
                   type="button"
@@ -207,7 +207,7 @@ const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 rounded-md bg-brand-500 hover:bg-brand-600 text-sm font-semibold text-white transition disabled:opacity-60"
+              className="w-full py-2.5 rounded-md bg-brand-400 hover:bg-brand-500 dark:bg-brand-300 dark:hover:bg-brand-400 text-sm font-semibold text-white transition disabled:opacity-50"
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>

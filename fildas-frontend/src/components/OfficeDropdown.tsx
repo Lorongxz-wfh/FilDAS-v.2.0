@@ -69,8 +69,8 @@ const OfficeDropdown: React.FC<OfficeDropdownProps> = ({
     placeholder-slate-400 dark:placeholder-slate-500
     ${
       error
-        ? "border-rose-300 dark:border-rose-700 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-900/30"
-        : "border-slate-200 dark:border-surface-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:focus:ring-sky-900/30"
+        ? "border-rose-300 dark:border-rose-700 focus:border-rose-500"
+        : "border-slate-200 dark:border-surface-400 focus:border-brand-400 dark:focus:border-brand-300"
     }`;
 
   return (

@@ -92,6 +92,7 @@ export interface DocumentVersion {
   preview_path: string | null;
   original_filename: string | null;
   signed_file_path?: string | null;
+  pre_sign_file_path?: string | null;
   needs_file_replacement?: boolean;
   description?: string | null;
   revision_reason?: string | null;
@@ -168,6 +169,7 @@ export type ComplianceReportParams = {
   bucket?: "daily" | "weekly" | "monthly" | "yearly" | "total";
   scope?: "clusters" | "offices";
   parent?: "ALL" | "PO" | "VAd" | "VA" | "VF" | "VR";
+  office_id?: number; // filter by a single office (used when scope="offices")
 };
 
 export type ComplianceSeriesDatum = {
@@ -203,10 +205,11 @@ export type ComplianceKpis = {
 };
 
 export type ComplianceStageDelayDatum = {
-  stage: string; // Office | VP | QA | Registration
-  avg_hours: number; // average time per task in that stage
+  stage: string;
+  avg_hours: number;
+  median_hours?: number; // median task hold time (phase-based data)
   count: number; // unique distributed versions that hit this stage
-  task_count: number; // number of tasks included in avg
+  task_count: number;
 };
 
 export type ComplianceReportResponse = {
@@ -227,6 +230,10 @@ export type ComplianceReportResponse = {
   in_approval_count?: number;
   stage_delays_default?: ComplianceStageDelayDatum[];
   stage_delays_custom?: ComplianceStageDelayDatum[];
+  stage_delays_by_phase?: ComplianceStageDelayDatum[];
+  doctype_distribution?: { doctype: string; count: number }[];
+  creation_by_office?: { office_code: string; office_name: string; internal: number; external: number; forms: number; total: number }[];
+  lifecycle_funnel?: { stage: string; count: number }[];
 };
 
 export type FlowHealthReport = {

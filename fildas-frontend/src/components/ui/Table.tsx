@@ -9,6 +9,14 @@ export type TableColumn<T> = {
   className?: string;
   headerClassName?: string;
   align?: Align;
+  /**
+   * Hint for how to render the skeleton cell while initialLoading.
+   * badge   — pill shape (status/type badges)
+   * double  — two stacked lines (title + subtitle)
+   * narrow  — short single line (date/code/version)
+   * text    — regular single line (default)
+   */
+  skeletonShape?: "badge" | "double" | "narrow" | "text";
 };
 
 export type TableProps<T> = {
@@ -98,16 +106,36 @@ export default function Table<T>({
             {Array.from({ length: 10 }).map((_, r) => (
               <div
                 key={r}
-                className="grid gap-3 items-center px-4 py-2 rounded-none"
+                className="grid gap-3 items-center px-4 py-2"
                 style={{ gridTemplateColumns: colTemplate }}
               >
-                {columns.map((_, c) => (
-                  <div
-                    key={c}
-                    className="h-3 rounded-sm animate-pulse bg-slate-100 dark:bg-surface-400"
-                    style={{ width: c === 1 ? "60%" : c === 0 ? "50%" : "75%" }}
-                  />
-                ))}
+                {columns.map((col, c) => {
+                  const shape = col.skeletonShape ?? "text";
+                  const base = "animate-pulse rounded bg-slate-100 dark:bg-surface-400";
+                  // vary widths across rows so it doesn't look like a grid
+                  const textWidths = ["72%", "58%", "80%", "64%", "75%"];
+                  if (shape === "badge") {
+                    return (
+                      <div key={c} className={`${base} rounded-full h-5`} style={{ width: `${56 + (r % 3) * 12}px` }} />
+                    );
+                  }
+                  if (shape === "double") {
+                    return (
+                      <div key={c} className="flex flex-col gap-1.5">
+                        <div className={`${base} h-3`} style={{ width: textWidths[r % textWidths.length] }} />
+                        <div className={`${base} h-2`} style={{ width: `${36 + (r % 4) * 8}%` }} />
+                      </div>
+                    );
+                  }
+                  if (shape === "narrow") {
+                    return (
+                      <div key={c} className={`${base} h-3`} style={{ width: `${48 + (r % 3) * 10}%` }} />
+                    );
+                  }
+                  return (
+                    <div key={c} className={`${base} h-3`} style={{ width: textWidths[(c + r) % textWidths.length] }} />
+                  );
+                })}
               </div>
             ))}
           </div>

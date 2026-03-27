@@ -91,6 +91,7 @@ const TemplateList: React.FC<Props> = ({
       {
         key: "type",
         header: "Type",
+        skeletonShape: "badge",
         render: (t) => {
           const label = templateFileTypeLabel(t.mime_type);
           return (
@@ -103,6 +104,7 @@ const TemplateList: React.FC<Props> = ({
       {
         key: "name",
         header: "Template",
+        skeletonShape: "double",
         render: (t) => (
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
@@ -136,6 +138,7 @@ const TemplateList: React.FC<Props> = ({
       {
         key: "scope",
         header: "Scope",
+        skeletonShape: "badge",
         render: (t) =>
           t.is_global ? (
             <span className="inline-flex items-center rounded bg-sky-50 dark:bg-sky-950/30 px-1.5 py-0.5 text-[10px] font-medium text-sky-600 dark:text-sky-400">
@@ -152,6 +155,7 @@ const TemplateList: React.FC<Props> = ({
       {
         key: "size",
         header: "Size",
+        skeletonShape: "narrow",
         render: (t) => (
           <span className="text-xs text-slate-500 dark:text-slate-400">
             {t.file_size_label}
@@ -161,6 +165,7 @@ const TemplateList: React.FC<Props> = ({
       {
         key: "uploaded_by",
         header: "Uploaded by",
+        skeletonShape: "text",
         render: (t) => (
           <span className="text-xs text-slate-500 dark:text-slate-400">
             {t.uploaded_by?.name ?? "—"}
@@ -170,6 +175,7 @@ const TemplateList: React.FC<Props> = ({
       {
         key: "date",
         header: "Date",
+        skeletonShape: "narrow",
         render: (t) => (
           <span className="text-xs text-slate-400 dark:text-slate-500">
             {new Date(t.created_at).toLocaleDateString()}

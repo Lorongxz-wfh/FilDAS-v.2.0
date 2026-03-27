@@ -85,7 +85,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
               1
             </div>
             <span
-              className={`mt-2 text-[11px] font-medium leading-snug ${
+              className={`mt-2 text-xs font-medium leading-snug ${
                 isCurrent ? "text-slate-900 dark:text-slate-100 font-semibold" : "text-slate-600 dark:text-slate-400"
               }`}
               title={step.label}
@@ -121,7 +121,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                     {si + 1}
                   </div>
                   <span
-                    className={`mt-1.5 text-center text-[10px] font-medium leading-tight line-clamp-2 ${
+                    className={`mt-1.5 text-center text-xs font-medium leading-tight line-clamp-2 ${
                       stepIsCurrent
                         ? "text-slate-900 dark:text-slate-100 font-semibold"
                         : stepIsCompleted
@@ -178,7 +178,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">
                 Workflow progress
               </p>
               <span
@@ -207,10 +207,10 @@ const WorkflowProgressCard: React.FC<Props> = ({
                 <div className="h-3 w-16 rounded-full bg-slate-300 dark:bg-surface-300 animate-pulse shrink-0" />
               ) : (
                 <div className="shrink-0 flex items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
                     {currentPhase.label}
                   </span>
-                  <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                     {progressPct}%
                   </span>
                 </div>
@@ -255,7 +255,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
           <div className="md:hidden px-4 pb-4">
             <div className="pt-3 flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Current step</p>
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Current step</p>
                 {!isTasksReady ? (
                   <Skeleton className="mt-1 h-5 w-48" />
                 ) : (
@@ -266,7 +266,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
               </div>
               {isTasksReady && nextStep && (
                 <div className="text-right shrink-0 max-w-[45%]">
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Next</p>
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Next</p>
                   <p className="mt-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100 line-clamp-2">
                     {nextStep.label}
                   </p>
@@ -363,7 +363,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
           <div className="hidden md:block px-4 pb-4">
             <div className="pt-3 flex items-start justify-between gap-6">
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Current step</p>
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Current step</p>
                 {!isTasksReady ? (
                   <Skeleton className="mt-1 h-5 w-52" />
                 ) : (
@@ -373,7 +373,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                 )}
               </div>
               <div className="text-right shrink-0 min-w-55">
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Next step</p>
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-300">Next step</p>
                 {!isTasksReady ? (
                   <Skeleton className="mt-1 h-3 w-20 ml-auto" />
                 ) : nextStep ? (
@@ -440,8 +440,8 @@ const WorkflowProgressCard: React.FC<Props> = ({
                                 isCurrent
                                   ? "text-slate-900 dark:text-slate-100 font-semibold"
                                   : isCompleted
-                                    ? "text-slate-400 dark:text-slate-500"
-                                    : "text-slate-400 dark:text-slate-500"
+                                    ? "text-slate-500 dark:text-slate-400"
+                                    : "text-slate-500 dark:text-slate-400"
                               }`}
                               title={phase.label}
                             >
@@ -513,7 +513,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
               </div>
             ) : (
               <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/40 p-3 dark:border-surface-400 dark:bg-surface-600/40">
-                <p className="text-center text-[10px] font-medium mb-3 uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                <p className="text-center text-xs font-semibold mb-3 uppercase tracking-wide text-slate-600 dark:text-slate-300">
                   {selectedPhaseId === currentPhaseId
                     ? "Current"
                     : `${phases.find((p) => p.id === selectedPhaseId)?.label} steps`}

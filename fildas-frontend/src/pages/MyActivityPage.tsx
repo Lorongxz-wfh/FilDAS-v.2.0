@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import PageFrame from "../components/layout/PageFrame";
-import SkeletonList from "../components/ui/loader/SkeletonList";
+import Table, { type TableColumn } from "../components/ui/Table";
+import RefreshButton from "../components/ui/RefreshButton";
 import { getDocumentVersion, listActivityLogs } from "../services/documents";
-import { Search, X } from "lucide-react";
-import { inputCls, selectCls } from "../utils/formStyles";
+import { friendlyEvent } from "../utils/activityFormatters";
+import { formatDateTime } from "../utils/formatters";
+import { X } from "lucide-react";
+import { selectCls } from "../utils/formStyles";
 import DateRangeInput from "../components/ui/DateRangeInput";
+import ActivityDetailModal from "../components/activityLogs/ActivityDetailModal";
 
 type ActivityLogRow = {
   id: number;
@@ -19,50 +23,6 @@ type ActivityLogRow = {
 
 type Category = "" | "workflow" | "document" | "request";
 
-const EVENT_LABELS: Record<string, string> = {
-  "workflow.distributed": "Document distributed",
-  "workflow.sent_to_review": "Sent for review",
-  "workflow.forwarded_to_vp": "Forwarded to VP",
-  "workflow.forwarded_to_president": "Forwarded to President",
-  "workflow.sent_to_approval": "Sent for approval",
-  "workflow.sent_to_registration": "Sent for registration",
-  "workflow.registered": "Document registered",
-  "workflow.returned_to_draft": "Returned to draft",
-  "workflow.returned_for_check": "Returned for final check",
-  "workflow.rejected": "Rejected",
-  "workflow.action": "Workflow action",
-  "document.created": "Document created",
-  "document.tags_updated": "Tags updated",
-  "version.file_uploaded": "File uploaded",
-  "version.file_replaced": "File replaced",
-  "version.signed_file_uploaded": "Signed document uploaded",
-  "version.updated": "Draft updated",
-  "version.revision_created": "Revision started",
-  "version.cancelled": "Version cancelled",
-  "version.deleted": "Draft deleted",
-  "version.previewed": "Document previewed",
-  "version.downloaded": "Document downloaded",
-  "message.posted": "Comment posted",
-  "document_request.created": "Document request created",
-  "document_request.updated": "Request updated",
-  "document_request.submission.submitted": "Submission uploaded",
-  "document_request.submission.reviewed": "Submission reviewed",
-  "document_request.submission.accepted": "Submission accepted",
-  "document_request.submission.rejected": "Submission rejected",
-  "document_request.message.posted": "Request comment posted",
-};
-
-function friendlyEvent(event: string): string {
-  return EVENT_LABELS[event] ?? event.replace(/[._]/g, " ");
-}
-
-function categoryFromEvent(event: string): "workflow" | "document" | "request" | "other" {
-  if (event.startsWith("workflow.")) return "workflow";
-  if (event.startsWith("document.") || event.startsWith("version.") || event.startsWith("message.")) return "document";
-  if (event.startsWith("document_request")) return "request";
-  return "other";
-}
-
 const CATEGORY_BADGE: Record<string, string> = {
   workflow: "bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400",
   document: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
@@ -70,49 +30,47 @@ const CATEGORY_BADGE: Record<string, string> = {
   other:    "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-400",
 };
 
-const formatWhen = (iso?: string | null) => {
-  if (!iso) return "";
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
+const CATEGORY_LABEL: Record<string, string> = {
+  workflow: "Workflow",
+  document: "Document",
+  request:  "Request",
+  other:    "Other",
 };
 
-function canNavigateTo(row: ActivityLogRow): boolean {
-  return !!(
-    row.document_version_id ||
-    row.document_id ||
-    row.meta?.document_request_id
-  );
+function categoryFromEvent(event: string): string {
+  if (event.startsWith("workflow.")) return "workflow";
+  if (event.startsWith("document.") || event.startsWith("version.") || event.startsWith("message.")) return "document";
+  if (event.startsWith("document_request")) return "request";
+  return "other";
 }
+
+// function canNavigateTo(row: ActivityLogRow): boolean {
+//   return !!(row.document_version_id || row.document_id || row.meta?.document_request_id);
+// }
 
 const MyActivityPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Pre-select category from router state (e.g. from Work Queue "View all")
   const initialCategory = ((location.state as any)?.category as Category) ?? "";
 
-  const [page, setPage] = useState(1);
-  const perPage = 25;
   const [rows, setRows] = useState<ActivityLogRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [lastPage, setLastPage] = useState(1);
 
-  // Filters
+  const [selectedRow, setSelectedRow] = useState<ActivityLogRow | null>(null);
   const [category, setCategory] = useState<Category>(initialCategory);
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+
+  const hasMoreRef = useRef(true);
+  const manualRefreshInProgress = useRef(false);
+  const firstIdRef = useRef<number | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -120,50 +78,99 @@ const MyActivityPage: React.FC = () => {
     return () => window.clearTimeout(t);
   }, [q]);
 
-  // Reset page on filter change
+  // Reset on filter change
   useEffect(() => {
+    setRows([]);
     setPage(1);
+    hasMoreRef.current = true;
+    setHasMore(true);
+    setInitialLoading(true);
   }, [category, qDebounced, dateFrom, dateTo]);
 
+  // Load data
   useEffect(() => {
+    if (manualRefreshInProgress.current) return;
     let alive = true;
-    (async () => {
+    const load = async () => {
+      if (!hasMoreRef.current && page > 1) return;
+      setLoading(true);
+      setError(null);
       try {
-        setLoading(true);
-        setError(null);
-        const res: any = await listActivityLogs({
+        const res = await listActivityLogs({
           scope: "mine",
-          per_page: perPage,
-          page,
           q: qDebounced.trim() || undefined,
-          // Always scope to action events — never fetch auth.login / profile.updated noise
+          page,
+          per_page: 25,
           category: category || undefined,
           date_from: dateFrom || undefined,
           date_to: dateTo || undefined,
         });
         if (!alive) return;
-        setRows((res?.data ?? []) as ActivityLogRow[]);
-        setCurrentPage(
-          Number(res?.meta?.current_page ?? res?.current_page ?? page),
-        );
-        setLastPage(Number(res?.meta?.last_page ?? res?.last_page ?? 1));
+        const incoming = (res.data ?? []) as ActivityLogRow[];
+        setRows((prev) => (page === 1 ? incoming : [...prev, ...incoming]));
+        const meta = res.meta ?? null;
+        const more =
+          meta?.current_page != null &&
+          meta?.last_page != null &&
+          meta.current_page < meta.last_page;
+        hasMoreRef.current = more;
+        setHasMore(more);
+        if (page === 1) firstIdRef.current = incoming[0]?.id ?? null;
       } catch (e: any) {
-        if (alive) setError(e?.message ?? "Failed to load activity");
+        if (!alive) return;
+        setError(e?.message ?? "Failed to load activity.");
       } finally {
-        if (alive) setLoading(false);
+        if (!alive) return;
+        setLoading(false);
+        setInitialLoading(false);
       }
-    })();
-    return () => {
-      alive = false;
     };
+    load();
+    return () => { alive = false; };
+    // hasMore intentionally omitted — tracked via hasMoreRef to avoid re-trigger
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, category, qDebounced, dateFrom, dateTo]);
+
+  const refresh = useCallback(async (): Promise<string | false | void> => {
+    const prevFirstId = firstIdRef.current;
+    manualRefreshInProgress.current = true;
+    setError(null);
+    try {
+      const res = await listActivityLogs({
+        scope: "mine",
+        q: qDebounced.trim() || undefined,
+        page: 1,
+        per_page: 25,
+        category: category || undefined,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+      });
+      const incoming = (res.data ?? []) as ActivityLogRow[];
+      firstIdRef.current = incoming[0]?.id ?? null;
+      setRows(incoming);
+      setPage(1);
+      const meta = res.meta ?? null;
+      const more =
+        meta?.current_page != null &&
+        meta?.last_page != null &&
+        meta.current_page < meta.last_page;
+      hasMoreRef.current = more;
+      setHasMore(more);
+      setInitialLoading(false);
+      if (prevFirstId === null) return false;
+      return incoming[0]?.id !== prevFirstId ? "Activity updated." : "Already up to date.";
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load activity.");
+      throw e;
+    } finally {
+      manualRefreshInProgress.current = false;
+    }
+  }, [category, qDebounced, dateFrom, dateTo]);
 
   const openByVersionId = async (versionId: number) => {
     try {
       const { document } = await getDocumentVersion(versionId);
-      navigate(`/documents/${document.id}`, {
-        state: { from: "/my-activity" },
-      });
+      navigate(`/documents/${document.id}`, { state: { from: "/my-activity" } });
     } catch {
       /* silent */
     }
@@ -179,24 +186,53 @@ const MyActivityPage: React.FC = () => {
       return;
     }
     if (row.document_id) {
-      navigate(`/documents/${row.document_id}`, {
-        state: { from: "/my-activity" },
-      });
+      navigate(`/documents/${row.document_id}`, { state: { from: "/my-activity" } });
     }
   };
 
-  const canPrev = currentPage > 1;
-  const canNext = currentPage < lastPage;
-
   const hasFilters = category || q || dateFrom || dateTo;
 
-  const clearFilters = () => {
-    setCategory("");
-    setQ("");
-    setDateFrom("");
-    setDateTo("");
-  };
-
+  const columns: TableColumn<ActivityLogRow>[] = [
+    {
+      key: "when",
+      header: "When",
+      render: (r) => (
+        <span className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+          {formatDateTime(r.created_at)}
+        </span>
+      ),
+    },
+    {
+      key: "event",
+      header: "Event",
+      render: (r) => (
+        <span className="font-medium text-slate-800 dark:text-slate-200 truncate block group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+          {friendlyEvent(r.event)}
+        </span>
+      ),
+    },
+    {
+      key: "label",
+      header: "Label",
+      render: (r) => (
+        <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
+          {r.label ?? "—"}
+        </span>
+      ),
+    },
+    {
+      key: "category",
+      header: "Category",
+      render: (r) => {
+        const cat = categoryFromEvent(r.event);
+        return (
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${CATEGORY_BADGE[cat]}`}>
+            {CATEGORY_LABEL[cat]}
+          </span>
+        );
+      },
+    },
+  ];
 
   return (
     <PageFrame
@@ -204,16 +240,18 @@ const MyActivityPage: React.FC = () => {
       breadcrumbs={[{ label: "Activity Logs", to: "/activity-logs" }]}
       contentClassName="flex flex-col gap-4 h-full"
       onBack={() => navigate(-1)}
+      right={
+        <RefreshButton onRefresh={refresh} title="Refresh activity" />
+      }
     >
       {/* Filters bar */}
       <div className="shrink-0 flex flex-wrap items-center gap-2">
-        <div className="relative w-52">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+        <div className="relative w-full sm:w-56">
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search event/label…"
-            className={`${inputCls} pl-9 pr-8`}
+            className={`${selectCls} w-full pr-8`}
           />
           {q && (
             <button
@@ -248,123 +286,39 @@ const MyActivityPage: React.FC = () => {
         {hasFilters && (
           <button
             type="button"
-            onClick={clearFilters}
-            className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+            onClick={() => { setCategory(""); setQ(""); setDateFrom(""); setDateTo(""); }}
+            className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
           >
             Clear
           </button>
         )}
-
-        {error && <span className="text-xs text-rose-500">{error}</span>}
       </div>
 
-      {/* Table card */}
-      <div className="flex flex-col rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex-1 min-h-0">
-        {/* Card header */}
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-5 py-3">
-          <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              Activity log
-            </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {category === "workflow"
-                ? "Workflow actions"
-                : category === "document"
-                  ? "Document & file actions"
-                  : category === "request"
-                    ? "Request actions"
-                    : "Your document and workflow actions"}
-            </p>
-          </div>
-          {/* Pagination */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={!canPrev || loading}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
-            >
-              ← Prev
-            </button>
-            <span className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-              {currentPage} / {lastPage}
-            </span>
-            <button
-              type="button"
-              disabled={!canNext || loading}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
-            >
-              Next →
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          {loading ? (
-            <SkeletonList rows={8} rowClassName="h-12 rounded-xl" />
-          ) : rows.length === 0 ? (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-sm text-slate-400 dark:text-slate-500">
-                No activity found.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {rows.map((l) => {
-                const cat = categoryFromEvent(l.event);
-                const navigable = canNavigateTo(l);
-                return (
-                  <div
-                    key={l.id}
-                    className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-4 py-3"
-                  >
-                    {/* Category dot */}
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${CATEGORY_BADGE[cat]}`}
-                    >
-                      {cat === "workflow"
-                        ? "Workflow"
-                        : cat === "document"
-                          ? "Document"
-                          : cat === "request"
-                            ? "Request"
-                            : "Other"}
-                    </span>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                        {l.label || friendlyEvent(l.event)}
-                      </p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                        {l.event}
-                      </p>
-                    </div>
-
-                    {/* When */}
-                    <div className="shrink-0 text-xs text-slate-400 dark:text-slate-500 hidden sm:block">
-                      {formatWhen(l.created_at)}
-                    </div>
-
-                    {/* Navigate button */}
-                    {navigable && (
-                      <button
-                        type="button"
-                        onClick={() => handleRowNavigate(l)}
-                        className="shrink-0 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
-                      >
-                        Open →
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+      {/* Table */}
+      <div className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden flex-1 min-h-0">
+        <Table
+          bare
+          className="h-full"
+          columns={columns}
+          rows={rows}
+          rowKey={(r) => r.id}
+          onRowClick={(r) => setSelectedRow(r)}
+          loading={loading}
+          initialLoading={initialLoading}
+          error={error}
+          emptyMessage="No activity found."
+          hasMore={hasMore}
+          onLoadMore={() => setPage((p) => p + 1)}
+          gridTemplateColumns="13rem 1.2fr 1fr 8rem"
+        />
       </div>
+      {selectedRow && (
+        <ActivityDetailModal
+          row={selectedRow}
+          onClose={() => setSelectedRow(null)}
+          onNavigate={handleRowNavigate}
+        />
+      )}
     </PageFrame>
   );
 };

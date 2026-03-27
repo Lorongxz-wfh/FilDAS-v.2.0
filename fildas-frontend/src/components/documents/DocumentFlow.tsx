@@ -5,6 +5,7 @@ import WorkflowProgressCard from "./documentFlow/WorkflowProgressCard";
 import DocumentRightPanel from "./documentFlow/DocumentRightPanel";
 import DocumentPreviewWrapper from "./documentFlow/DocumentPreviewWrapper";
 import DeleteDraftConfirmModal from "./documentFlow/DeleteDraftConfirmModal";
+import SignDocumentModal from "./SignDocumentModal";
 
 import {
   type Document,
@@ -14,6 +15,7 @@ import {
   getCurrentUserOfficeId,
   listOffices,
   getDocumentPreviewLink,
+  invalidatePreviewCache,
   getDocumentRouteSteps,
   type DocumentRouteStep,
   deleteDraftVersion,
@@ -21,6 +23,7 @@ import {
   postDocumentMessage,
 } from "../../services/documents";
 
+import { removeInAppSignature } from "../../services/documentApi";
 import { useToast } from "../ui/toast/ToastContext";
 import { getAuthUser } from "../../lib/auth";
 import { useDocumentWorkflow } from "../../hooks/useDocumentWorkflow";
@@ -98,6 +101,13 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const { push } = useToast();
   const myOfficeId = getCurrentUserOfficeId();
   const myUserId = Number(getAuthUser()?.id ?? 0);
+
+  // ── Sign modal ───────────────────────────────────────────────
+  const [signingOpen, setSigningOpen] = React.useState(false);
+  const [signingInBackground, setSigningInBackground] = React.useState(false);
+  const [signingEditMode, setSigningEditMode] = React.useState(false);
+  const [removingSignature, setRemovingSignature] = React.useState(false);
+  const currentUserSignatureUrl = getAuthUser()?.signature_url ?? null;
 
   // ── Delete/cancel confirmation state ─────────────────────────
   const [pendingDelete, setPendingDelete] = React.useState<
@@ -199,9 +209,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       localVersion.preview_path !== prevPreviewPathRef.current;
     prevPreviewPathRef.current = localVersion.preview_path;
 
-    // If path changed (new file uploaded by anyone), nuke cache and force re-fetch
+    // If path changed (new file uploaded by anyone), nuke both caches and force re-fetch
     if (pathChanged) {
       delete previewUrlCacheRef.current[localVersion.preview_path];
+      invalidatePreviewCache(localVersion.id);
     }
 
     // Reuse cached URL if preview_path hasn't changed and cache is warm
@@ -508,6 +519,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       PRE_APPROVAL_START_ACTIONS.includes(a),
     );
   const hasSignedFile = !!(localVersion as any)?.signed_file_path;
+  const hasPreSignBackup = !!(localVersion as any)?.pre_sign_file_path;
 
   const [approverHasDownloaded, setApproverHasDownloaded] =
     React.useState(false);
@@ -612,11 +624,18 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       let label = ACTION_LABELS[code] ?? code;
       let confirmMessage = ACTION_CONFIRM_MESSAGES[code];
       if (code === "CUSTOM_FORWARD") {
+        const isDraftPhase = currentPhase.id === "draft";
         const isApprovalPhase = currentPhase.id === "approval";
-        label = isApprovalPhase ? "Approved" : "Reviewed";
-        confirmMessage = isApprovalPhase
-          ? "You are confirming your approval of this document. It will be forwarded to the next recipient."
-          : "You are confirming that you have reviewed this document. It will be forwarded to the next recipient.";
+        if (isDraftPhase) {
+          label = "Submit for review";
+          confirmMessage = "This document will be submitted for review and assigned to the first recipient.";
+        } else if (isApprovalPhase) {
+          label = "Approved";
+          confirmMessage = "You are confirming your approval of this document. It will be forwarded to the next recipient.";
+        } else {
+          label = "Reviewed";
+          confirmMessage = "You are confirming that you have reviewed this document. It will be forwarded to the next recipient.";
+        }
       }
       return {
         key: code,
@@ -632,10 +651,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
           (code !== "CANCEL_DOCUMENT" && !canAct) ||
           (needsFileReplacement &&
             !["REJECT", "CANCEL_DOCUMENT"].includes(code)) ||
-          (isPreApprovalCreatorCheck &&
+          (!adminDebugMode && isPreApprovalCreatorCheck &&
             PRE_APPROVAL_START_ACTIONS.includes(code) &&
             !hasSignedFile) ||
-          (approverNeedsSignedUpload &&
+          (!adminDebugMode && approverNeedsSignedUpload &&
             !["REJECT", "CANCEL_DOCUMENT"].includes(code)),
         onClick: async () => {
           try {
@@ -671,7 +690,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         .map((b) => ({
           ...b,
           disabled:
-            b.disabled || !approverHasDownloaded || !approverHasUploaded,
+            b.disabled || (!adminDebugMode && (!approverHasDownloaded || !approverHasUploaded)),
         }));
       workflowButtons = [...forwardButtons, ...cancelBtn];
     } else {
@@ -957,21 +976,31 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             title={!approverHasDownloaded ? "Step 1: Download the document for signing" : "Step 2: Upload your signed copy"}
             action={
               !approverHasDownloaded ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await downloadDocument(localVersion!);
-                      setApproverHasDownloaded(true);
-                    } catch (e: any) {
-                      push({ type: "error", title: "Download failed", message: e?.message ?? "Could not download the file." });
-                    }
-                  }}
-                  disabled={workflow.isChangingStatus}
-                  className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50 transition"
-                >
-                  Download
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await downloadDocument(localVersion!);
+                        setApproverHasDownloaded(true);
+                      } catch (e: any) {
+                        push({ type: "error", title: "Download failed", message: e?.message ?? "Could not download the file." });
+                      }
+                    }}
+                    disabled={workflow.isChangingStatus || signingInBackground}
+                    className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50 transition"
+                  >
+                    Download
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSigningOpen(true)}
+                    disabled={workflow.isChangingStatus || signingInBackground}
+                    className="rounded-md border border-amber-400 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-400/10 dark:hover:bg-amber-400/15 disabled:opacity-50 transition"
+                  >
+                    {signingInBackground ? "Signing…" : "Sign in-app"}
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"
@@ -997,14 +1026,24 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             icon={<Upload className="h-4 w-4" />}
             title="Upload signed document to start approval"
             action={
-              <button
-                type="button"
-                onClick={fileUpload.triggerFilePicker}
-                disabled={fileUpload.isUploading || workflow.isChangingStatus}
-                className="rounded-md bg-brand-400 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-500 disabled:opacity-50 transition"
-              >
-                {fileUpload.isUploading ? "Uploading…" : "Upload signed"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={fileUpload.triggerFilePicker}
+                  disabled={fileUpload.isUploading || workflow.isChangingStatus}
+                  className="rounded-md bg-brand-400 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-500 disabled:opacity-50 transition"
+                >
+                  {fileUpload.isUploading ? "Uploading…" : "Upload signed"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSigningOpen(true)}
+                  disabled={fileUpload.isUploading || workflow.isChangingStatus}
+                  className="rounded-md border border-brand-400 px-3 py-1.5 text-xs font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-400/10 dark:hover:bg-brand-400/15 disabled:opacity-50 transition"
+                >
+                  Sign in-app
+                </button>
+              </div>
             }
           >
             Download the reviewed document, sign it, then upload the signed copy before starting the approval phase.
@@ -1012,7 +1051,44 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         )}
 
         {isPreApprovalCreatorCheck && hasSignedFile && (
-          <Alert alertStyle="accent" variant="success" icon={<CheckCircle2 className="h-4 w-4" />} title="Signed document uploaded — you can now start the approval phase." />
+          <Alert
+            alertStyle="accent"
+            variant="success"
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            title="Signed document uploaded — you can now start the approval phase."
+            action={
+              currentUserSignatureUrl && hasPreSignBackup ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setSigningEditMode(true); setSigningOpen(true); }}
+                    disabled={workflow.isChangingStatus || removingSignature}
+                    className="rounded-md border border-emerald-400 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 disabled:opacity-50 transition"
+                  >
+                    Edit signature
+                  </button>
+                  <button
+                    type="button"
+                    disabled={workflow.isChangingStatus || removingSignature}
+                    onClick={async () => {
+                      setRemovingSignature(true);
+                      try {
+                        await removeInAppSignature(localVersion!.id);
+                        if (onChanged) await onChanged();
+                      } catch (e: any) {
+                        push({ type: "error", title: "Failed to remove signature", message: e?.message ?? "Could not remove signature." });
+                      } finally {
+                        setRemovingSignature(false);
+                      }
+                    }}
+                    className="rounded-md border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-50 transition"
+                  >
+                    {removingSignature ? "Removing…" : "Remove signature"}
+                  </button>
+                </div>
+              ) : undefined
+            }
+          />
         )}
 
         {/* Progress card — full width */}
@@ -1095,7 +1171,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               onDragOver={fileUpload.handleDragOver}
               onDragLeave={fileUpload.handleDragLeave}
               onFileSelect={fileUpload.handleFileSelect}
-              isExternalUploading={isExternalUploading}
+              isExternalUploading={isExternalUploading || signingInBackground}
               onSelectVersion={onSelectVersion}
               isLoadingSelectedVersion={isLoadingSelectedVersion}
             />
@@ -1128,6 +1204,46 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               setIsDeleting(false);
             }
           }}
+        />
+      )}
+
+      {signingOpen && localVersion && (
+        <SignDocumentModal
+          open={signingOpen}
+          onClose={() => { setSigningOpen(false); setSigningEditMode(false); }}
+          documentVersionId={localVersion.id}
+          signatureUrl={currentUserSignatureUrl ?? undefined}
+          isEditMode={signingEditMode}
+          originalFilename={localVersion.original_filename ?? document?.title ?? undefined}
+          onSigningStart={() => setSigningInBackground(true)}
+          onSigned={async () => {
+            setApproverHasDownloaded(true);
+            setApproverHasUploaded(true);
+            setSigningInBackground(false);
+            setSigningEditMode(false);
+            // Reload preview to show the newly signed PDF
+            if (localVersion) {
+              invalidatePreviewCache(localVersion.id);
+              previewUrlCacheRef.current = {};
+              setSignedPreviewUrl("");
+              setIsPreviewLoading(true);
+              setPreviewNonce((n) => n + 1);
+              try {
+                const r = await getDocumentPreviewLink(localVersion.id);
+                if (localVersion.preview_path) {
+                  previewUrlCacheRef.current[localVersion.preview_path] = r.url;
+                }
+                setSignedPreviewUrl(r.url);
+                setPreviewNonce((n) => n + 1);
+              } catch {
+                // Leave blank if preview unavailable
+              } finally {
+                setIsPreviewLoading(false);
+              }
+            }
+            if (onChanged) await onChanged();
+          }}
+          onSignError={(msg) => push({ type: "error", title: "Signing failed", message: msg })}
         />
       )}
     </>

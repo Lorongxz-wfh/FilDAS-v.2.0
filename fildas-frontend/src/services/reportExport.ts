@@ -6,7 +6,8 @@ import type {
   ComplianceSeriesDatum,
   ComplianceOfficeDatum,
   ComplianceStageDelayDatum,
-} from "./documents";
+  RequestsReportKpis,
+} from "./types";
 import type { ComplianceClusterDatum } from "../components/charts/ComplianceClusterBarChart";
 
 const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
@@ -96,6 +97,14 @@ export async function exportElementPdf(
   if (wasDark) html.classList.remove("dark");
   await new Promise((res) => setTimeout(res, 120));
 
+  // Expand scrollable container so html2canvas captures full content (not just visible area)
+  const prevOverflow = element.style.overflow;
+  const prevHeight = element.style.height;
+  const prevMaxHeight = element.style.maxHeight;
+  element.style.overflow = "visible";
+  element.style.maxHeight = "none";
+  element.style.height = element.scrollHeight + "px";
+
   // Hide export buttons during capture
   const toHide: { el: HTMLElement; prev: string }[] = [];
   element.querySelectorAll<HTMLElement>("[data-export-menu]").forEach((el) => {
@@ -133,6 +142,9 @@ export async function exportElementPdf(
 
   // Restore
   if (wasDark) html.classList.add("dark");
+  element.style.overflow = prevOverflow;
+  element.style.height = prevHeight;
+  element.style.maxHeight = prevMaxHeight;
   toHide.forEach(({ el, prev }) => {
     el.style.visibility = prev;
   });
@@ -490,4 +502,236 @@ export async function exportTimelinePdf(data: ComplianceSeriesDatum[]) {
     },
   });
   await savePdf(doc, "fildas_approval_timeline.pdf");
+}
+
+// ── Doctype Distribution ────────────────────────────────────────────────────────
+
+export function exportDoctypeCsv(data: { doctype: string; count: number }[]) {
+  const total = data.reduce((s, r) => s + r.count, 0) || 1;
+  downloadCsv(
+    "fildas_doctype_distribution.csv",
+    ["Document Type", "Count", "Percentage"],
+    data.map((r) => [r.doctype, r.count, `${pct(r.count, total)}%`]),
+  );
+}
+
+export async function exportDoctypePdf(data: { doctype: string; count: number }[]) {
+  const doc = makePdf("Document Type Distribution");
+  const total = data.reduce((s, r) => s + r.count, 0) || 1;
+  autoTable(doc, {
+    startY: 28,
+    head: [["Document Type", "Count", "Percentage"]],
+    body: data.map((r) => [r.doctype, r.count, `${pct(r.count, total)}%`]),
+    styles: { fontSize: 10, cellPadding: 4 },
+    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
+  });
+  await savePdf(doc, "fildas_doctype_distribution.pdf");
+}
+
+// ── Creation by Office ──────────────────────────────────────────────────────────
+
+type CreationByOfficeDatum = {
+  office_code: string;
+  office_name: string;
+  internal: number;
+  external: number;
+  forms: number;
+  total: number;
+};
+
+export function exportCreationByOfficeCsv(data: CreationByOfficeDatum[]) {
+  downloadCsv(
+    "fildas_creation_by_office.csv",
+    ["Office Code", "Office Name", "Internal", "External", "Forms", "Total"],
+    data.map((r) => [r.office_code, r.office_name, r.internal, r.external, r.forms, r.total]),
+  );
+}
+
+export async function exportCreationByOfficePdf(data: CreationByOfficeDatum[]) {
+  const doc = makePdf("Documents Created by Office");
+  autoTable(doc, {
+    startY: 28,
+    head: [["Code", "Office Name", "Internal", "External", "Forms", "Total"]],
+    body: data.map((r) => [r.office_code, r.office_name, r.internal, r.external, r.forms, r.total]),
+    styles: { fontSize: 10, cellPadding: 4 },
+    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      2: { halign: "right" },
+      3: { halign: "right" },
+      4: { halign: "right" },
+      5: { halign: "right" },
+    },
+  });
+  await savePdf(doc, "fildas_creation_by_office.pdf");
+}
+
+// ── Lifecycle Funnel ────────────────────────────────────────────────────────────
+
+export function exportLifecycleFunnelCsv(data: { stage: string; count: number }[]) {
+  downloadCsv(
+    "fildas_lifecycle_funnel.csv",
+    ["Stage", "Count"],
+    data.map((r) => [r.stage, r.count]),
+  );
+}
+
+export async function exportLifecycleFunnelPdf(data: { stage: string; count: number }[]) {
+  const doc = makePdf("Document Lifecycle Funnel");
+  const top = data[0]?.count || 1;
+  autoTable(doc, {
+    startY: 28,
+    head: [["Stage", "Count", "% of Created"]],
+    body: data.map((r) => [r.stage, r.count, `${pct(r.count, top)}%`]),
+    styles: { fontSize: 10, cellPadding: 4 },
+    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
+  });
+  await savePdf(doc, "fildas_lifecycle_funnel.pdf");
+}
+
+// ── Routing & Revision ──────────────────────────────────────────────────────────
+
+export function exportRoutingRevisionCsv(
+  routing: { default_flow: number; custom_flow: number },
+  revision: { docs_on_v2_plus: number; avg_versions: number },
+) {
+  const total = routing.default_flow + routing.custom_flow || 1;
+  downloadCsv(
+    "fildas_routing_revision.csv",
+    ["Metric", "Value"],
+    [
+      ["Default Flow Documents", routing.default_flow],
+      ["Custom Flow Documents", routing.custom_flow],
+      ["Default Flow %", `${pct(routing.default_flow, total)}%`],
+      ["Custom Flow %", `${pct(routing.custom_flow, total)}%`],
+      ["Documents Revised (v2+)", revision.docs_on_v2_plus],
+      ["Avg Versions per Document", revision.avg_versions],
+    ],
+  );
+}
+
+export async function exportRoutingRevisionPdf(
+  routing: { default_flow: number; custom_flow: number },
+  revision: { docs_on_v2_plus: number; avg_versions: number },
+) {
+  const doc = makePdf("Routing & Revision Stats");
+  const total = routing.default_flow + routing.custom_flow || 1;
+  autoTable(doc, {
+    startY: 28,
+    head: [["Metric", "Value"]],
+    body: [
+      ["Default Flow Documents", routing.default_flow],
+      ["Custom Flow Documents", routing.custom_flow],
+      ["Default Flow %", `${pct(routing.default_flow, total)}%`],
+      ["Custom Flow %", `${pct(routing.custom_flow, total)}%`],
+      ["Documents Revised (v2+)", revision.docs_on_v2_plus],
+      ["Avg Versions per Document", revision.avg_versions],
+    ],
+    styles: { fontSize: 10, cellPadding: 4 },
+    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 1: { halign: "right" } },
+  });
+  await savePdf(doc, "fildas_routing_revision.pdf");
+}
+
+// ── Requests KPI ───────────────────────────────────────────────────────────────
+
+export function exportRequestsKpiCsv(kpis: RequestsReportKpis) {
+  downloadCsv(
+    "fildas_requests_kpi.csv",
+    ["Metric", "Value"],
+    [
+      ["Total Requests", kpis.total],
+      ["Accepted", kpis.closed],
+      ["Pending", kpis.open],
+      ["Cancelled", kpis.cancelled],
+      ["Overdue", kpis.overdue],
+      ["Acceptance Rate (%)", kpis.acceptance_rate],
+      ["Avg Resubmissions", kpis.avg_resubmissions],
+    ],
+  );
+}
+
+export async function exportRequestsKpiPdf(kpis: RequestsReportKpis) {
+  const doc = makePdf("Requests KPI Summary");
+  autoTable(doc, {
+    startY: 28,
+    head: [["Metric", "Value"]],
+    body: [
+      ["Total Requests", kpis.total],
+      ["Accepted", kpis.closed],
+      ["Pending (Open)", kpis.open],
+      ["Cancelled", kpis.cancelled],
+      ["Overdue", kpis.overdue],
+      ["Acceptance Rate", `${kpis.acceptance_rate}%`],
+      ["Avg Resubmissions", kpis.avg_resubmissions],
+    ],
+    styles: { fontSize: 10, cellPadding: 4 },
+    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 1: { halign: "right" } },
+  });
+  await savePdf(doc, "fildas_requests_kpi.pdf");
+}
+
+// ── Office Acceptance Rates ─────────────────────────────────────────────────────
+
+type OfficeAcceptanceDatum = { office: string; sent: number; accepted: number; rejected: number; rate: number };
+
+export function exportOfficeAcceptanceCsv(data: OfficeAcceptanceDatum[]) {
+  downloadCsv(
+    "fildas_office_acceptance.csv",
+    ["Office", "Sent", "Accepted", "Rejected", "Rate (%)"],
+    data.map((r) => [r.office, r.sent, r.accepted, r.rejected, r.rate]),
+  );
+}
+
+export async function exportOfficeAcceptancePdf(data: OfficeAcceptanceDatum[]) {
+  const doc = makePdf("Office Acceptance Rates");
+  autoTable(doc, {
+    startY: 28,
+    head: [["Office", "Sent", "Accepted", "Rejected", "Rate (%)"]],
+    body: data.map((r) => [r.office, r.sent, r.accepted, r.rejected, `${r.rate}%`]),
+    styles: { fontSize: 10, cellPadding: 4 },
+    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      1: { halign: "right" },
+      2: { halign: "right" },
+      3: { halign: "right" },
+      4: { halign: "right" },
+    },
+  });
+  await savePdf(doc, "fildas_office_acceptance.pdf");
+}
+
+// ── Submission Attempts ─────────────────────────────────────────────────────────
+
+export function exportAttemptsCsv(data: { attempt: string; count: number }[]) {
+  const total = data.reduce((s, r) => s + r.count, 0) || 1;
+  downloadCsv(
+    "fildas_submission_attempts.csv",
+    ["Attempt", "Count", "Percentage"],
+    data.map((r) => [r.attempt, r.count, `${pct(r.count, total)}%`]),
+  );
+}
+
+export async function exportAttemptsPdf(data: { attempt: string; count: number }[]) {
+  const doc = makePdf("Submission Attempts Distribution");
+  const total = data.reduce((s, r) => s + r.count, 0) || 1;
+  autoTable(doc, {
+    startY: 28,
+    head: [["Attempt", "Count", "Percentage"]],
+    body: data.map((r) => [r.attempt, r.count, `${pct(r.count, total)}%`]),
+    styles: { fontSize: 10, cellPadding: 4 },
+    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
+  });
+  await savePdf(doc, "fildas_submission_attempts.pdf");
 }

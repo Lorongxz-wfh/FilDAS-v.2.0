@@ -12,7 +12,19 @@ import {
 type Props = {
   byPhase?: Record<string, number>;
   height?: number;
+  loading?: boolean;
 };
+
+const ChartSkeleton = ({ height = 180 }: { height?: number }) => (
+  <div style={{ height }} className="flex flex-col justify-center gap-3 px-4 py-3">
+    {[80, 55, 65, 40, 70].map((w, i) => (
+      <div key={i} className="flex items-center gap-3">
+        <div className="w-20 h-2.5 animate-pulse rounded bg-slate-100 dark:bg-surface-400 shrink-0" />
+        <div className="animate-pulse rounded-r-sm bg-slate-100 dark:bg-surface-400 h-4" style={{ width: `${w}%` }} />
+      </div>
+    ))}
+  </div>
+);
 
 const PHASES = [
   { key: "draft",        label: "Draft",        color: "#94a3b8" },
@@ -22,7 +34,8 @@ const PHASES = [
   { key: "distributed",  label: "Distributed",   color: "#10b981" },
 ];
 
-const AdminDocumentPhaseChart: React.FC<Props> = ({ byPhase, height = 180 }) => {
+const AdminDocumentPhaseChart: React.FC<Props> = ({ byPhase, height = 180, loading = false }) => {
+  if (loading) return <ChartSkeleton height={height} />;
   const data = PHASES.map((p) => ({
     label: p.label,
     count: byPhase?.[p.key] ?? 0,

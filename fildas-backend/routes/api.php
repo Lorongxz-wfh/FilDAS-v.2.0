@@ -94,6 +94,12 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class]
         ->middleware('can:updateDraft,version');
     Route::post('/document-versions/{version}/replace-file', [DocumentController::class, 'replaceFile'])
         ->middleware('can:replaceFile,version');
+    Route::post('/document-versions/{version}/apply-signature',  [DocumentController::class, 'applyInAppSignature'])
+        ->middleware('can:replaceFile,version');
+    Route::delete('/document-versions/{version}/apply-signature', [DocumentController::class, 'removeInAppSignature'])
+        ->middleware('can:replaceFile,version');
+    Route::get('/document-versions/{version}/original-file',     [DocumentController::class, 'getOriginalFile'])
+        ->middleware('can:preview,version');
     Route::post('/document-versions/{version}/cancel',      [DocumentController::class, 'cancelRevision'])
         ->middleware('can:cancel,version');
     Route::delete('/document-versions/{version}',           [DocumentController::class, 'destroyVersion'])
@@ -131,6 +137,9 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class]
     Route::post('/profile/password',                      [\App\Http\Controllers\Api\ProfileController::class, 'changePassword']);
     Route::post('/profile/photo',                         [\App\Http\Controllers\Api\ProfileController::class, 'uploadPhoto']);
     Route::delete('/profile/photo',                       [\App\Http\Controllers\Api\ProfileController::class, 'removePhoto']);
+    Route::get('/profile/signature-file',                 [\App\Http\Controllers\Api\ProfileController::class, 'getSignatureFile']);
+    Route::post('/profile/signature',                     [\App\Http\Controllers\Api\ProfileController::class, 'uploadSignature']);
+    Route::delete('/profile/signature',                   [\App\Http\Controllers\Api\ProfileController::class, 'removeSignature']);
     Route::patch('/profile/notification-preferences',     [\App\Http\Controllers\Api\ProfileController::class, 'updateNotificationPreferences']);
 
     // ── Reports ────────────────────────────────────────────────────────────────

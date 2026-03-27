@@ -44,11 +44,25 @@ const EmptyChart = ({ height = 280 }: { height?: number }) => (
   </div>
 );
 
+const ChartSkeleton = ({ height = 280 }: { height?: number }) => (
+  <div style={{ height }} className="flex items-end gap-4 px-4 pb-5 pt-2">
+    {[65, 80, 45, 70, 55].map((h, i) => (
+      <div key={i} className="flex-1 flex gap-0.5 items-end">
+        {[h, h * 0.7, h * 0.5, h * 0.3].map((bh, j) => (
+          <div key={j} className="flex-1 animate-pulse rounded-t-sm bg-slate-100 dark:bg-surface-400" style={{ height: `${bh}%` }} />
+        ))}
+      </div>
+    ))}
+  </div>
+);
+
 export default function ComplianceClusterBarChart(props: {
   data: ComplianceClusterDatum[];
   height?: number;
+  loading?: boolean;
 }) {
   const height = props.height ?? 280;
+  if (props.loading) return <ChartSkeleton height={height} />;
   if (!props.data?.length) return <EmptyChart height={height} />;
 
   return (

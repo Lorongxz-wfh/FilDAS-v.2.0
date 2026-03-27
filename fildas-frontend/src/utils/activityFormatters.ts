@@ -1,5 +1,6 @@
 export const EVENT_LABELS: Record<string, string> = {
   "auth.login": "Logged in",
+  "auth.login_failed": "Failed login attempt",
   "auth.logout": "Logged out",
   "profile.updated": "Profile updated",
   "profile.password_changed": "Password changed",

@@ -306,7 +306,7 @@ const TemplatesBrowserPanel: React.FC<Props> = ({ open, onClose }) => {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search templates…"
-                className="w-full rounded-md border border-slate-300 dark:border-surface-400 bg-white dark:bg-surface-400 px-3 py-2 text-sm text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                className="w-full rounded-md border border-slate-300 dark:border-surface-400 bg-white dark:bg-surface-400 px-3 py-2 text-sm text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-brand-400 dark:focus:border-brand-300 transition"
               />
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 p-1">

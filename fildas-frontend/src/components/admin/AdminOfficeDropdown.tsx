@@ -5,7 +5,7 @@ import { getAdminOffices, type AdminOffice } from "../../services/admin";
 export const adminInputCls = [
   "w-full rounded-md border px-3 py-2 text-sm outline-none transition",
   "border-slate-300 bg-white text-slate-900",
-  "focus:border-sky-500 focus:ring-2 focus:ring-sky-200",
+  "focus:border-brand-400 dark:focus:border-brand-300",
   "dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200",
   "disabled:bg-slate-50 disabled:opacity-60 dark:disabled:bg-surface-600",
 ].join(" ");
@@ -105,9 +105,8 @@ const AdminOfficeDropdown: React.FC<Props> = ({
               ? "bg-slate-50 text-slate-500 dark:bg-surface-600 dark:text-slate-500"
               : "bg-white text-slate-900 dark:bg-surface-400 dark:text-slate-200",
             error
-              ? "border-rose-300 focus:border-rose-500 focus:ring-rose-200 dark:border-rose-700"
-              : "border-slate-300 focus:border-sky-500 focus:ring-sky-200 dark:border-surface-400",
-            "focus:ring-2",
+              ? "border-rose-300 focus:border-rose-500 dark:border-rose-700"
+              : "border-slate-300 focus:border-brand-400 dark:border-surface-400 dark:focus:border-brand-300",
           ].join(" ")}
         />
         <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">

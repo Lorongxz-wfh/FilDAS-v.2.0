@@ -8,6 +8,8 @@ type Props = {
   action?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  loading?: boolean;
+  skeletonHeight?: number;
   onExportCsv?: () => void;
   onExportPdf?: (element: HTMLElement) => Promise<void>;
 };
@@ -18,6 +20,8 @@ const ReportChartCard: React.FC<Props> = ({
   action,
   children,
   className = "",
+  loading = false,
+  skeletonHeight = 220,
   onExportCsv,
   onExportPdf,
 }) => {
@@ -66,7 +70,7 @@ const ReportChartCard: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={() => setOpen((v) => !v)}
-                disabled={exporting}
+                disabled={exporting || loading}
                 className="inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 transition disabled:opacity-50"
               >
                 <Download size={12} />
@@ -104,7 +108,16 @@ const ReportChartCard: React.FC<Props> = ({
           )}
         </div>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-5">
+        {loading ? (
+          <div
+            className="animate-pulse rounded-lg bg-slate-100 dark:bg-surface-400"
+            style={{ height: skeletonHeight }}
+          />
+        ) : (
+          children
+        )}
+      </div>
     </div>
   );
 };

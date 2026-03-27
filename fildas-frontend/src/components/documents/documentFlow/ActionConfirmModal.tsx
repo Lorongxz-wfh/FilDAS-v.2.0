@@ -5,6 +5,7 @@ export interface ConfirmAction {
   key: string;
   label: string;
   variant: "primary" | "danger" | "outline";
+  confirmMessage?: string;
   onClick: (note?: string) => Promise<void> | void;
 }
 
@@ -54,7 +55,7 @@ const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
       ? "Reject document"
       : action.key === "CANCEL_DOCUMENT"
         ? "Cancel document"
-        : `Confirm: ${action.label}`;
+        : action.label;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
@@ -83,7 +84,7 @@ const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
                   ? "Explain why this document is being cancelled…"
                   : "Explain why this document is being rejected…"
               }
-              className="block w-full rounded-md border border-slate-300 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-900/30"
+              className="block w-full rounded-md border border-slate-300 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-rose-400 transition"
             />
             {rejectError && (
               <p className="mt-1 text-xs text-rose-600">{rejectError}</p>
@@ -91,9 +92,7 @@ const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
           </div>
         ) : (
           <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">
-            Are you sure you want to{" "}
-            <span className="font-semibold">{action.label}</span>? This action
-            cannot be undone.
+            {action.confirmMessage ?? "Please confirm to proceed."}
           </p>
         )}
 
@@ -109,7 +108,7 @@ const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
           </Button>
           <Button
             type="button"
-            variant={action.key === "REJECT" ? "danger" : "primary"}
+            variant={action.key === "REJECT" || action.key === "CANCEL_DOCUMENT" ? "danger" : "primary"}
             size="sm"
             disabled={!!processingKey}
             onClick={handleConfirm}
@@ -140,9 +139,9 @@ const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
             ) : action.key === "REJECT" ? (
               "Reject"
             ) : action.key === "CANCEL_DOCUMENT" ? (
-              "Cancel document"
+              "Confirm cancellation"
             ) : (
-              "Confirm"
+              action.label
             )}
           </Button>
         </div>

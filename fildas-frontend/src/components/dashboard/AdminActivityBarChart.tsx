@@ -10,9 +10,19 @@ import {
   Cell,
 } from "recharts";
 
-type Props = { data: { label: string; count: number }[]; height?: number };
+type Props = { data: { label: string; count: number }[]; height?: number; loading?: boolean };
 
-const AdminActivityBarChart: React.FC<Props> = ({ data, height = 180 }) => (
+const ChartSkeleton = ({ height = 180 }: { height?: number }) => (
+  <div style={{ height }} className="flex items-end gap-2 px-2 pb-5 pt-2">
+    {[40, 65, 50, 80, 55, 70, 45, 90].map((h, i) => (
+      <div key={i} className="flex-1 animate-pulse rounded-t-sm bg-slate-100 dark:bg-surface-400" style={{ height: `${h}%` }} />
+    ))}
+  </div>
+);
+
+const AdminActivityBarChart: React.FC<Props> = ({ data, height = 180, loading = false }) => {
+  if (loading) return <ChartSkeleton height={height} />;
+  return (
   <ResponsiveContainer width="100%" height={height}>
     <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
       <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
@@ -26,6 +36,7 @@ const AdminActivityBarChart: React.FC<Props> = ({ data, height = 180 }) => (
       </Bar>
     </BarChart>
   </ResponsiveContainer>
-);
+  );
+};
 
 export default AdminActivityBarChart;

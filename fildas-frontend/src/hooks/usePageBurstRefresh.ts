@@ -45,8 +45,7 @@ export function usePageBurstRefresh(onRefresh: () => Promise<void> | void) {
     } finally {
       setRefreshing(false);
     }
-    startBurst();
-  }, [startBurst]);
+  }, []);
 
   useEffect(() => {
     const handler = () => {

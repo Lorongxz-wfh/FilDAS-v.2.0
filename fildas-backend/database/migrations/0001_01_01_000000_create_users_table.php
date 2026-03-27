@@ -22,6 +22,7 @@ return new class extends Migration
 
             // Profile picture (store path/filename for now)
             $table->string('profile_photo_path')->nullable();
+            $table->string('signature_path')->nullable();
 
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();

@@ -28,6 +28,44 @@ class UserController extends Controller
         return in_array($name, ['admin', 'auditor'], true);
     }
 
+    /**
+     * Enforce uniqueness rules:
+     *  - president   → only 1 active user total
+     *  - office_head → only 1 active user per office
+     *  - vp          → only 1 active user per office (each VP cluster has its own office)
+     *
+     * $excludeUserId — the user being updated/enabled (exclude them from the count).
+     */
+    private function assertRoleUnique(?int $roleId, ?int $officeId, ?int $excludeUserId = null): void
+    {
+        if (!$roleId) return;
+
+        $roleName = strtolower(Role::query()->whereKey($roleId)->value('name') ?? '');
+
+        if (!in_array($roleName, ['office_head', 'vp', 'president'], true)) return;
+
+        $query = User::where('role_id', $roleId)->whereNull('disabled_at');
+
+        if ($excludeUserId) {
+            $query->where('id', '!=', $excludeUserId);
+        }
+
+        if ($roleName === 'president') {
+            if ($query->exists()) {
+                abort(422, 'An active President already exists. Disable the current President before assigning a new one.');
+            }
+            return;
+        }
+
+        // office_head and vp: unique per office
+        if (!$officeId) return;
+
+        if ($query->where('office_id', $officeId)->exists()) {
+            $label = $roleName === 'office_head' ? 'Office Head' : 'VP';
+            abort(422, "An active {$label} already exists for this office. Disable the current one before assigning a new one.");
+        }
+    }
+
     public function index(Request $request)
     {
         $query = User::with(['role', 'office'])
@@ -99,6 +137,8 @@ class UserController extends Controller
         if ($this->roleDisablesOffice($roleId)) {
             $officeId = null;
         }
+
+        $this->assertRoleUnique($roleId, $officeId);
 
         $user = new User();
         $user->fill([
@@ -177,6 +217,13 @@ class UserController extends Controller
             }
         }
 
+        // Enforce role uniqueness when role or office is being changed.
+        if (array_key_exists('role_id', $data) || array_key_exists('office_id', $data)) {
+            $effectiveRoleId   = $data['role_id']   ?? $user->role_id;
+            $effectiveOfficeId = $payload['office_id'] ?? ($data['office_id'] ?? $user->office_id);
+            $this->assertRoleUnique($effectiveRoleId, $effectiveOfficeId, $user->id);
+        }
+
         $user->fill($payload);
 
         if (array_key_exists('password', $data) && $data['password']) {
@@ -245,6 +292,9 @@ class UserController extends Controller
         if ($actor->id === $user->id) {
             abort(422, 'You cannot enable/disable your own account here.');
         }
+
+        // Re-enabling this user must not violate role uniqueness constraints.
+        $this->assertRoleUnique($user->role_id, $user->office_id);
 
         $user->disabled_at = null;
         $user->disabled_by = null;

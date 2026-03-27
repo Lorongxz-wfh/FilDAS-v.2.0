@@ -75,10 +75,23 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 // ── Chart ──────────────────────────────────────────────────────────────────────
 
+const ChartSkeleton = ({ height = 220 }: { height?: number }) => (
+  <div style={{ height }} className="flex flex-col justify-center gap-3 px-4 py-3">
+    {[80, 55, 70, 40, 65].map((w, i) => (
+      <div key={i} className="flex items-center gap-3">
+        <div className="w-16 h-2.5 animate-pulse rounded bg-slate-100 dark:bg-surface-400 shrink-0" />
+        <div className="animate-pulse rounded-r-sm bg-slate-100 dark:bg-surface-400 h-4" style={{ width: `${w}%` }} />
+      </div>
+    ))}
+  </div>
+);
+
 const BottleneckChart: React.FC<{
   data: BottleneckDatum[];
   height?: number;
-}> = ({ data, height = 220 }) => {
+  loading?: boolean;
+}> = ({ data, height = 220, loading = false }) => {
+  if (loading) return <ChartSkeleton height={height} />;
   if (!data?.length) return <EmptyChart height={height} />;
   const sorted = [...data].sort((a, b) => b.avg_hours - a.avg_hours);
 

@@ -8,7 +8,7 @@ export const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({
     <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0 pt-px">
       {label}
     </span>
-    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 text-right wrap-break-word max-w-[60%]">
+    <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 text-right flex-1 min-w-0 wrap-break-word">
       {value ?? (
         <span className="text-slate-400 dark:text-slate-500 font-normal">
           —

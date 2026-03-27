@@ -118,7 +118,7 @@ export default function ShareDocumentModal({ open, documentId, onClose, onSaved 
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search office name or code…"
             disabled={loadingOffices || loading}
-            className="w-full rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 pl-9 pr-9 py-2 text-xs outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-400/10 disabled:opacity-50 dark:text-slate-200 dark:placeholder-slate-500"
+            className="w-full rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 pl-9 pr-9 py-2 text-xs outline-none transition focus:border-brand-400 disabled:opacity-50 dark:text-slate-200 dark:placeholder-slate-500"
           />
           {q && (
             <button
@@ -132,8 +132,7 @@ export default function ShareDocumentModal({ open, documentId, onClose, onSaved 
         </div>
 
         {/* Office list */}
-        <div className="rounded-md border border-slate-200 dark:border-surface-400 overflow-hidden" style={{ maxHeight: "280px" }}>
-          <div className="overflow-y-auto h-full">
+        <div className="rounded-md border border-slate-200 dark:border-surface-400 overflow-y-auto" style={{ height: "280px" }}>
             {loadingOffices ? (
               <div className="flex items-center justify-center gap-2 py-10">
                 <div className="h-4 w-4 rounded-full border-2 border-brand-400 border-t-transparent animate-spin" />
@@ -159,12 +158,12 @@ export default function ShareDocumentModal({ open, documentId, onClose, onSaved 
                       "w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left transition",
                       i > 0 ? "border-t border-slate-100 dark:border-surface-400" : "",
                       checked
-                        ? "bg-brand-50 dark:bg-brand-950/20"
+                        ? "bg-brand-50 dark:bg-brand-500/15"
                         : "hover:bg-slate-50 dark:hover:bg-surface-400",
                     ].join(" ")}
                   >
                     <div className="min-w-0">
-                      <p className={`text-xs font-medium truncate ${checked ? "text-brand-700 dark:text-brand-400" : "text-slate-800 dark:text-slate-200"}`}>
+                      <p className={`text-xs font-medium truncate ${checked ? "text-brand-500 dark:text-brand-200" : "text-slate-800 dark:text-slate-200"}`}>
                         {o.name}
                       </p>
                       <p className="text-xs font-mono text-slate-400 dark:text-slate-500 mt-0.5">
@@ -183,7 +182,6 @@ export default function ShareDocumentModal({ open, documentId, onClose, onSaved 
                 );
               })
             )}
-          </div>
         </div>
 
         {/* Footer */}

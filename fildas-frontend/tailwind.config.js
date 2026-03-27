@@ -8,6 +8,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Inter", ...defaultTheme.fontFamily.sans],
+        display: ["Plus Jakarta Sans", ...defaultTheme.fontFamily.sans],
       },
       colors: {
         primary: {

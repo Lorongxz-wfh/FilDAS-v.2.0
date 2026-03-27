@@ -207,7 +207,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
                   if (e.key === "Escape") handleCancel();
                 }}
                 disabled={isSaving || !isDraftStatus}
-                className={`w-full rounded-md border px-2 py-1 text-xs text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-brand-400/30 ${
+                className={`w-full rounded-md border px-2 py-1 text-xs text-slate-800 dark:text-slate-100 outline-none ${
                   isDraftStatus
                     ? "border-slate-300 dark:border-surface-300 bg-white dark:bg-surface-500"
                     : "border-slate-200 dark:border-surface-400 bg-slate-100 dark:bg-surface-600 opacity-60 cursor-not-allowed"
@@ -310,7 +310,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
                 onKeyDown={handleTagInputKeyDown}
                 disabled={isSaving}
                 placeholder="Add tag…"
-                className="w-full rounded-md border border-slate-300 dark:border-surface-300 bg-white dark:bg-surface-500 px-2 py-1 text-xs text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-brand-400/30"
+                className="w-full rounded-md border border-slate-300 dark:border-surface-300 bg-white dark:bg-surface-500 px-2 py-1 text-xs text-slate-800 dark:text-slate-100 outline-none"
               />
             </div>
           ) : tags.length > 0 ? (

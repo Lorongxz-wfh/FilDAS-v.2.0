@@ -1,11 +1,26 @@
 import React from "react";
 import { PieChart, Pie, Cell, Tooltip } from "recharts";
 
-type Props = { active: number; inactive: number };
+type Props = { active: number; inactive: number; loading?: boolean };
 
 const COLORS = ["#10b981", "#94a3b8"];
 
-const AdminUsersByRoleChart: React.FC<Props> = ({ active, inactive }) => {
+const AdminUsersByRoleChart: React.FC<Props> = ({ active, inactive, loading = false }) => {
+  if (loading) {
+    return (
+      <div className="flex items-center gap-6">
+        <div className="h-24 w-24 shrink-0 animate-pulse rounded-full bg-slate-100 dark:bg-surface-400" />
+        <div className="flex flex-col gap-3">
+          {[60, 45].map((w, i) => (
+            <div key={i} className="space-y-1">
+              <div className="h-3.5 animate-pulse rounded bg-slate-100 dark:bg-surface-400" style={{ width: `${w}px` }} />
+              <div className="h-2.5 animate-pulse rounded bg-slate-100 dark:bg-surface-400" style={{ width: `${w * 0.7}px` }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
   const total = active + inactive;
 
   if (total === 0) {
@@ -17,8 +32,8 @@ const AdminUsersByRoleChart: React.FC<Props> = ({ active, inactive }) => {
   }
 
   const data = [
-    { name: "Active", value: active },
-    { name: "Inactive", value: inactive },
+    { name: "Enabled", value: active },
+    { name: "Disabled", value: inactive },
   ];
 
   const pct = Math.round((active / total) * 100);
@@ -68,7 +83,7 @@ const AdminUsersByRoleChart: React.FC<Props> = ({ active, inactive }) => {
               {active}
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Active · {pct}%
+              Enabled · {pct}%
             </p>
           </div>
         </div>
@@ -78,7 +93,7 @@ const AdminUsersByRoleChart: React.FC<Props> = ({ active, inactive }) => {
             <p className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
               {inactive}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Inactive</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Disabled</p>
           </div>
         </div>
       </div>

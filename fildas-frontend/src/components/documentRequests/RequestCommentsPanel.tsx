@@ -137,7 +137,7 @@ export default function RequestCommentsPanel({
             }}
             placeholder="Write a comment…"
             disabled={posting}
-            className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 disabled:opacity-50 dark:border-surface-400 dark:bg-surface-600 dark:text-slate-200 dark:placeholder-slate-500"
+            className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 disabled:opacity-50 dark:border-surface-400 dark:bg-surface-600 dark:text-slate-200 dark:placeholder-slate-500"
           />
           <button
             onClick={onPost}

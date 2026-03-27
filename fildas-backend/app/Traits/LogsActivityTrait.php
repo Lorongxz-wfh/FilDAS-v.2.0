@@ -25,7 +25,7 @@ trait LogsActivityTrait
     protected function logActivity(
         string $event,
         string $label,
-        int $actorUserId,
+        ?int $actorUserId,
         ?int $actorOfficeId,
         array|null $meta = null,
         ?int $documentId = null,

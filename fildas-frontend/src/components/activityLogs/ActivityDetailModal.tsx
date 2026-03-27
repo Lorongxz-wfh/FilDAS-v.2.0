@@ -76,7 +76,7 @@ const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({ row, onClose,
                 {fromStatus}
               </span>
               <span className="text-slate-400 text-xs">→</span>
-              <span className="px-2 py-0.5 rounded-md text-xs bg-brand-50 dark:bg-brand-950/30 text-brand-700 dark:text-brand-400 border border-brand-200 dark:border-brand-800 font-medium">
+              <span className="px-2 py-0.5 rounded-md text-xs bg-brand-100 dark:bg-brand-500/20 text-brand-500 dark:text-brand-300 border border-brand-200 dark:border-brand-500/40 font-medium">
                 {toStatus}
               </span>
             </span>

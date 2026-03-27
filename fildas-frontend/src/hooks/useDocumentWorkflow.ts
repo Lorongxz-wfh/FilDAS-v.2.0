@@ -362,7 +362,7 @@ export function useDocumentWorkflow({
           })
           .catch(() => {});
 
-        if (onChanged) await onChanged();
+        if (onChanged) void Promise.resolve(onChanged()).catch(() => {});
 
         if (qaOfficeId && myOfficeId !== qaOfficeId) {
           onAfterActionClose?.();

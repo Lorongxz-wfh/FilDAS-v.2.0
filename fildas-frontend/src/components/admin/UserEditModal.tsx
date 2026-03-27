@@ -3,21 +3,27 @@ import Modal from "../ui/Modal";
 import Alert from "../ui/Alert";
 import Button from "../ui/Button";
 import InlineSpinner from "../ui/loader/InlineSpinner";
-import AdminOfficeDropdown from "./AdminOfficeDropdown";
+import SelectDropdown from "../ui/SelectDropdown";
 import {
   createAdminUser,
   deleteAdminUser,
   disableAdminUser,
   enableAdminUser,
+  getAdminOffices,
   getAdminRoles,
+  getAdminUsers,
   uploadAdminUserPhoto,
   removeAdminUserPhoto,
+  type AdminOffice,
   type AdminRole,
   type AdminUser,
   updateAdminUser,
 } from "../../services/admin";
 
-import { inputCls, selectCls, labelCls } from "../../utils/formStyles";
+import { inputCls, labelCls } from "../../utils/formStyles";
+
+const apiMsg = (e: any, fallback: string) =>
+  e?.response?.data?.message ?? e?.message ?? fallback;
 import { getInitials } from "../../utils/formatters";
 
 type Props = {
@@ -31,8 +37,15 @@ type Props = {
 const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) => {
   const [roles, setRoles] = useState<AdminRole[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
+  const [offices, setOffices] = useState<AdminOffice[]>([]);
+  const [loadingOffices, setLoadingOffices] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [occupiedOfficeIds, setOccupiedOfficeIds] = useState<{
+    office_head: number[];
+    vp: number[];
+  }>({ office_head: [], vp: [] });
+  const [presidentExists, setPresidentExists] = useState(false);
   const [acting, setActing] = useState<null | "disable" | "enable" | "delete">(
     null,
   );
@@ -92,6 +105,68 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
       alive = false;
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    (async () => {
+      try {
+        setLoadingOffices(true);
+        const res = await getAdminOffices({ per_page: 500 });
+        if (alive) setOffices(res.data);
+      } catch {
+        // non-fatal
+      } finally {
+        if (alive) setLoadingOffices(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [open]);
+
+  // Fetch active role holders to enforce uniqueness in the UI
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    (async () => {
+      try {
+        const res = await getAdminUsers({ status: "active", per_page: 100 });
+        if (!alive) return;
+        const excludeId = mode === "edit" ? user?.id : undefined;
+        const active = res.data;
+
+        setOccupiedOfficeIds({
+          office_head: active
+            .filter(
+              (u) =>
+                u.role?.name?.toLowerCase() === "office_head" &&
+                u.office_id != null &&
+                u.id !== excludeId,
+            )
+            .map((u) => u.office_id as number),
+          vp: active
+            .filter(
+              (u) =>
+                u.role?.name?.toLowerCase() === "vp" &&
+                u.office_id != null &&
+                u.id !== excludeId,
+            )
+            .map((u) => u.office_id as number),
+        });
+
+        setPresidentExists(
+          active.some(
+            (u) =>
+              u.role?.name?.toLowerCase() === "president" && u.id !== excludeId,
+          ),
+        );
+      } catch {
+        // non-fatal — just don't restrict
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [open, mode, user?.id]);
 
   const selectedRoleName = useMemo(() => {
     if (!roleId) return null;
@@ -162,7 +237,7 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
       onSaved?.(res.user);
       onClose();
     } catch (e: any) {
-      setError(e?.message ?? "Failed to disable user");
+      setError(apiMsg(e, "Failed to disable user"));
     } finally {
       setActing(null);
     }
@@ -177,7 +252,7 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
       onSaved?.(res.user);
       onClose();
     } catch (e: any) {
-      setError(e?.message ?? "Failed to enable user");
+      setError(apiMsg(e, "Failed to enable user"));
     } finally {
       setActing(null);
     }
@@ -198,7 +273,7 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
       onSaved?.({ ...user, deleted_at: new Date().toISOString() });
       onClose();
     } catch (e: any) {
-      setError(e?.message ?? "Failed to delete user");
+      setError(apiMsg(e, "Failed to delete user"));
     } finally {
       setActing(null);
     }
@@ -252,12 +327,7 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
       onClose();
     } catch (e: any) {
       if ((e as any)?.code === "ERR_CANCELED" || e?.message === "canceled") return;
-      setError(
-        e?.message ??
-          (mode === "create"
-            ? "Failed to create user"
-            : "Failed to update user"),
-      );
+      setError(apiMsg(e, mode === "create" ? "Failed to create user" : "Failed to update user"));
     } finally {
       setSaving(false);
     }
@@ -504,41 +574,52 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
 
       {/* Role + Office */}
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <div>
-          <label className={labelCls}>Role</label>
-          <div className="relative">
-            <select
-              className={selectCls}
-              value={roleId ?? ""}
-              onChange={(e) =>
-                setRoleId(e.target.value ? Number(e.target.value) : null)
-              }
-              disabled={saving || isDeleted || loadingRoles}
-            >
-              <option value="">No role</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label || r.name}
-                </option>
-              ))}
-            </select>
-            {loadingRoles && (
-              <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                <InlineSpinner className="h-4 w-4 border-2" />
-              </div>
-            )}
-          </div>
-        </div>
-        <div>
-          <AdminOfficeDropdown
-            value={officeId}
-            onChange={setOfficeId}
-            required={false}
-            disabled={roleDisablesOffice || saving || isDeleted}
-            autoLoad={!roleDisablesOffice}
-            label={roleDisablesOffice ? "Office (not applicable for admins)" : "Office"}
-          />
-        </div>
+        <SelectDropdown
+          label="Role"
+          value={roleId}
+          onChange={(v) => setRoleId(v ? Number(v) : null)}
+          loading={loadingRoles}
+          disabled={saving || isDeleted}
+          placeholder="No role"
+          clearLabel="No role"
+          options={roles.map((r) => {
+            const rName = r.name.toLowerCase();
+            let restricted = false;
+            if (rName === "president" && presidentExists) restricted = true;
+            if (rName === "office_head" && officeId != null && occupiedOfficeIds.office_head.includes(officeId)) restricted = true;
+            if (rName === "vp" && officeId != null && occupiedOfficeIds.vp.includes(officeId)) restricted = true;
+            return {
+              value: r.id,
+              label: r.label || r.name,
+              disabled: restricted,
+              disabledHint: restricted ? "(already assigned)" : undefined,
+            };
+          })}
+        />
+        <SelectDropdown
+          label={roleDisablesOffice ? "Office (N/A)" : "Office"}
+          value={officeId}
+          onChange={(v) => setOfficeId(v ? Number(v) : null)}
+          loading={loadingOffices}
+          disabled={roleDisablesOffice || saving || isDeleted}
+          placeholder="No office"
+          clearLabel="No office"
+          options={(() => {
+            const excludeList =
+              selectedRoleName === "office_head"
+                ? occupiedOfficeIds.office_head
+                : selectedRoleName === "vp"
+                  ? occupiedOfficeIds.vp
+                  : [];
+            return offices.map((o) => ({
+              value: o.id,
+              label: o.name,
+              sublabel: `(${o.code})`,
+              disabled: excludeList.includes(o.id),
+              disabledHint: excludeList.includes(o.id) ? "— occupied" : undefined,
+            }));
+          })()}
+        />
       </div>
 
       {/* Footer */}

@@ -248,7 +248,7 @@ const DocumentCommentsPanel: React.FC<Props> = ({
       {/* Composer */}
       <div className="shrink-0 flex gap-2">
         <textarea
-          className="flex-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm resize-none outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-sky-900/30 transition"
+          className="flex-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm resize-none outline-none focus:border-sky-400 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500 transition"
           rows={1}
           value={draftMessage}
           onChange={(e) => setDraftMessage(e.target.value)}

@@ -91,7 +91,7 @@ const DocumentRightPanel: React.FC<Props> = ({
           <ChevronRight
             className={`h-3 w-3 shrink-0 text-slate-400 transition-transform duration-150 ${infoExpanded ? "rotate-90" : "rotate-0"}`}
           />
-          <span className="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+          <span className="text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">
             Document Info
           </span>
           {isDataReady && document && (

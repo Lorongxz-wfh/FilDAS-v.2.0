@@ -146,7 +146,7 @@ export default function RequestSubmissionTab({
               onChange={(e) => onQaNoteChange(e.target.value)}
               placeholder="Optional note for the office…"
               disabled={reviewing || !canQaReview}
-              className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 disabled:opacity-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500 mb-2.5"
+              className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 disabled:opacity-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500 mb-2.5"
             />
             {reviewMsg && (
               <div className="flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400 mb-2">
@@ -305,7 +305,7 @@ export default function RequestSubmissionTab({
                 onChange={(e) => onNoteChange(e.target.value)}
                 placeholder="Optional note to QA…"
                 disabled={submitting}
-                className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-200 disabled:opacity-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500"
+                className="block w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 disabled:opacity-50 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-200 dark:placeholder-slate-500"
               />
               {submitMsg && (
                 <div className="flex items-center gap-1.5 rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-400">

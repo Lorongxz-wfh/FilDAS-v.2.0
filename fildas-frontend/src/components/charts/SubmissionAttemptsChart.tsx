@@ -57,10 +57,20 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
+const ChartSkeleton = ({ height = 200 }: { height?: number }) => (
+  <div style={{ height }} className="flex items-end justify-center gap-6 px-8 pb-5 pt-2">
+    {[75, 45, 20].map((h, i) => (
+      <div key={i} className="flex-1 animate-pulse rounded-t-sm bg-slate-100 dark:bg-surface-400" style={{ height: `${h}%` }} />
+    ))}
+  </div>
+);
+
 const SubmissionAttemptsChart: React.FC<{
   data: AttemptDatum[];
   height?: number;
-}> = ({ data, height = 200 }) => {
+  loading?: boolean;
+}> = ({ data, height = 200, loading = false }) => {
+  if (loading) return <ChartSkeleton height={height} />;
   if (!data?.length) return <EmptyChart height={height} />;
   return (
   <ResponsiveContainer width="100%" height={height}>

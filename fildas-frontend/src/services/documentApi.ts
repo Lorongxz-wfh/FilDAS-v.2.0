@@ -338,6 +338,69 @@ export async function replaceDocumentVersionFileWithProgress(
   });
 }
 
+export async function applyInAppSignature(
+  versionId: number,
+  file: File,
+  onProgress?: (pct: number) => void,
+): Promise<void> {
+  const token = localStorage.getItem("auth_token");
+  if (!token) throw new Error("Not authenticated");
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const url = `${API_BASE}/document-versions/${versionId}/apply-signature`;
+
+  return await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      onProgress?.(Math.round((event.loaded / event.total) * 100));
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      if (xhr.status === 401) { clearAuthAndRedirect(); return; }
+      try {
+        const data = JSON.parse(xhr.responseText || "{}");
+        reject(new Error(data.message || `Upload failed (${xhr.status})`));
+      } catch {
+        reject(new Error(`Upload failed (${xhr.status})`));
+      }
+    };
+    xhr.onerror = () => reject(new Error("Network error during signature upload."));
+    xhr.send(formData);
+  });
+}
+
+export async function removeInAppSignature(versionId: number): Promise<void> {
+  try {
+    const api = await getApi();
+    await api.delete(`/document-versions/${versionId}/apply-signature`);
+  } catch (e: any) {
+    const msg = e?.response?.data?.message || e?.message || "Failed to remove signature.";
+    throw new Error(msg);
+  }
+}
+
+export async function getOriginalFileBlobUrl(versionId: number): Promise<string> {
+  try {
+    const api = await getApi();
+    const resp = await api.get(`/document-versions/${versionId}/original-file`, {
+      responseType: "arraybuffer",
+    });
+    const blob = new Blob([resp.data], { type: "application/pdf" });
+    return URL.createObjectURL(blob);
+  } catch (e: any) {
+    const msg = e?.response?.data?.message || e?.message || "Failed to load original file.";
+    throw new Error(msg);
+  }
+}
+
 export async function updateDocumentTitle(
   documentId: number,
   title: string,
@@ -518,13 +581,26 @@ export async function getOfficeUsers(officeId: number): Promise<OfficeUser[]> {
   }
 }
 
+const _previewLinkCache = new Map<number, { url: string; expiresAt: number }>();
+
+export function invalidatePreviewCache(versionId: number): void {
+  _previewLinkCache.delete(versionId);
+}
+
 export async function getDocumentPreviewLink(
   versionId: number,
 ): Promise<{ url: string; expires_in_minutes: number }> {
+  const cached = _previewLinkCache.get(versionId);
+  if (cached && Date.now() < cached.expiresAt) {
+    return { url: cached.url, expires_in_minutes: 0 };
+  }
   try {
     const api = await getApi();
     const res = await api.get(`/document-versions/${versionId}/preview-link`);
-    return res.data as { url: string; expires_in_minutes: number };
+    const data = res.data as { url: string; expires_in_minutes: number };
+    const ttlMs = Math.max(0, (data.expires_in_minutes - 2) * 60 * 1000);
+    _previewLinkCache.set(versionId, { url: data.url, expiresAt: Date.now() + ttlMs });
+    return data;
   } catch (e: any) {
     const status = e?.response?.status;
     const msg =

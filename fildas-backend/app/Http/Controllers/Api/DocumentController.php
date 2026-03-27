@@ -774,6 +774,8 @@ class DocumentController extends Controller
         $isDuringApproval = in_array($version->status, $approvalStatuses, true)
             || (bool) preg_match('/^For .+ Approval$/', $version->status);
 
+        $isFirstUpload = empty($version->file_path);
+
         $this->versionFiles->saveVersionFile($version, $request->file('file'));
 
         $freshVersion = $version->fresh();
@@ -786,11 +788,11 @@ class DocumentController extends Controller
 
         $label = $isDuringApproval
             ? 'Uploaded signed document for approval'
-            : 'Replaced the draft file';
+            : ($isFirstUpload ? 'Uploaded a draft file' : 'Replaced the draft file');
 
         $event = $isDuringApproval
             ? 'version.signed_file_uploaded'
-            : 'version.file_replaced';
+            : ($isFirstUpload ? 'version.file_uploaded' : 'version.file_replaced');
 
         $this->logActivity($event, $label, $request->user()?->id, $request->user()?->office_id, [
             'status'         => $version->status,
@@ -800,6 +802,82 @@ class DocumentController extends Controller
         ], $version->document_id, $version->id);
 
         return response()->json($freshVersion->fresh(), 200);
+    }
+
+    // POST /api/document-versions/{version}/apply-signature
+    public function applyInAppSignature(Request $request, DocumentVersion $version)
+    {
+        Gate::authorize('replaceFile', $version);
+
+        $request->validate([
+            'file' => 'required|file|mimes:pdf|max:10240',
+        ]);
+
+        // Backup original before saveVersionFile deletes it
+        if (!$version->pre_sign_file_path && $version->file_path) {
+            $disk = Storage::disk();
+            if ($disk->exists($version->file_path)) {
+                $ext        = pathinfo($version->file_path, PATHINFO_EXTENSION) ?: 'pdf';
+                $backupPath = 'pre-sign-backups/' . $version->id . '_' . time() . '.' . $ext;
+                $disk->copy($version->file_path, $backupPath);
+                $version->pre_sign_file_path = $backupPath;
+                $version->save();
+            }
+        }
+
+        $this->versionFiles->saveVersionFile($version, $request->file('file'));
+        $freshVersion = $version->fresh();
+
+        // Mark as signed
+        $freshVersion->signed_file_path = $freshVersion->file_path;
+        $freshVersion->save();
+
+        $this->logActivity('version.in_app_signature_applied', 'Applied in-app e-signature',
+            $request->user()?->id, $request->user()?->office_id, [
+                'version_number' => $version->version_number,
+            ], $version->document_id, $version->id);
+
+        return response()->json($freshVersion->fresh(), 200);
+    }
+
+    // DELETE /api/document-versions/{version}/apply-signature
+    public function removeInAppSignature(Request $request, DocumentVersion $version)
+    {
+        Gate::authorize('replaceFile', $version);
+
+        if (!$version->pre_sign_file_path) {
+            return response()->json(['message' => 'No original backup available.'], 422);
+        }
+
+        $version->file_path        = $version->pre_sign_file_path;
+        $version->signed_file_path = null;
+        $version->preview_path     = null; // will regenerate on next view
+        $version->pre_sign_file_path = null;
+        $version->save();
+
+        $this->logActivity('version.in_app_signature_removed', 'Removed in-app e-signature',
+            $request->user()?->id, $request->user()?->office_id, [
+                'version_number' => $version->version_number,
+            ], $version->document_id, $version->id);
+
+        return response()->json($version->fresh(), 200);
+    }
+
+    // GET /api/document-versions/{version}/original-file
+    public function getOriginalFile(Request $request, DocumentVersion $version)
+    {
+        Gate::authorize('preview', $version);
+
+        $path = $version->pre_sign_file_path ?? $version->file_path;
+
+        if (!$path || !Storage::disk()->exists($path)) {
+            return response()->json(['message' => 'File not found.'], 404);
+        }
+
+        return Storage::disk()->response($path, null, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline',
+        ]);
     }
 
     // HALF

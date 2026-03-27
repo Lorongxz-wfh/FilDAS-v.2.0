@@ -231,6 +231,64 @@ class UserSeeder extends Seeder
             ]
         );
 
+        // ── Additional academic office heads ───────────────────────────────
+
+        User::updateOrCreate(
+            ['email' => 'ctehead@example.com'],
+            [
+                'first_name'         => 'CTE',
+                'middle_name'        => null,
+                'last_name'          => 'Head',
+                'suffix'             => null,
+                'profile_photo_path' => null,
+                'password'           => Hash::make('password'),
+                'role_id'            => $officeHeadRole->id,
+                'office_id'          => $officeId('CTE'),
+            ]
+        );
+
+        User::updateOrCreate(
+            ['email' => 'chtmhead@example.com'],
+            [
+                'first_name'         => 'CHTM',
+                'middle_name'        => null,
+                'last_name'          => 'Head',
+                'suffix'             => null,
+                'profile_photo_path' => null,
+                'password'           => Hash::make('password'),
+                'role_id'            => $officeHeadRole->id,
+                'office_id'          => $officeId('CHTM'),
+            ]
+        );
+
+        User::updateOrCreate(
+            ['email' => 'cashead@example.com'],
+            [
+                'first_name'         => 'CAS',
+                'middle_name'        => null,
+                'last_name'          => 'Head',
+                'suffix'             => null,
+                'profile_photo_path' => null,
+                'password'           => Hash::make('password'),
+                'role_id'            => $officeHeadRole->id,
+                'office_id'          => $officeId('CAS'),
+            ]
+        );
+
+        User::updateOrCreate(
+            ['email' => 'ccjehead@example.com'],
+            [
+                'first_name'         => 'CCJE',
+                'middle_name'        => null,
+                'last_name'          => 'Head',
+                'suffix'             => null,
+                'profile_photo_path' => null,
+                'password'           => Hash::make('password'),
+                'role_id'            => $officeHeadRole->id,
+                'office_id'          => $officeId('CCJE'),
+            ]
+        );
+
         Log::info('UserSeeder done', [
             'admin_exists' => \App\Models\User::where('email', 'admin@example.com')->exists(),
             'qa_exists' => \App\Models\User::where('email', 'qa@example.com')->exists(),

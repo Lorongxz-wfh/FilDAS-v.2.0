@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { pageCache } from "../lib/pageCache";
 import { getAuthUser } from "../lib/auth";
 import PageFrame from "../components/layout/PageFrame";
 import Table, { type TableColumn } from "../components/ui/Table";
@@ -19,11 +20,12 @@ const UserManagerPage: React.FC = () => {
   const me = getAuthUser();
   const isAdmin = me?.role === "admin" || me?.role === "sysadmin";
 
-  const [rows, setRows] = useState<AdminUser[]>([]);
+  const _uc = pageCache.get<AdminUser>("users", '{"q":"","status":"","role":""}', 5 * 60_000);
+  const [rows, setRows] = useState<AdminUser[]>(_uc?.rows ?? []);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(_uc?.hasMore ?? true);
   const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(!_uc);
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
@@ -63,6 +65,7 @@ const UserManagerPage: React.FC = () => {
 
   useEffect(() => {
     let alive = true;
+    const filterKey = JSON.stringify({ q: searchDebounced, status: statusFilter, role: String(roleFilter) });
     const load = async () => {
       if (!hasMore && page > 1) return;
       setLoading(true);
@@ -79,11 +82,12 @@ const UserManagerPage: React.FC = () => {
         const incoming = res.data ?? [];
         setRows((prev) => (page === 1 ? incoming : [...prev, ...incoming]));
         const meta = res.meta ?? (res as any);
-        setHasMore(
+        const more =
           meta?.current_page != null &&
-            meta?.last_page != null &&
-            meta.current_page < meta.last_page,
-        );
+          meta?.last_page != null &&
+          meta.current_page < meta.last_page;
+        setHasMore(more);
+        if (page === 1) pageCache.set("users", filterKey, incoming, more);
       } catch (e: any) {
         if (!alive) return;
         setError(e?.message ?? "Failed to load users.");
@@ -95,6 +99,7 @@ const UserManagerPage: React.FC = () => {
     };
     load();
     return () => { alive = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, searchDebounced, statusFilter, roleFilter, reloadTick]);
 
   const openEdit = (u: AdminUser) => {

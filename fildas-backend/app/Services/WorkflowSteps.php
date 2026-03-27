@@ -323,4 +323,36 @@ final class WorkflowSteps
             ],
         ];
     }
+
+    /**
+     * Phase-based step groupings (Review / Approval / Finalization).
+     * Used for the phase delay chart — merges all routing modes into one bucket.
+     */
+    public static function reportPhaseGroups(): array
+    {
+        return [
+            'Review' => [
+                self::STEP_QA_OFFICE_REVIEW,
+                self::STEP_QA_VP_REVIEW,
+                self::STEP_QA_REVIEW_FINAL_CHECK,
+                self::STEP_OFFICE_HEAD_REVIEW,
+                self::STEP_OFFICE_VP_REVIEW,
+                self::STEP_OFFICE_REVIEW_FINAL_CHECK,
+                self::STEP_CUSTOM_OFFICE_REVIEW,
+                self::STEP_CUSTOM_REVIEW_BACK_TO_OWNER,
+            ],
+            'Approval' => [
+                self::STEP_QA_OFFICE_APPROVAL,
+                self::STEP_QA_VP_APPROVAL,
+                self::STEP_QA_PRES_APPROVAL,
+                self::STEP_QA_APPROVAL_FINAL_CHECK,
+                self::STEP_OFFICE_HEAD_APPROVAL,
+                self::STEP_OFFICE_VP_APPROVAL,
+                self::STEP_OFFICE_PRES_APPROVAL,
+                self::STEP_OFFICE_APPROVAL_FINAL_CHECK,
+                self::STEP_CUSTOM_OFFICE_APPROVAL,
+                self::STEP_CUSTOM_APPROVAL_BACK_TO_OWNER,
+            ],
+        ];
+    }
 }

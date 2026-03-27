@@ -7,17 +7,26 @@ export default function SplashScreen() {
   const [phase, setPhase] = useState<Phase>("hidden");
 
   useEffect(() => {
+    let exitTimer: ReturnType<typeof setTimeout>;
+    let hiddenTimer: ReturnType<typeof setTimeout>;
+
     const handler = () => {
+      clearTimeout(exitTimer);
+      clearTimeout(hiddenTimer);
       setPhase("enter");
-      // next frame → trigger fade-in transition
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setPhase("visible"));
       });
-      setTimeout(() => setPhase("exit"), 1700);
-      setTimeout(() => setPhase("hidden"), 2050);
+      exitTimer = setTimeout(() => setPhase("exit"), 1700);
+      hiddenTimer = setTimeout(() => setPhase("hidden"), 2050);
     };
+
     window.addEventListener("show_splash", handler);
-    return () => window.removeEventListener("show_splash", handler);
+    return () => {
+      window.removeEventListener("show_splash", handler);
+      clearTimeout(exitTimer);
+      clearTimeout(hiddenTimer);
+    };
   }, []);
 
   if (phase === "hidden") return null;

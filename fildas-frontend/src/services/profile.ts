@@ -38,6 +38,20 @@ export async function removeProfilePhoto() {
   return data.user;
 }
 
+export async function uploadSignature(file: File) {
+  const form = new FormData();
+  form.append("signature", file);
+  const { data } = await api.post("/profile/signature", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data.user;
+}
+
+export async function removeSignature() {
+  const { data } = await api.delete("/profile/signature");
+  return data.user;
+}
+
 export async function updateNotificationPreferences(payload: {
   email_doc_updates: boolean;
   email_approvals: boolean;

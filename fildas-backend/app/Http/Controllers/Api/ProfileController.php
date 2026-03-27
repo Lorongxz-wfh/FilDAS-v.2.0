@@ -85,6 +85,19 @@ class ProfileController extends Controller
         return response()->json(['message' => 'Password updated successfully.']);
     }
 
+    // GET /api/profile/signature-file
+    public function getSignatureFile(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        if (!$user->signature_path || !Storage::disk('public')->exists($user->signature_path)) {
+            return response()->json(['message' => 'No signature found.'], 404);
+        }
+
+        return Storage::disk('public')->response($user->signature_path);
+    }
+
     // POST /api/profile/photo
     public function uploadPhoto(Request $request)
     {
@@ -104,6 +117,46 @@ class ProfileController extends Controller
         $user->save();
 
         $this->logActivity('profile.photo_updated', 'Updated profile photo', $user->id, $user->office_id);
+
+        return response()->json(['user' => $this->userPayload($user)]);
+    }
+
+    // POST /api/profile/signature
+    public function uploadSignature(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        $request->validate([
+            'signature' => ['required', 'image', 'max:1024'],
+        ]);
+
+        if ($user->signature_path) {
+            Storage::disk('public')->delete($user->signature_path);
+        }
+
+        $path = $request->file('signature')->store('signatures', 'public');
+        $user->signature_path = $path;
+        $user->save();
+
+        $this->logActivity('profile.signature_updated', 'Updated signature', $user->id, $user->office_id);
+
+        return response()->json(['user' => $this->userPayload($user)]);
+    }
+
+    // DELETE /api/profile/signature
+    public function removeSignature(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        if ($user->signature_path) {
+            Storage::disk('public')->delete($user->signature_path);
+            $user->signature_path = null;
+            $user->save();
+
+            $this->logActivity('profile.signature_removed', 'Removed signature', $user->id, $user->office_id);
+        }
 
         return response()->json(['user' => $this->userPayload($user)]);
     }
@@ -159,6 +212,8 @@ class ProfileController extends Controller
             'email'               => $user->email,
             'profile_photo_path'  => $user->profile_photo_path,
             'profile_photo_url'   => $user->profile_photo_url,
+            'signature_path'      => $user->signature_path,
+            'signature_url'       => $user->signature_url,
             'role'                => strtolower($user->role?->name ?? ''),
             'office_id'           => $user->office_id,
             'office'              => $user->office ? [

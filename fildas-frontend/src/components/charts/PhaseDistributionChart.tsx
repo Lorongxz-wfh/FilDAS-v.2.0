@@ -21,7 +21,6 @@ import {
   PieChart,
   Pie,
   Legend,
-  Label,
 } from "recharts";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -128,63 +127,47 @@ const DonutChart: React.FC<{
   const pieData = data.map((d) => ({ name: d.phase, value: d.count }));
 
   return (
-    <ResponsiveContainer width="100%" height={height}>
-      <PieChart>
-        <Pie
-          data={pieData}
-          cx="50%"
-          cy="45%"
-          innerRadius="48%"
-          outerRadius="66%"
-          dataKey="value"
-          paddingAngle={2}
-          stroke="none"
-        >
-          <Label
-            content={({ viewBox }: any) => {
-              const { cx, cy } = viewBox;
-              return (
-                <g>
-                  <text
-                    x={cx}
-                    y={cy - 8}
-                    textAnchor="middle"
-                    dominantBaseline="auto"
-                    style={{
-                      fontSize: 22,
-                      fontWeight: 700,
-                      fill: "currentColor",
-                    }}
-                  >
-                    {total}
-                  </text>
-                  <text
-                    x={cx}
-                    y={cy + 10}
-                    textAnchor="middle"
-                    dominantBaseline="hanging"
-                    style={{ fontSize: 10, fill: "#94a3b8" }}
-                  >
-                    total
-                  </text>
-                </g>
-              );
-            }}
+    <div className="relative" style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={pieData}
+            cx="50%"
+            cy="45%"
+            innerRadius="48%"
+            outerRadius="66%"
+            dataKey="value"
+            paddingAngle={2}
+            stroke="none"
+          >
+            {pieData.map((entry) => (
+              <Cell key={entry.name} fill={resolveColor(entry.name, colorMap)} />
+            ))}
+          </Pie>
+          <Tooltip
+            content={(props: any) => <ChartTooltip {...props} total={total} />}
           />
-          {pieData.map((entry) => (
-            <Cell key={entry.name} fill={resolveColor(entry.name, colorMap)} />
-          ))}
-        </Pie>
-        <Tooltip
-          content={(props: any) => <ChartTooltip {...props} total={total} />}
-        />
-        <Legend
-          iconType="circle"
-          iconSize={8}
-          wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
-        />
-      </PieChart>
-    </ResponsiveContainer>
+          <Legend
+            iconType="circle"
+            iconSize={8}
+            wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+
+      {/* Center label — HTML overlay, always pixel-perfect */}
+      <div
+        className="pointer-events-none absolute left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center leading-none"
+        style={{ top: "40%" }}
+      >
+        <span className="text-[22px] font-bold tabular-nums text-slate-900 dark:text-slate-100 leading-none">
+          {total}
+        </span>
+        <span className="mt-1 text-[11px] text-slate-400 dark:text-slate-500 leading-none">
+          total
+        </span>
+      </div>
+    </div>
   );
 };
 
@@ -275,13 +258,22 @@ const VerticalBar: React.FC<{
 
 // ── Main export ────────────────────────────────────────────────────────────────
 
+const ChartSkeleton = ({ height = 220 }: { height?: number }) => (
+  <div style={{ height }} className="flex items-end gap-2 px-2 pb-5 pt-2">
+    {[60, 85, 40, 70, 50].map((h, i) => (
+      <div key={i} className="flex-1 animate-pulse rounded-t-sm bg-slate-100 dark:bg-surface-400" style={{ height: `${h}%` }} />
+    ))}
+  </div>
+);
+
 const PhaseDistributionChart: React.FC<{
   data: PhaseDistributionDatum[];
   variant: PhaseDistributionVariant;
   height?: number;
-  /** Optional color override — keys are phase/status names, values are hex colors */
   colorMap?: Record<string, string>;
-}> = ({ data, variant, height = 220, colorMap }) => {
+  loading?: boolean;
+}> = ({ data, variant, height = 220, colorMap, loading = false }) => {
+  if (loading) return <ChartSkeleton height={height} />;
   if (!data?.length) return <EmptyChart height={height} />;
   if (variant === "stacked-bar")
     return <StackedBar data={data} colorMap={colorMap} />;

@@ -1,12 +1,12 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import Alert from "../components/ui/Alert";
-import Tooltip from "../components/ui/Tooltip";
 import Skeleton from "../components/ui/loader/Skeleton";
+import RefreshButton from "../components/ui/RefreshButton";
 
 // Shared charts
 import StatusDonutChart from "../components/charts/StatusDonutChart";
 import VolumeTrendChart from "../components/charts/VolumeTrendChart";
+import PhaseDistributionChart from "../components/charts/PhaseDistributionChart";
 import StageDelayChart from "../components/charts/StageDelayChart";
 
 // Shared dashboard components
@@ -29,7 +29,9 @@ import {
   ClipboardList,
   Inbox,
   Clock,
-  RefreshCw,
+  Percent,
+  Timer,
+  AlertCircle,
 } from "lucide-react";
 
 // ─── Card ─────────────────────────────────────────────────────────────────
@@ -73,30 +75,37 @@ const QADashboard: React.FC<
   ReturnType<typeof useDashboardData> & {
     navigate: ReturnType<typeof useNavigate>;
   }
-> = ({
-  stats,
-  pending,
-  recentActivity,
-  report,
-  pendingRequestsCount,
-  loading,
-  navigate,
-}) => {
-  const donutSegments = [
-    { label: "Distributed", value: stats?.distributed ?? 0, color: "#10b981" },
-    { label: "In progress", value: stats?.pending ?? 0, color: "#f59e0b" },
+> = ({ stats, pending, report, recentActivity, pendingRequestsCount, loading, navigate }) => {
+  const kpiCards = [
     {
-      label: "Draft / other",
-      value: Math.max(
-        0,
-        (stats?.total ?? 0) - (stats?.distributed ?? 0) - (stats?.pending ?? 0),
-      ),
-      color: "#94a3b8",
+      label: "Waiting on QA",
+      value: report.waiting_on_qa ?? 0,
+      sub: "docs on QA's desk now",
+      icon: <AlertCircle className="h-4 w-4" />,
+      iconCls: "text-rose-400 dark:text-rose-400",
+      valueCls: (report.waiting_on_qa ?? 0) > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-slate-100",
+    },
+    {
+      label: "First-pass yield",
+      value: `${report.kpis.first_pass_yield_pct}%`,
+      sub: "no returns, clean flow",
+      icon: <Percent className="h-4 w-4" />,
+      iconCls: "text-emerald-400 dark:text-emerald-400",
+      valueCls: "text-slate-900 dark:text-slate-100",
+    },
+    {
+      label: "Avg cycle time",
+      value: `${report.kpis.cycle_time_avg_days}d`,
+      sub: "draft to distributed",
+      icon: <Timer className="h-4 w-4" />,
+      iconCls: "text-sky-400 dark:text-sky-400",
+      valueCls: "text-slate-900 dark:text-slate-100",
     },
   ];
 
   return (
     <div className="space-y-4">
+      {/* Row 1 — existing stat strip */}
       <DashboardStatRow
         role="QA"
         stats={stats}
@@ -105,150 +114,75 @@ const QADashboard: React.FC<
         loading={loading}
       />
 
-      {/* Row 1: Volume trend + Status donut */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card
-          title="Document volume"
-          sub="Created vs approved per month."
-          action={{
-            label: "Full reports",
-            onClick: () => navigate("/reports"),
-          }}
-          className="lg:col-span-2"
-        >
-          {loading ? (
-            <Skeleton className="h-44 w-full rounded" />
-          ) : (
-            <VolumeTrendChart data={report.volume_series} height={176} />
-          )}
-        </Card>
-
-        <Card
-          title="Document summary"
-          sub="Status breakdown."
-          action={{
-            label: "Open library",
-            onClick: () => navigate("/documents"),
-          }}
-        >
-          {loading ? (
-            <div className="flex flex-col items-center gap-3 py-4">
-              <Skeleton className="h-36 w-36 rounded-full" />
-              <Skeleton className="h-3 w-3/4" />
-            </div>
-          ) : (
-            <StatusDonutChart
-              segments={donutSegments}
-              centerValue={stats?.total ?? 0}
-              centerLabel="total"
-              size={148}
-            />
-          )}
-        </Card>
-      </div>
-
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-        {[
-          {
-            label: "Avg cycle time",
-            value: loading ? null : (report.kpis?.cycle_time_avg_days.toFixed(1) ?? "—"),
-            suffix: "d",
-            color: "text-violet-600 dark:text-violet-400",
-          },
-          {
-            label: "First-pass yield",
-            value: loading ? null : (report.kpis?.first_pass_yield_pct.toFixed(1) ?? "—"),
-            suffix: "%",
-            color: "text-emerald-600 dark:text-emerald-400",
-          },
-          {
-            label: "Ping-pong ratio",
-            value: loading ? null : (report.kpis?.pingpong_ratio.toFixed(2) ?? "—"),
-            suffix: "×",
-            color: "text-amber-600 dark:text-amber-400",
-          },
-          {
-            label: "Waiting on QA",
-            value: loading ? null : String(report.waiting_on_qa ?? 0),
-            suffix: "",
-            color: (report.waiting_on_qa ?? 0) > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-700 dark:text-slate-200",
-          },
-          {
-            label: "In review",
-            value: loading ? null : String(report.in_review_count ?? 0),
-            suffix: "",
-            color: "text-sky-600 dark:text-sky-400",
-          },
-          {
-            label: "In approval",
-            value: loading ? null : String(report.in_approval_count ?? 0),
-            suffix: "",
-            color: "text-indigo-600 dark:text-indigo-400",
-          },
-        ].map((kpi) => (
+      {/* Row 2 — quality KPI cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {kpiCards.map((k) => (
           <div
-            key={kpi.label}
-            className="flex flex-col gap-0.5 rounded-md border border-slate-200 bg-white px-3.5 py-2.5 dark:border-surface-400 dark:bg-surface-500"
+            key={k.label}
+            className="min-w-0 rounded-md border border-slate-200 bg-white px-4 py-3.5 dark:border-surface-400 dark:bg-surface-500"
           >
-            {kpi.value === null ? (
-              <Skeleton className="h-5 w-12 mb-1" />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-tight">{k.label}</p>
+              <span className={`shrink-0 ${k.iconCls}`}>{k.icon}</span>
+            </div>
+            {loading ? (
+              <Skeleton className="mt-3 h-7 w-14" />
             ) : (
-              <span className={`text-lg font-bold tabular-nums leading-none ${kpi.color}`}>
-                {kpi.value}
-                {kpi.suffix && <span className="ml-0.5 text-xs font-normal">{kpi.suffix}</span>}
-              </span>
+              <p className={`mt-2.5 text-2xl font-bold tabular-nums leading-none ${k.valueCls}`}>{k.value}</p>
             )}
-            <span className="text-xs text-slate-500 dark:text-slate-400">{kpi.label}</span>
+            <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">{k.sub}</p>
           </div>
         ))}
       </div>
 
-      {/* Row 2: Phase breakdown (wide) + Stage delay */}
+      {/* Row 3 — volume trend + phase distribution */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card
-          title="Documents by phase"
-          sub="Current document distribution across workflow phases."
-          action={{ label: "Open library", onClick: () => navigate("/documents") }}
+          title="Document volume"
+          sub="Created vs distributed per month"
+          action={{ label: "View reports", onClick: () => navigate("/reports") }}
           className="lg:col-span-2"
         >
-          {loading ? (
-            <Skeleton className="h-44 w-full rounded" />
-          ) : (
-            <AdminDocumentPhaseChart byPhase={stats?.by_phase} height={176} />
-          )}
+          <VolumeTrendChart data={report.volume_series} height={200} loading={loading} />
         </Card>
-
         <Card
-          title="Stage delay"
-          sub="Average processing time per workflow stage."
-          action={{ label: "Full reports", onClick: () => navigate("/reports") }}
+          title="Pipeline state"
+          sub="Docs by current phase"
+          action={{ label: "View library", onClick: () => navigate("/documents") }}
         >
-          {loading ? (
-            <Skeleton className="h-44 w-full rounded" />
-          ) : (
-            <StageDelayChart
-              data={report.stage_delays.filter((s) => s.count > 0 || s.avg_hours > 0)}
-              height={176}
-            />
-          )}
+          <PhaseDistributionChart
+            data={report.phase_distribution ?? []}
+            variant="donut"
+            height={200}
+            loading={loading}
+          />
         </Card>
       </div>
 
-      {/* Row 3: Pending + Recent activity */}
+      {/* Row 4 — pending list + stage delay */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <DashboardPendingList items={pending} loading={loading} />
         <Card
-          title="Recent activity"
-          sub="Latest actions in the system."
-          action={{
-            label: "View all",
-            onClick: () => navigate("/activity-logs"),
-          }}
+          title="Stage delay"
+          sub="Median hold time per workflow phase"
+          action={{ label: "View reports", onClick: () => navigate("/reports") }}
         >
-          <DashboardRecentActivity logs={recentActivity} loading={loading} />
+          <StageDelayChart
+            data={report.stage_delays_by_phase ?? []}
+            height={200}
+            loading={loading}
+          />
         </Card>
       </div>
+
+      {/* Row 5 — recent activity */}
+      <Card
+        title="Recent activity"
+        sub="Latest actions in the system."
+        action={{ label: "View all", onClick: () => navigate("/activity-logs") }}
+      >
+        <DashboardRecentActivity logs={recentActivity} loading={loading} />
+      </Card>
     </div>
   );
 };
@@ -397,14 +331,11 @@ const AdminDashboard: React.FC<
         }}
         className="lg:col-span-2"
       >
-        {loading ? (
-          <Skeleton className="h-44 w-full rounded" />
-        ) : (
-          <AdminDocumentPhaseChart
-            byPhase={adminStats?.documents.by_phase}
-            height={176}
-          />
-        )}
+        <AdminDocumentPhaseChart
+          byPhase={adminStats?.documents.by_phase}
+          height={176}
+          loading={loading}
+        />
       </Card>
 
       <Card
@@ -415,18 +346,11 @@ const AdminDashboard: React.FC<
           onClick: () => navigate("/user-manager"),
         }}
       >
-        {loading ? (
-          <div className="space-y-2">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-5 w-full rounded" />
-            ))}
-          </div>
-        ) : (
-          <AdminUsersByRoleChart
-            active={adminStats?.users.active ?? 0}
-            inactive={adminStats?.users.inactive ?? 0}
-          />
-        )}
+        <AdminUsersByRoleChart
+          active={adminStats?.users.active ?? 0}
+          inactive={adminStats?.users.inactive ?? 0}
+          loading={loading}
+        />
       </Card>
     </div>
 
@@ -438,14 +362,11 @@ const AdminDashboard: React.FC<
         onClick: () => navigate("/activity-logs"),
       }}
     >
-      {loading ? (
-        <Skeleton className="h-44 w-full rounded" />
-      ) : (
-        <AdminActivityBarChart
-          data={adminStats?.activity_series ?? []}
-          height={176}
-        />
-      )}
+      <AdminActivityBarChart
+        data={adminStats?.activity_series ?? []}
+        height={176}
+        loading={loading}
+      />
     </Card>
 
     <Card
@@ -463,9 +384,25 @@ const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const role = getUserRole();
   const dashData = useDashboardData(role);
-  const { loading, error } = dashData;
+  const { loading } = dashData;
   const isAdmin = role === "ADMIN" || role === "SYSADMIN";
-  const { refresh, refreshing } = usePageBurstRefresh(dashData.reload);
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  // Keep burst refresh for event-based auto-refresh (notifications, remote triggers)
+  usePageBurstRefresh(() => { dashData.reload(); });
+
+  const handleRefresh = async (): Promise<string | false> => {
+    setRefreshing(true);
+    try {
+      const result = await dashData.reload();
+      if (!result.changed) return "Everything is up to date.";
+      if (result.delta > 0) return `${result.delta} new pending task${result.delta === 1 ? "" : "s"} found.`;
+      if (result.delta < 0) return `Queue updated — ${Math.abs(result.delta)} task${Math.abs(result.delta) === 1 ? "" : "s"} resolved.`;
+      return "Dashboard updated.";
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const user = getAuthUser();
   const firstName =
@@ -538,18 +475,11 @@ const DashboardPage: React.FC = () => {
                 </div>
               ))}
 
-            <Tooltip text="Refresh dashboard" side="bottom">
-              <button
-                type="button"
-                onClick={refresh}
-                disabled={refreshing || loading}
-                className="cursor-pointer flex items-center justify-center h-8 w-8 rounded border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition-colors"
-              >
-                <RefreshCw
-                  className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
-                />
-              </button>
-            </Tooltip>
+            <RefreshButton
+              onRefresh={handleRefresh}
+              loading={refreshing || loading}
+              title="Refresh dashboard"
+            />
           </div>
         </div>
       </div>
@@ -557,8 +487,6 @@ const DashboardPage: React.FC = () => {
       {/* ── Scrollable body ── */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-5 py-4 space-y-4">
-          {!loading && error && <Alert variant="danger">{error}</Alert>}
-
           {isAdmin ? (
             <AdminDashboard {...dashData} navigate={navigate} />
           ) : isQA(role) ? (

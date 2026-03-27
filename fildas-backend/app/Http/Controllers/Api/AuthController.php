@@ -37,6 +37,10 @@ class AuthController extends Controller
         ]);
 
         if (! $user || ! Hash::check($credentials['password'], $user->password)) {
+            $this->logActivity('auth.login_failed', 'Failed login attempt', null, null, [
+                'email'  => $credentials['email'],
+                'reason' => ! $user ? 'user_not_found' : 'invalid_password',
+            ]);
             return response()->json([
                 'message' => 'Invalid credentials',
             ], 422);

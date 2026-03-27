@@ -118,7 +118,7 @@ export default function App() {
 
           <Route
             element={
-              <RequireRole allow={["PRESIDENT","VPAA","QA","SYSADMIN","ADMIN","VPAD","VPF","VPR"]} />
+              <RequireRole allow={["PRESIDENT","VPAA","QA","SYSADMIN","ADMIN","VPAD","VPF","VPR","OFFICE_HEAD"]} />
             }
           >
             <Route path="/reports" element={<ReportsRoute />} />
@@ -127,7 +127,7 @@ export default function App() {
 
           <Route path="/settings" element={<SettingsPage />} />
 
-          <Route element={<RequireRole allow={["QA", "SYSADMIN", "ADMIN"]} />}>
+          <Route element={<RequireRole allow={["QA", "SYSADMIN", "ADMIN", "OFFICE_HEAD"]} />}>
             <Route path="/activity-logs" element={<ActivityLogsPage />} />
           </Route>
 

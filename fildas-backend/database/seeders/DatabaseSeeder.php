@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             OfficesSeeder::class,
             RoleSeeder::class,
             UserSeeder::class,
+            TemplateSeeder::class,
         ]);
     }
 }

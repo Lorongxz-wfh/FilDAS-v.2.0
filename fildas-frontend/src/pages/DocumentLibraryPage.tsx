@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { pageCache } from "../lib/pageCache";
 import {
   listDocumentsPage,
   getCurrentUserOfficeId,
@@ -59,6 +60,8 @@ export default function DocumentLibraryPage() {
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "doc" | "req">("all");
+  const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -78,14 +81,18 @@ export default function DocumentLibraryPage() {
   const [reqInitialLoading, setReqInitialLoading] = useState(true);
 
   // ── State: All tab (dual sources) ─────────────────────────────────────────
-  const [allDocRows, setAllDocRows] = useState<Document[]>([]);
+  const _libKey0 = '{"q":"","type":"ALL","dateFrom":"","dateTo":""}';
+  const _ladc = pageCache.get<Document>("library-all-doc", _libKey0, 3 * 60_000);
+  const _larc = pageCache.get<any>("library-all-req", _libKey0, 3 * 60_000);
+  const [allDocRows, setAllDocRows] = useState<Document[]>(_ladc?.rows ?? []);
   const [allDocPage, setAllDocPage] = useState(1);
-  const [allDocHasMore, setAllDocHasMore] = useState(true);
-  const [allReqRows, setAllReqRows] = useState<any[]>([]);
+  const [allDocHasMore, setAllDocHasMore] = useState(_ladc?.hasMore ?? true);
+  const [allReqRows, setAllReqRows] = useState<any[]>(_larc?.rows ?? []);
   const [allReqPage, setAllReqPage] = useState(1);
-  const [allReqHasMore, setAllReqHasMore] = useState(true);
+  const [allReqHasMore, setAllReqHasMore] = useState(_larc?.hasMore ?? true);
   const [allLoading, setAllLoading] = useState(false);
-  const [allInitialLoading, setAllInitialLoading] = useState(true);
+  const [allInitialLoading, setAllInitialLoading] = useState(!_ladc && !_larc);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // ── Share modal ───────────────────────────────────────────────────────────
   const [shareOpen, setShareOpen] = useState(false);
@@ -106,6 +113,11 @@ export default function DocumentLibraryPage() {
     setError(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, qDebounced, typeFilter, dateFrom, dateTo]);
+
+  // Reset "all" tab-only filters when leaving that tab
+  useEffect(() => {
+    if (tab !== "all") { setSourceFilter("all"); setSortDir("desc"); }
+  }, [tab]);
 
   // ── Load: Created / Shared ────────────────────────────────────────────────
   useEffect(() => {
@@ -145,7 +157,7 @@ export default function DocumentLibraryPage() {
     load();
     return () => { alive = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, docPage, qDebounced, typeFilter, dateFrom, dateTo, isAdmin]);
+  }, [tab, docPage, qDebounced, typeFilter, dateFrom, dateTo, isAdmin, reloadKey]);
 
   // ── Load: Requested ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -182,7 +194,7 @@ export default function DocumentLibraryPage() {
     load();
     return () => { alive = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, reqPage, qDebounced]);
+  }, [tab, reqPage, qDebounced, reloadKey]);
 
   // ── Load: All tab (parallel fetch) ───────────────────────────────────────
   useEffect(() => {
@@ -216,21 +228,23 @@ export default function DocumentLibraryPage() {
             : null,
         ]);
         if (!alive) return;
+        const libFilterKey = JSON.stringify({ q: qDebounced.trim(), type: typeFilter, dateFrom, dateTo });
         if (docRes) {
           const inc = docRes.data ?? [];
+          const docMore = (docRes.meta?.current_page ?? 0) < (docRes.meta?.last_page ?? 0);
           setAllDocRows((prev) => (allDocPage === 1 ? inc : [...prev, ...inc]));
-          setAllDocHasMore(
-            (docRes.meta?.current_page ?? 0) < (docRes.meta?.last_page ?? 0),
-          );
+          setAllDocHasMore(docMore);
+          if (allDocPage === 1) pageCache.set("library-all-doc", libFilterKey, inc, docMore);
         }
         if (reqRes) {
           const inc = Array.isArray(reqRes.data) ? reqRes.data : [];
-          setAllReqRows((prev) => (allReqPage === 1 ? inc : [...prev, ...inc]));
-          setAllReqHasMore(
+          const reqMore =
             reqRes.current_page != null &&
-              reqRes.last_page != null &&
-              reqRes.current_page < reqRes.last_page,
-          );
+            reqRes.last_page != null &&
+            reqRes.current_page < reqRes.last_page;
+          setAllReqRows((prev) => (allReqPage === 1 ? inc : [...prev, ...inc]));
+          setAllReqHasMore(reqMore);
+          if (allReqPage === 1) pageCache.set("library-all-req", libFilterKey, inc, reqMore);
         }
       } catch (e: any) {
         if (!alive) return;
@@ -244,7 +258,7 @@ export default function DocumentLibraryPage() {
     load();
     return () => { alive = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, allDocPage, allReqPage, qDebounced, typeFilter, dateFrom, dateTo]);
+  }, [tab, allDocPage, allReqPage, qDebounced, typeFilter, dateFrom, dateTo, reloadKey]);
 
   // Merged + sorted All tab rows
   const merged = useMemo((): LibraryItem[] => {
@@ -256,15 +270,21 @@ export default function DocumentLibraryPage() {
       return docToLibraryItem(d, source);
     });
     const reqItems = allReqRows.map(reqToLibraryItem);
-    return [...docItems, ...reqItems].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    );
-  }, [allDocRows, allReqRows, myOfficeId, isAdmin]);
+    const items =
+      sourceFilter === "doc" ? docItems
+      : sourceFilter === "req" ? reqItems
+      : [...docItems, ...reqItems];
+    return items.sort((a, b) => {
+      const diff = new Date(b.date).getTime() - new Date(a.date).getTime();
+      return sortDir === "asc" ? -diff : diff;
+    });
+  }, [allDocRows, allReqRows, myOfficeId, isAdmin, sourceFilter, sortDir]);
 
   // Reload (for refresh button)
   const reloadLibrary = () => {
     setDocRows([]); setDocPage(1); setDocHasMore(true); setDocInitialLoading(true);
     setReqRows([]); setReqPage(1); setReqHasMore(true); setReqInitialLoading(true);
+    setReloadKey(k => k + 1);
     setAllDocRows([]); setAllDocPage(1); setAllDocHasMore(true);
     setAllReqRows([]); setAllReqPage(1); setAllReqHasMore(true); setAllInitialLoading(true);
     setError(null);
@@ -403,7 +423,19 @@ export default function DocumentLibraryPage() {
           </select>
         )}
 
-        {(tab === "created" || tab === "shared") && (
+        {tab === "all" && (
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value as "all" | "doc" | "req")}
+            className={selectCls}
+          >
+            <option value="all">All sources</option>
+            <option value="doc">Documents only</option>
+            <option value="req">Requests only</option>
+          </select>
+        )}
+
+        {tab !== "requested" && (
           <DateRangeInput
             from={dateFrom}
             to={dateTo}
@@ -412,7 +444,18 @@ export default function DocumentLibraryPage() {
           />
         )}
 
-        {(q || typeFilter !== "ALL" || dateFrom || dateTo) && (
+        {tab === "all" && (
+          <select
+            value={sortDir}
+            onChange={(e) => setSortDir(e.target.value as "desc" | "asc")}
+            className={selectCls}
+          >
+            <option value="desc">Newest first</option>
+            <option value="asc">Oldest first</option>
+          </select>
+        )}
+
+        {(q || typeFilter !== "ALL" || dateFrom || dateTo || sourceFilter !== "all" || sortDir !== "desc") && (
           <button
             type="button"
             onClick={() => {
@@ -420,6 +463,8 @@ export default function DocumentLibraryPage() {
               setTypeFilter("ALL");
               setDateFrom("");
               setDateTo("");
+              setSourceFilter("all");
+              setSortDir("desc");
             }}
             className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
           >

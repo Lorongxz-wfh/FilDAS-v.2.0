@@ -179,6 +179,7 @@ const DocumentFlowPage: React.FC = () => {
     key: string;
     label: string;
     variant: "primary" | "danger" | "outline";
+    confirmMessage?: string;
     onClick: (note?: string) => Promise<void> | void;
   } | null>(null);
   const [processingKey, setProcessingKey] = useState<string | null>(null);
@@ -518,7 +519,7 @@ const refreshAndSelectBest = React.useCallback(
             {isRevisable && (
               <Button
                 type="button"
-                variant="secondary"
+                variant="outline"
                 size="sm"
                 disabled={isLoadingSelectedVersion}
                 onClick={() => {
@@ -579,7 +580,7 @@ const refreshAndSelectBest = React.useCallback(
         left={
           <div className="relative">
             {pendingUploadPct !== null && (
-              <div className="mb-3 w-full rounded-md border-l-4 border-brand-300 dark:border-brand-500 bg-brand-50 dark:bg-brand-950/20 px-4 py-2.5 flex items-center gap-4">
+              <div className="mb-3 w-full rounded-md border-l-4 border-brand-400 dark:border-brand-300 bg-slate-50 dark:bg-surface-400 px-4 py-2.5 flex items-center gap-4">
                 <div className="flex items-center gap-2 shrink-0">
                   <Loader2 className="animate-spin h-3.5 w-3.5 text-brand-400 dark:text-brand-300" />
                   <span className="text-xs font-medium text-brand-600 dark:text-brand-300">

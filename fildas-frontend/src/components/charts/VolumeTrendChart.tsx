@@ -1,6 +1,17 @@
 import React from "react";
 import { BarChart2 } from "lucide-react";
 
+const ChartSkeleton = ({ height = 200 }: { height?: number }) => (
+  <div style={{ height }} className="flex items-end gap-2 px-2 pb-5 pt-2">
+    {[55, 80, 45, 90, 60, 75, 40, 85].map((h, i) => (
+      <div key={i} className="flex-1 flex gap-0.5 items-end">
+        <div className="flex-1 animate-pulse rounded-t-sm bg-slate-100 dark:bg-surface-400" style={{ height: `${h}%` }} />
+        <div className="flex-1 animate-pulse rounded-t-sm bg-slate-100 dark:bg-surface-400 opacity-60" style={{ height: `${h * 0.6}%` }} />
+      </div>
+    ))}
+  </div>
+);
+
 const EmptyChart = ({ height = 200 }: { height?: number }) => (
   <div
     className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 dark:border-surface-300 bg-slate-50/50 dark:bg-surface-600/30 text-slate-400 dark:text-slate-500"
@@ -42,10 +53,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-const VolumeTrendChart: React.FC<{ data: VolumeSeries[]; height?: number }> = ({
+const VolumeTrendChart: React.FC<{ data: VolumeSeries[]; height?: number; loading?: boolean }> = ({
   data,
   height = 200,
+  loading = false,
 }) => {
+  if (loading) return <ChartSkeleton height={height} />;
   if (!data?.length) return <EmptyChart height={height} />;
   return (
   <ResponsiveContainer width="100%" height={height}>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   getDocumentStats,
   getWorkQueue,
@@ -29,6 +29,8 @@ const emptyReport: ComplianceReport = {
   stage_delays: [],
 };
 
+export type ReloadResult = { changed: boolean; delta: number };
+
 export type DashboardData = {
   stats: DocumentStats | null;
   pending: WorkQueueItem[];
@@ -39,7 +41,7 @@ export type DashboardData = {
   pendingRequestsCount: number;
   loading: boolean;
   error: string | null;
-  reload: () => Promise<void>;
+  reload: () => Promise<ReloadResult>;
 };
 
 export function useDashboardData(role: UserRole): DashboardData {
@@ -52,6 +54,9 @@ export function useDashboardData(role: UserRole): DashboardData {
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Tracks latest fetched pending count so reload() can detect changes
+  const lastPendingCountRef = useRef(-1);
 
   const isAdmin = role === "ADMIN" || role === "SYSADMIN";
 
@@ -79,7 +84,12 @@ export function useDashboardData(role: UserRole): DashboardData {
               listDocumentRequests({ per_page: 1 }),
             ]);
           if (statsRes.status === "fulfilled") setStats(statsRes.value);
-          if (queueRes.status === "fulfilled") { setPending(queueRes.value.assigned ?? []); setMonitoring(queueRes.value.monitoring ?? []); }
+          if (queueRes.status === "fulfilled") {
+            const assigned = queueRes.value.assigned ?? [];
+            setPending(assigned);
+            setMonitoring(queueRes.value.monitoring ?? []);
+            lastPendingCountRef.current = assigned.length;
+          }
           if (activityRes.status === "fulfilled") setRecentActivity(activityRes.value.data ?? []);
           if (reportRes.status === "fulfilled") setReport(reportRes.value);
           if (reqRes.status === "fulfilled") setPendingRequestsCount(reqRes.value?.meta?.total ?? 0);
@@ -114,8 +124,12 @@ export function useDashboardData(role: UserRole): DashboardData {
     return () => window.clearInterval(interval);
   }, [loadRef]);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (): Promise<ReloadResult> => {
+    const prev = lastPendingCountRef.current;
     await loadRef(true);
+    const next = lastPendingCountRef.current;
+    const delta = next - prev;
+    return { changed: prev !== -1 && next !== prev, delta };
   }, [loadRef]);
 
   return {

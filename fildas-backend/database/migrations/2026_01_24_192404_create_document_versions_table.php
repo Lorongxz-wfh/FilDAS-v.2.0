@@ -25,6 +25,7 @@ return new class extends Migration
             $table->string('file_path')->nullable();
             $table->string('preview_path')->nullable();
             $table->string('signed_file_path')->nullable();
+            $table->string('pre_sign_file_path')->nullable(); // backup of original before in-app signing
             $table->string('original_filename')->nullable();
 
             $table->text('description')->nullable();

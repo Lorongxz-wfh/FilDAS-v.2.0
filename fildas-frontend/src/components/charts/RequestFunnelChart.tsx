@@ -18,7 +18,19 @@ export type FunnelStep = {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-const RequestFunnelChart: React.FC<{ data: FunnelStep[] }> = ({ data }) => {
+const ChartSkeleton = () => (
+  <div className="space-y-2 py-1">
+    {[100, 75, 55, 35].map((w, i) => (
+      <div key={i} className="flex items-center gap-3">
+        <div className="w-36 h-2.5 animate-pulse rounded bg-slate-100 dark:bg-surface-400 shrink-0" />
+        <div className="animate-pulse rounded-md bg-slate-100 dark:bg-surface-400 h-8" style={{ width: `${w}%` }} />
+      </div>
+    ))}
+  </div>
+);
+
+const RequestFunnelChart: React.FC<{ data: FunnelStep[]; loading?: boolean }> = ({ data, loading = false }) => {
+  if (loading) return <ChartSkeleton />;
   if (!data?.length) return <EmptyChart />;
   const max = data[0]?.count ?? 1;
 

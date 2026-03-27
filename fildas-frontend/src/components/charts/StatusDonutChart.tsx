@@ -28,12 +28,33 @@ const CustomTooltip = ({ active, payload }: any) => {
   );
 };
 
-const StatusDonutChart: React.FC<Props> = ({
+type FullProps = Props & { loading?: boolean };
+
+const StatusDonutChart: React.FC<FullProps> = ({
   segments,
   centerLabel,
   centerValue,
   size = 160,
+  loading = false,
 }) => {
+  if (loading) {
+    return (
+      <div className="flex items-center gap-6">
+        <div
+          className="shrink-0 rounded-full animate-pulse bg-slate-100 dark:bg-surface-400"
+          style={{ width: size, height: size }}
+        />
+        <div className="flex-1 space-y-3">
+          {[70, 55, 40].map((w, i) => (
+            <div key={i} className="space-y-1.5">
+              <div className="h-2.5 animate-pulse rounded bg-slate-100 dark:bg-surface-400" style={{ width: `${w}%` }} />
+              <div className="h-1 w-full animate-pulse rounded-full bg-slate-100 dark:bg-surface-400" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
   const total = segments.reduce((s, x) => s + x.value, 0);
   const data = segments.filter((s) => s.value > 0);
   const displayData = data.length ? data : [{ label: "Empty", value: 1, color: "#e2e8f0" }];

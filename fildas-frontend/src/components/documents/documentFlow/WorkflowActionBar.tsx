@@ -132,7 +132,7 @@ const WorkflowActionBar: React.FC<Props> = ({
                     ? "Explain why this document is being cancelled…"
                     : "Explain why this document is being rejected…"
                 }
-                className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200"
+                className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-rose-400 dark:border-surface-400 dark:bg-surface-400 dark:text-slate-200"
               />
               {rejectError && (
                 <p className="mt-1 text-xs text-rose-600">{rejectError}</p>
