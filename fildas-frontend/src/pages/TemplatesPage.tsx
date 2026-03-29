@@ -60,6 +60,8 @@ const TemplatesPage: React.FC = () => {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
   const tagDropdownRef = React.useRef<HTMLDivElement>(null);
+  const [sortBy, setSortBy] = useState("created_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q.trim().toLowerCase()), 300);
@@ -111,7 +113,7 @@ const TemplatesPage: React.FC = () => {
     let alive = true;
     setLoading(true);
     setError(null);
-    listTemplates()
+    listTemplates({ sort_by: sortBy, sort_dir: sortDir })
       .then((data) => {
         if (!alive) return;
         templateIdsRef.current = data.map((t) => t.id).join(",");
@@ -121,8 +123,12 @@ const TemplatesPage: React.FC = () => {
         if (!alive) return;
         setError(e?.message ?? "Failed to load templates.");
       })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // Refresh button — always bypasses cache and re-fetches from server
@@ -132,7 +138,7 @@ const TemplatesPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listTemplates();
+      const data = await listTemplates({ sort_by: sortBy, sort_dir: sortDir });
       const newIds = data.map((t) => t.id).join(",");
       templateIdsRef.current = newIds;
       setTemplates(data);
@@ -169,6 +175,21 @@ const TemplatesPage: React.FC = () => {
 
   // Optimistic upload state
   const [uploadingName, setUploadingName] = useState<string | null>(null);
+
+  const handleSortChange = (key: string, dir: "asc" | "desc") => {
+    setSortBy(key);
+    setSortDir(dir);
+    invalidateTemplatesCache();
+    setLoading(true);
+    setError(null);
+    listTemplates({ sort_by: key, sort_dir: dir })
+      .then((data) => {
+        templateIdsRef.current = data.map((t) => t.id).join(",");
+        setTemplates(data);
+      })
+      .catch((e: any) => setError(e?.message ?? "Failed to load templates."))
+      .finally(() => setLoading(false));
+  };
 
   const handleUploadStart = (name: string) => {
     setUploadingName(name);
@@ -418,8 +439,14 @@ const TemplatesPage: React.FC = () => {
                   >
                     <div className="flex-1 bg-slate-100 dark:bg-surface-600" />
                     <div className="p-2.5 space-y-1.5">
-                      <div className="h-2.5 rounded bg-slate-100 dark:bg-surface-600" style={{ width: `${55 + (i % 4) * 10}%` }} />
-                      <div className="h-2 rounded bg-slate-100 dark:bg-surface-600" style={{ width: `${35 + (i % 3) * 8}%` }} />
+                      <div
+                        className="h-2.5 rounded bg-slate-100 dark:bg-surface-600"
+                        style={{ width: `${55 + (i % 4) * 10}%` }}
+                      />
+                      <div
+                        className="h-2 rounded bg-slate-100 dark:bg-surface-600"
+                        style={{ width: `${35 + (i % 3) * 8}%` }}
+                      />
                     </div>
                   </div>
                 ))}
@@ -459,6 +486,9 @@ const TemplatesPage: React.FC = () => {
               deletingId={deletingId}
               onDeleteClick={handleDeleteClick}
               onSelect={setSelectedTemplate}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              onSortChange={handleSortChange}
             />
           </div>
         )}
@@ -486,6 +516,6 @@ const TemplatesPage: React.FC = () => {
       </Modal>
     </>
   );
-};
+};;
 
 export default TemplatesPage;

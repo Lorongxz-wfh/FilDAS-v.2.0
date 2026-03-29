@@ -120,10 +120,14 @@ export async function listDocumentsPage(params?: {
   doctype?: string;
   owner_office_id?: number;
   date_from?: string; // YYYY-MM-DD
-  date_to?: string;   // YYYY-MM-DD
+  date_to?: string; // YYYY-MM-DD
 
-  // NEW: document library scope
+  // document library scope
   scope?: "all" | "owned" | "shared" | "assigned" | "participant";
+
+  // sorting
+  sort_by?: "title" | "created_at" | "code";
+  sort_dir?: "asc" | "desc";
 }): Promise<Paginated<Document>> {
   try {
     const api = await getApi();
@@ -140,6 +144,9 @@ export async function listDocumentsPage(params?: {
         date_to: params?.date_to,
 
         scope: params?.scope,
+
+        sort_by: params?.sort_by,
+        sort_dir: params?.sort_dir,
       },
     });
 

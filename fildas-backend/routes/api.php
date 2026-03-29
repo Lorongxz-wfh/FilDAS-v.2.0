@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\ReportsController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AdminOfficeController;
 use App\Http\Controllers\Api\DocumentRequestMessageController;
+use App\Http\Controllers\Api\AnnouncementController;
+
 
 // ── Public ─────────────────────────────────────────────────────────────────
 Route::get('/ping', fn() => response()->json(['status' => 'ok']));
@@ -117,8 +119,17 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class]
     Route::post('/previews',                      [PreviewController::class, 'store']);
     Route::delete('/previews/{year}/{preview}',   [PreviewController::class, 'destroy']);
 
-    // ── Notifications ──────────────────────────────────────────────────────
-    Route::get('/notifications',                          [NotificationController::class, 'index']);
+    // ── Announcements ──────────────────────────────────────────────────────
+
+    Route::get('/announcements/all',                        [AnnouncementController::class, 'all']);
+    Route::get('/announcements',                            [AnnouncementController::class, 'index']);
+    Route::post('/announcements',                           [AnnouncementController::class, 'store']);
+    Route::patch('/announcements/{announcement}/archive',   [AnnouncementController::class, 'archive']);
+    Route::patch('/announcements/{announcement}/unarchive', [AnnouncementController::class, 'unarchive']);
+    Route::delete('/announcements/{announcement}',          [AnnouncementController::class, 'destroy']);
+
+// ── Notifications ──────────────────────────────────────────────────────
+Route::get('/notifications',                          [NotificationController::class, 'index']);
     Route::get('/notifications/unread-count',             [NotificationController::class, 'unreadCount']);
     Route::post('/notifications/read-all',                [NotificationController::class, 'markAllRead']);
     Route::delete('/notifications',                       [NotificationController::class, 'destroyAll']);

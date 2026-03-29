@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import type { DocumentTemplate } from "../../services/templates";
 import {
   templateFileTypeLabel,
-  templateFileTypeColor,
   downloadTemplate,
 } from "../../services/templates";
 import { useToast } from "../ui/toast/ToastContext";
@@ -25,7 +24,6 @@ const TemplateGridCard: React.FC<Props> = ({
   const [imgError, setImgError] = useState(false);
 
   const typeLabel = templateFileTypeLabel(template.mime_type);
-  const typeColor = templateFileTypeColor(template.mime_type);
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -45,23 +43,29 @@ const TemplateGridCard: React.FC<Props> = ({
       className="group relative flex flex-col rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden cursor-pointer transition hover:border-sky-300 dark:hover:border-sky-700 hover:shadow-md"
     >
       {/* Thumbnail area */}
-      <div className="relative aspect-3/4 w-full bg-slate-50 dark:bg-surface-600 overflow-hidden">
+      <div
+        className="relative w-full bg-white overflow-hidden"
+        style={{ height: "200px" }}
+      >
         {template.thumbnail_url && !imgError ? (
           <img
             src={template.thumbnail_url}
             alt={template.name}
-            className="h-full w-full object-cover object-top"
+            className="absolute top-0 left-0 w-full origin-top"
+            style={{ transform: "scale(1.4)", transformOrigin: "top center" }}
             onError={() => setImgError(true)}
           />
         ) : (
-          /* Fallback — styled placeholder */
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4">
-            <span
-              className={`inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-bold tracking-wide ${typeColor}`}
-            >
-              {typeLabel}
-            </span>
-            <span className="text-xs text-slate-400 dark:text-slate-500 text-center truncate w-full px-2">
+          /* Fallback — clean document placeholder */
+          <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-4">
+            <div className="flex flex-col items-center justify-center w-14 h-16 rounded-md border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-400 shadow-sm relative">
+              {/* Folded corner */}
+              <div className="absolute top-0 right-0 w-3 h-3 border-l border-b border-slate-200 dark:border-surface-300 bg-slate-50 dark:bg-surface-500 rounded-bl-sm" />
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mt-1">
+                {typeLabel}
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-400 dark:text-slate-500 text-center truncate w-full px-2">
               {template.original_filename}
             </span>
           </div>
@@ -75,7 +79,7 @@ const TemplateGridCard: React.FC<Props> = ({
             disabled={downloading}
             className="rounded-md bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-white transition disabled:opacity-50 shadow"
           >
-            {downloading ? "…" : "↓ Download"}
+            {downloading ? "Downloading…" : "Download"}
           </button>
           {template.can_delete && (
             <button
@@ -94,9 +98,7 @@ const TemplateGridCard: React.FC<Props> = ({
 
         {/* File type badge — top left */}
         <div className="absolute top-2 left-2">
-          <span
-            className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-xs font-bold tracking-wide shadow-sm ${typeColor}`}
-          >
+          <span className="inline-flex items-center rounded bg-black/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/90">
             {typeLabel}
           </span>
         </div>
@@ -104,11 +106,11 @@ const TemplateGridCard: React.FC<Props> = ({
         {/* Global/office badge — top right */}
         <div className="absolute top-2 right-2">
           {template.is_global ? (
-            <span className="inline-flex items-center rounded-full bg-violet-50/90 dark:bg-violet-950/70 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-400 shadow-sm">
+            <span className="inline-flex items-center rounded bg-black/40 px-1.5 py-0.5 text-[10px] font-medium text-white/90">
               Global
             </span>
           ) : template.office ? (
-            <span className="inline-flex items-center rounded-full bg-white/90 dark:bg-surface-500/90 border border-slate-200 dark:border-surface-400 px-1.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300 shadow-sm">
+            <span className="inline-flex items-center rounded bg-black/40 px-1.5 py-0.5 text-[10px] font-medium text-white/90">
               {template.office.code}
             </span>
           ) : null}

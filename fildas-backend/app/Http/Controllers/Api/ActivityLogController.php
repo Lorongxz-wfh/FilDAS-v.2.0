@@ -62,7 +62,12 @@ class ActivityLogController extends Controller
         $scope = $data['scope'] ?? 'office';
         $perPage = (int) ($data['per_page'] ?? 25);
 
-        $q = ActivityLog::query()->orderByDesc('id');
+        $allowedSorts = ['created_at', 'event', 'label'];
+        $sortBy  = in_array($request->query('sort_by'), $allowedSorts, true)
+            ? $request->query('sort_by') : 'created_at';
+        $sortDir = $request->query('sort_dir') === 'asc' ? 'asc' : 'desc';
+
+        $q = ActivityLog::query()->orderBy($sortBy, $sortDir);
 
         // Filters (apply before scope narrowing)
         if (!empty($data['event'])) {

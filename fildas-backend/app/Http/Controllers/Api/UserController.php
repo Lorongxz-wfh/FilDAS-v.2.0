@@ -68,9 +68,14 @@ class UserController extends Controller
 
     public function index(Request $request)
     {
+        $allowedSorts = ['first_name', 'last_name', 'email', 'created_at'];
+        $sortBy  = in_array($request->query('sort_by'), $allowedSorts, true)
+            ? $request->query('sort_by') : 'created_at';
+        $sortDir = $request->query('sort_dir') === 'asc' ? 'asc' : 'desc';
+
         $query = User::with(['role', 'office'])
             ->select('id', 'first_name', 'middle_name', 'last_name', 'suffix', 'email', 'profile_photo_path', 'role_id', 'office_id', 'disabled_at', 'disabled_by', 'created_at', 'updated_at', 'deleted_at')
-            ->orderByDesc('id');
+            ->orderBy($sortBy, $sortDir);
 
         $showDeleted = $request->boolean('deleted', false);
         if ($showDeleted) {

@@ -10,7 +10,8 @@ import {
   type TempPreview,
 } from "../../services/previews";
 import { useToast } from "../ui/toast/ToastContext";
-import { Download, Trash2, X } from "lucide-react";
+import { Download, Trash2, X, Plus } from "lucide-react";
+import { updateTemplateTags } from "../../services/templates";
 
 type Props = {
   template: DocumentTemplate | null;
@@ -27,6 +28,10 @@ const TemplateDetailPanel: React.FC<Props> = ({
 }) => {
   const { push } = useToast();
   const [downloading, setDownloading] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [savingTags, setSavingTags] = useState(false);
+  const [tagsDirty, setTagsDirty] = useState(false);
 
   const [preview, setPreview] = useState<TempPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -50,6 +55,18 @@ const TemplateDetailPanel: React.FC<Props> = ({
       return;
     }
 
+    // ── Fast path: thumbnail already loaded by grid card ──────────────────
+    // Skip the download + preview-generate round trip entirely.
+    if (template.thumbnail_url) {
+      cleanupPreview(previewRef.current);
+      previewRef.current = null;
+      setPreview(null);
+      setPreviewLoading(false);
+      setPreviewError(null);
+      return;
+    }
+
+    // ── Slow path: no thumbnail, generate iframe preview ──────────────────
     seqRef.current += 1;
     const seq = seqRef.current;
 
@@ -61,7 +78,6 @@ const TemplateDetailPanel: React.FC<Props> = ({
 
     (async () => {
       try {
-        // Fetch the file as blob, then create a File object to upload to preview service
         const api = (await import("../../services/api")).default;
         const res = await api.get(`/templates/${template.id}/download`, {
           responseType: "blob",
@@ -93,6 +109,48 @@ const TemplateDetailPanel: React.FC<Props> = ({
   useEffect(() => {
     return () => cleanupPreview(previewRef.current);
   }, []);
+
+  // Sync tags from template prop
+  useEffect(() => {
+    setTags(template?.tags ?? []);
+    setTagInput("");
+    setTagsDirty(false);
+  }, [template?.id]);
+
+  const addTag = (raw: string) => {
+    const val = raw.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!val || tags.includes(val) || tags.length >= 8) return;
+    setTags((prev) => [...prev, val]);
+    setTagInput("");
+    setTagsDirty(true);
+  };
+
+  const removeTag = (tag: string) => {
+    setTags((prev) => prev.filter((t) => t !== tag));
+    setTagsDirty(true);
+  };
+
+  const saveTags = async () => {
+    if (!template) return;
+    setSavingTags(true);
+    try {
+      await updateTemplateTags(template.id, tags);
+      setTagsDirty(false);
+      push({
+        type: "success",
+        title: "Tags saved",
+        message: `${tags.length} tag${tags.length !== 1 ? "s" : ""} on ${template.name}`,
+      });
+    } catch (e: any) {
+      push({
+        type: "error",
+        title: "Failed to save tags",
+        message: e?.message ?? "Unknown error",
+      });
+    } finally {
+      setSavingTags(false);
+    }
+  };
 
   // Escape key
   useEffect(() => {
@@ -220,10 +278,95 @@ const TemplateDetailPanel: React.FC<Props> = ({
               )}
             </div>
 
+            {/* Tags */}
+            {template.can_delete && (
+              <div className="shrink-0 border-b border-slate-200 dark:border-surface-400 px-5 py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Tags
+                  </p>
+                  {tagsDirty && (
+                    <button
+                      type="button"
+                      onClick={saveTags}
+                      disabled={savingTags}
+                      className="text-[11px] font-medium text-brand-500 dark:text-brand-400 hover:underline disabled:opacity-50 transition"
+                    >
+                      {savingTags ? "Saving…" : "Save changes"}
+                    </button>
+                  )}
+                </div>
+
+                {/* Tag chips */}
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => removeTag(tag)}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  ))}
+                  {tags.length === 0 && (
+                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                      No tags yet.
+                    </span>
+                  )}
+                </div>
+
+                {/* Tag input */}
+                {tags.length < 8 && (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === ",") {
+                          e.preventDefault();
+                          addTag(tagInput);
+                        }
+                        if (e.key === "Backspace" && !tagInput && tags.length) {
+                          removeTag(tags[tags.length - 1]);
+                        }
+                      }}
+                      placeholder="Add a tag…"
+                      className="flex-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-100 dark:focus:ring-brand-900/30 transition"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => addTag(tagInput)}
+                      disabled={!tagInput.trim()}
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
+                    >
+                      <Plus className="h-3 w-3" />
+                      Add
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Preview */}
             <div className="flex-1 overflow-hidden p-4">
-              {previewLoading ? (
-                <div className="flex h-full items-center justify-center rounded-xl border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600">
+              {template.thumbnail_url ? (
+                // Fast path — reuse already-loaded thumbnail, no network request
+                <div className="h-full w-full overflow-y-auto rounded-lg border border-slate-200 dark:border-surface-400 bg-white">
+                  <img
+                    src={template.thumbnail_url}
+                    alt={template.name}
+                    className="w-full"
+                  />
+                </div>
+              ) : previewLoading ? (
+                <div className="flex h-full items-center justify-center rounded-lg border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600">
                   <div className="text-center">
                     <p className="text-sm text-slate-600 dark:text-slate-300">
                       Generating preview…
@@ -234,14 +377,12 @@ const TemplateDetailPanel: React.FC<Props> = ({
                   </div>
                 </div>
               ) : previewError ? (
-                <div className="flex h-full items-center justify-center rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30">
+                <div className="flex h-full items-center justify-center rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/30">
                   <div className="text-center px-6">
                     <p className="text-sm text-rose-700 dark:text-rose-400">
                       Preview unavailable
                     </p>
-                    <p className="mt-1 text-xs text-rose-500 dark:text-rose-500">
-                      {previewError}
-                    </p>
+                    <p className="mt-1 text-xs text-rose-500">{previewError}</p>
                     <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                       You can still download the file.
                     </p>
@@ -251,15 +392,21 @@ const TemplateDetailPanel: React.FC<Props> = ({
                 <iframe
                   title="Template preview"
                   src={preview.url}
-                  className="h-full w-full rounded-xl border border-slate-200 dark:border-surface-400"
+                  className="h-full w-full rounded-lg border border-slate-200 dark:border-surface-400"
                 />
-              ) : null}
+              ) : (
+                <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-200 dark:border-surface-400">
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
+                    No preview available.
+                  </p>
+                </div>
+              )}
             </div>
           </>
         )}
       </div>
     </>
   );
-};
+};;
 
 export default TemplateDetailPanel;

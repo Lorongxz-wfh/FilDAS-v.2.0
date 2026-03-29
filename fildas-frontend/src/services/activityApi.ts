@@ -14,7 +14,17 @@ export async function listActivityLogs(params: {
   office_id?: number;
   date_from?: string; // YYYY-MM-DD
   date_to?: string; // YYYY-MM-DD
-  category?: "workflow" | "request" | "document" | "user" | "template" | "profile";
+  category?:
+    | "workflow"
+    | "request"
+    | "document"
+    | "user"
+    | "template"
+    | "profile";
+
+  // sorting
+  sort_by?: "created_at" | "event" | "label";
+  sort_dir?: "asc" | "desc";
 }): Promise<Paginated<ActivityLogItem>> {
   try {
     const api = await getApi();
@@ -32,6 +42,9 @@ export async function listActivityLogs(params: {
         date_from: params.date_from,
         date_to: params.date_to,
         category: params.category,
+
+        sort_by: params.sort_by,
+        sort_dir: params.sort_dir,
       },
     });
 

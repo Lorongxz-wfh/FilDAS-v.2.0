@@ -162,6 +162,11 @@ class DocumentIndexService
         $perPage = (int) ($data['per_page'] ?? 25);
         $perPage = max(1, min(100, $perPage));
 
+        $allowedSorts = ['title', 'created_at', 'code'];
+        $sortBy  = in_array($data['sort_by'] ?? '', $allowedSorts, true)
+            ? $data['sort_by'] : 'created_at';
+        $sortDir = ($data['sort_dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+
         $versionFields = [
             'document_versions.id',
             'document_versions.document_id',
@@ -203,7 +208,7 @@ class DocumentIndexService
                 'documents.created_at',
             ])
             ->with($withs)
-            ->orderByDesc('documents.created_at')
+            ->orderBy('documents.' . $sortBy, $sortDir)
             ->paginate($perPage);
     }
 }

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Globe, Building2 } from "lucide-react";
+import { Globe, Building2, X } from "lucide-react";
 import {
   uploadTemplate,
   type DocumentTemplate,
@@ -33,6 +33,8 @@ const TemplateUploadForm: React.FC<Props> = ({
   const [isGlobal, setIsGlobal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
 
   const reset = () => {
     setName("");
@@ -40,7 +42,19 @@ const TemplateUploadForm: React.FC<Props> = ({
     setFile(null);
     setIsGlobal(false);
     setError(null);
+    setTags([]);
+    setTagInput("");
   };
+
+  const addTag = (raw: string) => {
+    const val = raw.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!val || tags.includes(val) || tags.length >= 8) return;
+    setTags((prev) => [...prev, val]);
+    setTagInput("");
+  };
+
+  const removeTag = (tag: string) =>
+    setTags((prev) => prev.filter((t) => t !== tag));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +81,7 @@ const TemplateUploadForm: React.FC<Props> = ({
         description,
         file,
         ...(canChooseScope ? { is_global: isGlobal } : {}),
+        ...(tags.length ? { tags } : {}),
       });
       push({
         type: "success",
@@ -133,6 +148,60 @@ const TemplateUploadForm: React.FC<Props> = ({
         {file && (
           <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
             {file.name} &mdash; {(file.size / 1024).toFixed(0)} KB
+          </p>
+        )}
+      </div>
+
+      {/* Tags */}
+      <div>
+        <label className={labelCls}>Tags</label>
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-1 rounded bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300"
+            >
+              {tag}
+              <button
+                type="button"
+                onClick={() => removeTag(tag)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                addTag(tagInput);
+              }
+              if (e.key === "Backspace" && !tagInput && tags.length) {
+                removeTag(tags[tags.length - 1]);
+              }
+            }}
+            placeholder="Type a tag and press Enter"
+            disabled={loading || tags.length >= 8}
+            className={`${inputCls} flex-1`}
+          />
+          <button
+            type="button"
+            onClick={() => addTag(tagInput)}
+            disabled={!tagInput.trim() || loading || tags.length >= 8}
+            className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-500 disabled:opacity-40 transition"
+          >
+            Add
+          </button>
+        </div>
+        {tags.length >= 8 && (
+          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            Max 8 tags reached.
           </p>
         )}
       </div>

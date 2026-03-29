@@ -17,7 +17,11 @@ export type TableColumn<T> = {
    * text    — regular single line (default)
    */
   skeletonShape?: "badge" | "double" | "narrow" | "text";
+  /** If set, this column header becomes clickable for sorting. Value is the sort_by key sent to the API. */
+  sortKey?: string;
 };
+
+export type SortDir = "asc" | "desc";
 
 export type TableProps<T> = {
   columns: TableColumn<T>[];
@@ -36,6 +40,10 @@ export type TableProps<T> = {
   bare?: boolean;
   // custom column widths — overrides equal repeat(n, 1fr)
   gridTemplateColumns?: string;
+  // sorting
+  sortBy?: string;
+  sortDir?: SortDir;
+  onSortChange?: (key: string, dir: SortDir) => void;
 };
 
 const alignClass = (align: Align | undefined) => {
@@ -43,6 +51,38 @@ const alignClass = (align: Align | undefined) => {
   if (align === "right") return "text-right";
   return "text-left";
 };
+
+const SortIcon: React.FC<{ active: boolean; dir: SortDir }> = ({
+  active,
+  dir,
+}) => (
+  <span className="inline-flex flex-col justify-center ml-1 gap-[2px]">
+    <svg
+      width="6"
+      height="4"
+      viewBox="0 0 6 4"
+      className={
+        active && dir === "asc"
+          ? "text-slate-700 dark:text-slate-200"
+          : "text-slate-300 dark:text-slate-600"
+      }
+    >
+      <path d="M3 0L6 4H0L3 0Z" fill="currentColor" />
+    </svg>
+    <svg
+      width="6"
+      height="4"
+      viewBox="0 0 6 4"
+      className={
+        active && dir === "desc"
+          ? "text-slate-700 dark:text-slate-200"
+          : "text-slate-300 dark:text-slate-600"
+      }
+    >
+      <path d="M3 4L0 0H6L3 4Z" fill="currentColor" />
+    </svg>
+  </span>
+);
 
 export default function Table<T>({
   columns,
@@ -58,6 +98,9 @@ export default function Table<T>({
   onLoadMore,
   bare = false,
   gridTemplateColumns,
+  sortBy,
+  sortDir = "desc",
+  onSortChange,
 }: TableProps<T>) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const sentinelRef = React.useRef<HTMLDivElement>(null);
@@ -89,14 +132,44 @@ export default function Table<T>({
         className="shrink-0 grid gap-3 px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600"
         style={{ gridTemplateColumns: colTemplate }}
       >
-        {columns.map((c) => (
-          <div
-            key={c.key}
-            className={[alignClass(c.align), c.headerClassName ?? ""].join(" ")}
-          >
-            {c.header}
-          </div>
-        ))}
+        {columns.map((c) => {
+          const isSortable = !!c.sortKey && !!onSortChange;
+          const isActive = isSortable && sortBy === c.sortKey;
+          const nextDir: SortDir =
+            isActive && sortDir === "desc" ? "asc" : "desc";
+
+          if (isSortable) {
+            return (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => onSortChange!(c.sortKey!, nextDir)}
+                className={[
+                  "inline-flex items-center gap-0.5 transition-colors select-none",
+                  alignClass(c.align),
+                  c.headerClassName ?? "",
+                  isActive
+                    ? "text-slate-700 dark:text-slate-200"
+                    : "hover:text-slate-700 dark:hover:text-slate-200",
+                ].join(" ")}
+              >
+                {c.header}
+                <SortIcon active={isActive} dir={isActive ? sortDir : "desc"} />
+              </button>
+            );
+          }
+
+          return (
+            <div
+              key={c.key}
+              className={[alignClass(c.align), c.headerClassName ?? ""].join(
+                " ",
+              )}
+            >
+              {c.header}
+            </div>
+          );
+        })}
       </div>
 
       {/* Scrollable body */}
@@ -111,29 +184,48 @@ export default function Table<T>({
               >
                 {columns.map((col, c) => {
                   const shape = col.skeletonShape ?? "text";
-                  const base = "animate-pulse rounded bg-slate-100 dark:bg-surface-400";
+                  const base =
+                    "animate-pulse rounded bg-slate-100 dark:bg-surface-400";
                   // vary widths across rows so it doesn't look like a grid
                   const textWidths = ["72%", "58%", "80%", "64%", "75%"];
                   if (shape === "badge") {
                     return (
-                      <div key={c} className={`${base} rounded-full h-5`} style={{ width: `${56 + (r % 3) * 12}px` }} />
+                      <div
+                        key={c}
+                        className={`${base} rounded-full h-5`}
+                        style={{ width: `${56 + (r % 3) * 12}px` }}
+                      />
                     );
                   }
                   if (shape === "double") {
                     return (
                       <div key={c} className="flex flex-col gap-1.5">
-                        <div className={`${base} h-3`} style={{ width: textWidths[r % textWidths.length] }} />
-                        <div className={`${base} h-2`} style={{ width: `${36 + (r % 4) * 8}%` }} />
+                        <div
+                          className={`${base} h-3`}
+                          style={{ width: textWidths[r % textWidths.length] }}
+                        />
+                        <div
+                          className={`${base} h-2`}
+                          style={{ width: `${36 + (r % 4) * 8}%` }}
+                        />
                       </div>
                     );
                   }
                   if (shape === "narrow") {
                     return (
-                      <div key={c} className={`${base} h-3`} style={{ width: `${48 + (r % 3) * 10}%` }} />
+                      <div
+                        key={c}
+                        className={`${base} h-3`}
+                        style={{ width: `${48 + (r % 3) * 10}%` }}
+                      />
                     );
                   }
                   return (
-                    <div key={c} className={`${base} h-3`} style={{ width: textWidths[(c + r) % textWidths.length] }} />
+                    <div
+                      key={c}
+                      className={`${base} h-3`}
+                      style={{ width: textWidths[(c + r) % textWidths.length] }}
+                    />
                   );
                 })}
               </div>
@@ -204,9 +296,7 @@ export default function Table<T>({
         className={["flex flex-col min-h-0 h-full", className ?? ""].join(" ")}
       >
         <div className="flex flex-col min-h-0 h-full overflow-x-auto">
-          <div className="min-w-150 flex flex-col min-h-0 h-full">
-            {inner}
-          </div>
+          <div className="min-w-150 flex flex-col min-h-0 h-full">{inner}</div>
         </div>
       </div>
     );
@@ -220,9 +310,7 @@ export default function Table<T>({
       ].join(" ")}
     >
       <div className="flex flex-col min-h-0 h-full overflow-x-auto">
-        <div className="min-w-150 flex flex-col min-h-0 h-full">
-          {inner}
-        </div>
+        <div className="min-w-150 flex flex-col min-h-0 h-full">{inner}</div>
       </div>
     </div>
   );

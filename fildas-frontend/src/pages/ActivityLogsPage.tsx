@@ -36,6 +36,10 @@ const ActivityLogsPage: React.FC = () => {
   const [dateFrom, setDateFrom] = React.useState("");
   const [dateTo, setDateTo] = React.useState("");
   const [selectedRow, setSelectedRow] = React.useState<any | null>(null);
+  const [sortBy, setSortBy] = React.useState<"created_at" | "event" | "label">(
+    "created_at",
+  );
+  const [sortDir, setSortDir] = React.useState<"asc" | "desc">("desc");
 
   React.useEffect(() => {
     const t = window.setTimeout(() => setQDebounced(q), 400);
@@ -61,7 +65,7 @@ const ActivityLogsPage: React.FC = () => {
     hasMoreRef.current = true;
     setHasMore(true);
     setInitialLoading(true);
-  }, [scope, qDebounced, category, dateFrom, dateTo]);
+  }, [scope, qDebounced, category, dateFrom, dateTo, sortBy, sortDir]);
 
   React.useEffect(() => {
     if (manualRefreshInProgress.current) return; // skip during manual refresh
@@ -79,6 +83,8 @@ const ActivityLogsPage: React.FC = () => {
           category: category || undefined,
           date_from: dateFrom || undefined,
           date_to: dateTo || undefined,
+          sort_by: sortBy,
+          sort_dir: sortDir,
         });
         if (!alive) return;
         const incoming = res.data ?? [];
@@ -165,6 +171,8 @@ const ActivityLogsPage: React.FC = () => {
         category: category || undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
+        sort_by: sortBy,
+        sort_dir: sortDir,
       });
       const incoming = res.data ?? [];
       firstIdRef.current = incoming[0]?.id ?? null;
@@ -190,13 +198,14 @@ const ActivityLogsPage: React.FC = () => {
       setLoading(false);
       manualRefreshInProgress.current = false;
     }
-  }, [scope, qDebounced, category, dateFrom, dateTo]);
+  }, [scope, qDebounced, category, dateFrom, dateTo, sortBy, sortDir]);
 
   const columns: TableColumn<any>[] = [
     {
       key: "when",
       header: "When",
       skeletonShape: "narrow",
+      sortKey: "created_at",
       render: (r) => (
         <span className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
           {formatDateTime(r.created_at)}
@@ -207,6 +216,7 @@ const ActivityLogsPage: React.FC = () => {
       key: "event",
       header: "Event",
       skeletonShape: "text",
+      sortKey: "event",
       render: (r) => (
         <span className="font-medium text-slate-800 dark:text-slate-200 truncate block group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
           {friendlyEvent(r.event)}
@@ -217,6 +227,7 @@ const ActivityLogsPage: React.FC = () => {
       key: "label",
       header: "Label",
       skeletonShape: "text",
+      sortKey: "label",
       render: (r) => (
         <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
           {r.label ?? "—"}
@@ -379,9 +390,7 @@ const ActivityLogsPage: React.FC = () => {
 
       {/* Log tab — table */}
       {tab === "log" && (
-        <div
-          className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden flex-1 min-h-0"
-        >
+        <div className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden flex-1 min-h-0">
           <Table
             bare
             className="h-full"
@@ -396,6 +405,12 @@ const ActivityLogsPage: React.FC = () => {
             hasMore={hasMore}
             onLoadMore={() => setPage((p) => p + 1)}
             gridTemplateColumns="13rem 1.2fr 1fr 11rem 9rem"
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSortChange={(key, dir) => {
+              setSortBy(key as typeof sortBy);
+              setSortDir(dir);
+            }}
           />
         </div>
       )}

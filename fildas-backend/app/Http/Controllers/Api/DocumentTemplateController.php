@@ -23,6 +23,11 @@ class DocumentTemplateController extends Controller
     {
         $user = $request->user();
 
+        $allowedSorts = ['name', 'created_at'];
+        $sortBy  = in_array($request->query('sort_by'), $allowedSorts, true)
+            ? $request->query('sort_by') : 'created_at';
+        $sortDir = $request->query('sort_dir') === 'asc' ? 'asc' : 'desc';
+
         $query = DocumentTemplate::with(['uploader:id,first_name,last_name', 'office:id,name,code', 'tags'])
             ->where(function ($q) use ($user) {
                 // Global templates (Admin/QA uploads) — everyone sees these
@@ -33,7 +38,7 @@ class DocumentTemplateController extends Controller
                     $q->orWhere('office_id', $user->office_id);
                 }
             })
-            ->latest();
+            ->orderBy($sortBy, $sortDir);
 
         // Optional search
         if ($search = trim((string) $request->query('q', ''))) {

@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { BellRing } from "lucide-react";
+import { BellRing, Megaphone } from "lucide-react";
 import InlineSpinner from "../ui/loader/InlineSpinner";
 import SkeletonList from "../ui/loader/SkeletonList";
 import {
@@ -9,6 +9,8 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   type NotificationItem,
+  listActiveAnnouncements,
+  type Announcement,
 } from "../../services/documents";
 import { playNotificationChime } from "../../utils/notificationSound";
 
@@ -22,6 +24,8 @@ const NotificationBell: React.FC = () => {
   const [notifItems, setNotifItems] = React.useState<NotificationItem[]>([]);
   const [notifLoading, setNotifLoading] = React.useState(false);
   const [notifError, setNotifError] = React.useState<string | null>(null);
+  const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
+  const [annLoading, setAnnLoading] = React.useState(false);
 
   // seenAt: timestamp (ms) of last time dropdown was opened
   const [seenAt, setSeenAt] = React.useState<number>(() =>
@@ -54,16 +58,24 @@ const NotificationBell: React.FC = () => {
 
   async function loadDropdown(currentSeenAt: number) {
     setNotifLoading(notifItems.length === 0);
+    setAnnLoading(announcements.length === 0);
     setNotifError(null);
     try {
-      const { data } = await listNotifications({ page: 1, perPage: 5 });
+      const [{ data }, ann] = await Promise.all([
+        listNotifications({ page: 1, perPage: 5 }),
+        listActiveAnnouncements(),
+      ]);
       setNotifItems(data);
+      setAnnouncements(ann);
       setUnseenCount(computeUnseen(data, currentSeenAt));
-      await getUnreadNotificationCount().then((n) => { prevUnreadRef.current = n; });
+      await getUnreadNotificationCount().then((n) => {
+        prevUnreadRef.current = n;
+      });
     } catch (e: any) {
       setNotifError(e?.message ?? "Failed to load notifications.");
     } finally {
       setNotifLoading(false);
+      setAnnLoading(false);
     }
   }
 
@@ -175,9 +187,81 @@ const NotificationBell: React.FC = () => {
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute right-4 top-14 w-72 rounded-xl border border-slate-200 bg-white shadow-md dark:border-surface-400 dark:bg-surface-500"
+          className="absolute right-4 top-14 w-80 rounded-xl border border-slate-200 bg-white shadow-md dark:border-surface-400 dark:bg-surface-500"
         >
-          <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200 dark:border-surface-400">
+          {/* ── Announcements section — always rendered, hides content when empty ── */}
+          <div className="border-b border-slate-200 dark:border-surface-400">
+            <div className="flex items-center justify-between px-3 py-2">
+              <div className="flex items-center gap-1.5">
+                <Megaphone className="h-3 w-3 text-slate-400 dark:text-slate-500" />
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Announcements
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {annLoading && <InlineSpinner className="h-3 w-3 border-2" />}
+                <button
+                  type="button"
+                  className="text-[11px] font-medium text-brand-500 hover:text-brand-400 dark:text-brand-400 transition-colors"
+                  onClick={() => {
+                    closeDropdown();
+                    navigate("/announcements");
+                  }}
+                >
+                  View all →
+                </button>
+              </div>
+            </div>
+
+            <div className="px-3 pb-2.5">
+              {annLoading ? (
+                <SkeletonList rows={1} rowClassName="h-12 rounded-md" />
+              ) : announcements.length === 0 ? (
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 py-1">
+                  No active announcements.
+                </p>
+              ) : (
+                <>
+                  {(() => {
+                    const pinned = announcements.filter((a) => a.is_pinned);
+                    const latest =
+                      pinned.length > 0 ? pinned[0] : announcements[0];
+                    if (!latest) return null;
+                    const typeCls =
+                      latest.type === "urgent"
+                        ? "bg-rose-500"
+                        : latest.type === "warning"
+                          ? "bg-amber-400"
+                          : "bg-sky-500";
+                    return (
+                      <div className="flex items-stretch rounded-md border border-slate-200 bg-slate-50 dark:border-surface-300 dark:bg-surface-600">
+                        <div
+                          className={`w-1 shrink-0 rounded-l-sm ${typeCls}`}
+                        />
+                        <div className="flex-1 min-w-0 px-2.5 py-2">
+                          <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
+                            {latest.title}
+                          </p>
+                          <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                            {latest.body}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {announcements.length > 1 && (
+                    <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+                      +{announcements.length - 1} more announcement
+                      {announcements.length - 1 > 1 ? "s" : ""}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* ── Notifications section ── */}
+          <div className="flex items-center justify-between px-3 py-2 border-b border-t border-slate-200 dark:border-surface-400">
             <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">
               Inbox
             </div>
@@ -187,12 +271,16 @@ const NotificationBell: React.FC = () => {
           <div className="max-h-56 overflow-auto px-3 py-2 text-xs text-slate-600 dark:text-slate-400">
             {notifItems.length === 0 && notifLoading ? (
               <div className="py-2">
-                <SkeletonList rows={4} rowClassName="h-10 rounded-md" />
+                <SkeletonList rows={3} rowClassName="h-10 rounded-md" />
               </div>
             ) : notifError ? (
-              <div className="py-4 text-slate-500 dark:text-slate-400">{notifError}</div>
+              <div className="py-4 text-slate-500 dark:text-slate-400">
+                {notifError}
+              </div>
             ) : notifItems.length === 0 ? (
-              <div className="py-4 text-slate-500 dark:text-slate-400">Inbox is empty.</div>
+              <div className="py-4 text-slate-500 dark:text-slate-400">
+                Inbox is empty.
+              </div>
             ) : (
               <div className="space-y-2">
                 {notifItems.map((n) => {
@@ -219,27 +307,37 @@ const NotificationBell: React.FC = () => {
                             setNotifItems((prev) =>
                               prev.map((item) =>
                                 item.id === n.id
-                                  ? { ...item, read_at: new Date().toISOString() }
-                                  : item
-                              )
+                                  ? {
+                                      ...item,
+                                      read_at: new Date().toISOString(),
+                                    }
+                                  : item,
+                              ),
                             );
-                            setUnseenCount((prev) => Math.max(0, prev - (isUnseen ? 1 : 0)));
+                            setUnseenCount((prev) =>
+                              Math.max(0, prev - (isUnseen ? 1 : 0)),
+                            );
                           }
                           closeDropdown();
                           startPolling("burst");
                           const noLink = Boolean((n as any)?.meta?.no_link);
                           if (noLink) return;
                           if (n.document_id) {
-                            const toView = (n as any)?.meta?.status === "Distributed";
+                            const toView =
+                              (n as any)?.meta?.status === "Distributed";
                             navigate(
                               toView
                                 ? `/documents/${n.document_id}/view`
                                 : `/documents/${n.document_id}`,
-                              toView ? undefined : { state: { from: "/work-queue" } }
+                              toView
+                                ? undefined
+                                : { state: { from: "/work-queue" } },
                             );
                           } else {
                             const reqId = (n as any)?.meta?.document_request_id;
-                            navigate(reqId ? `/document-requests/${reqId}` : "/inbox");
+                            navigate(
+                              reqId ? `/document-requests/${reqId}` : "/inbox",
+                            );
                           }
                         } catch {
                           /* ignore */
@@ -264,7 +362,6 @@ const NotificationBell: React.FC = () => {
                             </div>
                           )}
                         </div>
-                        {/* Unseen = solid blue dot, seen-not-read = hollow dot */}
                         {isUnseen && (
                           <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-sky-500" />
                         )}
@@ -303,7 +400,7 @@ const NotificationBell: React.FC = () => {
                 navigate("/inbox");
               }}
             >
-              View all
+              View all notifications
             </button>
           </div>
         </div>

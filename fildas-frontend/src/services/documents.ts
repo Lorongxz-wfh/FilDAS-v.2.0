@@ -6,4 +6,5 @@ export * from "./messagesApi";
 export * from "./reportsApi";
 export * from "./workQueueApi";
 export * from "./notificationsApi";
+export * from "./announcementsApi";
 export * from "./activityApi";

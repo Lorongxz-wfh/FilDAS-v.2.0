@@ -35,6 +35,7 @@ export type UploadTemplatePayload = {
   description?: string;
   file: File;
   is_global?: boolean;
+  tags?: string[];
 };
 
 // ── In-memory cache ───────────────────────────────────────────────────────────
@@ -64,8 +65,10 @@ export function removeFromTemplatesCache(id: number): void {
 export async function listTemplates(opts?: {
   q?: string;
   tag?: string;
+  sort_by?: string;
+  sort_dir?: "asc" | "desc";
 }): Promise<DocumentTemplate[]> {
-  const isUnfiltered = !opts?.q && !opts?.tag;
+  const isUnfiltered = !opts?.q && !opts?.tag && !opts?.sort_by;
 
   if (isUnfiltered && _cache) {
     return _cache;
@@ -74,6 +77,9 @@ export async function listTemplates(opts?: {
   const params: Record<string, string> = {};
   if (opts?.q?.trim()) params.q = opts.q.trim();
   if (opts?.tag?.trim()) params.tag = opts.tag.trim();
+  if (opts?.sort_by) params.sort_by = opts.sort_by;
+  if (opts?.sort_dir) params.sort_dir = opts.sort_dir;
+
   const res = await api.get("/templates", {
     params: Object.keys(params).length ? params : undefined,
   });
@@ -106,6 +112,9 @@ export async function uploadTemplate(
   form.append("file", payload.file);
   if (payload.is_global !== undefined) {
     form.append("is_global", payload.is_global ? "1" : "0");
+  }
+  if (payload.tags?.length) {
+    payload.tags.forEach((tag) => form.append("tags[]", tag));
   }
 
   const res = await api.post("/templates", form, {

@@ -8,12 +8,17 @@ import Table, { type TableColumn } from "../ui/Table";
 import { Download, Trash2 } from "lucide-react";
 import { useToast } from "../ui/toast/ToastContext";
 
+import type { SortDir } from "../ui/Table";
+
 type Props = {
   templates: DocumentTemplate[];
   loading: boolean;
   deletingId: number | null;
   onDeleteClick: (id: number) => void;
   onSelect: (template: DocumentTemplate) => void;
+  sortBy?: string;
+  sortDir?: SortDir;
+  onSortChange?: (key: string, dir: SortDir) => void;
 };
 
 // ── Action cell — isolated so download state is per-row ───────────────────
@@ -85,6 +90,9 @@ const TemplateList: React.FC<Props> = ({
   deletingId,
   onDeleteClick,
   onSelect,
+  sortBy,
+  sortDir,
+  onSortChange,
 }) => {
   const columns: TableColumn<DocumentTemplate>[] = React.useMemo(
     () => [
@@ -105,6 +113,7 @@ const TemplateList: React.FC<Props> = ({
         key: "name",
         header: "Template",
         skeletonShape: "double",
+        sortKey: "name",
         render: (t) => (
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
@@ -176,6 +185,7 @@ const TemplateList: React.FC<Props> = ({
         key: "date",
         header: "Date",
         skeletonShape: "narrow",
+        sortKey: "created_at",
         render: (t) => (
           <span className="text-xs text-slate-400 dark:text-slate-500">
             {new Date(t.created_at).toLocaleDateString()}
@@ -209,6 +219,9 @@ const TemplateList: React.FC<Props> = ({
       emptyMessage="No templates match your filters."
       gridTemplateColumns="60px 1fr 70px 70px 130px 100px 72px"
       className="flex-1"
+      sortBy={sortBy}
+      sortDir={sortDir}
+      onSortChange={onSortChange}
     />
   );
 };

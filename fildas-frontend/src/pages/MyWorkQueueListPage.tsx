@@ -80,6 +80,10 @@ export default function MyWorkQueueListPage() {
   const [typeFilter, setTypeFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [sortBy, setSortBy] = useState<"title" | "created_at" | "code">(
+    "created_at",
+  );
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const [rows, setRows] = useState<Document[]>([]);
   const [page, setPage] = useState(1);
@@ -102,7 +106,7 @@ export default function MyWorkQueueListPage() {
     hasMoreRef.current = true;
     setHasMore(true);
     setInitialLoading(true);
-  }, [tab, qDebounced, typeFilter, dateFrom, dateTo]);
+  }, [tab, qDebounced, typeFilter, dateFrom, dateTo, sortBy, sortDir]);
 
   const statusParam = tab === "done" ? "Distributed" : undefined;
 
@@ -122,6 +126,8 @@ export default function MyWorkQueueListPage() {
           doctype: typeFilter || undefined,
           date_from: dateFrom || undefined,
           date_to: dateTo || undefined,
+          sort_by: sortBy,
+          sort_dir: sortDir,
         });
         if (!alive) return;
         const incoming = res.data ?? [];
@@ -171,6 +177,8 @@ export default function MyWorkQueueListPage() {
         doctype: typeFilter || undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
+        sort_by: sortBy,
+        sort_dir: sortDir,
       });
       const incoming = res.data ?? [];
       firstDocIdRef.current = incoming[0]?.id ?? null;
@@ -195,7 +203,7 @@ export default function MyWorkQueueListPage() {
       setLoading(false);
       manualRefreshInProgress.current = false;
     }
-  }, [qDebounced, statusParam, typeFilter, dateFrom, dateTo]);
+  }, [qDebounced, statusParam, typeFilter, dateFrom, dateTo, sortBy, sortDir]);
 
   const displayRows = useMemo(() => {
     if (tab === "active") {
@@ -227,6 +235,7 @@ export default function MyWorkQueueListPage() {
         key: "title",
         header: "Document",
         skeletonShape: "double",
+        sortKey: "title",
         render: (doc) => (
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
@@ -234,13 +243,19 @@ export default function MyWorkQueueListPage() {
             </p>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <TypeBadge type={doc.doctype} />
-              {Array.isArray(doc.tags) && doc.tags.slice(0, 2).map((t) => (
-                <span key={t} className="rounded-full border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-1.5 text-[10px] text-slate-400 dark:text-slate-500">
-                  {t}
-                </span>
-              ))}
+              {Array.isArray(doc.tags) &&
+                doc.tags.slice(0, 2).map((t) => (
+                  <span
+                    key={t}
+                    className="rounded-full border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-1.5 text-[10px] text-slate-400 dark:text-slate-500"
+                  >
+                    {t}
+                  </span>
+                ))}
               {Array.isArray(doc.tags) && doc.tags.length > 2 && (
-                <span className="text-[10px] text-slate-400">+{doc.tags.length - 2}</span>
+                <span className="text-[10px] text-slate-400">
+                  +{doc.tags.length - 2}
+                </span>
               )}
             </div>
           </div>
@@ -287,6 +302,7 @@ export default function MyWorkQueueListPage() {
         key: "created",
         header: "Created",
         skeletonShape: "narrow",
+        sortKey: "created_at",
         align: "right",
         render: (doc) => (
           <span className="text-xs text-slate-400 dark:text-slate-500">
@@ -312,7 +328,11 @@ export default function MyWorkQueueListPage() {
       contentClassName="flex flex-col min-h-0 h-full"
       right={
         <div className="flex items-center gap-2">
-          <RefreshButton onRefresh={refresh} loading={loading || refreshing} title="Refresh" />
+          <RefreshButton
+            onRefresh={refresh}
+            loading={loading || refreshing}
+            title="Refresh"
+          />
           {canCreate && (
             <Button
               type="button"
@@ -320,7 +340,9 @@ export default function MyWorkQueueListPage() {
               size="sm"
               onClick={() => {
                 markWorkQueueSession();
-                navigate("/documents/create", { state: { fromWorkQueue: true } });
+                navigate("/documents/create", {
+                  state: { fromWorkQueue: true },
+                });
               }}
             >
               + Create document
@@ -332,7 +354,12 @@ export default function MyWorkQueueListPage() {
       {/* Tabs */}
       <div className="shrink-0 flex items-center border-b border-slate-200 dark:border-surface-400">
         {TABS.map((t) => (
-          <button key={t.value} type="button" onClick={() => setTab(t.value)} className={tabCls(tab === t.value)}>
+          <button
+            key={t.value}
+            type="button"
+            onClick={() => setTab(t.value)}
+            className={tabCls(tab === t.value)}
+          >
             {t.label}
           </button>
         ))}
@@ -349,25 +376,44 @@ export default function MyWorkQueueListPage() {
             className={`${inputCls} pl-9 pr-8`}
           />
           {q && (
-            <button type="button" onClick={() => setQ("")} title="Clear" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+            <button
+              type="button"
+              onClick={() => setQ("")}
+              title="Clear"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
               <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
 
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={selectCls}>
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className={selectCls}
+        >
           <option value="">All types</option>
           <option value="internal">Internal</option>
           <option value="external">External</option>
           <option value="forms">Forms</option>
         </select>
 
-        <DateRangeInput from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+        <DateRangeInput
+          from={dateFrom}
+          to={dateTo}
+          onFromChange={setDateFrom}
+          onToChange={setDateTo}
+        />
 
         {hasFilters && (
           <button
             type="button"
-            onClick={() => { setQ(""); setTypeFilter(""); setDateFrom(""); setDateTo(""); }}
+            onClick={() => {
+              setQ("");
+              setTypeFilter("");
+              setDateFrom("");
+              setDateTo("");
+            }}
             className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
           >
             Clear
@@ -393,14 +439,33 @@ export default function MyWorkQueueListPage() {
           loading={loading}
           gridTemplateColumns={gridTemplateColumns}
           emptyMessage={
-            tab === "active" ? "No active documents." :
-            tab === "done"   ? "No completed documents yet." :
-            hasFilters       ? "No documents match your filters." :
-            "No workflow documents found."
+            tab === "active"
+              ? "No active documents."
+              : tab === "done"
+                ? "No completed documents yet."
+                : hasFilters
+                  ? "No documents match your filters."
+                  : "No workflow documents found."
           }
-          onRowClick={(doc) => navigate(`/documents/${doc.id}`, { state: { from: "/documents/all", breadcrumbs: [{ label: "Work Queue", to: "/work-queue" }, { label: "All Documents", to: "/documents/all" }] } })}
+          onRowClick={(doc) =>
+            navigate(`/documents/${doc.id}`, {
+              state: {
+                from: "/documents/all",
+                breadcrumbs: [
+                  { label: "Work Queue", to: "/work-queue" },
+                  { label: "All Documents", to: "/documents/all" },
+                ],
+              },
+            })
+          }
           hasMore={tab !== "active" && hasMore}
           onLoadMore={() => setPage((p) => p + 1)}
+          sortBy={sortBy}
+          sortDir={sortDir}
+          onSortChange={(key, dir) => {
+            setSortBy(key as typeof sortBy);
+            setSortDir(dir);
+          }}
         />
       </div>
     </PageFrame>

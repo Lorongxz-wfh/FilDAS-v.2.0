@@ -21,6 +21,8 @@ import AdminActivityBarChart from "../components/dashboard/AdminActivityBarChart
 import AdminDocumentPhaseChart from "../components/dashboard/AdminDocumentPhaseChart";
 
 import { useDashboardData } from "../hooks/useDashboardData";
+import { useAnnouncements } from "../hooks/useAnnouncements";
+import AnnouncementsBanner from "../components/dashboard/AnnouncementsBanner";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import { getUserRole, isQA } from "../lib/roleFilters";
 import { getAuthUser } from "../lib/auth";
@@ -33,6 +35,9 @@ import {
   Timer,
   AlertCircle,
 } from "lucide-react";
+
+// ─── Shared announcements prop ─────────────────────────────────────────────
+type AnnouncementsHook = ReturnType<typeof useAnnouncements>;
 
 // ─── Card ─────────────────────────────────────────────────────────────────
 const Card: React.FC<{
@@ -74,8 +79,18 @@ const Card: React.FC<{
 const QADashboard: React.FC<
   ReturnType<typeof useDashboardData> & {
     navigate: ReturnType<typeof useNavigate>;
+    announcements: AnnouncementsHook;
   }
-> = ({ stats, pending, report, recentActivity, pendingRequestsCount, loading, navigate }) => {
+> = ({
+  stats,
+  pending,
+  report,
+  recentActivity,
+  pendingRequestsCount,
+  loading,
+  navigate,
+  announcements,
+}) => {
   const kpiCards = [
     {
       label: "Waiting on QA",
@@ -83,7 +98,10 @@ const QADashboard: React.FC<
       sub: "docs on QA's desk now",
       icon: <AlertCircle className="h-4 w-4" />,
       iconCls: "text-rose-400 dark:text-rose-400",
-      valueCls: (report.waiting_on_qa ?? 0) > 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-slate-100",
+      valueCls:
+        (report.waiting_on_qa ?? 0) > 0
+          ? "text-rose-600 dark:text-rose-400"
+          : "text-slate-900 dark:text-slate-100",
     },
     {
       label: "First-pass yield",
@@ -105,6 +123,13 @@ const QADashboard: React.FC<
 
   return (
     <div className="space-y-4">
+      {/* Announcements */}
+      <AnnouncementsBanner
+        announcements={announcements.announcements}
+        loading={announcements.loading}
+        onDeleted={() => announcements.reload()}
+      />
+
       {/* Row 1 — existing stat strip */}
       <DashboardStatRow
         role="QA"
@@ -122,15 +147,23 @@ const QADashboard: React.FC<
             className="min-w-0 rounded-md border border-slate-200 bg-white px-4 py-3.5 dark:border-surface-400 dark:bg-surface-500"
           >
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-tight">{k.label}</p>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-tight">
+                {k.label}
+              </p>
               <span className={`shrink-0 ${k.iconCls}`}>{k.icon}</span>
             </div>
             {loading ? (
               <Skeleton className="mt-3 h-7 w-14" />
             ) : (
-              <p className={`mt-2.5 text-2xl font-bold tabular-nums leading-none ${k.valueCls}`}>{k.value}</p>
+              <p
+                className={`mt-2.5 text-2xl font-bold tabular-nums leading-none ${k.valueCls}`}
+              >
+                {k.value}
+              </p>
             )}
-            <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">{k.sub}</p>
+            <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">
+              {k.sub}
+            </p>
           </div>
         ))}
       </div>
@@ -140,15 +173,25 @@ const QADashboard: React.FC<
         <Card
           title="Document volume"
           sub="Created vs distributed per month"
-          action={{ label: "View reports", onClick: () => navigate("/reports") }}
+          action={{
+            label: "View reports",
+            onClick: () => navigate("/reports"),
+          }}
           className="lg:col-span-2"
         >
-          <VolumeTrendChart data={report.volume_series} height={200} loading={loading} />
+          <VolumeTrendChart
+            data={report.volume_series}
+            height={200}
+            loading={loading}
+          />
         </Card>
         <Card
           title="Pipeline state"
           sub="Docs by current phase"
-          action={{ label: "View library", onClick: () => navigate("/documents") }}
+          action={{
+            label: "View library",
+            onClick: () => navigate("/documents"),
+          }}
         >
           <PhaseDistributionChart
             data={report.phase_distribution ?? []}
@@ -165,7 +208,10 @@ const QADashboard: React.FC<
         <Card
           title="Stage delay"
           sub="Median hold time per workflow phase"
-          action={{ label: "View reports", onClick: () => navigate("/reports") }}
+          action={{
+            label: "View reports",
+            onClick: () => navigate("/reports"),
+          }}
         >
           <StageDelayChart
             data={report.stage_delays_by_phase ?? []}
@@ -179,7 +225,10 @@ const QADashboard: React.FC<
       <Card
         title="Recent activity"
         sub="Latest actions in the system."
-        action={{ label: "View all", onClick: () => navigate("/activity-logs") }}
+        action={{
+          label: "View all",
+          onClick: () => navigate("/activity-logs"),
+        }}
       >
         <DashboardRecentActivity logs={recentActivity} loading={loading} />
       </Card>
@@ -192,8 +241,17 @@ const OfficeDashboard: React.FC<
   ReturnType<typeof useDashboardData> & {
     navigate: ReturnType<typeof useNavigate>;
     role: ReturnType<typeof getUserRole>;
+    announcements: AnnouncementsHook;
   }
-> = ({ stats, pending, recentActivity, loading, navigate, role }) => {
+> = ({
+  stats,
+  pending,
+  recentActivity,
+  loading,
+  navigate,
+  role,
+  announcements,
+}) => {
   const donutSegments = [
     { label: "Distributed", value: stats?.distributed ?? 0, color: "#10b981" },
     { label: "In progress", value: stats?.pending ?? 0, color: "#f59e0b" },
@@ -209,6 +267,13 @@ const OfficeDashboard: React.FC<
 
   return (
     <div className="space-y-4">
+      {/* Announcements */}
+      <AnnouncementsBanner
+        announcements={announcements.announcements}
+        loading={announcements.loading}
+        onDeleted={() => announcements.reload()}
+      />
+
       <DashboardStatRow
         role={role}
         stats={stats}
@@ -316,9 +381,17 @@ const OfficeDashboard: React.FC<
 const AdminDashboard: React.FC<
   ReturnType<typeof useDashboardData> & {
     navigate: ReturnType<typeof useNavigate>;
+    announcements: AnnouncementsHook;
   }
-> = ({ adminStats, recentActivity, loading, navigate }) => (
+> = ({ adminStats, recentActivity, loading, navigate, announcements }) => (
   <div className="space-y-4">
+    {/* Announcements */}
+    <AnnouncementsBanner
+      announcements={announcements.announcements}
+      loading={announcements.loading}
+      onDeleted={() => announcements.reload()}
+    />
+
     <AdminStatGrid data={adminStats} loading={loading} />
 
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -388,16 +461,22 @@ const DashboardPage: React.FC = () => {
   const isAdmin = role === "ADMIN" || role === "SYSADMIN";
   const [refreshing, setRefreshing] = React.useState(false);
 
+  const announcements = useAnnouncements();
+
   // Keep burst refresh for event-based auto-refresh (notifications, remote triggers)
-  usePageBurstRefresh(() => { dashData.reload(); });
+  usePageBurstRefresh(() => {
+    dashData.reload();
+  });
 
   const handleRefresh = async (): Promise<string | false> => {
     setRefreshing(true);
     try {
       const result = await dashData.reload();
       if (!result.changed) return "Everything is up to date.";
-      if (result.delta > 0) return `${result.delta} new pending task${result.delta === 1 ? "" : "s"} found.`;
-      if (result.delta < 0) return `Queue updated — ${Math.abs(result.delta)} task${Math.abs(result.delta) === 1 ? "" : "s"} resolved.`;
+      if (result.delta > 0)
+        return `${result.delta} new pending task${result.delta === 1 ? "" : "s"} found.`;
+      if (result.delta < 0)
+        return `Queue updated — ${Math.abs(result.delta)} task${Math.abs(result.delta) === 1 ? "" : "s"} resolved.`;
       return "Dashboard updated.";
     } finally {
       setRefreshing(false);
@@ -488,11 +567,24 @@ const DashboardPage: React.FC = () => {
       <div className="flex-1 overflow-y-auto">
         <div className="px-5 py-4 space-y-4">
           {isAdmin ? (
-            <AdminDashboard {...dashData} navigate={navigate} />
+            <AdminDashboard
+              {...dashData}
+              navigate={navigate}
+              announcements={announcements}
+            />
           ) : isQA(role) ? (
-            <QADashboard {...dashData} navigate={navigate} />
+            <QADashboard
+              {...dashData}
+              navigate={navigate}
+              announcements={announcements}
+            />
           ) : (
-            <OfficeDashboard {...dashData} navigate={navigate} role={role} />
+            <OfficeDashboard
+              {...dashData}
+              navigate={navigate}
+              role={role}
+              announcements={announcements}
+            />
           )}
         </div>
       </div>

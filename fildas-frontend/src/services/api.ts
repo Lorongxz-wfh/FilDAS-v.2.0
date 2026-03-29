@@ -40,7 +40,12 @@ api.interceptors.response.use(
 );
 
 export async function ensureCsrfCookie() {
-  await axios.get("/sanctum/csrf-cookie", { withCredentials: true });
+  // Use the local axios instance to ensure base URL consistency
+  await axios.get(`${BASE_URL.replace("/api", "")}/sanctum/csrf-cookie`, {
+    withCredentials: true,
+  });
 }
 
+// Exporting named 'api' and default to ensure compatibility across all imports
+export { api };
 export default api;

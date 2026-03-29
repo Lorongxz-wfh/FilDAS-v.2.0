@@ -1,4 +1,4 @@
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import type {
   ComplianceKpis,
@@ -67,14 +67,12 @@ async function savePdf(doc: jsPDF, filename: string) {
 
 function makePdf(title: string): jsPDF {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-  // Header bar
-  doc.setFillColor(14, 165, 233); // sky-500
-  doc.rect(0, 0, doc.internal.pageSize.getWidth(), 18, "F");
+  doc.setFillColor(30, 41, 59); // slate-800
+  doc.rect(0, 0, doc.internal.pageSize.getWidth(), 16, "F");
   doc.setFontSize(13);
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.text(`FilDAS — ${title}`, 14, 12);
-  // Subtitle
   doc.setFontSize(8);
   doc.setTextColor(148, 163, 184);
   doc.setFont("helvetica", "normal");
@@ -82,7 +80,16 @@ function makePdf(title: string): jsPDF {
   return doc;
 }
 
-// ── Screenshot export (for "Export tab" button) ────────────────────────────────
+// Shared table styles
+const headStyles = {
+  fillColor: [51, 65, 85] as [number, number, number],
+  textColor: 255,
+  fontStyle: "bold" as const,
+};
+const tableStyles = { fontSize: 10, cellPadding: 4 };
+const altRowStyles = { fillColor: [248, 250, 252] as [number, number, number] };
+
+// ── Screenshot export ──────────────────────────────────────────────────────────
 
 export async function exportElementPdf(
   element: HTMLElement,
@@ -91,13 +98,11 @@ export async function exportElementPdf(
 ) {
   const html2canvas = (await import("html2canvas")).default;
 
-  // Force light mode during capture
   const html = document.documentElement;
   const wasDark = html.classList.contains("dark");
   if (wasDark) html.classList.remove("dark");
   await new Promise((res) => setTimeout(res, 120));
 
-  // Expand scrollable container so html2canvas captures full content (not just visible area)
   const prevOverflow = element.style.overflow;
   const prevHeight = element.style.height;
   const prevMaxHeight = element.style.maxHeight;
@@ -105,7 +110,6 @@ export async function exportElementPdf(
   element.style.maxHeight = "none";
   element.style.height = element.scrollHeight + "px";
 
-  // Hide export buttons during capture
   const toHide: { el: HTMLElement; prev: string }[] = [];
   element.querySelectorAll<HTMLElement>("[data-export-menu]").forEach((el) => {
     toHide.push({ el, prev: el.style.visibility });
@@ -118,14 +122,11 @@ export async function exportElementPdf(
     useCORS: true,
     logging: false,
     removeContainer: true,
-    // Fix border stacking and legend box artifacts
     onclone: (clonedDoc) => {
-      // Remove all box shadows from cloned document
       clonedDoc.querySelectorAll<HTMLElement>("*").forEach((el) => {
         el.style.boxShadow = "none";
         el.style.textDecoration = "none";
       });
-      // Remove border from recharts legend items
       clonedDoc
         .querySelectorAll<HTMLElement>(".recharts-legend-item-text")
         .forEach((el) => {
@@ -140,7 +141,6 @@ export async function exportElementPdf(
     },
   });
 
-  // Restore
   if (wasDark) html.classList.add("dark");
   element.style.overflow = prevOverflow;
   element.style.height = prevHeight;
@@ -150,12 +150,7 @@ export async function exportElementPdf(
   });
 
   const imgData = canvas.toDataURL("image/png");
-  const { default: jsPDFLib } = await import("jspdf");
-  const doc = new jsPDFLib({
-    orientation: "landscape",
-    unit: "mm",
-    format: "a4",
-  });
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 10;
@@ -232,13 +227,9 @@ export async function exportKpiPdf(
       ["Ping-pong ratio", kpis.pingpong_ratio],
       ["Avg cycle time", `${kpis.cycle_time_avg_days} days`],
     ],
-    styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: {
-      fillColor: [14, 165, 233],
-      textColor: 255,
-      fontStyle: "bold",
-    },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: tableStyles,
+    headStyles,
+    alternateRowStyles: altRowStyles,
     columnStyles: { 1: { halign: "right" } },
   });
   await savePdf(doc, "fildas_kpi_summary.pdf");
@@ -265,13 +256,9 @@ export async function exportVolumePdf(data: ComplianceVolumeSeriesDatum[]) {
       r.approved_final,
       r.created - r.approved_final,
     ]),
-    styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: {
-      fillColor: [14, 165, 233],
-      textColor: 255,
-      fontStyle: "bold",
-    },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: tableStyles,
+    headStyles,
+    alternateRowStyles: altRowStyles,
     columnStyles: {
       1: { halign: "right" },
       2: { halign: "right" },
@@ -322,13 +309,9 @@ export async function exportClusterPdf(data: ComplianceClusterDatum[]) {
       r.returned,
       `${pct(r.returned, r.in_review)}%`,
     ]),
-    styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: {
-      fillColor: [14, 165, 233],
-      textColor: 255,
-      fontStyle: "bold",
-    },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: tableStyles,
+    headStyles,
+    alternateRowStyles: altRowStyles,
     columnStyles: {
       1: { halign: "right" },
       2: { halign: "right" },
@@ -391,13 +374,9 @@ export async function exportOfficePdf(data: ComplianceOfficeDatum[]) {
       r.returned,
       `${pct(r.returned, r.in_review)}%`,
     ]),
-    styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: {
-      fillColor: [14, 165, 233],
-      textColor: 255,
-      fontStyle: "bold",
-    },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: tableStyles,
+    headStyles,
+    alternateRowStyles: altRowStyles,
     columnStyles: {
       2: { halign: "right" },
       3: { halign: "right" },
@@ -431,13 +410,9 @@ export async function exportStageDelayPdf(data: ComplianceStageDelayDatum[]) {
       r.count,
       r.task_count,
     ]),
-    styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: {
-      fillColor: [14, 165, 233],
-      textColor: 255,
-      fontStyle: "bold",
-    },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: tableStyles,
+    headStyles,
+    alternateRowStyles: altRowStyles,
     columnStyles: {
       1: { halign: "right" },
       2: { halign: "right" },
@@ -486,13 +461,9 @@ export async function exportTimelinePdf(data: ComplianceSeriesDatum[]) {
       r.returned,
       `${pct(r.returned, r.in_review)}%`,
     ]),
-    styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: {
-      fillColor: [14, 165, 233],
-      textColor: 255,
-      fontStyle: "bold",
-    },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: tableStyles,
+    headStyles,
+    alternateRowStyles: altRowStyles,
     columnStyles: {
       1: { halign: "right" },
       2: { halign: "right" },
@@ -515,16 +486,18 @@ export function exportDoctypeCsv(data: { doctype: string; count: number }[]) {
   );
 }
 
-export async function exportDoctypePdf(data: { doctype: string; count: number }[]) {
+export async function exportDoctypePdf(
+  data: { doctype: string; count: number }[],
+) {
   const doc = makePdf("Document Type Distribution");
   const total = data.reduce((s, r) => s + r.count, 0) || 1;
   autoTable(doc, {
     startY: 28,
     head: [["Document Type", "Count", "Percentage"]],
     body: data.map((r) => [r.doctype, r.count, `${pct(r.count, total)}%`]),
-    styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: tableStyles,
+    headStyles,
+    alternateRowStyles: altRowStyles,
     columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
   });
   await savePdf(doc, "fildas_doctype_distribution.pdf");
@@ -545,7 +518,14 @@ export function exportCreationByOfficeCsv(data: CreationByOfficeDatum[]) {
   downloadCsv(
     "fildas_creation_by_office.csv",
     ["Office Code", "Office Name", "Internal", "External", "Forms", "Total"],
-    data.map((r) => [r.office_code, r.office_name, r.internal, r.external, r.forms, r.total]),
+    data.map((r) => [
+      r.office_code,
+      r.office_name,
+      r.internal,
+      r.external,
+      r.forms,
+      r.total,
+    ]),
   );
 }
 
@@ -554,10 +534,17 @@ export async function exportCreationByOfficePdf(data: CreationByOfficeDatum[]) {
   autoTable(doc, {
     startY: 28,
     head: [["Code", "Office Name", "Internal", "External", "Forms", "Total"]],
-    body: data.map((r) => [r.office_code, r.office_name, r.internal, r.external, r.forms, r.total]),
-    styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    body: data.map((r) => [
+      r.office_code,
+      r.office_name,
+      r.internal,
+      r.external,
+      r.forms,
+      r.total,
+    ]),
+    styles: tableStyles,
+    headStyles,
+    alternateRowStyles: altRowStyles,
     columnStyles: {
       2: { halign: "right" },
       3: { halign: "right" },
@@ -570,7 +557,9 @@ export async function exportCreationByOfficePdf(data: CreationByOfficeDatum[]) {
 
 // ── Lifecycle Funnel ────────────────────────────────────────────────────────────
 
-export function exportLifecycleFunnelCsv(data: { stage: string; count: number }[]) {
+export function exportLifecycleFunnelCsv(
+  data: { stage: string; count: number }[],
+) {
   downloadCsv(
     "fildas_lifecycle_funnel.csv",
     ["Stage", "Count"],
@@ -578,16 +567,18 @@ export function exportLifecycleFunnelCsv(data: { stage: string; count: number }[
   );
 }
 
-export async function exportLifecycleFunnelPdf(data: { stage: string; count: number }[]) {
+export async function exportLifecycleFunnelPdf(
+  data: { stage: string; count: number }[],
+) {
   const doc = makePdf("Document Lifecycle Funnel");
   const top = data[0]?.count || 1;
   autoTable(doc, {
     startY: 28,
     head: [["Stage", "Count", "% of Created"]],
     body: data.map((r) => [r.stage, r.count, `${pct(r.count, top)}%`]),
-    styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: tableStyles,
+    headStyles,
+    alternateRowStyles: altRowStyles,
     columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
   });
   await savePdf(doc, "fildas_lifecycle_funnel.pdf");
@@ -631,9 +622,9 @@ export async function exportRoutingRevisionPdf(
       ["Documents Revised (v2+)", revision.docs_on_v2_plus],
       ["Avg Versions per Document", revision.avg_versions],
     ],
-    styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: tableStyles,
+    headStyles,
+    alternateRowStyles: altRowStyles,
     columnStyles: { 1: { halign: "right" } },
   });
   await savePdf(doc, "fildas_routing_revision.pdf");
@@ -671,9 +662,9 @@ export async function exportRequestsKpiPdf(kpis: RequestsReportKpis) {
       ["Acceptance Rate", `${kpis.acceptance_rate}%`],
       ["Avg Resubmissions", kpis.avg_resubmissions],
     ],
-    styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: tableStyles,
+    headStyles,
+    alternateRowStyles: altRowStyles,
     columnStyles: { 1: { halign: "right" } },
   });
   await savePdf(doc, "fildas_requests_kpi.pdf");
@@ -681,7 +672,13 @@ export async function exportRequestsKpiPdf(kpis: RequestsReportKpis) {
 
 // ── Office Acceptance Rates ─────────────────────────────────────────────────────
 
-type OfficeAcceptanceDatum = { office: string; sent: number; accepted: number; rejected: number; rate: number };
+type OfficeAcceptanceDatum = {
+  office: string;
+  sent: number;
+  accepted: number;
+  rejected: number;
+  rate: number;
+};
 
 export function exportOfficeAcceptanceCsv(data: OfficeAcceptanceDatum[]) {
   downloadCsv(
@@ -696,10 +693,16 @@ export async function exportOfficeAcceptancePdf(data: OfficeAcceptanceDatum[]) {
   autoTable(doc, {
     startY: 28,
     head: [["Office", "Sent", "Accepted", "Rejected", "Rate (%)"]],
-    body: data.map((r) => [r.office, r.sent, r.accepted, r.rejected, `${r.rate}%`]),
-    styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    body: data.map((r) => [
+      r.office,
+      r.sent,
+      r.accepted,
+      r.rejected,
+      `${r.rate}%`,
+    ]),
+    styles: tableStyles,
+    headStyles,
+    alternateRowStyles: altRowStyles,
     columnStyles: {
       1: { halign: "right" },
       2: { halign: "right" },
@@ -721,16 +724,18 @@ export function exportAttemptsCsv(data: { attempt: string; count: number }[]) {
   );
 }
 
-export async function exportAttemptsPdf(data: { attempt: string; count: number }[]) {
+export async function exportAttemptsPdf(
+  data: { attempt: string; count: number }[],
+) {
   const doc = makePdf("Submission Attempts Distribution");
   const total = data.reduce((s, r) => s + r.count, 0) || 1;
   autoTable(doc, {
     startY: 28,
     head: [["Attempt", "Count", "Percentage"]],
     body: data.map((r) => [r.attempt, r.count, `${pct(r.count, total)}%`]),
-    styles: { fontSize: 10, cellPadding: 4 },
-    headStyles: { fillColor: [14, 165, 233], textColor: 255, fontStyle: "bold" },
-    alternateRowStyles: { fillColor: [248, 250, 252] },
+    styles: tableStyles,
+    headStyles,
+    alternateRowStyles: altRowStyles,
     columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
   });
   await savePdf(doc, "fildas_submission_attempts.pdf");
