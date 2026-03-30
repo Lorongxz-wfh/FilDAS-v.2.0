@@ -1,5 +1,5 @@
 import { FileStack, Users } from "lucide-react";
-import { TypePill, StatusBadge } from "../../components/ui/Badge";
+import { TypePill } from "../../components/ui/Badge";
 
 export function TypeBadge({ type }: { type: string }) {
   return <TypePill label={type ? type.charAt(0).toUpperCase() + type.slice(1).toLowerCase() : "—"} />;
