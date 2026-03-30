@@ -119,7 +119,10 @@ class DocumentIndexService
 
         if (!empty($data['status'])) {
             $query->whereHas('versions', function ($v) use ($data) {
-                $v->where('status', $data['status']);
+                $statusArr = is_array($data['status']) 
+                    ? $data['status'] 
+                    : array_map('trim', explode(',', $data['status']));
+                $v->whereIn('status', $statusArr);
             });
         }
 

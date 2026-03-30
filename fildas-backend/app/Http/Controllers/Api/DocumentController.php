@@ -851,8 +851,12 @@ class DocumentController extends Controller
 
         $version->file_path        = $version->pre_sign_file_path;
         $version->signed_file_path = null;
-        $version->preview_path     = null; // will regenerate on next view
         $version->pre_sign_file_path = null;
+        $version->preview_path     = null;
+        $version->save();
+
+        // Regenerate preview from the restored file
+        $version->preview_path = $this->tryRegeneratePreview($version);
         $version->save();
 
         $this->logActivity('version.in_app_signature_removed', 'Removed in-app e-signature',
@@ -861,6 +865,97 @@ class DocumentController extends Controller
             ], $version->document_id, $version->id);
 
         return response()->json($version->fresh(), 200);
+    }
+
+    // POST /api/document-versions/{version}/regenerate-preview
+    public function regeneratePreview(Request $request, DocumentVersion $version)
+    {
+        Gate::authorize('replaceFile', $version);
+
+        if (!$version->file_path) {
+            return response()->json(['message' => 'No file uploaded for this version.'], 422);
+        }
+
+        if (!Storage::disk()->exists($version->file_path)) {
+            return response()->json(['message' => 'The document file could not be found in storage. It may have been uploaded to a different server environment.'], 422);
+        }
+
+        $libreOffice = env('LIBREOFFICE_PATH');
+        if (!$libreOffice || !file_exists($libreOffice)) {
+            return response()->json(['message' => 'LibreOffice is not configured on this server. Set LIBREOFFICE_PATH in your .env file.'], 422);
+        }
+
+        $newPreviewPath = $this->tryRegeneratePreview($version);
+
+        if (!$newPreviewPath) {
+            return response()->json(['message' => 'LibreOffice failed to convert the file. Check the server logs for details.'], 422);
+        }
+
+        $version->preview_path = $newPreviewPath;
+        $version->save();
+
+        // Bust the cached signed preview URL so the next request fetches a fresh one
+        Cache::forget("preview_link:v{$version->id}:uid{$request->user()?->id}:ttl60");
+
+        return response()->json($version->fresh(), 200);
+    }
+
+    /**
+     * Download the current file for a version to a temp location, run LibreOffice
+     * preview generation, upload the result back to storage, and return the
+     * new preview path (or null if generation failed).
+     */
+    private function tryRegeneratePreview(DocumentVersion $version): ?string
+    {
+        $filePath = $version->file_path;
+
+        if (!$filePath || !Storage::disk()->exists($filePath)) {
+            return null;
+        }
+
+        $ext      = strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) ?: 'pdf';
+        $tmpDir   = sys_get_temp_dir() . '/fildas/' . $version->id;
+        $tmpFile  = $tmpDir . '/original.' . $ext;
+
+        if (!is_dir($tmpDir)) {
+            mkdir($tmpDir, 0775, true);
+        }
+
+        // Download file from storage to temp
+        $stream = Storage::disk()->readStream($filePath);
+        file_put_contents($tmpFile, $stream);
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
+
+        $previewFileName = DocumentPreviewService::generatePreview($tmpDir, $tmpFile);
+
+        $newPreviewPath = null;
+
+        if ($previewFileName) {
+            $previewTmpPath = $tmpDir . '/' . $previewFileName;
+            $year           = now()->year;
+            $r2PreviewPath  = $year . '/' . $version->id . '/' . $previewFileName;
+
+            // Delete old preview if it exists
+            if ($version->preview_path && Storage::disk()->exists($version->preview_path)) {
+                Storage::disk()->delete($version->preview_path);
+            }
+
+            Storage::disk()->putFileAs(
+                $year . '/' . $version->id,
+                new \Illuminate\Http\File($previewTmpPath),
+                $previewFileName
+            );
+
+            $newPreviewPath = $r2PreviewPath;
+            @unlink($previewTmpPath);
+        }
+
+        @unlink($tmpFile);
+        @rmdir($tmpDir);
+
+        return $newPreviewPath;
     }
 
     // GET /api/document-versions/{version}/original-file

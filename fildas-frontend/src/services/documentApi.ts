@@ -126,7 +126,7 @@ export async function listDocumentsPage(params?: {
   scope?: "all" | "owned" | "shared" | "assigned" | "participant";
 
   // sorting
-  sort_by?: "title" | "created_at" | "code";
+  sort_by?: "title" | "created_at" | "code" | "updated_at";
   sort_dir?: "asc" | "desc";
 }): Promise<Paginated<Document>> {
   try {
@@ -203,9 +203,7 @@ export async function getDocumentVersions(
       throw new Error("Invalid versions response format");
     }
 
-    const cleaned = (versions as DocumentVersion[]).filter(
-      (v) => v.status !== "Cancelled",
-    );
+    const cleaned = versions as DocumentVersion[];
 
     // Keep newest first (safety) if backend ever changes ordering
     cleaned.sort((a, b) => Number(b.version_number) - Number(a.version_number));
@@ -592,6 +590,24 @@ const _previewLinkCache = new Map<number, { url: string; expiresAt: number }>();
 
 export function invalidatePreviewCache(versionId: number): void {
   _previewLinkCache.delete(versionId);
+}
+
+export async function regenerateDocumentPreview(
+  versionId: number,
+): Promise<DocumentVersion> {
+  invalidatePreviewCache(versionId);
+  try {
+    const api = await getApi();
+    const res = await api.post(`/document-versions/${versionId}/regenerate-preview`);
+    return res.data as DocumentVersion;
+  } catch (e: any) {
+    const msg =
+      e?.response?.data?.message ||
+      (e?.response?.status
+        ? `Regenerate failed (${e.response.status})`
+        : "Could not regenerate preview");
+    throw new Error(msg);
+  }
 }
 
 export async function getDocumentPreviewLink(

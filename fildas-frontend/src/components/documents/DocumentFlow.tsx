@@ -23,7 +23,7 @@ import {
   postDocumentMessage,
 } from "../../services/documents";
 
-import { removeInAppSignature } from "../../services/documentApi";
+import { removeInAppSignature, regenerateDocumentPreview } from "../../services/documentApi";
 import { useToast } from "../ui/toast/ToastContext";
 import { getAuthUser } from "../../lib/auth";
 import { useDocumentWorkflow } from "../../hooks/useDocumentWorkflow";
@@ -188,6 +188,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const [signedPreviewUrl, setSignedPreviewUrl] = React.useState("");
   const [isPreviewLoading, setIsPreviewLoading] = React.useState(false);
   const [previewNonce, setPreviewNonce] = React.useState(0);
+  const [isRegeneratingPreview, setIsRegeneratingPreview] = React.useState(false);
   const previewUrlCacheRef = React.useRef<Record<string, string>>({});
 
   // Track previous preview_path to detect changes from polling
@@ -350,7 +351,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
 
   React.useEffect(() => {
     if (!currentTask) return;
-    console.log("[currentTask]", JSON.stringify(currentTask, null, 2));
+    // console.log("[currentTask]", JSON.stringify(currentTask, null, 2));
   }, [currentTask]);
 
   React.useEffect(() => {
@@ -1174,6 +1175,27 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               isExternalUploading={isExternalUploading || signingInBackground}
               onSelectVersion={onSelectVersion}
               isLoadingSelectedVersion={isLoadingSelectedVersion}
+              isRegeneratingPreview={isRegeneratingPreview}
+              onRegeneratePreview={async () => {
+                if (!localVersion) return;
+                setIsRegeneratingPreview(true);
+                try {
+                  const updated = await regenerateDocumentPreview(localVersion.id);
+                  if (onChanged) await onChanged();
+                  // If preview_path is now set, the useEffect will fetch the signed URL
+                  if (updated.preview_path) {
+                    prevPreviewPathRef.current = null; // force re-fetch
+                  }
+                } catch (e: any) {
+                  push({
+                    type: "error",
+                    title: "Preview generation failed",
+                    message: e?.message ?? "Could not regenerate the preview.",
+                  });
+                } finally {
+                  setIsRegeneratingPreview(false);
+                }
+              }}
             />
           )}
         </div>

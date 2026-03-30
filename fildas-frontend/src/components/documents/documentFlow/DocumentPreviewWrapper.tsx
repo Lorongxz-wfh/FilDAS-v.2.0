@@ -28,6 +28,8 @@ type Props = {
   approverHasDownloaded?: boolean;
   onApproverDownload?: () => Promise<void>;
   onApproverUpload?: () => void;
+  onRegeneratePreview?: () => Promise<void>;
+  isRegeneratingPreview?: boolean;
 };
 
 const DocumentPreviewWrapper: React.FC<Props> = ({
@@ -52,6 +54,8 @@ const DocumentPreviewWrapper: React.FC<Props> = ({
   approverHasDownloaded = false,
   onApproverDownload,
   onApproverUpload,
+  onRegeneratePreview,
+  isRegeneratingPreview = false,
 }) => {
   return (
     <div
@@ -86,6 +90,8 @@ const DocumentPreviewWrapper: React.FC<Props> = ({
           approverHasDownloaded={approverHasDownloaded}
           onApproverDownload={onApproverDownload}
           onApproverUpload={onApproverUpload}
+          onRegeneratePreview={onRegeneratePreview}
+          isRegeneratingPreview={isRegeneratingPreview}
         />
       </div>
     </div>

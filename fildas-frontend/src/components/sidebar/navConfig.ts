@@ -14,6 +14,7 @@ import {
   LayoutTemplate,
   UserPlus,
   Building,
+  HardDrive,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -169,7 +170,7 @@ export const navGroups: NavGroup[] = [
         to: "/activity-logs",
         label: "Activity Logs",
         icon: ScrollText,
-        roles: ["QA", "SYSADMIN", "ADMIN", "OFFICE_HEAD"],
+        roles: ["QA", "SYSADMIN", "ADMIN", "OFFICE_HEAD", "AUDITOR"],
       },
     ],
   },
@@ -187,6 +188,12 @@ export const navGroups: NavGroup[] = [
         label: "Office Manager",
         icon: Building2,
         roles: ["SYSADMIN", "ADMIN"],
+      },
+      {
+        to: "/backup",
+        label: "Backup",
+        icon: HardDrive,
+        roles: ["QA", "ADMIN", "OFFICE_HEAD"],
       },
     ],
   },

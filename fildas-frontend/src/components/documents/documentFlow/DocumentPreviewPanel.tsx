@@ -1,7 +1,7 @@
 import React from "react";
 import InlineSpinner from "../../ui/loader/InlineSpinner";
 import UploadProgress from "../../ui/loader/UploadProgress";
-import { Download, Maximize2, RotateCcw, Upload, X } from "lucide-react";
+import { Download, Maximize2, RotateCcw, Upload, X, FileX } from "lucide-react";
 
 // ── Preview modal ────────────────────────────────────────────────────────────
 function PreviewModal({
@@ -94,6 +94,8 @@ type Props = {
   approverHasDownloaded?: boolean;
   onApproverDownload?: () => Promise<void>;
   onApproverUpload?: () => void;
+  onRegeneratePreview?: () => Promise<void>;
+  isRegeneratingPreview?: boolean;
 };
 
 const DocumentPreviewPanel: React.FC<Props> = ({
@@ -122,6 +124,8 @@ const DocumentPreviewPanel: React.FC<Props> = ({
   // approverHasDownloaded = false,
   onApproverDownload,
   onApproverUpload,
+  onRegeneratePreview,
+  isRegeneratingPreview = false,
 }) => {
   const hasPreview = !!filePath && !!previewPath;
   const [modal, setModal] = React.useState(false);
@@ -213,12 +217,13 @@ const DocumentPreviewPanel: React.FC<Props> = ({
         {/* Preview body */}
         <div
           className={`relative flex-1 min-h-0 w-full overflow-hidden transition-all ${
-            canReplace ? "cursor-pointer" : ""
+            canReplace && !filePath ? "cursor-pointer" : ""
           }`}
           onClick={() => {
             if (isUploading || isExternalUploading) return;
             if (!canReplace) return;
-            onClickReplace();
+            // Only trigger replace on body click when no file is uploaded yet
+            if (!filePath) onClickReplace();
           }}
           onDrop={(e) => {
             if (!isExternalUploading) onDrop(e);
@@ -251,13 +256,46 @@ const DocumentPreviewPanel: React.FC<Props> = ({
               onLoad={() => setIsPreviewLoading(false)}
               onError={() => setIsPreviewLoading(false)}
             />
+          ) : filePath && !previewPath ? (
+            /* File uploaded but preview generation failed */
+            <div className="flex h-full flex-col items-center justify-center p-8 text-center text-sm m-3">
+              <div className="mb-3 h-12 w-12 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+                <FileX className="h-6 w-6 text-amber-400 dark:text-amber-500" />
+              </div>
+              <p className="mb-1 font-medium text-slate-900 dark:text-slate-100">
+                Preview unavailable
+              </p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs max-w-xs">
+                The preview could not be generated for this file. You can try regenerating it or replace the document.
+              </p>
+              {originalFilename && (
+                <p className="mt-2 text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-surface-400 px-2 py-0.5 rounded">
+                  {originalFilename}
+                </p>
+              )}
+              {onRegeneratePreview && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRegeneratePreview();
+                  }}
+                  disabled={isRegeneratingPreview}
+                  className="mt-4 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                >
+                  {isRegeneratingPreview ? (
+                    <InlineSpinner className="h-3.5 w-3.5 border" />
+                  ) : (
+                    <RotateCcw size={12} />
+                  )}
+                  {isRegeneratingPreview ? "Regenerating..." : "Regenerate Preview"}
+                </button>
+              )}
+            </div>
           ) : (
+            /* No file uploaded yet */
             <div
-              className={`flex h-full flex-col items-center justify-center p-8 text-center text-sm border-2 border-dashed m-3 rounded-xl transition ${
-                filePath
-                  ? "border-slate-200 dark:border-surface-400"
-                  : "border-slate-300 hover:border-slate-400 hover:bg-slate-50 dark:border-surface-400 dark:hover:border-surface-300 dark:hover:bg-surface-400"
-              }`}
+              className="flex h-full flex-col items-center justify-center p-8 text-center text-sm border-2 border-dashed m-3 rounded-xl transition border-slate-300 hover:border-slate-400 hover:bg-slate-50 dark:border-surface-400 dark:hover:border-surface-300 dark:hover:bg-surface-400"
             >
               <div className="mb-3 h-12 w-12 rounded-full bg-slate-100 dark:bg-surface-400 flex items-center justify-center">
                 <svg
@@ -275,18 +313,11 @@ const DocumentPreviewPanel: React.FC<Props> = ({
                 </svg>
               </div>
               <p className="mb-1 font-medium text-slate-900 dark:text-slate-100">
-                {filePath ? "Click to replace document" : "Upload document"}
+                Upload document
               </p>
               <p className="text-slate-500 dark:text-slate-400 text-xs">
-                {filePath
-                  ? "Drag & drop or click to replace"
-                  : "Drag & drop or click to browse · PDF, Word, Excel, PowerPoint · max 10MB"}
+                Drag & drop or click to browse · PDF, Word, Excel, PowerPoint · max 10MB
               </p>
-              {!!filePath && (
-                <p className="mt-3 text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-surface-400 px-2 py-0.5 rounded">
-                  {originalFilename ?? ""}
-                </p>
-              )}
             </div>
           )}
 

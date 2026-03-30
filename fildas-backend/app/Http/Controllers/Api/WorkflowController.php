@@ -176,7 +176,7 @@ class WorkflowController extends Controller
 
             $monitoring = $documents->map(function ($doc) {
                 $version = $doc->latestVersion;
-                if (!$version) return null;
+                if (!$version || in_array($version->status, ['Cancelled', 'Superseded'], true)) return null;
                 $openTask = $version->relationLoaded('tasks') ? $version->tasks->first() : null;
                 return [
                     'task'     => $openTask,
@@ -196,9 +196,10 @@ class WorkflowController extends Controller
             return response()->json(['message' => 'Your account has no office assigned.'], 422);
         }
 
-        // Tasks assigned to my office
+        // Tasks assigned to my office (excluding Cancelled/Superseded)
         $assignedTasks = WorkflowTask::where('status', 'open')
             ->where('assigned_office_id', $userOfficeId)
+            ->whereHas('version', fn($q) => $q->whereNotIn('status', ['Cancelled', 'Superseded']))
             ->with(['version.document.ownerOffice'])
             ->orderByDesc('id')
             ->limit(50)
@@ -211,8 +212,9 @@ class WorkflowController extends Controller
             'can_act' => true,
         ])->values();
 
-        // Monitoring: docs created by this user, not currently assigned to this office
+        // Monitoring: docs created by this user, not currently assigned to this office (excluding Cancelled/Superseded)
         $monitorVersions = \App\Models\DocumentVersion::query()
+            ->whereNotIn('status', ['Cancelled', 'Superseded'])
             ->whereHas('document', fn($q) => $q->where('created_by', $user->id))
             ->with([
                 'document.ownerOffice',

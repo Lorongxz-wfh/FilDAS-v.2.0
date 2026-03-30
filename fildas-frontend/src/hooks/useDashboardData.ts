@@ -118,9 +118,15 @@ export function useDashboardData(role: UserRole): DashboardData {
                 : "Failed to load stats",
             );
         } else if (isAuditor(role)) {
-          const [statsRes] = await Promise.allSettled([getDocumentStats()]);
+          const [statsRes, activityRes] = await Promise.allSettled([
+            getDocumentStats(),
+            listActivityLogs({ scope: "all", per_page: 8 }),
+          ]);
           if (statsRes.status === "fulfilled") setStats(statsRes.value);
-          const firstErr = [statsRes].find(
+          if (activityRes.status === "fulfilled") {
+            setRecentActivity(activityRes.value.data ?? []);
+          }
+          const firstErr = [statsRes, activityRes].find(
             (r) => r.status === "rejected",
           ) as PromiseRejectedResult | undefined;
           if (firstErr && !silent)

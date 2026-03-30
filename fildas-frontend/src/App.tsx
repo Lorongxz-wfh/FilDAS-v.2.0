@@ -69,6 +69,7 @@ const MyWorkQueueListPage = React.lazy(
   () => import("./pages/MyWorkQueueListPage"),
 );
 const AnnouncementsPage = React.lazy(() => import("./pages/AnnouncementsPage"));
+const BackupPage = React.lazy(() => import("./pages/BackupPage"));
 
 import ProtectedLayout from "./lib/guards/ProtectedLayout";
 import RequireRole from "./lib/guards/RequireRole";
@@ -218,7 +219,7 @@ export default function App() {
             <Route
               element={
                 <RequireRole
-                  allow={["QA", "SYSADMIN", "ADMIN", "OFFICE_HEAD"]}
+                  allow={["QA", "SYSADMIN", "ADMIN", "OFFICE_HEAD", "AUDITOR"]}
                 />
               }
             >
@@ -228,6 +229,14 @@ export default function App() {
             <Route element={<RequireRole allow={["SYSADMIN", "ADMIN"]} />}>
               <Route path="/user-manager" element={<UserManagerPage />} />
               <Route path="/office-manager" element={<OfficeManagerPage />} />
+            </Route>
+
+            <Route
+              element={
+                <RequireRole allow={["QA", "ADMIN", "OFFICE_HEAD"]} />
+              }
+            >
+              <Route path="/backup" element={<BackupPage />} />
             </Route>
 
             <Route path="/archive" element={<ArchivePage />} />

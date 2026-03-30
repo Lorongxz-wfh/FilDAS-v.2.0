@@ -102,6 +102,8 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class]
         ->middleware('can:replaceFile,version');
     Route::delete('/document-versions/{version}/apply-signature', [DocumentController::class, 'removeInAppSignature'])
         ->middleware('can:replaceFile,version');
+    Route::post('/document-versions/{version}/regenerate-preview', [DocumentController::class, 'regeneratePreview'])
+        ->middleware('can:replaceFile,version');
     Route::get('/document-versions/{version}/original-file',     [DocumentController::class, 'getOriginalFile'])
         ->middleware('can:preview,version');
     Route::post('/document-versions/{version}/cancel',      [DocumentController::class, 'cancelRevision'])
@@ -142,6 +144,15 @@ Route::get('/notifications',                          [NotificationController::c
     Route::post('/activity/opened-version', [ActivityLogController::class, 'openedVersion']);
     Route::get('/activity/export',          [ActivityLogController::class, 'export']);
     Route::get('/activity',                 [ActivityLogController::class, 'index']);
+
+    // ── Backup & Export ────────────────────────────────────────────────────
+    Route::prefix('backup')->group(function () {
+        Route::get('/summary',       [\App\Http\Controllers\Api\BackupController::class, 'summary']);
+        Route::get('/documents-csv', [\App\Http\Controllers\Api\BackupController::class, 'documentsCsv']);
+        Route::get('/documents-zip', [\App\Http\Controllers\Api\BackupController::class, 'documentsZip']);
+        Route::get('/activity-csv',  [\App\Http\Controllers\Api\BackupController::class, 'activityCsv']);
+        Route::get('/users-csv',     [\App\Http\Controllers\Api\BackupController::class, 'usersCsv']);
+    });
 
     // ── Search ─────────────────────────────────────────────────────────────────
     Route::get('/search', \App\Http\Controllers\Api\SearchController::class);

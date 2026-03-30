@@ -288,3 +288,50 @@ export function buildAllColumns(): TableColumn<LibraryItem>[] {
     },
   ];
 }
+
+export function buildArchiveColumns(): TableColumn<Document>[] {
+  return [
+    {
+      key: "type",
+      header: "Type",
+      skeletonShape: "badge",
+      render: (doc) => <TypeBadge type={doc.doctype} />,
+    },
+    {
+      key: "document",
+      header: "Document",
+      skeletonShape: "double",
+      sortKey: "title",
+      render: (doc) => <DocTitle doc={doc} />,
+    },
+    {
+      key: "office",
+      header: "Office",
+      skeletonShape: "text",
+      render: (doc) => (
+        <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+          {(doc as any).ownerOffice?.name ?? "—"}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      skeletonShape: "badge",
+      render: (doc) => (
+        <StatusBadge status={(doc as any).latestVersion?.status ?? "Cancelled"} />
+      ),
+    },
+    {
+      key: "archived_on",
+      header: "Archived On",
+      skeletonShape: "narrow",
+      sortKey: "updated_at",
+      render: (doc) => (
+        <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+          {doc.updated_at ? formatDate(doc.updated_at) : "—"}
+        </span>
+      ),
+    },
+  ];
+}

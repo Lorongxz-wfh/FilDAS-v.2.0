@@ -21,7 +21,7 @@ import Button from "../components/ui/Button";
 import Table from "../components/ui/Table";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
 import ShareDocumentModal from "../components/documents/ShareDocumentModal";
-import { Search, X } from "lucide-react";
+import { Search, X, Archive } from "lucide-react";
 import { inputCls, selectCls } from "../utils/formStyles";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import Alert from "../components/ui/Alert";
@@ -485,6 +485,16 @@ export default function DocumentLibraryPage() {
             loading={refreshing}
             title="Refresh library"
           />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/archive")}
+            className="flex items-center gap-1.5 px-3"
+          >
+            <Archive className="h-4 w-4" />
+            Archive
+          </Button>
           {canCreate && (
             <Button
               type="button"

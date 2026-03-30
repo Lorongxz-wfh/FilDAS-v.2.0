@@ -32,6 +32,8 @@ import { getAuthUser } from "../lib/auth";
 import { Library, Loader2, Copy, Check, FileX } from "lucide-react";
 import { StatusBadge } from "../components/ui/Badge";
 import { normalizeError } from "../lib/normalizeError";
+import VersionComparisonModal from "../components/documents/documentFlow/VersionComparisonModal";
+import { GitCompare } from "lucide-react";
 
 const DocumentFlowPage: React.FC = () => {
   const params = useParams();
@@ -61,8 +63,8 @@ const DocumentFlowPage: React.FC = () => {
   const backTo =
     fromPath.startsWith("/documents/") && fromPath.includes("/view")
       ? fromPath
-      : fromPath === "/documents"
-        ? "/documents"
+      : ["/documents", "/archive"].includes(fromPath)
+        ? fromPath
         : "/work-queue";
 
   const handleBack = () => {
@@ -99,6 +101,7 @@ const DocumentFlowPage: React.FC = () => {
     selectedVersionIdFromUrl && !Number.isNaN(selectedVersionIdFromUrl)
       ? selectedVersionIdFromUrl
       : null;
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
   const [isLoadingSelectedVersion, setIsLoadingSelectedVersion] =
     useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -325,18 +328,31 @@ const refreshAndSelectBest = React.useCallback(
   }, [selectedVersion?.id]);
 
   const rightHeader = (
-    <VersionsDropdown
-      allVersions={allVersions}
-      selectedVersion={selectedVersion}
-      isLoadingSelectedVersion={isLoadingSelectedVersion}
-      onSelectVersion={(v) => {
-        setSearchParams((prev) => {
-          const p = new URLSearchParams(prev);
-          p.set("version_id", String(v.id));
-          return p;
-        });
-      }}
-    />
+    <div className="flex items-center gap-2">
+      {allVersions.length > 1 && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsCompareModalOpen(true)}
+          className="flex items-center gap-1.5"
+        >
+          <GitCompare className="h-4 w-4" />
+          Compare
+        </Button>
+      )}
+      <VersionsDropdown
+        allVersions={allVersions}
+        selectedVersion={selectedVersion}
+        isLoadingSelectedVersion={isLoadingSelectedVersion}
+        onSelectVersion={(v) => {
+          setSearchParams((prev) => {
+            const p = new URLSearchParams(prev);
+            p.set("version_id", String(v.id));
+            return p;
+          });
+        }}
+      />
+    </div>
   );
 
   // ── Loading skeleton ───────────────────────────────────────────────────────
@@ -715,6 +731,13 @@ const refreshAndSelectBest = React.useCallback(
           });
           setReviseModalOpen(false);
         }}
+      />
+
+      <VersionComparisonModal
+        open={isCompareModalOpen}
+        onClose={() => setIsCompareModalOpen(false)}
+        allVersions={allVersions}
+        baseVersionId={selectedVersion?.id ?? null}
       />
     </>
   );

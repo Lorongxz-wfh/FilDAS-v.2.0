@@ -105,7 +105,7 @@ class ActivityLogController extends Controller
         $user = $request->user();
         $roleName = $this->roleNameOf($user);
         $userOfficeId = (int) ($user?->office_id ?? 0);
-        $canSeeAll = in_array($roleName, ['qa', 'admin', 'sysadmin', 'office_head'], true);
+        $canSeeAll = in_array($roleName, ['qa', 'admin', 'sysadmin', 'office_head', 'auditor'], true);
 
         $scope = $data['scope'] ?? 'office';
 
