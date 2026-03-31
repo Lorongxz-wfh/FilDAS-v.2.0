@@ -117,6 +117,7 @@ class DocumentRequestFileController extends Controller
         }, 200, [
             'Content-Type' => $mime,
             'Content-Disposition' => 'inline; filename="' . ($row->example_original_filename ?? 'preview.pdf') . '"',
+            'Cache-Control' => 'private, max-age=3600, must-revalidate',
         ]);
     }
 
@@ -241,6 +242,7 @@ class DocumentRequestFileController extends Controller
         }, 200, [
             'Content-Type' => $mime,
             'Content-Disposition' => 'inline; filename="' . ($row->original_filename ?? 'preview.pdf') . '"',
+            'Cache-Control' => 'private, max-age=3600, must-revalidate',
         ]);
     }
 

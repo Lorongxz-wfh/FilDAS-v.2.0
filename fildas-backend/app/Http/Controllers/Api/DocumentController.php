@@ -1092,6 +1092,7 @@ class DocumentController extends Controller
         }, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . ($version->original_filename ?? 'preview.pdf') . '"',
+            'Cache-Control' => 'private, max-age=3600, must-revalidate',
         ]);
     }
     public function downloadVersion(Request $request, DocumentVersion $version)

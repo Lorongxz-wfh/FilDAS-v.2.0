@@ -88,6 +88,7 @@ class PreviewController extends Controller
         }, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="preview.pdf"',
+            'Cache-Control' => 'private, max-age=3600, must-revalidate',
         ]);
     }
 
