@@ -58,9 +58,9 @@ class DocumentIndexService
         $canSeeAll = in_array($roleName, ['admin', 'sysadmin', 'president', 'qa'], true);
         $vpOfficeIds = $this->vpOfficeIdsForRole($roleName);
 
-        // Auditor: only docs whose latest version is Distributed
+        // Auditor: only docs whose latest version is Distributed or Superseded (Archive)
         if ($roleName === 'auditor') {
-            $query->whereHas('versions', fn($v) => $v->where('status', 'Distributed'));
+            $query->whereHas('versions', fn($v) => $v->whereIn('status', ['Distributed', 'Superseded']));
         } else if (!$canSeeAll) {
             $query->where(function ($q) use ($vpOfficeIds, $userOfficeId) {
                 // Has an open task assigned to this office on the latest version
@@ -77,9 +77,9 @@ class DocumentIndexService
                 // Shared directly to this office
                 $q->orWhereHas('sharedOffices', fn($s) => $s->where('offices.id', $userOfficeId));
 
-                // Was a workflow participant (had a task at any point) and doc is now Distributed
+                // Was a workflow participant (had a task at any point) and doc is now Distributed or Superseded
                 $q->orWhere(function ($inner) use ($userOfficeId) {
-                    $inner->whereHas('versions', fn($v) => $v->where('status', 'Distributed'))
+                    $inner->whereHas('versions', fn($v) => $v->whereIn('status', ['Distributed', 'Superseded']))
                         ->whereHas('versions', function ($v) use ($userOfficeId) {
                             $v->whereHas('tasks', fn($t) => $t->where('assigned_office_id', $userOfficeId));
                         });
