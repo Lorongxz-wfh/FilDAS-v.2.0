@@ -9,6 +9,7 @@ type Props = {
 
 const DashboardGreeting: React.FC<Props> = ({ pendingCount, loading }) => {
   const user = getAuthUser();
+  const [imgError, setImgError] = React.useState(false);
 
   const firstName =
     user?.first_name?.trim() || user?.full_name?.split(" ")[0] || "there";
@@ -32,11 +33,12 @@ const DashboardGreeting: React.FC<Props> = ({ pendingCount, loading }) => {
         <div className="flex items-center gap-4">
           {/* Avatar */}
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-white dark:bg-surface-400 text-sm font-bold text-slate-600 dark:text-slate-300 shadow-sm border border-slate-100 dark:border-surface-300 overflow-hidden">
-            {(user as any)?.profile_photo_url ? (
+            {(user as any)?.profile_photo_url && !imgError ? (
               <img
                 src={(user as any).profile_photo_url}
                 alt={user?.full_name ?? ""}
                 className="h-full w-full object-cover"
+                onError={() => setImgError(true)}
               />
             ) : (
               (user?.full_name ?? "")

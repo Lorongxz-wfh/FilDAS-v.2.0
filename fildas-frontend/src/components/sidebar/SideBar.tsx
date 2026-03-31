@@ -36,6 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const adminDebugMode = useAdminDebugMode();
   const { collapsed, toggle } = useSidebarCollapsed();
   const user = useAuthUser();
+  const [imgError, setImgError] = React.useState(false);
 
   const initials = (user?.full_name ?? "")
     .split(" ")
@@ -392,11 +393,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                 "flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-200 dark:bg-surface-300 text-[11px] font-bold text-slate-600 dark:text-slate-700 shadow-sm border border-white/50 overflow-hidden transition-transform active:scale-95",
                 profileOpen ? "scale-105 ring-2 ring-brand-400/20" : ""
               ].join(" ")}>
-                {(user as any)?.profile_photo_url ? (
+                {(user as any)?.profile_photo_url && !imgError ? (
                   <img
                     src={(user as any).profile_photo_url}
                     alt={user?.full_name ?? ""}
                     className="h-full w-full object-cover"
+                    onError={() => setImgError(true)}
                   />
                 ) : (
                   initials || "?"

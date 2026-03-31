@@ -7,7 +7,21 @@ class ChunkErrorBoundary extends React.Component<
   { error: boolean }
 > {
   state = { error: false };
+
   static getDerivedStateFromError() { return { error: true }; }
+
+  componentDidCatch(error: Error) {
+    const isChunkError =
+      error.message?.includes("Failed to fetch dynamically imported module") ||
+      error.message?.includes("dynamically imported module") ||
+      (error as { name?: string }).name === "ChunkLoadError";
+
+    if (isChunkError && !sessionStorage.getItem("chunk_reload")) {
+      sessionStorage.setItem("chunk_reload", "1");
+      window.location.reload();
+    }
+  }
+
   render() {
     if (this.state.error) {
       return (
