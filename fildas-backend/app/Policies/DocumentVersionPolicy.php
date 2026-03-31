@@ -188,7 +188,7 @@ class DocumentVersionPolicy
             'For Owner Approval Check',
             'For Owner Review Check',
             'For QA Review Check',
-            'For Office Review Check',
+            'For Staff Review Check',
         ];
 
         // Also allow custom flow dynamic statuses: "For {code} Approval"

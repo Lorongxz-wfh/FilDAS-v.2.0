@@ -44,7 +44,7 @@ export const flowStepsQa: FlowStep[] = [
   {
     id: "qafinalcheck",
     label: "QA double-check",
-    statusValue: "For QA Final Check",
+    statusValue: "For QA Review Check",
     phase: "review",
   },
   {
@@ -62,13 +62,13 @@ export const flowStepsQa: FlowStep[] = [
   {
     id: "pres_approval",
     label: "President approval",
-    statusValue: "For President Approval",
+    statusValue: "For President's Approval",
     phase: "approval",
   },
   {
     id: "qa_prefinalize_check",
     label: "QA double-check",
-    statusValue: "For QA Pre-Finalize Check",
+    statusValue: "For QA Approval Check",
     phase: "approval",
   },
   {
@@ -113,7 +113,7 @@ export const flowStepsOffice: FlowStep[] = [
   {
     id: "office_final_check",
     label: "Office double-check",
-    statusValue: "For Office Final Check",
+    statusValue: "For Staff Review Check",
     phase: "review",
   },
   {
@@ -131,13 +131,13 @@ export const flowStepsOffice: FlowStep[] = [
   {
     id: "office_pres_approval",
     label: "President approval",
-    statusValue: "For President Approval",
+    statusValue: "For President's Approval",
     phase: "approval",
   },
   {
     id: "office_prefinalize_check",
     label: "Office double-check",
-    statusValue: "For Office Pre-Finalize Check",
+    statusValue: "For Staff Approval Check",
     phase: "approval",
   },
   {
@@ -167,26 +167,30 @@ export const flowStepsOffice: FlowStep[] = [
 /** Human-readable label for each workflow action code. */
 export const ACTION_LABELS: Record<string, string> = {
   CANCEL_DOCUMENT: "Cancel document",
+  // QA flow
   QA_SEND_TO_OFFICE_REVIEW: "Submit for review",
-  QA_OFFICE_FORWARD_TO_VP: "Reviewed",
-  QA_OFFICE_RETURN_TO_QA: "Return",
-  QA_VP_SEND_BACK_TO_QA: "Return",
+  QA_OFFICE_FORWARD_TO_VP: "Forward",
+  QA_VP_SEND_BACK_TO_QA: "Forward to QA",
   QA_START_OFFICE_APPROVAL: "Start approval",
-  QA_OFFICE_FORWARD_TO_VP_APPROVAL: "Approved",
-  QA_VP_FORWARD_TO_PRESIDENT: "Approved",
-  QA_PRESIDENT_SEND_BACK_TO_QA: "Return",
+  QA_OFFICE_FORWARD_TO_VP_APPROVAL: "Approve",
+  QA_VP_FORWARD_TO_PRESIDENT: "Approve",
+  QA_PRESIDENT_APPROVE: "Approve",
+  QA_START_FINALIZATION: "Start finalization",
   QA_REGISTER: "Register",
   QA_DISTRIBUTE: "Distribute",
+  // Office flow
   OFFICE_SEND_TO_HEAD: "Submit for review",
-  OFFICE_HEAD_FORWARD_TO_VP: "Reviewed",
-  OFFICE_HEAD_RETURN_TO_STAFF: "Return",
-  OFFICE_VP_SEND_BACK_TO_STAFF: "Return",
-  OFFICE_SEND_TO_QA_APPROVAL: "Start approval",
-  OFFICE_QA_RETURN_TO_STAFF: "Return",
-  OFFICE_QA_APPROVE: "Approved",
+  OFFICE_HEAD_FORWARD_TO_VP: "Forward",
+  OFFICE_VP_SEND_BACK_TO_STAFF: "Forward to creator",
+  OFFICE_START_APPROVAL: "Start approval",
+  OFFICE_HEAD_FORWARD_TO_VP_APPROVAL: "Approve",
+  OFFICE_VP_FORWARD_TO_PRESIDENT: "Approve",
+  OFFICE_PRESIDENT_APPROVE: "Approve",
+  OFFICE_START_FINALIZATION: "Start finalization",
   OFFICE_REGISTER: "Register",
   OFFICE_DISTRIBUTE: "Distribute",
-  CUSTOM_FORWARD: "Reviewed",
+  // Custom flow
+  CUSTOM_FORWARD: "Forward",
   CUSTOM_START_APPROVAL: "Start approval",
   CUSTOM_START_FINALIZATION: "Start finalization",
   CUSTOM_REGISTER: "Register",
@@ -196,77 +200,85 @@ export const ACTION_LABELS: Record<string, string> = {
 
 /** Contextual confirmation message for each workflow action code. */
 export const ACTION_CONFIRM_MESSAGES: Record<string, string> = {
+  // QA flow
   QA_SEND_TO_OFFICE_REVIEW:
     "This document will be submitted for review and assigned to the recipient office.",
   QA_OFFICE_FORWARD_TO_VP:
-    "You are confirming that you have reviewed this document. It will be forwarded to the VP for further review.",
-  QA_OFFICE_RETURN_TO_QA:
-    "This document will be returned to QA.",
+    "You are confirming your review. This document will be forwarded to the VP for further review.",
   QA_VP_SEND_BACK_TO_QA:
-    "This document will be returned to QA for a final check before the approval phase.",
+    "Review is complete. This will forward the document to QA for a final check before the approval phase begins.",
   QA_START_OFFICE_APPROVAL:
     "This will move the document into the approval phase and notify the approving office.",
   QA_OFFICE_FORWARD_TO_VP_APPROVAL:
-    "You are confirming your approval of this document. It will be forwarded to the VP for approval.",
+    "You are confirming your approval. This document will be forwarded to the VP for approval.",
   QA_VP_FORWARD_TO_PRESIDENT:
     "You are confirming your approval. This document will be forwarded to the President for final sign-off.",
-  QA_PRESIDENT_SEND_BACK_TO_QA:
-    "This document will be returned to QA after final approval.",
+  QA_PRESIDENT_APPROVE:
+    "You are giving final approval for this document. It will be sent back to QA for a final check before finalization.",
+  QA_START_FINALIZATION:
+    "This will move the document into the finalization phase for registration and distribution.",
   QA_REGISTER:
     "This will officially register the document and assign it a document number.",
   QA_DISTRIBUTE:
-    "This will finalize and distribute the document to all recipients. This action cannot be undone.",
+    "This will distribute the document to all recipients. This action cannot be undone.",
+  // Office flow
   OFFICE_SEND_TO_HEAD:
     "This document will be submitted to the Office Head for review.",
   OFFICE_HEAD_FORWARD_TO_VP:
-    "You are confirming that you have reviewed this document. It will be forwarded to the VP for further review.",
-  OFFICE_HEAD_RETURN_TO_STAFF:
-    "This document will be returned to the originating office staff.",
+    "You are confirming your review. This document will be forwarded to the VP for further review.",
   OFFICE_VP_SEND_BACK_TO_STAFF:
-    "This document will be returned to the office staff for a final check before the approval phase.",
-  OFFICE_SEND_TO_QA_APPROVAL:
-    "This will move the document into the approval phase.",
-  OFFICE_QA_RETURN_TO_STAFF:
-    "This document will be returned to the office staff.",
-  OFFICE_QA_APPROVE:
-    "You are confirming your approval of this document.",
+    "Review is complete. This will forward the document to the creator for a final check before the approval phase begins.",
+  OFFICE_START_APPROVAL: "This will move the document into the approval phase.",
+  OFFICE_HEAD_FORWARD_TO_VP_APPROVAL:
+    "You are confirming your approval. This document will be forwarded to the VP for approval.",
+  OFFICE_VP_FORWARD_TO_PRESIDENT:
+    "You are confirming your approval. This document will be forwarded to the President for final sign-off.",
+  OFFICE_PRESIDENT_APPROVE:
+    "You are giving final approval for this document. It will be sent back to the creator for a final check before finalization.",
+  OFFICE_START_FINALIZATION:
+    "This will move the document into the finalization phase for registration and distribution.",
   OFFICE_REGISTER:
     "This will officially register the document and assign it a document number.",
   OFFICE_DISTRIBUTE:
-    "This will finalize and distribute the document to all recipients. This action cannot be undone.",
+    "This will distribute the document to all recipients. This action cannot be undone.",
+  // Custom flow
   CUSTOM_FORWARD:
-    "This will forward the document to the next recipient in the workflow.",
+    "Your review is confirmed. The document will be forwarded to the next recipient.",
   CUSTOM_START_APPROVAL:
-    "This will move the document into the approval phase.",
+    "Review is complete. This will move the document into the approval phase.",
   CUSTOM_START_FINALIZATION:
-    "This will move the document into the finalization phase.",
+    "Approval is complete. This will move the document into the finalization phase.",
   CUSTOM_REGISTER:
     "This will officially register the document and assign it a document number.",
   CUSTOM_DISTRIBUTE:
-    "This will finalize and distribute the document to all recipients. This action cannot be undone.",
+    "This will distribute the document to all recipients. This action cannot be undone.",
 };
 
 /** Sort order for workflow actions — lower = higher priority in the UI. */
 export const ACTION_PRIORITY: Record<string, number> = {
+  // QA flow
   QA_SEND_TO_OFFICE_REVIEW: 10,
   QA_OFFICE_FORWARD_TO_VP: 20,
-  QA_OFFICE_RETURN_TO_QA: 25,
   QA_VP_SEND_BACK_TO_QA: 30,
   QA_START_OFFICE_APPROVAL: 40,
   QA_OFFICE_FORWARD_TO_VP_APPROVAL: 50,
   QA_VP_FORWARD_TO_PRESIDENT: 60,
-  QA_PRESIDENT_SEND_BACK_TO_QA: 70,
+  QA_PRESIDENT_APPROVE: 70,
+  QA_START_FINALIZATION: 75,
   QA_REGISTER: 80,
   QA_DISTRIBUTE: 90,
+  // Office flow
   OFFICE_SEND_TO_HEAD: 10,
   OFFICE_HEAD_FORWARD_TO_VP: 20,
-  OFFICE_HEAD_RETURN_TO_STAFF: 25,
   OFFICE_VP_SEND_BACK_TO_STAFF: 30,
-  OFFICE_SEND_TO_QA_APPROVAL: 40,
-  OFFICE_QA_APPROVE: 50,
-  OFFICE_QA_RETURN_TO_STAFF: 55,
-  OFFICE_REGISTER: 60,
-  OFFICE_DISTRIBUTE: 70,
+  OFFICE_START_APPROVAL: 40,
+  OFFICE_HEAD_FORWARD_TO_VP_APPROVAL: 50,
+  OFFICE_VP_FORWARD_TO_PRESIDENT: 60,
+  OFFICE_PRESIDENT_APPROVE: 70,
+  OFFICE_START_FINALIZATION: 75,
+  OFFICE_REGISTER: 80,
+  OFFICE_DISTRIBUTE: 90,
+  // Custom flow
   CUSTOM_FORWARD: 10,
   CUSTOM_START_APPROVAL: 20,
   CUSTOM_START_FINALIZATION: 25,

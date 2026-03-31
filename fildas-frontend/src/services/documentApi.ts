@@ -386,6 +386,7 @@ export async function removeInAppSignature(versionId: number): Promise<void> {
   try {
     const api = await getApi();
     await api.delete(`/document-versions/${versionId}/apply-signature`);
+    invalidatePreviewCache(versionId);
   } catch (e: any) {
     const msg = e?.response?.data?.message || e?.message || "Failed to remove signature.";
     throw new Error(msg);

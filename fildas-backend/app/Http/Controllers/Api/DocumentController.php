@@ -125,7 +125,9 @@ class DocumentController extends Controller
             'draft'        => (clone $visibleDocs)->whereHas('latestVersion', fn($q) => $q->whereIn('status', ['Draft', 'Office Draft']))->count(),
             'review'       => (clone $visibleDocs)->whereHas('latestVersion', fn($q) => $q->where('status', 'like', '%Review%')->orWhere('status', 'like', '%Check%'))->count(),
             'approval'     => (clone $visibleDocs)->whereHas('latestVersion', fn($q) => $q->where('status', 'like', '%Approval%'))->count(),
-            'finalization' => (clone $visibleDocs)->whereHas('latestVersion', fn($q) => $q->where(function ($r) { $r->where('status', 'like', '%Registration%')->orWhere('status', 'like', '%Distribution%'); }))->count(),
+            'finalization' => (clone $visibleDocs)->whereHas('latestVersion', fn($q) => $q->where(function ($r) {
+                $r->where('status', 'like', '%Registration%')->orWhere('status', 'like', '%Distribution%');
+            }))->count(),
             'distributed'  => $distributed,
         ];
 
@@ -302,18 +304,19 @@ class DocumentController extends Controller
                 if (!(bool) ($u->email_doc_updates ?? true) || !$u->email) continue;
                 try {
                     Mail::to($u->email)->queue(new WorkflowNotificationMail(
-                        recipientName:  trim($u->first_name . ' ' . $u->last_name) ?: $u->email,
-                        notifTitle:     'A document has been shared with you',
-                        notifBody:      $docTitle . ' has been shared with your office by ' . $actorName . '. You can view it in the Library.',
-                        documentTitle:  $docTitle,
+                        recipientName: trim($u->first_name . ' ' . $u->last_name) ?: $u->email,
+                        notifTitle: 'A document has been shared with you',
+                        notifBody: $docTitle . ' has been shared with your office by ' . $actorName . '. You can view it in the Library.',
+                        documentTitle: $docTitle,
                         documentStatus: 'Distributed',
-                        isReject:       false,
-                        actorName:      $actorName,
-                        documentId:     $document->id,
-                        appUrl:         $appUrl,
-                        appName:        $appName,
+                        isReject: false,
+                        actorName: $actorName,
+                        documentId: $document->id,
+                        appUrl: $appUrl,
+                        appName: $appName,
                     ));
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
             }
         }
 
@@ -813,10 +816,16 @@ class DocumentController extends Controller
             'file' => 'required|file|mimes:pdf|max:10240',
         ]);
 
-        // Backup original before saveVersionFile deletes it
-        if (!$version->pre_sign_file_path && $version->file_path) {
+        // Always back up the current file before overwriting with the new signature.
+        // This ensures "remove signature" always restores to whoever signed just before,
+        // not all the way back to the original (important for multi-signer scenarios).
+        if ($version->file_path) {
             $disk = Storage::disk();
             if ($disk->exists($version->file_path)) {
+                // Delete old backup first to avoid orphaned files
+                if ($version->pre_sign_file_path && $version->pre_sign_file_path !== $version->file_path) {
+                    $disk->delete($version->pre_sign_file_path);
+                }
                 $ext        = pathinfo($version->file_path, PATHINFO_EXTENSION) ?: 'pdf';
                 $backupPath = 'pre-sign-backups/' . $version->id . '_' . time() . '.' . $ext;
                 $disk->copy($version->file_path, $backupPath);
@@ -832,10 +841,17 @@ class DocumentController extends Controller
         $freshVersion->signed_file_path = $freshVersion->file_path;
         $freshVersion->save();
 
-        $this->logActivity('version.in_app_signature_applied', 'Applied in-app e-signature',
-            $request->user()?->id, $request->user()?->office_id, [
+        $this->logActivity(
+            'version.in_app_signature_applied',
+            'Applied in-app e-signature',
+            $request->user()?->id,
+            $request->user()?->office_id,
+            [
                 'version_number' => $version->version_number,
-            ], $version->document_id, $version->id);
+            ],
+            $version->document_id,
+            $version->id
+        );
 
         return response()->json($freshVersion->fresh(), 200);
     }
@@ -859,10 +875,17 @@ class DocumentController extends Controller
         $version->preview_path = $this->tryRegeneratePreview($version);
         $version->save();
 
-        $this->logActivity('version.in_app_signature_removed', 'Removed in-app e-signature',
-            $request->user()?->id, $request->user()?->office_id, [
+        $this->logActivity(
+            'version.in_app_signature_removed',
+            'Removed in-app e-signature',
+            $request->user()?->id,
+            $request->user()?->office_id,
+            [
                 'version_number' => $version->version_number,
-            ], $version->document_id, $version->id);
+            ],
+            $version->document_id,
+            $version->id
+        );
 
         return response()->json($version->fresh(), 200);
     }
@@ -969,7 +992,12 @@ class DocumentController extends Controller
             return response()->json(['message' => 'File not found.'], 404);
         }
 
-        return Storage::disk()->response($path, null, [
+        $stream = Storage::disk()->readStream($path);
+
+        return response()->stream(function () use ($stream) {
+            fpassthru($stream);
+            if (is_resource($stream)) fclose($stream);
+        }, 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline',
         ]);
@@ -1217,7 +1245,10 @@ class DocumentController extends Controller
         // Enforce access BEFORE issuing a signed URL
         Gate::authorize('preview', $version);
 
-        $cacheKey = "preview_link:v{$version->id}:uid{$userId}:ttl{$ttlMinutes}";
+        // Include updated_at so any file change (signing, upload) auto-invalidates
+        // the cached URL for all users without needing an explicit Cache::forget.
+        $updatedAt = $version->updated_at?->timestamp ?? 0;
+        $cacheKey = "preview_link:v{$version->id}:uid{$userId}:updated{$updatedAt}";
 
         $payload = Cache::remember($cacheKey, ($ttlMinutes - 5) * 60, function () use ($version, $ttlMinutes, $userId) {
             $signedUrl = URL::temporarySignedRoute(

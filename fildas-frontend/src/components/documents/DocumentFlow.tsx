@@ -1,5 +1,5 @@
 import React from "react";
-import { XCircle, AlertTriangle, Upload, CheckCircle2 } from "lucide-react";
+import { XCircle, AlertTriangle, Upload, CheckCircle2, Loader2 } from "lucide-react";
 import Alert from "../ui/Alert";
 import WorkflowProgressCard from "./documentFlow/WorkflowProgressCard";
 import DocumentRightPanel from "./documentFlow/DocumentRightPanel";
@@ -191,8 +191,9 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
   const [isRegeneratingPreview, setIsRegeneratingPreview] = React.useState(false);
   const previewUrlCacheRef = React.useRef<Record<string, string>>({});
 
-  // Track previous preview_path to detect changes from polling
+  // Track previous preview_path and updated_at to detect file changes
   const prevPreviewPathRef = React.useRef<string | null>(null);
+  const prevUpdatedAtRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     if (!localVersion) return;
@@ -203,29 +204,37 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
       setIsPreviewLoading(false);
       setPreviewNonce((n) => n + 1);
       prevPreviewPathRef.current = null;
+      prevUpdatedAtRef.current = null;
       return;
     }
 
     const pathChanged =
       localVersion.preview_path !== prevPreviewPathRef.current;
+    // updated_at changes whenever the version is saved (e.g. after signing or
+    // a workflow action), even when preview_path stays the same filename.
+    const updatedAtChanged =
+      localVersion.updated_at !== prevUpdatedAtRef.current;
     prevPreviewPathRef.current = localVersion.preview_path;
+    prevUpdatedAtRef.current = localVersion.updated_at;
 
-    // If path changed (new file uploaded by anyone), nuke both caches and force re-fetch
-    if (pathChanged) {
+    const contentChanged = pathChanged || updatedAtChanged;
+
+    // If content changed, nuke both caches and force re-fetch
+    if (contentChanged) {
       delete previewUrlCacheRef.current[localVersion.preview_path];
       invalidatePreviewCache(localVersion.id);
     }
 
-    // Reuse cached URL if preview_path hasn't changed and cache is warm
+    // Reuse cached URL if nothing changed and cache is warm
     const cached = previewUrlCacheRef.current[localVersion.preview_path];
-    if (cached && !pathChanged) {
+    if (cached && !contentChanged) {
       setSignedPreviewUrl(cached);
       setIsPreviewLoading(false);
       return;
     }
 
     setIsPreviewLoading(true);
-    if (pathChanged) setPreviewNonce((n) => n + 1);
+    if (contentChanged) setPreviewNonce((n) => n + 1);
 
     getDocumentPreviewLink(localVersion.id)
       .then((r) => {
@@ -246,7 +255,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
     return () => {
       alive = false;
     };
-  }, [localVersion?.id, localVersion?.preview_path]);
+  }, [localVersion?.id, localVersion?.preview_path, localVersion?.updated_at]);
 
   // ── Derived ──────────────────────────────────────────────────
   const qaOfficeId = offices?.length ? officeIdByCode(offices, "QA") : null;
@@ -629,13 +638,13 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
         const isApprovalPhase = currentPhase.id === "approval";
         if (isDraftPhase) {
           label = "Submit for review";
-          confirmMessage = "This document will be submitted for review and assigned to the first recipient.";
+          confirmMessage = "This document will be submitted to the first recipient for review.";
         } else if (isApprovalPhase) {
-          label = "Approved";
-          confirmMessage = "You are confirming your approval of this document. It will be forwarded to the next recipient.";
+          label = "Approve";
+          confirmMessage = "Your approval is confirmed. The document will be forwarded to the next recipient.";
         } else {
-          label = "Reviewed";
-          confirmMessage = "You are confirming that you have reviewed this document. It will be forwarded to the next recipient.";
+          label = "Forward";
+          confirmMessage = "Your review is confirmed. The document will be forwarded to the next recipient.";
         }
       }
       return {
@@ -997,8 +1006,9 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                     type="button"
                     onClick={() => setSigningOpen(true)}
                     disabled={workflow.isChangingStatus || signingInBackground}
-                    className="rounded-md border border-amber-400 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-400/10 dark:hover:bg-amber-400/15 disabled:opacity-50 transition"
+                    className="rounded-md border border-amber-400 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-400/10 dark:hover:bg-amber-400/15 disabled:opacity-50 transition flex items-center gap-1.5"
                   >
+                    {signingInBackground && <Loader2 size={12} className="animate-spin" />}
                     {signingInBackground ? "Signing…" : "Sign in-app"}
                   </button>
                 </div>
@@ -1039,10 +1049,11 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                 <button
                   type="button"
                   onClick={() => setSigningOpen(true)}
-                  disabled={fileUpload.isUploading || workflow.isChangingStatus}
-                  className="rounded-md border border-brand-400 px-3 py-1.5 text-xs font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-400/10 dark:hover:bg-brand-400/15 disabled:opacity-50 transition"
+                  disabled={fileUpload.isUploading || workflow.isChangingStatus || signingInBackground}
+                  className="rounded-md border border-brand-400 px-3 py-1.5 text-xs font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-400/10 dark:hover:bg-brand-400/15 disabled:opacity-50 transition flex items-center gap-1.5"
                 >
-                  Sign in-app
+                  {signingInBackground && <Loader2 size={12} className="animate-spin" />}
+                  {signingInBackground ? "Signing…" : "Sign in-app"}
                 </button>
               </div>
             }
@@ -1058,16 +1069,18 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             icon={<CheckCircle2 className="h-4 w-4" />}
             title="Signed document uploaded — you can now start the approval phase."
             action={
-              currentUserSignatureUrl && hasPreSignBackup ? (
+              hasPreSignBackup ? (
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setSigningEditMode(true); setSigningOpen(true); }}
-                    disabled={workflow.isChangingStatus || removingSignature}
-                    className="rounded-md border border-emerald-400 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 disabled:opacity-50 transition"
-                  >
-                    Edit signature
-                  </button>
+                  {currentUserSignatureUrl && (
+                    <button
+                      type="button"
+                      onClick={() => { setSigningEditMode(true); setSigningOpen(true); }}
+                      disabled={workflow.isChangingStatus || removingSignature}
+                      className="rounded-md border border-emerald-400 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 disabled:opacity-50 transition"
+                    >
+                      Edit signature
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={workflow.isChangingStatus || removingSignature}

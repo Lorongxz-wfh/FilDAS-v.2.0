@@ -151,7 +151,7 @@ class WorkflowService
             => [WorkflowSteps::ACTION_QA_SEND_TO_OFFICE_REVIEW],
 
             WorkflowSteps::STEP_QA_OFFICE_REVIEW
-            => [WorkflowSteps::ACTION_QA_OFFICE_FORWARD_TO_VP, WorkflowSteps::ACTION_QA_OFFICE_RETURN_TO_QA],
+            => [WorkflowSteps::ACTION_QA_OFFICE_FORWARD_TO_VP],
 
             WorkflowSteps::STEP_QA_VP_REVIEW
             => [WorkflowSteps::ACTION_QA_VP_SEND_BACK_TO_QA],
@@ -180,8 +180,8 @@ class WorkflowService
             default => [],
         };
 
-        // Reject: review steps only (not draft, approval, final checks, finalization)
-        if (in_array($step, $reviewSteps, true)) {
+        // Reject: review and approval steps (not draft, final checks, finalization)
+        if (in_array($step, $reviewSteps, true) || in_array($step, $approvalSteps, true)) {
             $actions[] = WorkflowSteps::ACTION_REJECT;
         }
 
@@ -205,7 +205,7 @@ class WorkflowService
             => [WorkflowSteps::ACTION_OFFICE_SEND_TO_HEAD],
 
             WorkflowSteps::STEP_OFFICE_HEAD_REVIEW
-            => [WorkflowSteps::ACTION_OFFICE_HEAD_FORWARD_TO_VP, WorkflowSteps::ACTION_OFFICE_HEAD_RETURN_TO_STAFF],
+            => [WorkflowSteps::ACTION_OFFICE_HEAD_FORWARD_TO_VP],
 
             WorkflowSteps::STEP_OFFICE_VP_REVIEW
             => [WorkflowSteps::ACTION_OFFICE_VP_SEND_BACK_TO_STAFF],
@@ -234,7 +234,7 @@ class WorkflowService
             default => [],
         };
 
-        if (in_array($step, $reviewSteps, true)) {
+        if (in_array($step, $reviewSteps, true) || in_array($step, $approvalSteps, true)) {
             $actions[] = WorkflowSteps::ACTION_REJECT;
         }
 
@@ -772,7 +772,17 @@ class WorkflowService
                             ]);
                         }
 
-                        $seq        = (int) $counter->next_seq;
+                        $seq = (int) $counter->next_seq;
+
+                        // Skip any seq whose code is already taken (handles counter
+                        // drift from testing resets or partial transaction failures).
+                        while (\App\Models\Document::where(
+                            'code',
+                            \App\Models\Document::generateCode($office, $doc->doctype, $seq)
+                        )->exists()) {
+                            $seq++;
+                        }
+
                         $doc->code  = \App\Models\Document::generateCode($office, $doc->doctype, $seq);
                         $doc->reserved_code = null;
                         $doc->save();
@@ -1013,11 +1023,11 @@ class WorkflowService
             WorkflowSteps::STEP_OFFICE_DRAFT                => ['workflow.returned_to_draft',     'Returned to office draft'],
             WorkflowSteps::STEP_OFFICE_HEAD_REVIEW          => ['workflow.sent_to_review',         'Sent to office head for review'],
             WorkflowSteps::STEP_OFFICE_VP_REVIEW            => ['workflow.forwarded_to_vp',        'Forwarded to VP for review'],
-            WorkflowSteps::STEP_OFFICE_REVIEW_FINAL_CHECK   => ['workflow.returned_for_check',     'VP sent back to staff for review check'],
+            WorkflowSteps::STEP_OFFICE_REVIEW_FINAL_CHECK   => ['workflow.returned_for_check',     'VP forwarded to creator for review check'],
             WorkflowSteps::STEP_OFFICE_HEAD_APPROVAL        => ['workflow.sent_to_approval',       'Sent to office head for approval'],
             WorkflowSteps::STEP_OFFICE_VP_APPROVAL          => ['workflow.forwarded_to_vp',        'Forwarded to VP for approval'],
             WorkflowSteps::STEP_OFFICE_PRES_APPROVAL        => ['workflow.forwarded_to_president', 'Forwarded to President for approval'],
-            WorkflowSteps::STEP_OFFICE_APPROVAL_FINAL_CHECK => ['workflow.returned_for_check',     'President approved — staff approval check'],
+            WorkflowSteps::STEP_OFFICE_APPROVAL_FINAL_CHECK => ['workflow.returned_for_check',     'President approved — creator approval check'],
             WorkflowSteps::STEP_OFFICE_REGISTRATION         => ['workflow.sent_to_registration',   'Staff started finalization — registration'],
             WorkflowSteps::STEP_OFFICE_DISTRIBUTION         => ['workflow.registered',             'Document registered — ready to distribute'],
 

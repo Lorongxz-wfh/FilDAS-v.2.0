@@ -279,7 +279,8 @@ const SignDocumentModal: React.FC<SignDocumentModalProps> = ({
         const drawW = pageW * (snapshotW / 100);
         const drawH = drawW / (sigImage.width / sigImage.height);
         const drawX = pageW * (snapshotX / 100) - drawW / 2;
-        const drawY = pageH - pageH * (snapshotY / 100) - drawH;
+        // Center the signature vertically at sigY% (matching the preview's center-anchor)
+        const drawY = pageH - pageH * (snapshotY / 100) - drawH / 2;
 
         page.drawImage(sigImage, {
           x: Math.max(0, drawX),
