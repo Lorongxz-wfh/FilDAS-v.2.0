@@ -7,7 +7,7 @@ import Alert from "../components/ui/Alert";
 import EmptyState from "../components/ui/EmptyState";
 import RefreshButton from "../components/ui/RefreshButton";
 import { useToast } from "../components/ui/toast/ToastContext";
-import { Search, X, ChevronDown, Tag, LayoutGrid, List, SlidersHorizontal } from "lucide-react";
+import { Search, X, ChevronDown, Tag, LayoutGrid, List, SlidersHorizontal, Upload } from "lucide-react";
 import { inputCls, selectCls } from "../utils/formStyles";
 import { getAuthUser } from "../lib/auth";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
@@ -245,8 +245,12 @@ const TemplatesPage: React.FC = () => {
                 variant="primary"
                 size="sm"
                 onClick={() => setModalOpen(true)}
+                className="h-9 px-3 sm:px-4 rounded-xl sm:rounded-lg transition-all active:scale-95"
               >
-                Upload template
+                <div className="flex items-center gap-1.5">
+                  <Upload size={15} />
+                  <span className="hidden sm:inline">Upload template</span>
+                </div>
               </Button>
             )}
           </div>

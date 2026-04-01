@@ -568,17 +568,18 @@ const ReportExportPage: React.FC = () => {
       breadcrumbs={[{ label: "Reports", to: "/reports" }]}
       contentClassName="flex flex-col gap-6"
       right={
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           <Button
             variant="outline"
             size="sm"
             disabled={loading}
             loading={masterExporting}
             onClick={handleDownloadMasterZip}
-            className="border-sky-200 text-sky-700 hover:bg-sky-50 dark:border-sky-900 dark:text-sky-400 dark:hover:bg-sky-950/30"
+            className="h-9 px-3 sm:py-1.5 sm:h-auto sm:px-4 rounded-xl sm:rounded-lg border-sky-200 text-sky-700 hover:bg-sky-50 dark:border-sky-900 dark:text-sky-400 dark:hover:bg-sky-950/30 transition-all active:scale-95"
           >
             <Download size={13} />
-            Master Export (ZIP)
+            <span className="hidden sm:inline">Master Export (ZIP)</span>
+            <span className="sm:hidden font-bold leading-none">Master ZIP</span>
           </Button>
 
           <Button
@@ -587,9 +588,11 @@ const ReportExportPage: React.FC = () => {
             disabled={selectedCount === 0 || loading}
             loading={exporting}
             onClick={handleExportAll}
+            className="h-9 px-3 sm:py-1.5 sm:h-auto sm:px-4 rounded-xl sm:rounded-lg transition-all active:scale-95"
           >
             <Download size={13} />
-            {exporting ? "Exporting…" : `Export ${selectedCount} selected`}
+            <span className="hidden sm:inline">{exporting ? "Exporting…" : `Export ${selectedCount} selected`}</span>
+            <span className="sm:hidden font-bold leading-none">{exporting ? "..." : `Export (${selectedCount})`}</span>
           </Button>
         </div>
       }

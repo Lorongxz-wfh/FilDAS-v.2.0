@@ -250,22 +250,26 @@ export default function DocumentLibraryPage() {
     <PageFrame
       title="Document Library"
       right={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Refresh Icon Button (Mobile: square ghost) */}
           <RefreshButton
             onRefresh={async () => { await loadData(false); }}
             loading={refreshing || loading}
             title="Refresh library"
+            className="h-9 w-9 p-0 rounded-xl sm:h-8 sm:w-8 sm:rounded-md transition-all active:scale-95"
           />
+          
           <Button
             type="button"
             variant="ghost"
-            size="sm"
             onClick={() => navigate("/archive")}
-            className="flex items-center gap-2"
+            className="flex h-9 w-9 items-center justify-center p-0 rounded-xl border border-slate-200 dark:border-white/5 active:scale-95 transition-all sm:w-auto sm:px-3 sm:py-2 sm:gap-2 sm:rounded-md"
+            title="View Archive"
           >
             <Archive className="h-4 w-4" />
             <span className="hidden sm:inline">Archive</span>
           </Button>
+
           {canCreate && (
             <Button
               type="button"
@@ -275,9 +279,12 @@ export default function DocumentLibraryPage() {
                 markWorkQueueSession();
                 navigate("/documents/create", { state: { fromWorkQueue: true } });
               }}
+              className="h-9 px-3 rounded-xl transition-all active:scale-95 sm:px-4 sm:rounded-lg"
             >
-              <PlusCircle size={14} className="sm:mr-1.5" />
-              <span>+ Create document</span>
+              <div className="flex items-center gap-1.5">
+                <PlusCircle size={15} />
+                <span className="hidden sm:inline text-[12px] sm:text-sm font-bold whitespace-nowrap">Create document</span>
+              </div>
             </Button>
           )}
         </div>

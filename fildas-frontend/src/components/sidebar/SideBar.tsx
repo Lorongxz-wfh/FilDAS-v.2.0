@@ -201,17 +201,42 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Identity Section (Mobile uses direct identification, Desktop uses Card) */}
+        {/* Identity Section (Mobile) */}
         {mobileOpen && (
-          <div className="shrink-0 px-4 py-4 border-b border-slate-100 dark:border-surface-400 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold border-2 border-white dark:border-surface-500 overflow-hidden shadow-sm shrink-0">
-              {!imgError && user?.profile_photo_url ? (
-                <img src={user.profile_photo_url} alt={user.full_name} className="h-full w-full object-cover" onError={() => setImgError(true)} />
-              ) : initials}
+          <div className="shrink-0 px-4 pt-5 pb-4 space-y-4 border-b border-slate-100 dark:border-surface-400 bg-slate-50/30 dark:bg-black/5">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-full bg-brand-500 p-0.5 border border-white/20 shadow-md">
+                <div className="h-full w-full rounded-full overflow-hidden flex items-center justify-center text-white text-sm font-bold bg-brand-600">
+                  {!imgError && user?.profile_photo_url ? (
+                    <img src={user.profile_photo_url} alt={user.full_name} className="h-full w-full object-cover" onError={() => setImgError(true)} />
+                  ) : initials}
+                </div>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate tracking-tight">{user?.full_name}</p>
+                <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider truncate">{user?.role?.replace("_", " ")}</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{user?.full_name}</p>
-              <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide truncate">{user?.role?.replace("_", " ")}</p>
+
+            {/* Mobile: Quick Access Cards (Horizontal/Sleek/Compact) */}
+            <div className="flex gap-2 px-0.5">
+              {[
+                { label: "Activity", icon: History, to: "/my-activity", color: "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400" },
+                { label: "Archive", icon: Archive, to: "/archive", color: "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400" },
+              ].map((item) => (
+                <NavLink
+                  key={item.label}
+                  to={item.to}
+                  className="flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white dark:bg-surface-400 border border-slate-200 dark:border-white/5 active:scale-95 transition-all shadow-xs"
+                >
+                  <div className={`p-1.5 rounded-lg shrink-0 ${item.color}`}>
+                    <item.icon className="h-4 w-4" />
+                  </div>
+                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate">
+                    {item.label}
+                  </span>
+                </NavLink>
+              ))}
             </div>
           </div>
         )}
@@ -250,13 +275,17 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* Navigation list */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
+        <nav className={["flex-1 overflow-y-auto px-2 py-3", mobileOpen ? "space-y-1" : "space-y-4"].join(" ")}>
           {navGroups.map((group) => {
             const visibleItems = group.items.filter((item) => !item.roles || item.roles.includes(role));
             if (visibleItems.length === 0) return null;
             return (
               <div key={group.label}>
-                {!collapsed || mobileOpen ? <p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-widest text-slate-400/80 dark:text-slate-500/80">{group.label}</p> : <div className="mb-1.5 mx-2 border-t border-slate-200 dark:border-surface-400" />}
+                {(!collapsed && !mobileOpen) ? (
+                  <p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-widest text-slate-400/80 dark:text-slate-500/80">{group.label}</p>
+                ) : mobileOpen ? null : (
+                  <div className="mb-1.5 mx-2 border-t border-slate-200 dark:border-surface-400" />
+                )}
                 <ul className="space-y-0.5">
                   {visibleItems.map((item) => {
                     const isSharedMobile = ["/dashboard", "/work-queue", "/document-requests", "/documents"].includes(item.to);
@@ -265,13 +294,44 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <NavLink
                           to={item.to}
                           className={({ isActive }) => [
-                            "group flex w-full items-center rounded-md text-sm font-medium transition-colors duration-150 cursor-pointer",
-                            collapsed && !mobileOpen ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
-                            isActive ? "bg-slate-100 dark:bg-surface-400 text-slate-800 dark:text-slate-100" : "text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-surface-400 dark:hover:text-slate-200",
+                            "group relative flex w-full items-center transition-all cursor-pointer overflow-hidden",
+                            // PC Styles (Original behavior preserved)
+                            !mobileOpen ? [
+                              "rounded-md text-sm font-medium duration-150",
+                              collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
+                              isActive
+                                ? "bg-slate-100 dark:bg-surface-400 text-slate-800 dark:text-slate-100"
+                                : "text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-surface-400 dark:hover:text-slate-200",
+                            ].join(" ") : "",
+                            // Mobile Styles (Compact/Sleek)
+                            mobileOpen ? [
+                              "rounded-xl text-[12px] font-bold duration-200 active:scale-[0.98] gap-3 px-3 py-1.5 h-9.5",
+                              isActive
+                                ? "bg-brand-500/10 text-brand-600 dark:text-brand-400"
+                                : "text-slate-500 hover:bg-slate-100/50 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-200 shadow-none",
+                            ].join(" ") : ""
                           ].join(" ")}
                         >
-                          <item.icon className="h-4 w-4 shrink-0 transition-colors text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300" />
-                          {!collapsed || mobileOpen ? <span className="truncate">{item.label}</span> : null}
+                          {({ isActive }) => (
+                            <>
+                              <item.icon className={[
+                                "shrink-0 transition-all duration-200",
+                                // PC Icon (Original behavior preserved)
+                                !mobileOpen ? "h-4 w-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300" : "",
+                                // Mobile Icon (Clean/Sleek)
+                                mobileOpen ? [
+                                  "h-4 w-4",
+                                  isActive ? "text-brand-500" : "text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200"
+                                ].join(" ") : ""
+                              ].join(" ")} />
+                              
+                              {!collapsed || mobileOpen ? (
+                                <span className={mobileOpen ? "truncate tracking-tight select-none" : "truncate"}>
+                                  {item.label}
+                                </span>
+                              ) : null}
+                            </>
+                          )}
                         </NavLink>
                       </li>
                     );
@@ -286,37 +346,38 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* MOBILE: Direct Links in Sidebar Footer */}
         {mobileOpen && (
-          <div className="shrink-0 border-t border-slate-100 dark:border-surface-400 p-2 bg-slate-50/10 dark:bg-black/5 space-y-0.5">
-            {[
-              { label: "My Activity", icon: History, to: "/my-activity" },
-              { label: "Archive", icon: Archive, to: "/archive" },
-              { label: "Settings", icon: Settings, to: "/settings" },
-            ].map((item) => (
-              <NavLink key={item.label} to={item.to} className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-surface-400 rounded-md">
-                <item.icon className="h-4 w-4 shrink-0" />
-                <span className="truncate">{item.label}</span>
-              </NavLink>
-            ))}
-
-            <div className="py-1 px-3">
-              <div className="h-px bg-slate-200 dark:bg-surface-400 opacity-50" />
+          <div className="shrink-0 p-2.5 bg-slate-50/10 dark:bg-black/5 space-y-1.5">
+            <div className="flex items-center gap-1 bg-slate-100/30 dark:bg-white/5 p-1 rounded-lg">
+              {[
+                { label: "What's New", icon: Megaphone, to: "/whats-new" },
+                { label: "Report Issue", icon: AlertCircle, to: "/report-issue" },
+                { label: "Help & Support", icon: HelpCircle, to: "/help-support" },
+              ].map((item) => (
+                <NavLink
+                  key={item.label}
+                  to={item.to}
+                  className="group flex-1 flex h-8.5 items-center justify-center text-slate-400 dark:text-slate-500 hover:text-brand-500 hover:bg-white dark:hover:bg-surface-500 rounded-md transition-all active:scale-95"
+                  title={item.label}
+                >
+                  <item.icon className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
+                </NavLink>
+              ))}
             </div>
 
-            {[
-              { label: "What's New", icon: Megaphone, to: "/whats-new" },
-              { label: "Report Issue", icon: AlertCircle, to: "/report-issue" },
-              { label: "Help & Support", icon: HelpCircle, to: "/help-support" },
-            ].map((item) => (
-              <NavLink key={item.label} to={item.to} className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-surface-400 rounded-md">
-                <item.icon className="h-4 w-4 shrink-0" />
-                <span className="truncate">{item.label}</span>
+            <div className="flex items-center gap-1.5">
+              <NavLink
+                to="/settings"
+                className="flex-1 flex items-center gap-2.5 px-3 py-2 text-[12px] font-bold text-slate-600 hover:text-slate-900 dark:text-slate-200 dark:hover:text-white bg-white dark:bg-surface-400 rounded-xl border border-slate-200 dark:border-white/10 active:scale-[0.98] transition-all"
+              >
+                <Settings className="h-4 w-4" />
+                <span className="truncate">Settings</span>
               </NavLink>
-            ))}
-
-            <div className="pt-1">
-              <button onClick={onLogout} className="flex w-full items-center gap-3 px-3 py-2 text-sm font-medium text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-md transition-all">
-                <LogOut className="h-4 w-4 shrink-0" />
-                <span className="truncate">Log Out</span>
+              <button
+                onClick={onLogout}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-50 dark:bg-rose-950/20 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-900/30 border border-rose-100 dark:border-rose-900/30 transition-all active:scale-95"
+                title="Log Out"
+              >
+                <LogOut className="h-4 w-4" />
               </button>
             </div>
           </div>

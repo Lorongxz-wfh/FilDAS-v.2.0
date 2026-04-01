@@ -18,6 +18,7 @@ import { Camera, Trash2, KeyRound, User, Bell, Volume2, Wrench, PenLine } from "
 import { inputCls } from "../utils/formStyles";
 import { getUserRole, isSysAdmin, isAuditor } from "../lib/roleFilters";
 import { getAuthUser } from "../lib/auth";
+import { normalizeError } from "../lib/normalizeError";
 
 const Field: React.FC<{
   label: string;
@@ -173,7 +174,8 @@ const SettingsPage: React.FC = () => {
       }
       setProfileSuccess("Profile updated successfully.");
     } catch (e: any) {
-      setProfileError(e?.message ?? "Failed to update profile.");
+      console.error("[Profile Update Error]", e);
+      setProfileError(normalizeError(e));
     } finally {
       setProfileLoading(false);
     }
@@ -206,7 +208,8 @@ const SettingsPage: React.FC = () => {
         window.dispatchEvent(new Event("auth_user_updated"));
       }
     } catch (e: any) {
-      setPhotoError(e?.message ?? "Failed to upload photo.");
+      console.error("[Photo Upload Error]", e);
+      setPhotoError(normalizeError(e));
     } finally {
       setPhotoLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -233,7 +236,8 @@ const SettingsPage: React.FC = () => {
         window.dispatchEvent(new Event("auth_user_updated"));
       }
     } catch (e: any) {
-      setPhotoError(e?.message ?? "Failed to remove photo.");
+      console.error("[Photo Remove Error]", e);
+      setPhotoError(normalizeError(e));
     } finally {
       setPhotoLoading(false);
     }
@@ -263,7 +267,8 @@ const SettingsPage: React.FC = () => {
         window.dispatchEvent(new Event("auth_user_updated"));
       }
     } catch (e: any) {
-      setSigError(e?.message ?? "Failed to upload signature.");
+      console.error("[Signature Upload Error]", e);
+      setSigError(normalizeError(e));
     } finally {
       setSigLoading(false);
       if (sigInputRef.current) sigInputRef.current.value = "";
@@ -283,7 +288,8 @@ const SettingsPage: React.FC = () => {
         window.dispatchEvent(new Event("auth_user_updated"));
       }
     } catch (e: any) {
-      setSigError(e?.message ?? "Failed to remove signature.");
+      console.error("[Signature Remove Error]", e);
+      setSigError(normalizeError(e));
     } finally {
       setSigLoading(false);
     }
@@ -313,7 +319,8 @@ const SettingsPage: React.FC = () => {
       setPwSuccess("Password changed successfully.");
       setPw({ current_password: "", password: "", password_confirmation: "" });
     } catch (e: any) {
-      setPwError(e?.message ?? "Failed to change password.");
+      console.error("[Password Change Error]", e);
+      setPwError(normalizeError(e));
     } finally {
       setPwLoading(false);
     }

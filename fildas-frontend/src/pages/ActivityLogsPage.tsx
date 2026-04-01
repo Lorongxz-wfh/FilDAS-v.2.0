@@ -7,7 +7,7 @@ import Table, { type TableColumn } from "../components/ui/Table";
 import { listActivityLogs, getDocumentVersion } from "../services/documents";
 import ActivityCalendar from "../components/activityLogs/ActivityCalendar";
 import ActivityDetailModal from "../components/activityLogs/ActivityDetailModal";
-import { List, CalendarDays, X, Search, SlidersHorizontal } from "lucide-react";
+import { List, CalendarDays, X, Search, SlidersHorizontal, User } from "lucide-react";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import RefreshButton from "../components/ui/RefreshButton";
 import { selectCls, inputCls } from "../utils/formStyles";
@@ -331,15 +331,14 @@ const ActivityLogsPage: React.FC = () => {
       title="Activity Logs"
       contentClassName="flex flex-col min-h-0 gap-4 h-full"
       right={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {tab === "log" && (
-            <div className="flex items-center rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden text-xs font-medium shrink-0 shadow-sm">
+            <div className="flex items-center rounded-xl sm:rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden text-[10px] sm:text-xs font-bold shrink-0 shadow-sm">
               <button
                 type="button"
                 onClick={() => handleExport("csv")}
                 disabled={exporting || initialLoading}
-                title="Export current view to CSV"
-                className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition border-r border-slate-200 dark:border-surface-400 disabled:opacity-50"
+                className="px-2 sm:px-2.5 py-1.5 sm:py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition border-r border-slate-200 dark:border-surface-400 disabled:opacity-50 active:scale-95"
               >
                 CSV
               </button>
@@ -347,8 +346,7 @@ const ActivityLogsPage: React.FC = () => {
                 type="button"
                 onClick={() => handleExport("pdf")}
                 disabled={exporting || initialLoading}
-                title="Export current view to PDF"
-                className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition disabled:opacity-50"
+                className="px-2 sm:px-2.5 py-1.5 sm:py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition disabled:opacity-50 active:scale-95"
               >
                 PDF
               </button>
@@ -358,21 +356,20 @@ const ActivityLogsPage: React.FC = () => {
             onRefresh={refresh}
             loading={refreshing || exporting}
             title="Refresh logs"
+            className="h-9 w-9 p-0 rounded-xl sm:h-8 sm:w-8 sm:rounded-md transition-all active:scale-95"
           />
-          <div className="flex items-center rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-0.5 shadow-sm">
+          <div className="flex items-center rounded-xl sm:rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-0.5 shadow-sm overflow-hidden">
             <button
               type="button"
               onClick={() => setTab("log")}
-              title="Log view"
-              className={`p-1.5 rounded-md transition ${tab === "log" ? "bg-slate-100 dark:bg-surface-400 text-slate-900 dark:text-slate-100" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
+              className={`p-1.5 sm:p-1.5 rounded-lg sm:rounded-md transition ${tab === "log" ? "bg-slate-100 dark:bg-surface-400 text-slate-900 dark:text-slate-100 shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"} active:scale-95`}
             >
               <List size={15} />
             </button>
             <button
               type="button"
               onClick={() => setTab("calendar")}
-              title="Calendar view"
-              className={`p-1.5 rounded-md transition ${tab === "calendar" ? "bg-slate-100 dark:bg-surface-400 text-slate-900 dark:text-slate-100" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"}`}
+              className={`p-1.5 sm:p-1.5 rounded-lg sm:rounded-md transition ${tab === "calendar" ? "bg-slate-100 dark:bg-surface-400 text-slate-900 dark:text-slate-100 shadow-xs" : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"} active:scale-95`}
             >
               <CalendarDays size={15} />
             </button>
@@ -380,9 +377,11 @@ const ActivityLogsPage: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate("/my-activity")}
-            className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition shadow-sm"
+            className="flex h-9 w-9 items-center justify-center rounded-xl sm:h-auto sm:w-auto sm:rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 sm:px-3 sm:py-1.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition shadow-sm whitespace-nowrap active:scale-95"
+            title="My Activity"
           >
-            My activity →
+            <User size={15} className="sm:hidden" />
+            <span className="hidden sm:inline">My activity →</span>
           </button>
         </div>
       }
