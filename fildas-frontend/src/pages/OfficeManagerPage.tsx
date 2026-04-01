@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { pageCache } from "../lib/pageCache";
 import PageFrame from "../components/layout/PageFrame";
@@ -8,9 +8,10 @@ import { getAdminOffices, type AdminOffice } from "../services/admin";
 import OfficeEditModal from "../components/admin/OfficeEditModal";
 import Alert from "../components/ui/Alert";
 import { inputCls, selectCls } from "../utils/formStyles";
-import { X } from "lucide-react";
-import { StatusBadge } from "../components/ui/Badge";
+import { X, Search, SlidersHorizontal } from "lucide-react";
 import RefreshButton from "../components/ui/RefreshButton";
+import MiddleTruncate from "../components/ui/MiddleTruncate";
+import { formatDate } from "../utils/formatters";
 
 const OFFICE_TYPES = ["office", "vp", "president", "committee", "unit"];
 
@@ -24,6 +25,14 @@ export function OfficeManagerPage() {
   const [sortBy, setSortBy] = useState<"name" | "code" | "type">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [reloadTick, setReloadTick] = useState(0);
+
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (statusFilter !== "active") count++;
+    if (typeFilter) count++;
+    return count;
+  }, [statusFilter, typeFilter]);
 
   const _oc = pageCache.get<AdminOffice>("offices", '{"q":"","status":"active","type":""}', 10 * 60_000);
   const [items, setItems] = useState<AdminOffice[]>(_oc?.rows ?? []);
@@ -114,7 +123,7 @@ export function OfficeManagerPage() {
     setTypeFilter("");
   };
 
-  const columns: TableColumn<AdminOffice>[] = [
+  const columns: TableColumn<AdminOffice>[] = useMemo(() => [
     {
       key: "code",
       header: "Code",
@@ -130,42 +139,64 @@ export function OfficeManagerPage() {
       header: "Name",
       sortKey: "name",
       render: (o) => (
-        <span className="font-medium text-slate-900 dark:text-slate-100 truncate block">
-          {o.name}
-        </span>
-      ),
-    },
-    {
-      key: "type",
-      header: "Type",
-      render: (o) => (
-        <span className="text-sm text-slate-500 dark:text-slate-400 capitalize">
-          {o.type ?? "office"}
-        </span>
+        <MiddleTruncate 
+          text={o.name}
+          className="font-semibold text-slate-900 dark:text-slate-100 placeholder:block"
+        />
       ),
     },
     {
       key: "parent",
       header: "Parent",
-      render: (o) => (
-        <span className="text-sm text-slate-500 dark:text-slate-400 truncate block">
-          {o.parent_office
-            ? `${o.parent_office.name} (${o.parent_office.code})`
-            : "—"}
-        </span>
-      ),
+      render: (o) => {
+        const text = o.parent_office 
+          ? `${o.parent_office.name} (${o.parent_office.code})` 
+          : "—";
+        return (
+          <MiddleTruncate 
+            text={text}
+            className="text-sm text-slate-600 dark:text-slate-400"
+          />
+        );
+      },
+    },
+    {
+      key: "type",
+      header: "Type",
+      render: (o) => {
+        const raw = o.type ?? "office";
+        const label = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+        return (
+          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+            {label}
+          </span>
+        );
+      }
     },
     {
       key: "status",
       header: "Status",
-      render: (o) => <StatusBadge status={o.deleted_at ? "Disabled" : "Active"} />,
+      render: (o) => (
+        <span className={`text-xs font-medium ${o.deleted_at ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+          {o.deleted_at ? "Disabled" : "Active"}
+        </span>
+      ),
     },
-  ];
+    {
+      key: "created",
+      header: "Created",
+      render: (o) => (
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          {(o as any).created_at ? formatDate((o as any).created_at) : "—"}
+        </span>
+      ),
+    },
+  ], []);
 
   return (
     <PageFrame
       title="Office Manager"
-      contentClassName="flex flex-col min-h-0 gap-4 h-full overflow-hidden"
+      contentClassName="flex flex-col min-h-0 h-full"
       right={
         <div className="flex items-center gap-2">
           <RefreshButton
@@ -179,68 +210,138 @@ export function OfficeManagerPage() {
         </div>
       }
     >
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2 shrink-0">
-        {/* Search with inline clear */}
-        <div className="relative w-full sm:w-64">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search name or code…"
-            className={`${inputCls} pr-8`}
-          />
-          {q && (
-            <button
-              type="button"
-              onClick={() => setQ("")}
-              title="Clear"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
+      {/* Filter bar - updated for mobile responsiveness */}
+      <div className="shrink-0 py-3 flex flex-col gap-3 sm:gap-2">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:max-w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Search name or code…"
+              className={`${inputCls} pl-9 pr-8 text-sm`}
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQ("");
+                  setPage(1);
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                title="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
 
-        {/* Status filter */}
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as any)}
-          className={selectCls}
-        >
-          <option value="active">Active</option>
-          <option value="disabled">Disabled</option>
-          <option value="all">All</option>
-        </select>
-
-        {/* Type filter */}
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className={selectCls}
-        >
-          <option value="">All types</option>
-          {OFFICE_TYPES.map((t) => (
-            <option key={t} value={t} className="capitalize">
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </option>
-          ))}
-        </select>
-
-        {/* Clear — only when non-default filters active */}
-        {hasActiveFilters && (
           <button
             type="button"
-            onClick={clearFilters}
-            className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+            className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${
+              isFiltersOpen || activeFiltersCount > 0
+                ? "bg-brand-50 border-brand-200 text-brand-600 dark:bg-brand-500/10 dark:border-brand-500/30 dark:text-brand-400 shadow-xs"
+                : "bg-white border-slate-200 text-slate-600 dark:bg-surface-500 dark:border-surface-400 dark:text-slate-400"
+            }`}
           >
-            Clear
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span className="text-xs font-semibold">Filters</span>
+            {activeFiltersCount > 0 && (
+              <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-brand-500 text-white rounded-full">
+                {activeFiltersCount}
+              </span>
+            )}
           </button>
+
+          <div className="hidden sm:flex items-center gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className={`${selectCls} text-xs h-8 w-28`}
+            >
+              <option value="active">Active</option>
+              <option value="disabled">Disabled</option>
+              <option value="all">All</option>
+            </select>
+
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className={`${selectCls} text-xs h-8 w-32`}
+            >
+              <option value="">All types</option>
+              {OFFICE_TYPES.map((t) => (
+                <option key={t} value={t} className="capitalize">
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </option>
+              ))}
+            </select>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile secondary filters collapsible */}
+        {isFiltersOpen && (
+          <div className="sm:hidden flex flex-col gap-3 p-4 bg-slate-50 dark:bg-surface-600 rounded-xl border border-slate-200 dark:border-surface-400 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  className={selectCls}
+                >
+                  <option value="active">Active</option>
+                  <option value="disabled">Disabled</option>
+                  <option value="all">All</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Type</label>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className={selectCls}
+                >
+                  <option value="">All types</option>
+                  {OFFICE_TYPES.map((t) => (
+                    <option key={t} value={t} className="capitalize">
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="w-full py-2.5 text-xs font-bold text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10 rounded-lg transition"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
         )}
 
         {error && <Alert variant="danger">{error}</Alert>}
       </div>
 
-      {/* Table — flex-1 so it fills remaining space and scrolls internally */}
+      {/* Table Container */}
       <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
         <Table<AdminOffice>
           bare
@@ -255,7 +356,7 @@ export function OfficeManagerPage() {
           emptyMessage="No offices found."
           hasMore={hasMore}
           onLoadMore={() => setPage((p) => p + 1)}
-          gridTemplateColumns="6rem 1fr 7rem 1fr 7rem"
+          gridTemplateColumns="minmax(80px, 6rem) minmax(140px, 1.2fr) minmax(140px, 1.2fr) 8rem 7rem 8rem"
           sortBy={sortBy}
           sortDir={sortDir}
           onSortChange={(key, dir) => {

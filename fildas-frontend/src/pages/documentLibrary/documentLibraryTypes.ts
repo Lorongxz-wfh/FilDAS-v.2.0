@@ -34,7 +34,9 @@ export type LibraryItem = {
   code?: string;
   status?: string;
   version?: number;
-  date: string;
+  date: string; // fallback date
+  dateDistributed?: string;
+  dateShared?: string;
   docId?: number;
   reqId?: number;
   recipId?: number;
@@ -53,9 +55,11 @@ export function docToLibraryItem(
     doctype: doc.doctype,
     office: (doc as any).ownerOffice?.name ?? undefined,
     code: doc.code ?? undefined,
-    status: doc.status,
+    status: doc.status || "Distributed",
     version: doc.version_number,
     date: doc.created_at,
+    dateDistributed: doc.effective_date || doc.distributed_at || doc.created_at,
+    dateShared: source === "shared" ? doc.created_at : undefined,
     docId: doc.id,
   };
 }
@@ -69,8 +73,9 @@ export function reqToLibraryItem(row: any): LibraryItem {
     mode: row.batch_mode,
     office: row.office_name,
     code: row.document_code ?? row.code ?? undefined,
-    status: row.status ?? undefined,
+    status: row.status || "Accepted",
     date: row.created_at,
+    dateDistributed: row.created_at,
     reqId: row.request_id,
     recipId: row.recipient_id,
     itemId: row.item_id ?? undefined,

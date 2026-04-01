@@ -2,16 +2,17 @@ import React from "react";
 import Modal from "../ui/Modal";
 import { friendlyEvent } from "../../utils/activityFormatters";
 import { formatDateTime } from "../../utils/formatters";
+import ActivityDiff from "../ui/ActivityDiff";
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className={`flex flex-col gap-0.5 ${className}`}>
       <span className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
         {label}
       </span>
-      <span className="text-sm text-slate-800 dark:text-slate-200 wrap-break-word">
+      <div className="text-sm text-slate-800 dark:text-slate-200 break-words">
         {children}
-      </span>
+      </div>
     </div>
   );
 }
@@ -26,6 +27,7 @@ const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({ row, onClose,
   const fromStatus = row.meta?.from_status;
   const toStatus   = row.meta?.to_status;
   const note       = row.meta?.note;
+  const changes    = Array.isArray(row.meta?.changes) ? row.meta.changes : null;
   const canNav     = !!(row.document_version_id || row.document_id || row.meta?.document_request_id);
 
   const actorName  = row.actor_user?.full_name ?? row.actor_user?.name ?? null;
@@ -71,44 +73,50 @@ const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({ row, onClose,
         {/* Label / description */}
         {row.label && <Field label="Description">{row.label}</Field>}
 
+        {/* Changes Diff */}
+        {changes && (
+          <Field label="Field Changes">
+            <ActivityDiff changes={changes} />
+          </Field>
+        )}
+
         {/* Status transition */}
         {fromStatus && toStatus && (
           <Field label="Transition">
-            <span className="flex items-center gap-2 flex-wrap mt-0.5">
+            <div className="flex items-center gap-2 flex-wrap mt-0.5">
               <span className="px-2 py-0.5 rounded-md text-xs bg-slate-100 dark:bg-surface-600 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-surface-400">
                 {fromStatus}
               </span>
-              <span className="text-slate-400 text-xs">→</span>
-              <span className="px-2 py-0.5 rounded-md text-xs bg-brand-100 dark:bg-brand-500/20 text-brand-500 dark:text-brand-300 border border-brand-200 dark:border-brand-500/40 font-medium">
+              <span className="text-slate-400 text-xs text-center font-bold">→</span>
+              <span className="px-2 py-0.5 rounded-md text-xs bg-brand-500/10 dark:bg-brand-500/20 text-brand-600 dark:text-brand-300 border border-brand-200 dark:border-brand-500/40 font-medium">
                 {toStatus}
               </span>
-            </span>
+            </div>
           </Field>
         )}
 
         {/* Note */}
         {note && (
           <Field label="Note">
-            <span className="italic text-slate-600 dark:text-slate-400">
+            <div className="text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-surface-600/50 p-2 rounded-md border-l-2 border-slate-200 dark:border-surface-400 italic">
               "{note}"
-            </span>
+            </div>
           </Field>
         )}
 
         {/* 2-col grid for metadata */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-slate-200 dark:border-surface-400 pt-3">
-          {docTitle && <Field label="Document">{docTitle}</Field>}
-          {actorName && <Field label="Actor">{actorName}</Field>}
-          {actorOffice && <Field label="Actor Office">{actorOffice}</Field>}
-          {targetOffice && <Field label="Target Office">{targetOffice}</Field>}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-slate-200 dark:border-surface-400 pt-4">
+          {docTitle && <Field label="Document" className="col-span-2 sm:col-span-1">{docTitle}</Field>}
+          {actorName && <Field label="Actor" className="col-span-2 sm:col-span-1">{actorName}</Field>}
+          {actorOffice && <Field label="Actor Office" className="col-span-2 sm:col-span-1">{actorOffice}</Field>}
+          {targetOffice && <Field label="Target Office" className="col-span-2 sm:col-span-1">{targetOffice}</Field>}
 
-          {/* Render all rich meta fields from announcement logs (and future structured logs) */}
+          {/* Render OTHER rich meta fields that aren't changes, status, etc. */}
           {row.meta &&
             Object.entries(row.meta)
               .filter(
                 ([key]) =>
                   ![
-                    // exclude internal/navigation keys already shown above or used elsewhere
                     "from_status",
                     "to_status",
                     "note",
@@ -116,10 +124,11 @@ const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({ row, onClose,
                     "document_id",
                     "document_request_id",
                     "announcement_id",
+                    "changes",
                   ].includes(key),
               )
               .map(([key, value]) => (
-                <Field key={key} label={key}>
+                <Field key={key} label={key.replace(/_/g, " ")} className="col-span-2">
                   {String(value ?? "—")}
                 </Field>
               ))}

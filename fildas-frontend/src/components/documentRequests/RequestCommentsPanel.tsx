@@ -1,5 +1,5 @@
 import React from "react";
-import { Send } from "lucide-react";
+import { Send, ChevronDown } from "lucide-react";
 import CommentBubble from "../documents/documentFlow/CommentBubble";
 import type { DocumentRequestMessageRow } from "../../services/documentRequests";
 import { formatDateTime } from "./shared";
@@ -36,6 +36,7 @@ export default function RequestCommentsPanel({
   readOnlyLabel = "This thread is read-only.",
 }: Props) {
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
+  const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
 
   // Track new message IDs from polling
   const [newMessageIds, setNewMessageIds] = React.useState<Set<number>>(
@@ -71,10 +72,24 @@ export default function RequestCommentsPanel({
     prevMessageIdsRef.current = new Set(messages.map((m) => m.id));
   }, [messages, myUserId]);
 
-  const handleScrollToNew = () => {
+  const handleScroll = () => {
+    if (!scrollAreaRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
+    const isScrolledUp = scrollTop + clientHeight < scrollHeight - 150;
+    setShowScrollToBottom(isScrolledUp);
+  };
+
+  const handleScrollToBottom = () => {
     if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+      scrollAreaRef.current.scrollTo({
+        top: scrollAreaRef.current.scrollHeight,
+        behavior: "smooth",
+      });
     }
+  };
+
+  const handleScrollToNew = () => {
+    handleScrollToBottom();
     onClearNewMessages?.();
   };
 
@@ -92,37 +107,51 @@ export default function RequestCommentsPanel({
         </button>
       )}
 
-      <div
-        ref={scrollAreaRef}
-        className="flex-1 overflow-y-auto px-4 py-3 bg-slate-50/30 dark:bg-surface-600/30 space-y-4"
-      >
-        {messages.length === 0 && !loading ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
-            <p className="text-sm text-slate-400 dark:text-slate-500">
-              {readOnly 
-                ? "No announcements have been posted to this thread yet." 
-                : "No comments yet. Start the conversation."
-              }
-            </p>
-          </div>
-        ) : (
-          messages.map((m) => (
-            <CommentBubble
-              key={m.id}
-              senderName={m.sender?.name ?? "Unknown"}
-              roleName={
-                typeof m.sender?.role === "string" ? m.sender.role : null
-              }
-              when={formatDateTime(m.created_at ?? "")}
-              message={m.message}
-              type={m.type ?? "comment"}
-              isNew={newMessageIds.has(m.id)}
-              isMine={m.sender_user_id === myUserId}
-              avatarLetter={(m.sender?.name ?? "?").charAt(0).toUpperCase()}
-            />
-          ))
+      <div className="flex-1 relative min-h-0">
+        <div
+          ref={scrollAreaRef}
+          onScroll={handleScroll}
+          className="absolute inset-0 overflow-y-auto px-4 py-3 bg-slate-50/30 dark:bg-surface-600/30 space-y-4 scroll-smooth"
+        >
+          {messages.length === 0 && !loading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
+              <p className="text-sm text-slate-400 dark:text-slate-500">
+                {readOnly 
+                  ? "No announcements have been posted to this thread yet." 
+                  : "No comments yet. Start the conversation."
+                }
+              </p>
+            </div>
+          ) : (
+            messages.map((m) => (
+              <CommentBubble
+                key={m.id}
+                senderName={m.sender?.name ?? "Unknown"}
+                roleName={
+                  typeof m.sender?.role === "string" ? m.sender.role : null
+                }
+                when={formatDateTime(m.created_at ?? "")}
+                message={m.message}
+                type={m.type ?? "comment"}
+                isNew={newMessageIds.has(m.id)}
+                isMine={m.sender_user_id === myUserId}
+                avatarLetter={(m.sender?.name ?? "?").charAt(0).toUpperCase()}
+              />
+            ))
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Jump to bottom button */}
+        {showScrollToBottom && (
+          <button
+            type="button"
+            onClick={handleScrollToBottom}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 shadow-xl border border-slate-200 transition-all duration-200 hover:bg-white hover:text-sky-600 hover:scale-110 active:scale-95 dark:bg-surface-400 dark:border-surface-300 dark:text-sky-400 dark:hover:bg-surface-300 animate-in fade-in slide-in-from-bottom-4"
+          >
+            <ChevronDown className="h-5 w-5" />
+          </button>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {readOnly ? (

@@ -157,7 +157,11 @@ const emptyResults = {
 };
 
 // ── Command Menu ───────────────────────────────────────────────────────────
-const SearchBar: React.FC = () => {
+interface SearchBarProps {
+  isMobileIconOnly?: boolean;
+}
+
+const SearchBar: React.FC<SearchBarProps> = () => {
   const navigate = useNavigate();
   const role = getUserRole();
 
@@ -202,7 +206,6 @@ const SearchBar: React.FC = () => {
   React.useEffect(() => {
     setActiveIndex(0);
   }, [totalResults]);
-
 
   const closeMenu = () => {
     setOpen(false);

@@ -609,7 +609,7 @@ class DocumentController extends Controller
         if (!empty($changes)) {
             $this->logActivity('document.field_changed', 'Updated document details', $user?->id, $user?->office_id, [
                 'changes' => $changes,
-            ], $document->id);
+            ], $document->id, $document->latestVersion?->id);
         }
 
         try {

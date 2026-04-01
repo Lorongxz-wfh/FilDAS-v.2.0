@@ -1,8 +1,10 @@
 import React from "react";
-import { CheckCircle2, Circle } from "lucide-react";
+import { CheckCircle2, Circle, Clock } from "lucide-react";
 import Skeleton from "../../ui/loader/Skeleton";
+import Tooltip from "../../ui/Tooltip";
 import type { FlowStep, Phase, PhaseId } from "./flowConfig";
 import type { WorkflowTask } from "../../../services/documents";
+import { formatDateTime } from "../../../utils/formatters";
 
 type Props = {
   phases: Phase[];
@@ -27,7 +29,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
   currentGlobalIndex,
   currentPhaseId,
   activeFlowSteps,
-  // tasks,
+  tasks,
 }) => {
   const currentPhase = phases.find((p) => p.id === currentPhaseId) ?? phases[0];
 
@@ -59,6 +61,47 @@ const WorkflowProgressCard: React.FC<Props> = ({
     setSelectedPhaseId(currentPhaseId);
   }, [currentPhaseId]);
 
+  const getStepCompletionInfo = (stepId: string) => {
+    if (!tasks || tasks.length === 0) return null;
+    
+    // Map flowConfig step ID to backend task step name if needed
+    // In FilDAS, they should match for custom routing or the standard ones
+    // We'll look for a completed task that matches this step
+    const task = tasks.find(t => {
+      if (t.status !== 'completed') return false;
+      
+      // Exact match (normal steps)
+      if (t.step === stepId) return true;
+      
+      // Custom routing steps: stepId is "custom_review_office:ID"
+      if (stepId.includes('custom_review_office') && t.step === 'custom_review_office') {
+         return Number(t.assigned_office_id) === Number(stepId.split(':')[1]);
+      }
+      if (stepId.includes('custom_approval_office') && t.step === 'custom_approval_office') {
+         return Number(t.assigned_office_id) === Number(stepId.split(':')[1]);
+      }
+      
+      return false;
+    });
+
+    if (!task || !task.completed_at) return null;
+
+    return (
+      <div className="space-y-1.5 min-w-[140px]">
+        <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+          <CheckCircle2 className="h-3 w-3" />
+          <span>Completed</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-slate-300">
+          <Clock className="h-3 w-3" />
+          <span>{formatDateTime(task.completed_at)}</span>
+        </div>
+        {/* If we had the user name in the task object, we'd show it here */}
+        {/* Fallback to 'System' or actor from elsewhere if possible */}
+      </div>
+    );
+  };
+
   // ── Shared step renderer (used by both desktop steps timeline and mobile accordion body) ──
   const renderStepBubbles = (phaseSteps: FlowStep[]) => {
     if (phaseSteps.length === 0) {
@@ -72,18 +115,24 @@ const WorkflowProgressCard: React.FC<Props> = ({
     if (phaseSteps.length === 1) {
       const step = phaseSteps[0];
       const isCurrent = step.id === currentStep.id;
+      const completionInfo = getStepCompletionInfo(step.id);
+      
       return (
         <div className="flex justify-center">
           <div className="flex w-56 flex-col items-center text-center">
-            <div
-              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold shadow-sm ${
-                isCurrent
-                  ? "bg-brand-400 text-white"
-                  : "bg-white text-slate-600 border border-slate-200 dark:bg-surface-500 dark:text-slate-300 dark:border-surface-300"
-              }`}
-            >
-              1
-            </div>
+            <Tooltip content={completionInfo}>
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold shadow-sm transition-all ${
+                  isCurrent
+                    ? "bg-brand-400 text-white"
+                    : completionInfo 
+                      ? "bg-emerald-500 text-white cursor-help"
+                      : "bg-white text-slate-600 border border-slate-200 dark:bg-surface-500 dark:text-slate-300 dark:border-surface-300"
+                }`}
+              >
+                1
+              </div>
+            </Tooltip>
             <span
               className={`mt-2 text-xs font-medium leading-snug ${
                 isCurrent ? "text-slate-900 dark:text-slate-100 font-semibold" : "text-slate-600 dark:text-slate-400"
@@ -103,30 +152,33 @@ const WorkflowProgressCard: React.FC<Props> = ({
           {phaseSteps.map((step, si, arr) => {
             const stepIndex = activeFlowSteps.findIndex((s) => s.id === step.id);
             const stepIsCurrent = step.id === currentStep.id;
+            const completionInfo = getStepCompletionInfo(step.id);
             const stepIsCompleted =
               currentGlobalIndex >= 0 && stepIndex >= 0 && stepIndex < currentGlobalIndex;
 
             return (
               <React.Fragment key={`${step.id}-${si}`}>
                 <div className="flex flex-col items-center" style={{ width: "80px" }}>
-                  <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold shadow-sm ${
-                      stepIsCurrent
-                        ? "bg-brand-400 text-white"
-                        : stepIsCompleted
-                          ? "bg-emerald-500 text-white"
-                          : "bg-white text-slate-600 border border-slate-200 dark:bg-surface-500 dark:text-slate-300 dark:border-surface-300"
-                    }`}
-                  >
-                    {si + 1}
-                  </div>
+                  <Tooltip content={completionInfo}>
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold shadow-sm transition-all ${
+                        stepIsCurrent
+                          ? "bg-brand-400 text-white"
+                          : completionInfo || stepIsCompleted
+                            ? "bg-emerald-500 text-white cursor-help"
+                            : "bg-white text-slate-600 border border-slate-200 dark:bg-surface-500 dark:text-slate-300 dark:border-surface-300"
+                      }`}
+                    >
+                      {si + 1}
+                    </div>
+                  </Tooltip>
                   <span
                     className={`mt-1.5 text-center text-xs font-medium leading-tight line-clamp-2 ${
                       stepIsCurrent
                         ? "text-slate-900 dark:text-slate-100 font-semibold"
                         : stepIsCompleted
                           ? "text-slate-700 dark:text-slate-300"
-                          : "text-slate-500 dark:text-slate-400"
+                          : "text-slate-400 dark:text-slate-500"
                     }`}
                     title={step.label}
                   >
@@ -137,7 +189,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                   <div className="flex items-center mt-3.5 shrink-0">
                     <div
                       className={`h-1 w-5 rounded-full ${
-                        stepIsCompleted
+                        stepIsCompleted || !!completionInfo
                           ? "bg-emerald-400"
                           : stepIsCurrent
                             ? "bg-brand-300 dark:bg-brand-700"
@@ -148,7 +200,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                       viewBox="0 0 20 20"
                       fill="currentColor"
                       className={`ml-0.5 h-3 w-3 ${
-                        stepIsCompleted
+                        stepIsCompleted || !!completionInfo
                           ? "text-emerald-400"
                           : stepIsCurrent
                             ? "text-brand-300 dark:text-brand-700"
@@ -420,8 +472,8 @@ const WorkflowProgressCard: React.FC<Props> = ({
                             : selectedPhaseId === phase.id
                               ? "border-slate-400 bg-slate-100 dark:border-slate-400 dark:bg-surface-400/60"
                               : isCompleted
-                                ? "border-slate-200 bg-slate-50/60 dark:border-surface-400 dark:bg-surface-600/60 hover:border-slate-300 dark:hover:border-slate-500"
-                                : "border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-600 hover:border-slate-300 dark:hover:border-slate-500"
+                                ? "border-slate-200 bg-slate-50/60 dark:border-surface-400 dark:bg-surface-600 hover:border-slate-300 dark:hover:border-slate-300"
+                                : "border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-600 hover:border-slate-300 dark:hover:border-slate-300"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
@@ -440,7 +492,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                                 isCurrent
                                   ? "text-slate-900 dark:text-slate-100 font-semibold"
                                   : isCompleted
-                                    ? "text-slate-500 dark:text-slate-400"
+                                    ? "text-slate-600 dark:text-slate-200"
                                     : "text-slate-500 dark:text-slate-400"
                               }`}
                               title={phase.label}

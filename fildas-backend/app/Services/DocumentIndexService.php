@@ -123,6 +123,35 @@ class DocumentIndexService
             });
         }
 
+        if (!empty($data['phase'])) {
+            $phase = strtolower($data['phase']);
+            $query->whereHas('latestVersion', function ($v) use ($phase) {
+                if ($phase === 'draft') {
+                    $v->whereIn('status', ['Draft', 'Office Draft']);
+                } elseif ($phase === 'review') {
+                    $v->where(fn($q) => $q->where('status', 'like', '%Review%')->orWhere('status', 'like', '%Check%'));
+                } elseif ($phase === 'approval') {
+                    $v->where('status', 'like', '%Approval%');
+                } elseif ($phase === 'finalization') {
+                    $v->where(fn($q) => $q->where('status', 'like', '%Registration%')->orWhere('status', 'like', '%Distribution%'));
+                } elseif ($phase === 'distributed') {
+                    $v->where('status', 'Distributed');
+                }
+            });
+        }
+
+        if (isset($data['version_number']) && strlen($data['version_number']) > 0) {
+            $query->whereHas('latestVersion', fn($v) => $v->where('version_number', (int) $data['version_number']));
+        }
+
+        if (isset($data['assigned_office_id']) && strlen($data['assigned_office_id']) > 0) {
+            $query->whereHas('latestVersion', function ($v) use ($data) {
+                $v->whereHas('tasks', function ($t) use ($data) {
+                    $t->where('status', 'open')->where('assigned_office_id', (int) $data['assigned_office_id']);
+                });
+            });
+        }
+
         // Date range filter (created_at of the document)
         if (!empty($data['date_from'])) {
             $query->where('documents.created_at', '>=', $data['date_from'] . ' 00:00:00');
@@ -175,7 +204,7 @@ class DocumentIndexService
         $perPage = (int) ($data['per_page'] ?? 25);
         $perPage = max(1, min(100, $perPage));
 
-        $allowedSorts = ['title', 'created_at', 'code'];
+        $allowedSorts = ['title', 'created_at', 'code', 'updated_at'];
         $sortBy  = in_array($data['sort_by'] ?? '', $allowedSorts, true)
             ? $data['sort_by'] : 'created_at';
         $sortDir = ($data['sort_dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
@@ -194,7 +223,9 @@ class DocumentIndexService
             'ownerOffice:id,code,name',
             'reviewOffice:id,code,name',
             'latestVersion' => function ($q) use ($versionFields) {
-                $q->select($versionFields);
+                $q->select($versionFields)->with(['tasks' => function ($t) {
+                    $t->where('status', 'open')->with('assignedOffice:id,code,name');
+                }]);
             },
             'tags:id,name',
         ];
@@ -219,6 +250,7 @@ class DocumentIndexService
                 'documents.school_year',
                 'documents.semester',
                 'documents.created_at',
+                'documents.updated_at',
             ])
             ->with($withs)
             ->orderBy('documents.' . $sortBy, $sortDir)

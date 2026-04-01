@@ -48,8 +48,6 @@ type Props = {
   onChanged?: () => void;
 };
 
-// PanelHeightButton removed — info section now scrolls independently
-
 const DocumentRightPanel: React.FC<Props> = ({
   document,
   version,
@@ -103,9 +101,9 @@ const DocumentRightPanel: React.FC<Props> = ({
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${
                     document.doctype === "internal"
-                      ? "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300 border border-slate-200 dark:border-surface-300"
+                      ? "bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border border-sky-100 dark:border-sky-800"
                       : document.doctype === "external"
-                        ? "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300 border border-slate-200 dark:border-surface-300"
+                        ? "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-100 dark:border-orange-800"
                         : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-200 dark:border-amber-900"
                   }`}
                 >
@@ -130,7 +128,6 @@ const DocumentRightPanel: React.FC<Props> = ({
         {infoExpanded && (
           <div className="px-2.5 pb-3">
             {!isDataReady ? (
-              /* Skeleton info rows */
               <div className="space-y-1.5">
                 {[148, 100, 130, 90, 120, 110].map((w, i) => (
                   <div

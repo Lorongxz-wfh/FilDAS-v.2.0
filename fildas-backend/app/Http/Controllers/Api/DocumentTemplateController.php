@@ -23,7 +23,7 @@ class DocumentTemplateController extends Controller
     {
         $user = $request->user();
 
-        $allowedSorts = ['name', 'created_at'];
+        $allowedSorts = ['name', 'created_at', 'mime_type', 'file_size'];
         $sortBy  = in_array($request->query('sort_by'), $allowedSorts, true)
             ? $request->query('sort_by') : 'created_at';
         $sortDir = $request->query('sort_dir') === 'asc' ? 'asc' : 'desc';
@@ -55,7 +55,7 @@ class DocumentTemplateController extends Controller
             $query->whereHas('tags', fn($tq) => $tq->where('name', $tag));
         }
 
-        $templates = $query->get()->map(fn($t) => $this->format($t, $user));
+        $templates = $query->get()->map(fn(DocumentTemplate $t) => $this->format($t, $user));
 
         return response()->json(['data' => $templates]);
     }

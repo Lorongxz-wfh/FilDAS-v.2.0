@@ -1177,21 +1177,31 @@ class DocumentRequestController extends Controller
         $row = DB::table('document_requests')->where('id', $requestId)->first();
         if (!$row) return response()->json(['message' => 'Not found.'], 404);
 
-        $payload = array_filter([
-            'title'       => $data['title'] ?? null,
-            'description' => array_key_exists('description', $data) ? $data['description'] : null,
-            'due_at'      => array_key_exists('due_at', $data) ? $data['due_at'] : null,
-        ], fn($v, $k) => array_key_exists($k, $data), ARRAY_FILTER_USE_BOTH);
+        $payload = [];
+        $changes = [];
+        foreach (['title', 'description', 'due_at'] as $f) {
+            if ($request->has($f)) {
+                $old = $row->{$f};
+                $new = $data[$f] ?? null;
+                if ((string)$old !== (string)($new ?? '')) {
+                    $payload[$f] = $new;
+                    $changes[] = ['field' => $f, 'old' => $old, 'new' => $new];
+                }
+            }
+        }
 
         if (empty($payload)) {
-            return response()->json(['message' => 'Nothing to update.'], 422);
+            return response()->json(['message' => 'Nothing to update.'], 200);
         }
 
         $payload['updated_at'] = now();
 
         DB::table('document_requests')->where('id', $requestId)->update($payload);
 
-        $this->logActivity('document_request.updated', 'Updated document request', $request->user()->id, $request->user()->office_id, ['document_request_id' => $requestId, 'fields' => array_keys($payload)]);
+        $this->logActivity('document_request.updated', 'Updated document request details', $request->user()->id, $request->user()->office_id, [
+            'document_request_id' => $requestId,
+            'changes' => $changes,
+        ]);
 
         try {
             broadcast(new \App\Events\WorkspaceChanged('request'));
@@ -1214,14 +1224,21 @@ class DocumentRequestController extends Controller
         $item = DB::table('document_request_items')->where('id', $itemId)->first();
         if (!$item) return response()->json(['message' => 'Item not found.'], 404);
 
-        $payload = array_filter([
-            'title'       => $data['title'] ?? null,
-            'description' => array_key_exists('description', $data) ? $data['description'] : null,
-            'due_at'      => array_key_exists('due_at', $data) ? $data['due_at'] : null,
-        ], fn($v, $k) => array_key_exists($k, $data), ARRAY_FILTER_USE_BOTH);
+        $payload = [];
+        $changes = [];
+        foreach (['title', 'description', 'due_at'] as $f) {
+            if ($request->has($f)) {
+                $old = $item->{$f};
+                $new = $data[$f] ?? null;
+                if ((string)$old !== (string)($new ?? '')) {
+                    $payload[$f] = $new;
+                    $changes[] = ['field' => $f, 'old' => $old, 'new' => $new];
+                }
+            }
+        }
 
         if (empty($payload)) {
-            return response()->json(['message' => 'Nothing to update.'], 422);
+            return response()->json(['message' => 'Nothing to update.'], 200);
         }
 
         $payload['updated_at'] = now();
@@ -1231,7 +1248,7 @@ class DocumentRequestController extends Controller
         $this->logActivity('document_request_item.updated', 'Updated document request item', $request->user()->id, $request->user()->office_id, [
             'item_id'    => $itemId,
             'request_id' => $item->request_id,
-            'fields'     => array_keys($payload),
+            'changes'    => $changes,
         ]);
 
         return response()->json(['message' => 'Updated.', 'id' => $itemId]);
@@ -1253,17 +1270,24 @@ class DocumentRequestController extends Controller
 
         if (!$recipient) return response()->json(['message' => 'Recipient not found.'], 404);
 
+        $oldDue = $recipient->due_at;
+        $newDue = $data['due_at'] ?? null;
+
+        if ((string)$oldDue === (string)($newDue ?? '')) {
+            return response()->json(['message' => 'Nothing to update.'], 200);
+        }
+
         DB::table('document_request_recipients')
             ->where('id', $recipientId)
             ->update([
-                'due_at'     => $data['due_at'] ?? null,
+                'due_at'     => $newDue,
                 'updated_at' => now(),
             ]);
 
         $this->logActivity('document_request_recipient.updated', 'Updated recipient due date', $request->user()->id, $request->user()->office_id, [
             'recipient_id' => $recipientId,
             'request_id'   => $requestId,
-            'due_at'       => $data['due_at'] ?? null,
+            'changes'      => [['field' => 'due_at', 'old' => $oldDue, 'new' => $newDue]],
         ], null, null, (int) $recipient->office_id);
 
         return response()->json(['message' => 'Updated.', 'id' => $recipientId]);

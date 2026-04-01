@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { pageCache } from "../lib/pageCache";
-// import { getAuthUser } from "../lib/auth";
 import { getUserRole } from "../lib/roleFilters";
 import PageFrame from "../components/layout/PageFrame";
 import Table, { type TableColumn } from "../components/ui/Table";
@@ -15,9 +14,10 @@ import {
 import UserEditModal from "../components/admin/UserEditModal";
 import Alert from "../components/ui/Alert";
 import { inputCls, selectCls } from "../utils/formStyles";
-import { X } from "lucide-react";
-import { StatusBadge, TypePill } from "../components/ui/Badge";
+import { X, Search, SlidersHorizontal } from "lucide-react";
 import RefreshButton from "../components/ui/RefreshButton";
+import MiddleTruncate from "../components/ui/MiddleTruncate";
+import { formatDate } from "../utils/formatters";
 
 const UserManagerPage: React.FC = () => {
   const role = getUserRole();
@@ -42,6 +42,14 @@ const UserManagerPage: React.FC = () => {
   );
   const [roleFilter, setRoleFilter] = useState<number | "">("");
   const [roles, setRoles] = useState<AdminRole[]>([]);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (statusFilter) count++;
+    if (roleFilter) count++;
+    return count;
+  }, [statusFilter, roleFilter]);
+
   const [reloadTick, setReloadTick] = useState(0);
   const [sortBy, setSortBy] = useState<
     "first_name" | "last_name" | "email" | "created_at"
@@ -154,9 +162,10 @@ const UserManagerPage: React.FC = () => {
         header: "Name",
         sortKey: "last_name",
         render: (u) => (
-          <div className="font-medium text-slate-900 dark:text-slate-100 truncate">
-            {u.full_name}
-          </div>
+          <MiddleTruncate 
+            text={u.full_name}
+            className="font-semibold text-slate-900 dark:text-slate-100"
+          />
         ),
       },
       {
@@ -164,35 +173,53 @@ const UserManagerPage: React.FC = () => {
         header: "Email",
         sortKey: "email",
         render: (u) => (
-          <div className="text-sm text-slate-600 dark:text-slate-400 truncate">
-            {u.email}
-          </div>
+          <MiddleTruncate 
+            text={u.email}
+            className="text-sm text-slate-600 dark:text-slate-400"
+          />
         ),
       },
       {
         key: "office",
         header: "Office",
         render: (u) => (
-          <div className="text-sm text-slate-600 dark:text-slate-400 truncate">
-            {u.office?.name ?? "—"}
-          </div>
+          <MiddleTruncate 
+            text={u.office?.name ?? "—"}
+            className="text-sm text-slate-600 dark:text-slate-400"
+          />
         ),
       },
       {
         key: "role",
         header: "Role",
         render: (u) => {
-          const role = u.role?.name ?? "none";
-          const label =
-            role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
-          return <TypePill label={label} />;
+          const raw = u.role?.name ?? "none";
+          // Replace underscores and Title Case
+          const label = raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+          return (
+             <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+               {label}
+             </span>
+          );
         },
       },
       {
         key: "status",
         header: "Status",
         render: (u) => (
-          <StatusBadge status={u.disabled_at ? "Disabled" : "Active"} />
+          <span className={`text-xs font-medium ${u.disabled_at ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+            {u.disabled_at ? "Disabled" : "Active"}
+          </span>
+        ),
+      },
+      {
+        key: "created",
+        header: "Joined",
+        sortKey: "created_at",
+        render: (u) => (
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            {formatDate(u.created_at)}
+          </div>
         ),
       },
     ],
@@ -212,7 +239,7 @@ const UserManagerPage: React.FC = () => {
   return (
     <PageFrame
       title="User Manager"
-      contentClassName="flex flex-col min-h-0 gap-4 h-full overflow-hidden"
+      contentClassName="flex flex-col min-h-0 h-full"
       right={
         <div className="flex items-center gap-2">
           <RefreshButton
@@ -231,76 +258,141 @@ const UserManagerPage: React.FC = () => {
         </div>
       }
     >
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2 shrink-0">
-        {/* Search with inline clear */}
-        <div className="relative w-full sm:w-64">
-          <input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            placeholder="Search name / email…"
-            className={`${inputCls} pr-8`}
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearch("");
+      {/* Filter bar - updated for mobile responsiveness */}
+      <div className="shrink-0 py-3 flex flex-col gap-3 sm:gap-2">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:max-w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
                 setPage(1);
               }}
-              title="Clear"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
+              placeholder="Search name / email…"
+              className={`${inputCls} pl-9 pr-8 text-sm`}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setPage(1);
+                }}
+                title="Clear"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
 
-        {/* Status filter */}
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as any)}
-          className={selectCls}
-        >
-          <option value="">All statuses</option>
-          <option value="active">Active</option>
-          <option value="disabled">Disabled</option>
-        </select>
-
-        {/* Role filter */}
-        <select
-          value={roleFilter}
-          onChange={(e) =>
-            setRoleFilter(e.target.value === "" ? "" : Number(e.target.value))
-          }
-          className={selectCls}
-        >
-          <option value="">All roles</option>
-          {roles.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.label || r.name}
-            </option>
-          ))}
-        </select>
-
-        {/* Clear — only when filters are active */}
-        {hasActiveFilters && (
           <button
             type="button"
-            onClick={clearFilters}
-            className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+            className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${
+              isFiltersOpen || activeFiltersCount > 0
+                ? "bg-brand-50 border-brand-200 text-brand-600 dark:bg-brand-500/10 dark:border-brand-500/30 dark:text-brand-400 shadow-xs"
+                : "bg-white border-slate-200 text-slate-600 dark:bg-surface-500 dark:border-surface-400 dark:text-slate-400"
+            }`}
           >
-            Clear
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span className="text-xs font-semibold">Filters</span>
+            {activeFiltersCount > 0 && (
+              <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-brand-500 text-white rounded-full">
+                {activeFiltersCount}
+              </span>
+            )}
           </button>
+
+          <div className="hidden sm:flex items-center gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className={`${selectCls} text-xs h-8 w-32`}
+            >
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="disabled">Disabled</option>
+            </select>
+
+            <select
+              value={roleFilter}
+              onChange={(e) =>
+                setRoleFilter(e.target.value === "" ? "" : Number(e.target.value))
+              }
+              className={`${selectCls} text-xs h-8 w-40`}
+            >
+              <option value="">All roles</option>
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label || r.name}
+                </option>
+              ))}
+            </select>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile secondary filters collapsible */}
+        {isFiltersOpen && (
+          <div className="sm:hidden flex flex-col gap-3 p-4 bg-slate-50 dark:bg-surface-600 rounded-xl border border-slate-200 dark:border-surface-400 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  className={selectCls}
+                >
+                  <option value="">All statuses</option>
+                  <option value="active">Active</option>
+                  <option value="disabled">Disabled</option>
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Role</label>
+                <select
+                  value={roleFilter}
+                  onChange={(e) =>
+                    setRoleFilter(e.target.value === "" ? "" : Number(e.target.value))
+                  }
+                  className={selectCls}
+                >
+                  <option value="">All roles</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.label || r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="w-full py-2.5 text-xs font-bold text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10 rounded-lg transition"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
         )}
 
         {error && <Alert variant="danger">{error}</Alert>}
       </div>
 
-      {/* Table — flex-1 so it fills remaining space and scrolls internally */}
       <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
         <Table<AdminUser>
           bare
@@ -315,7 +407,7 @@ const UserManagerPage: React.FC = () => {
           emptyMessage="No users found."
           hasMore={hasMore}
           onLoadMore={() => setPage((p) => p + 1)}
-          gridTemplateColumns="1fr 1fr 1fr 8rem 7rem"
+          gridTemplateColumns="minmax(140px, 0.8fr) minmax(180px, 0.8fr) minmax(220px, 1.6fr) 8rem 7rem 8rem"
           sortBy={sortBy}
           sortDir={sortDir}
           onSortChange={(key, dir) => {

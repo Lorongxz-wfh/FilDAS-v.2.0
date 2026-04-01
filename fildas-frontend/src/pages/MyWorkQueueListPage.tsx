@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import { useNavigate } from "react-router-dom";
-import { listDocumentsPage, type Document } from "../services/documents";
+import { listDocumentsPage, type Document, type Office } from "../services/documents";
 import { getUserRole, isQA, isSysAdmin } from "../lib/roleFilters";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import PageFrame from "../components/layout/PageFrame";
@@ -11,41 +11,24 @@ import Alert from "../components/ui/Alert";
 import RefreshButton from "../components/ui/RefreshButton";
 import DateRangeInput from "../components/ui/DateRangeInput";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
-import { Search, X } from "lucide-react";
-import { inputCls, selectCls } from "../utils/formStyles";
+import { Search, X, SlidersHorizontal } from "lucide-react";
+import { inputCls } from "../utils/formStyles";
 import { formatDate } from "../utils/formatters";
+import Select from "../components/ui/Select";
 
 // ── Badge helpers ────────────────────────────────────────────────────────────
 
-const STATUS_STYLES: Record<string, string> = {
-  draft:        "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300",
-  review:       "bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
-  approval:     "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
-  finalization: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  distributed:  "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-  cancelled:    "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
-  superseded:   "bg-slate-50 text-slate-400 dark:bg-surface-500 dark:text-slate-500",
-};
-
-const TYPE_STYLES: Record<string, string> = {
-  internal: "bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
-  external: "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-  forms:    "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
-};
-
 function StatusBadge({ status }: { status: string }) {
-  const cls = STATUS_STYLES[status?.toLowerCase()] ?? STATUS_STYLES.draft;
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${cls}`}>
+    <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
       {status || "—"}
     </span>
   );
 }
 
 function TypeBadge({ type }: { type: string }) {
-  const cls = TYPE_STYLES[type?.toLowerCase()] ?? "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300";
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${cls}`}>
+    <span className="text-xs text-slate-500 dark:text-slate-400 capitalize">
       {type || "—"}
     </span>
   );
@@ -77,13 +60,26 @@ export default function MyWorkQueueListPage() {
   const [tab, setTab] = useState<WFTab>("all");
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
+  const [phaseFilter, setPhaseFilter] = useState("");
+  const [officeFilter, setOfficeFilter] = useState("");
+  const [versionFilter, setVersionFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [sortBy, setSortBy] = useState<"title" | "created_at" | "code">(
     "created_at",
   );
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (phaseFilter) count++;
+    if (officeFilter) count++;
+    if (versionFilter) count++;
+    if (dateFrom) count++;
+    if (dateTo) count++;
+    return count;
+  }, [phaseFilter, officeFilter, versionFilter, dateFrom, dateTo]);
 
   const [rows, setRows] = useState<Document[]>([]);
   const [page, setPage] = useState(1);
@@ -94,86 +90,79 @@ export default function MyWorkQueueListPage() {
 
   const hasMoreRef = useRef(true);
   const manualRefreshInProgress = useRef(false);
+  const firstDocIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     const t = window.setTimeout(() => setQDebounced(q), 300);
     return () => window.clearTimeout(t);
   }, [q]);
 
-  useEffect(() => {
-    setRows([]);
-    setPage(1);
-    hasMoreRef.current = true;
-    setHasMore(true);
-    setInitialLoading(true);
-  }, [tab, qDebounced, typeFilter, dateFrom, dateTo, sortBy, sortDir]);
-
   const statusParam = tab === "done" ? "Distributed" : undefined;
 
-  useEffect(() => {
+  // Main data loader
+  const loadData = useCallback(async (isNextPage = false) => {
     if (manualRefreshInProgress.current) return;
-    let alive = true;
-    const load = async () => {
-      if (!hasMoreRef.current && page > 1) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await listDocumentsPage({
-          page,
-          perPage: 12,
-          q: qDebounced.trim() || undefined,
-          status: statusParam,
-          doctype: typeFilter || undefined,
-          date_from: dateFrom || undefined,
-          date_to: dateTo || undefined,
-          sort_by: sortBy,
-          sort_dir: sortDir,
-        });
-        if (!alive) return;
-        const incoming = res.data ?? [];
-        setRows((prev) => (page === 1 ? incoming : [...prev, ...incoming]));
-        const more =
-          res.meta?.current_page != null &&
-          res.meta?.last_page != null &&
-          res.meta.current_page < res.meta.last_page;
-        hasMoreRef.current = more;
-        setHasMore(more);
-      } catch (e: any) {
-        if (!alive) return;
-        setError(e?.message ?? "Failed to load documents.");
-      } finally {
-        if (!alive) return;
-        setLoading(false);
-        setInitialLoading(false);
+    
+    const targetPage = isNextPage ? page + 1 : 1;
+    if (!isNextPage) {
+        setInitialLoading(true);
+        hasMoreRef.current = true;
+    }
+
+    if (!hasMoreRef.current && isNextPage) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await listDocumentsPage({
+        page: targetPage,
+        perPage: 12,
+        q: qDebounced.trim() || undefined,
+        status: statusParam,
+        phase: phaseFilter || undefined,
+        owner_office_id: officeFilter ? Number(officeFilter) : undefined,
+        version_number: versionFilter ? Number(versionFilter) : undefined,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
+        sort_by: sortBy,
+        sort_dir: sortDir,
+      });
+
+      const incoming = res.data ?? [];
+      if (targetPage === 1) {
+        setRows(incoming);
+        firstDocIdRef.current = incoming[0]?.id ?? null;
+      } else {
+        setRows((prev) => [...prev, ...incoming]);
       }
-    };
-    load();
-    return () => {
-      alive = false;
-    };
-    // hasMore intentionally omitted — tracked via hasMoreRef to avoid re-trigger
+      
+      const more =
+        res.meta?.current_page != null &&
+        res.meta?.last_page != null &&
+        res.meta.current_page < res.meta.last_page;
+      hasMoreRef.current = more;
+      setHasMore(more);
+      setPage(targetPage);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load documents.");
+    } finally {
+      setLoading(false);
+      setInitialLoading(false);
+    }
+  }, [qDebounced, statusParam, phaseFilter, officeFilter, versionFilter, dateFrom, dateTo, sortBy, sortDir, page]);
+
+  // Initial load or filter/sort change
+  useEffect(() => {
+    loadData(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    page,
-    qDebounced,
-    statusParam,
-    typeFilter,
-    dateFrom,
-    dateTo,
-    sortBy,
-    sortDir,
-  ]);
+  }, [tab, qDebounced, phaseFilter, officeFilter, versionFilter, dateFrom, dateTo, sortBy, sortDir]);
 
   const reload = useCallback(() => {
-    setRows([]);
-    setPage(1);
-    setHasMore(true);
-    setInitialLoading(true);
-  }, []);
+    loadData(false);
+  }, [loadData]);
 
   const { refreshing } = usePageBurstRefresh(reload);
 
-  const firstDocIdRef = useRef<number | null>(null);
   const refresh = useCallback(async (): Promise<string | void> => {
     const prevFirstId = firstDocIdRef.current;
     manualRefreshInProgress.current = true;
@@ -185,7 +174,9 @@ export default function MyWorkQueueListPage() {
         perPage: 12,
         q: qDebounced.trim() || undefined,
         status: statusParam,
-        doctype: typeFilter || undefined,
+        phase: phaseFilter || undefined,
+        owner_office_id: officeFilter ? Number(officeFilter) : undefined,
+        version_number: versionFilter ? Number(versionFilter) : undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
         sort_by: sortBy,
@@ -195,13 +186,14 @@ export default function MyWorkQueueListPage() {
       firstDocIdRef.current = incoming[0]?.id ?? null;
       setRows(incoming);
       setPage(1);
+      
       const more =
         res.meta?.current_page != null &&
         res.meta?.last_page != null &&
         res.meta.current_page < res.meta.last_page;
       hasMoreRef.current = more;
       setHasMore(more);
-      setError(null); // clear any stale concurrent error
+      
       setInitialLoading(false);
       if (prevFirstId === null) return;
       return incoming[0]?.id !== prevFirstId
@@ -214,7 +206,7 @@ export default function MyWorkQueueListPage() {
       setLoading(false);
       manualRefreshInProgress.current = false;
     }
-  }, [qDebounced, statusParam, typeFilter, dateFrom, dateTo, sortBy, sortDir]);
+  }, [qDebounced, statusParam, phaseFilter, officeFilter, versionFilter, dateFrom, dateTo, sortBy, sortDir]);
 
   const displayRows = useMemo(() => {
     if (tab === "active") {
@@ -223,7 +215,20 @@ export default function MyWorkQueueListPage() {
     return rows;
   }, [rows, tab]);
 
-  const hasFilters = q || typeFilter || dateFrom || dateTo;
+  const hasFilters = q || phaseFilter || officeFilter || versionFilter || dateFrom || dateTo;
+
+  // Dynamic office options from current row set
+  const availableOffices = useMemo(() => {
+    const map = new Map<number, string>();
+    rows.forEach((row: any) => {
+      const off = row.office || row.ownerOffice;
+      if (off?.id && (off?.code || off?.name)) map.set(off.id, off.code || off.name);
+    });
+    return Array.from(map.entries()).map(([id, label]) => ({
+      value: id,
+      label,
+    }));
+  }, [rows]);
 
   const tabCls = (active: boolean) =>
     [
@@ -237,61 +242,51 @@ export default function MyWorkQueueListPage() {
   const columns: TableColumn<Document>[] = useMemo(() => {
     const cols: TableColumn<Document>[] = [
       {
+        key: "code",
+        header: "Code",
+        sortKey: "code",
+        skeletonShape: "narrow",
+        render: (doc) => (
+          <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400">
+            {doc.code || "—"}
+          </span>
+        ),
+      },
+      {
+        key: "title",
+        header: "Document Title",
+        skeletonShape: "text",
+        sortKey: "title",
+        render: (doc) => (
+          <div className="min-w-0 pr-4">
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-brand-500 transition-colors">
+              {doc.title}
+            </p>
+          </div>
+        ),
+      },
+      {
         key: "status",
         header: "Status",
         skeletonShape: "badge",
         render: (doc) => <StatusBadge status={doc.status} />,
       },
       {
-        key: "title",
-        header: "Document",
-        skeletonShape: "double",
-        sortKey: "title",
-        render: (doc) => (
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-              {doc.title}
-            </p>
-            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              <TypeBadge type={doc.doctype} />
-              {Array.isArray(doc.tags) &&
-                doc.tags.slice(0, 2).map((t) => (
-                  <span
-                    key={t}
-                    className="rounded-full border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-1.5 text-[10px] text-slate-400 dark:text-slate-500"
-                  >
-                    {t}
-                  </span>
-                ))}
-              {Array.isArray(doc.tags) && doc.tags.length > 2 && (
-                <span className="text-[10px] text-slate-400">
-                  +{doc.tags.length - 2}
-                </span>
-              )}
-            </div>
-          </div>
-        ),
-      },
-      {
-        key: "code",
-        header: "Code",
-        skeletonShape: "narrow",
-        render: (doc) => (
-          <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
-            {doc.code || "—"}
-          </span>
-        ),
+        key: "type",
+        header: "Type",
+        skeletonShape: "badge",
+        render: (doc) => <TypeBadge type={doc.doctype} />,
       },
     ];
 
     if (showOffice) {
       cols.push({
-        key: "office",
+        key: "owner",
         header: "Office",
         skeletonShape: "text",
-        render: (doc) => (
-          <span className="text-xs text-slate-500 dark:text-slate-400">
-            {doc.ownerOffice?.name ?? "—"}
+        render: (doc: any) => (
+          <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+            {doc.office?.code || doc.ownerOffice?.code || "—"}
           </span>
         ),
       });
@@ -304,19 +299,19 @@ export default function MyWorkQueueListPage() {
         skeletonShape: "badge",
         align: "center",
         render: (doc) => (
-          <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
             v{doc.version_number}
           </span>
         ),
       },
       {
         key: "created",
-        header: "Created",
+        header: "Date Created",
         skeletonShape: "narrow",
         sortKey: "created_at",
         align: "right",
         render: (doc) => (
-          <span className="text-xs text-slate-400 dark:text-slate-500">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
             {formatDate(doc.created_at)}
           </span>
         ),
@@ -326,10 +321,9 @@ export default function MyWorkQueueListPage() {
     return cols;
   }, [showOffice]);
 
-  // grid: status | title | code | [office] | ver | created
   const gridTemplateColumns = showOffice
-    ? "90px 1fr 80px 80px 60px 110px"
-    : "90px 1fr 80px 60px 110px";
+    ? "130px 1fr 200px 80px 80px 60px 140px"
+    : "130px 1fr 200px 80px 60px 140px";
 
   return (
     <PageFrame
@@ -363,7 +357,7 @@ export default function MyWorkQueueListPage() {
       }
     >
       {/* Tabs */}
-      <div className="shrink-0 flex items-center border-b border-slate-200 dark:border-surface-400">
+      <div className="shrink-0 flex items-center border-b border-slate-200 dark:border-surface-400 overflow-x-auto overflow-y-hidden hide-scrollbar">
         {TABS.map((t) => (
           <button
             key={t.value}
@@ -376,59 +370,229 @@ export default function MyWorkQueueListPage() {
         ))}
       </div>
 
-      {/* Filter bar */}
-      <div className="shrink-0 py-3 flex flex-wrap items-center gap-2">
-        <div className="relative w-full sm:w-64">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search title, code, office…"
-            className={`${inputCls} pl-9 pr-8`}
-          />
-          {q && (
-            <button
-              type="button"
-              onClick={() => setQ("")}
-              title="Clear"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
+      {/* Filter bar - updated for mobile responsiveness */}
+      <div className="shrink-0 py-3 flex flex-col gap-3 sm:gap-2">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:max-w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Search title, code, office…"
+              className={`${inputCls} pl-9 pr-8 text-sm`}
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQ("");
+                  setPage(1);
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                title="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
 
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className={selectCls}
-        >
-          <option value="">All types</option>
-          <option value="internal">Internal</option>
-          <option value="external">External</option>
-          <option value="forms">Forms</option>
-        </select>
-
-        <DateRangeInput
-          from={dateFrom}
-          to={dateTo}
-          onFromChange={setDateFrom}
-          onToChange={setDateTo}
-        />
-
-        {hasFilters && (
           <button
             type="button"
-            onClick={() => {
-              setQ("");
-              setTypeFilter("");
-              setDateFrom("");
-              setDateTo("");
-            }}
-            className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+            className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${
+              isFiltersOpen || activeFiltersCount > 0
+                ? "bg-brand-50 border-brand-200 text-brand-600 dark:bg-brand-500/10 dark:border-brand-500/30 dark:text-brand-400 shadow-xs"
+                : "bg-white border-slate-200 text-slate-600 dark:bg-surface-500 dark:border-surface-400 dark:text-slate-400"
+            }`}
           >
-            Clear
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span className="text-xs font-semibold">Filters</span>
+            {activeFiltersCount > 0 && (
+              <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-brand-500 text-white rounded-full">
+                {activeFiltersCount}
+              </span>
+            )}
           </button>
+
+          <div className="hidden sm:flex flex-wrap items-center gap-2 flex-1">
+            <Select
+              value={phaseFilter}
+              onChange={(val) => {
+                setPhaseFilter(val as string);
+                setPage(1);
+              }}
+              placeholder="All Phases"
+              className="w-32"
+              options={[
+                { value: "", label: "All Phases" },
+                { value: "draft", label: "Draft" },
+                { value: "review", label: "Review" },
+                { value: "approval", label: "Approval" },
+                { value: "finalization", label: "Finalization" },
+                { value: "distributed", label: "Distributed" },
+              ]}
+            />
+
+            <Select
+              value={officeFilter}
+              onChange={(val) => {
+                setOfficeFilter(val as string);
+                setPage(1);
+              }}
+              placeholder="All Offices"
+              className="w-40"
+              options={[
+                { value: "", label: "All Offices" },
+                ...availableOffices,
+              ]}
+            />
+
+            <Select
+              value={versionFilter}
+              onChange={(val) => {
+                setVersionFilter(val as string);
+                setPage(1);
+              }}
+              placeholder="All Ver."
+              className="w-24"
+              options={[
+                { value: "", label: "All Ver." },
+                ...[0, 1, 2, 3, 4, 5].map((v) => ({
+                  value: String(v),
+                  label: `v${v}`,
+                })),
+              ]}
+            />
+
+            <DateRangeInput
+              from={dateFrom}
+              to={dateTo}
+              onFromChange={(val) => {
+                setDateFrom(val);
+                setPage(1);
+              }}
+              onToChange={(val) => {
+                setDateTo(val);
+                setPage(1);
+              }}
+            />
+
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQ("");
+                  setPhaseFilter("");
+                  setOfficeFilter("");
+                  setVersionFilter("");
+                  setDateFrom("");
+                  setDateTo("");
+                  setPage(1);
+                }}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile secondary filters collapsible */}
+        {isFiltersOpen && (
+          <div className="sm:hidden flex flex-col gap-3 p-4 bg-slate-50 dark:bg-surface-600 rounded-xl border border-slate-200 dark:border-surface-400 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Phase</label>
+                <Select
+                  value={phaseFilter}
+                  onChange={(val) => {
+                    setPhaseFilter(val as string);
+                    setPage(1);
+                  }}
+                  className="w-full"
+                  options={[
+                    { value: "", label: "All Phases" },
+                    { value: "draft", label: "Draft" },
+                    { value: "review", label: "Review" },
+                    { value: "approval", label: "Approval" },
+                    { value: "finalization", label: "Finalization" },
+                    { value: "distributed", label: "Distributed" },
+                  ]}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Office</label>
+                <Select
+                  value={officeFilter}
+                  onChange={(val) => {
+                    setOfficeFilter(val as string);
+                    setPage(1);
+                  }}
+                  className="w-full"
+                  options={[
+                    { value: "", label: "All Offices" },
+                    ...availableOffices,
+                  ]}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Version</label>
+              <Select
+                value={versionFilter}
+                onChange={(val) => {
+                  setVersionFilter(val as string);
+                  setPage(1);
+                }}
+                className="w-full"
+                options={[
+                  { value: "", label: "All Ver." },
+                  ...[0, 1, 2, 3, 4, 5].map((v) => ({
+                    value: String(v),
+                    label: `v${v}`,
+                  })),
+                ]}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Date Range</label>
+              <DateRangeInput
+                from={dateFrom}
+                to={dateTo}
+                onFromChange={(val) => {
+                  setDateFrom(val);
+                  setPage(1);
+                }}
+                onToChange={(val) => {
+                  setDateTo(val);
+                  setPage(1);
+                }}
+              />
+            </div>
+
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQ("");
+                  setPhaseFilter("");
+                  setOfficeFilter("");
+                  setVersionFilter("");
+                  setDateFrom("");
+                  setDateTo("");
+                  setPage(1);
+                }}
+                className="w-full py-2.5 text-xs font-bold text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10 rounded-lg transition"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -449,6 +613,35 @@ export default function MyWorkQueueListPage() {
           initialLoading={initialLoading}
           loading={loading}
           gridTemplateColumns={gridTemplateColumns}
+          mobileRender={(doc: any) => (
+            <div className="px-4 py-3 bg-white dark:bg-surface-500 border-b border-slate-100 dark:border-surface-400">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300">
+                    {doc.doctype || "DOC"}
+                  </span>
+                  <span className="text-[10px] font-medium text-slate-400">v{doc.version_number}</span>
+                </div>
+                <span className="text-[10px] text-slate-400 tabular-nums">
+                  {formatDate(doc.created_at)}
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-0.5">
+                {doc.title}
+              </p>
+              <div className="flex items-center justify-between gap-2 overflow-hidden">
+                <div className="flex items-center gap-2 truncate">
+                  {doc.code && <span className="text-[10px] font-mono text-slate-400 shrink-0">{doc.code}</span>}
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    {doc.office?.code || doc.ownerOffice?.code || "—"}
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 shrink-0">
+                  {doc.status}
+                </span>
+              </div>
+            </div>
+          )}
           emptyMessage={
             tab === "active"
               ? "No active documents."
@@ -470,7 +663,7 @@ export default function MyWorkQueueListPage() {
             })
           }
           hasMore={tab !== "active" && hasMore}
-          onLoadMore={() => setPage((p) => p + 1)}
+          onLoadMore={() => loadData(true)}
           sortBy={sortBy}
           sortDir={sortDir}
           onSortChange={(key, dir) => {

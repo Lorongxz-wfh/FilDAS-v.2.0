@@ -1,6 +1,8 @@
 import React from "react";
 import Navbar from "../components/navbar/NavBar";
 import Sidebar from "../components/sidebar/SideBar";
+import BottomNav from "../components/layout/BottomNav";
+import MobileActionFab from "../components/layout/MobileActionFab";
 import { ToastProvider } from "../components/ui/toast/ToastContext";
 import { useThemeContext } from "../lib/ThemeContext";
 
@@ -30,6 +32,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           onLogout={onLogout}
           mobileOpen={mobileOpen}
           onMobileClose={() => setMobileOpen(false)}
+          theme={theme}
+          onThemeToggle={toggle}
         />
 
         <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
@@ -38,10 +42,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             theme={theme}
             onMobileMenuOpen={() => setMobileOpen(true)}
           />
-          <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden bg-slate-50 dark:bg-surface-600">
+          <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden bg-slate-50 dark:bg-surface-600 pb-16 md:pb-0">
             {children}
           </main>
         </div>
+
+        <BottomNav 
+          onMenuClick={() => setMobileOpen((prev) => !prev)} 
+          isMenuOpen={mobileOpen}
+        />
+
+        <MobileActionFab />
       </div>
     </ToastProvider>
   );

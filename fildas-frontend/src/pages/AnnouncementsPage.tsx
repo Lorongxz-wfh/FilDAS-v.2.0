@@ -322,9 +322,10 @@ const AnnouncementCard: React.FC<{
           </div>
 
           {/* Body */}
-          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">
-            {a.body}
-          </p>
+          <p 
+            className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed whitespace-pre-wrap"
+            dangerouslySetInnerHTML={{ __html: a.body }}
+          />
 
           {/* Meta */}
           <div className="mt-2 flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500 flex-wrap">

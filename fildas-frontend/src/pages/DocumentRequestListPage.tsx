@@ -20,10 +20,12 @@ import {
   FileStack,
   LayoutList,
   TableProperties,
+  SlidersHorizontal,
 } from "lucide-react";
 import { inputCls, selectCls } from "../utils/formStyles";
 import { formatDate } from "../utils/formatters";
-import { StatusBadge, TypePill } from "../components/ui/Badge";
+import MiddleTruncate from "../components/ui/MiddleTruncate";
+import { TypePill } from "../components/ui/Badge";
 import Alert from "../components/ui/Alert";
 import RefreshButton from "../components/ui/RefreshButton";
 
@@ -47,27 +49,28 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 }
 
 // ── 3-layer progress bar ───────────────────────────────────────────────────
-const ProgressBar: React.FC<{ progress: DocumentRequestProgress }> = ({
+const ProgressBar: React.FC<{ progress: DocumentRequestProgress | undefined | null }> = ({
   progress,
 }) => {
+  if (!progress) return null;
   const { total, submitted, accepted } = progress;
   if (total === 0) return null;
   const submittedPct = Math.round((submitted / total) * 100);
   const acceptedPct = Math.round((accepted / total) * 100);
   return (
-    <div className="flex items-center gap-2 min-w-0">
-      <div className="relative flex-1 h-1.5 rounded-full bg-slate-200 dark:bg-surface-400 overflow-hidden">
+    <div className="flex items-center gap-3 min-w-0 pr-4">
+      <div className="relative flex-1 h-2 rounded-full bg-slate-100 dark:bg-surface-400 overflow-hidden shadow-inner">
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-sky-300 dark:bg-sky-700 transition-all"
+          className="absolute inset-y-0 left-0 rounded-full bg-sky-200 dark:bg-sky-700/50 transition-all duration-500"
           style={{ width: `${submittedPct}%` }}
         />
         <div
-          className="absolute inset-y-0 left-0 rounded-full bg-emerald-500 dark:bg-emerald-400 transition-all"
+          className="absolute inset-y-0 left-0 rounded-full bg-brand-500 dark:bg-brand-400 transition-all duration-500 shadow-sm"
           style={{ width: `${acceptedPct}%` }}
         />
       </div>
-      <span className="shrink-0 text-[10px] font-medium text-slate-400 dark:text-slate-500 tabular-nums">
-        {accepted}/{total}
+      <span className="shrink-0 text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums w-12 text-right">
+        {total > 0 ? Math.round((accepted / total) * 100) : 0}%
       </span>
     </div>
   );
@@ -90,6 +93,23 @@ function ModeBadge({ mode }: { mode: string }) {
   );
 }
 
+// ── Reusable Cells ────────────────────────────────────────────────────────────
+
+function NormalText({ children, secondary = false }: { children: React.ReactNode; secondary?: boolean }) {
+  return (
+    <span className={`text-xs ${secondary ? "text-slate-500 dark:text-slate-400" : "font-medium text-slate-700 dark:text-slate-300"}`}>
+      {children || "—"}
+    </span>
+  );
+}
+
+function TypeText({ type }: { type: string }) {
+  return (
+    <span className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+      {type?.toLowerCase() || "—"}
+    </span>
+  );
+}
 
 // ── Main page ──────────────────────────────────────────────────────────────
 export default function DocumentRequestListPage() {
@@ -113,6 +133,14 @@ export default function DocumentRequestListPage() {
   );
   const [sortBy, setSortBy] = React.useState<string>("created_at");
   const [sortDir, setSortDir] = React.useState<"asc" | "desc">("desc");
+
+  const [isFiltersOpen, setIsFiltersOpen] = React.useState(false);
+  const activeFiltersCount = React.useMemo(() => {
+    let count = 0;
+    if (status) count++;
+    if (recipientStatus) count++;
+    return count;
+  }, [status, recipientStatus]);
 
   const [rows, setRows] = React.useState<any[]>([]);
   const [page, setPage] = React.useState(1);
@@ -196,14 +224,23 @@ export default function DocumentRequestListPage() {
         if (!alive) return;
         setError(e?.response?.data?.message ?? e?.message ?? "Failed to load.");
       } finally {
-        if (!alive) return;
-        setLoading(false);
-        setInitialLoading(false);
+        if (alive) {
+          setLoading(false);
+          setInitialLoading(false);
+        }
       }
     };
+    const safety = window.setTimeout(() => {
+      if (alive && initialLoading) {
+        setInitialLoading(false);
+        setLoading(false);
+      }
+    }, 5000);
+
     load();
     return () => {
       alive = false;
+      window.clearTimeout(safety);
     };
     // hasMore intentionally omitted — tracked via hasMoreRef to avoid re-trigger
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -228,17 +265,33 @@ export default function DocumentRequestListPage() {
     }
   }
 
-  function RecipientStatusBadge({ status }: { status: string }) {
-    return <StatusBadge status={status} />;
-  }
-
   // ── Table columns for "Batches" tab ───────────────────────────────────────
   const batchColumns: TableColumn<any>[] = React.useMemo(() => {
-    const cols: TableColumn<any>[] = [
+    return [
+      {
+        key: "mode",
+        header: "Batch Type",
+        skeletonShape: "narrow",
+        render: (row) => <ModeBadge mode={row.mode} />,
+      },
       {
         key: "title",
-        header: "Request",
+        header: "Batch Request",
         sortKey: "title",
+        skeletonShape: "text",
+        render: (row) => (
+          <div className="min-w-0 pr-4">
+            <MiddleTruncate 
+              text={row.title}
+              className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-brand-500 transition-colors"
+            />
+          </div>
+        ),
+      },
+      {
+        key: "progress",
+        header: "Progress",
+        skeletonShape: "narrow",
         render: (row) => {
           const displayProgress =
             isQaAdmin || row.mode === "multi_doc"
@@ -252,162 +305,109 @@ export default function DocumentRequestListPage() {
                       : 0,
                   accepted: row.recipient_status === "accepted" ? 1 : 0,
                 };
-
-          return (
-            <div className="flex-1 min-w-0 flex flex-col gap-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-                  {row.title}
-                </span>
-                {isQaAdmin && <ModeBadge mode={row.mode} />}
-              </div>
-              {displayProgress && <ProgressBar progress={displayProgress} />}
-            </div>
-          );
-        },
+            return <ProgressBar progress={displayProgress} />;
+        }
       },
-    ];
-
-    if (isQaAdmin) {
-      cols.push({
-        key: "office",
-        header: "Office",
-        render: (row) => (
-          <div className="shrink-0 text-xs text-slate-400 dark:text-slate-500">
-            {row.office_name ?? "—"}
-            {row.office_code && (
-              <span className="ml-1 text-slate-300 dark:text-slate-600">
-                ({row.office_code})
-              </span>
-            )}
-          </div>
-        ),
-      });
-    }
-
-    cols.push(
       {
         key: "status",
         header: "Status",
-        render: (row) => <StatusBadge status={row.status} />,
+        skeletonShape: "narrow",
+        render: (row) => <NormalText>{row.status}</NormalText>,
       },
       {
         key: "dates",
-        header: "Timeline",
-        sortKey: "created_at",
+        header: "Deadline",
+        sortKey: "due_at",
+        skeletonShape: "narrow",
+        align: "right",
         render: (row) => (
-          <div className="shrink-0 flex flex-col items-end gap-0.5">
-            {row.due_at && (
-              <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">
-                Due {formatDate(row.due_at)}
-              </span>
-            )}
-            <span className="text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap">
-              {formatDate(row.created_at)}
-            </span>
-          </div>
+          <NormalText secondary>
+            {row.due_at ? formatDate(row.due_at) : formatDate(row.created_at)}
+          </NormalText>
         ),
       },
-    );
-
-    return cols;
+    ];
   }, [isQaAdmin]);
 
-  const batchGrid = isQaAdmin
-    ? "2fr 10rem 7rem 8rem"
-    : "2fr 7rem 8rem";
+  const batchGrid = "100px minmax(120px, 1fr) 240px 100px 140px";
 
   // ── Table columns for "All Requests" tab (individual items/recipients) ────
   const allColumns: TableColumn<any>[] = React.useMemo(() => {
-    const cols: TableColumn<any>[] = [
+    return [
       {
         key: "title",
-        header: "Request",
+        header: "Document Requested",
         sortKey: "title",
-        render: (r) => {
-          const primary = r.item_title ?? r.batch_title;
-          const sub = r.item_title ? r.batch_title : r.office_name;
-          return (
-            <div className="min-w-0">
-              <div className="font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-                {primary}
-              </div>
-              {sub && (
-                <div className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                  {sub}
-                </div>
-              )}
-            </div>
-          );
-        },
-      },
-      {
-        key: "mode",
-        header: "Type",
-        render: (r) => <ModeBadge mode={r.batch_mode} />,
-      },
-      {
-        key: "batch_status",
-        header: "Batch",
-        render: (r) => <StatusBadge status={r.batch_status} />,
+        skeletonShape: "text",
+        render: (r) => (
+          <div className="min-w-0 pr-4">
+            <MiddleTruncate 
+              text={r.item_title ?? r.batch_title}
+              className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-brand-500 transition-colors"
+            />
+            {r.item_title && r.batch_title && (
+              <MiddleTruncate 
+                text={r.batch_title}
+                className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5"
+              />
+            )}
+          </div>
+        ),
       },
       {
         key: "item_status",
         header: "Status",
+        skeletonShape: "narrow",
+        render: (r) => <NormalText>{r.item_status || "Pending"}</NormalText>,
+      },
+      {
+        key: "mode",
+        header: "Batch Type",
+        skeletonShape: "narrow",
+        render: (r) => <TypeText type={r.batch_mode || "REQUEST"} />,
+      },
+      {
+        key: "batch_status",
+        header: "Batch Status",
+        skeletonShape: "narrow",
+        render: (r) => <NormalText secondary>{r.batch_status}</NormalText>,
+      },
+      {
+        key: "office",
+        header: "Office",
+        skeletonShape: "narrow",
         render: (r) => (
-          <RecipientStatusBadge status={r.item_status ?? "pending"} />
+          <NormalText secondary>
+            {r.office_code || r.office_name || "—"}
+          </NormalText>
         ),
       },
       {
         key: "due",
-        header: "Due",
-        render: (r) =>
-          r.due_at ? (
-            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap">
-              {formatDate(r.due_at)}
-            </span>
-          ) : (
-            <span className="text-xs text-slate-400">—</span>
-          ),
+        header: "Deadline",
+        skeletonShape: "narrow",
+        align: "right",
+        render: (r) => (
+          <NormalText secondary>
+            {r.due_at ? formatDate(r.due_at) : formatDate(r.created_at)}
+          </NormalText>
+        ),
       },
       {
-        key: "created",
-        header: "Created",
-        sortKey: "created_at",
+        key: "batch_due",
+        header: "Batch Deadline",
+        skeletonShape: "narrow",
+        align: "right",
         render: (r) => (
-          <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-            {formatDate(r.created_at)}
-          </span>
+          <NormalText secondary>
+            {r.batch_due_at ? formatDate(r.batch_due_at) : "—"}
+          </NormalText>
         ),
       },
     ];
+  }, []);
 
-    // Office column for QA/Admin (after item_status, before Due)
-    if (isQaAdmin) {
-      cols.splice(4, 0, {
-        key: "office",
-        header: "Office",
-        render: (r) => (
-          <div className="min-w-0">
-            <div className="text-xs text-slate-600 dark:text-slate-300 truncate">
-              {r.office_name ?? "—"}
-            </div>
-            {r.office_code && (
-              <div className="text-[10px] text-slate-400 dark:text-slate-500">
-                {r.office_code}
-              </div>
-            )}
-          </div>
-        ),
-      });
-    }
-
-    return cols;
-  }, [isQaAdmin]);
-
-  const gridCols = isQaAdmin
-    ? "2fr 8rem 6rem 7rem 9rem 7rem 7rem"
-    : "2fr 8rem 6rem 7rem 7rem 7rem";
+  const gridCols = "minmax(120px, 1fr) 100px 100px 110px 100px 140px 140px";
 
   return (
     <PageFrame
@@ -437,7 +437,7 @@ export default function DocumentRequestListPage() {
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
       {/* Tabs — scrollable on mobile */}
-      <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0 overflow-x-auto hide-scrollbar">
+      <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0 overflow-x-auto overflow-y-hidden hide-scrollbar">
         <button
           type="button"
           onClick={() => {
@@ -452,7 +452,7 @@ export default function DocumentRequestListPage() {
           ].join(" ")}
         >
           <LayoutList className="h-3.5 w-3.5" />
-          Batches
+          Request Batches
         </button>
         <button
           type="button"
@@ -472,81 +472,191 @@ export default function DocumentRequestListPage() {
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 shrink-0 pt-4 pb-0">
-        <div className="relative w-full sm:w-60">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search title/description…"
-            className={`${inputCls} pl-9 pr-8`}
-          />
-          {q && (
-            <button
-              type="button"
-              onClick={() => setQ("")}
-              title="Clear"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
-        {/* Batch status filter — batches tab (QA only) */}
-        {isQaAdmin && tab === "batches" && (
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as any)}
-            className={selectCls}
+      {/* Filters bar - updated for mobile responsiveness */}
+      <div className="shrink-0 py-3 flex flex-col gap-3 sm:gap-2">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:max-w-64">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search title/description…"
+              className={`${inputCls} pl-9 pr-8 text-sm`}
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ("")}
+                title="Clear"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+            className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${
+              isFiltersOpen || activeFiltersCount > 0
+                ? "bg-brand-50 border-brand-200 text-brand-600 dark:bg-brand-500/10 dark:border-brand-500/30 dark:text-brand-400 shadow-xs"
+                : "bg-white border-slate-200 text-slate-600 dark:bg-surface-500 dark:border-surface-400 dark:text-slate-400"
+            }`}
           >
-            <option value="">All statuses</option>
-            <option value="open">Open</option>
-            <option value="closed">Closed</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        )}
-        {/* All Requests tab: batch status + recipient status filters */}
-        {tab === "all" && (
-          <>
-            {isQaAdmin && (
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span className="text-xs font-semibold">Filters</span>
+            {activeFiltersCount > 0 && (
+              <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-brand-500 text-white rounded-full">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
+
+          <div className="hidden sm:flex flex-wrap items-center gap-2 flex-1">
+            {/* Batch status filter — batches tab (QA only) */}
+            {isQaAdmin && tab === "batches" && (
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as any)}
-                className={selectCls}
+                className={`${selectCls} text-xs h-8`}
               >
-                <option value="">All batches</option>
+                <option value="">All statuses</option>
                 <option value="open">Open</option>
                 <option value="closed">Closed</option>
                 <option value="cancelled">Cancelled</option>
               </select>
             )}
-            <select
-              value={recipientStatus}
-              onChange={(e) => setRecipientStatus(e.target.value as any)}
-              className={selectCls}
-            >
-              <option value="">All progress</option>
-              <option value="pending">Pending</option>
-              <option value="submitted">Submitted</option>
-              <option value="accepted">Accepted</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </>
+            
+            {/* All Requests tab filters */}
+            {tab === "all" && (
+              <>
+                {isQaAdmin && (
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as any)}
+                    className={`${selectCls} text-xs h-8`}
+                  >
+                    <option value="">All batches</option>
+                    <option value="open">Open</option>
+                    <option value="closed">Closed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                )}
+                <select
+                  value={recipientStatus}
+                  onChange={(e) => setRecipientStatus(e.target.value as any)}
+                  className={`${selectCls} text-xs h-8`}
+                >
+                  <option value="">All progress</option>
+                  <option value="pending">Pending</option>
+                  <option value="submitted">Submitted</option>
+                  <option value="accepted">Accepted</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </>
+            )}
+
+            {(q || status || recipientStatus) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQ("");
+                  setStatus("");
+                  setRecipientStatus("");
+                }}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile secondary filters collapsible */}
+        {isFiltersOpen && (
+          <div className="sm:hidden flex flex-col gap-3 p-4 bg-slate-50 dark:bg-surface-600 rounded-xl border border-slate-200 dark:border-surface-400 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="grid grid-cols-2 gap-2">
+              {isQaAdmin && tab === "batches" && (
+                <div className="flex flex-col gap-1.5 col-span-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Status</label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as any)}
+                    className={selectCls}
+                  >
+                    <option value="">All statuses</option>
+                    <option value="open">Open</option>
+                    <option value="closed">Closed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              )}
+
+              {tab === "all" && (
+                <>
+                  {isQaAdmin && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Batch</label>
+                      <select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value as any)}
+                        className={selectCls}
+                      >
+                        <option value="">All batches</option>
+                        <option value="open">Open</option>
+                        <option value="closed">Closed</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </div>
+                  )}
+                  <div className={`flex flex-col gap-1.5 ${isQaAdmin ? "" : "col-span-2"}`}>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Progress</label>
+                    <select
+                      value={recipientStatus}
+                      onChange={(e) => setRecipientStatus(e.target.value as any)}
+                      className={selectCls}
+                    >
+                      <option value="">All progress</option>
+                      <option value="pending">Pending</option>
+                      <option value="submitted">Submitted</option>
+                      <option value="accepted">Accepted</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {(q || status || recipientStatus) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQ("");
+                  setStatus("");
+                  setRecipientStatus("");
+                }}
+                className="w-full py-2.5 text-xs font-bold text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10 rounded-lg transition"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
         )}
-        {error && <Alert variant="danger">{error}</Alert>}
+
+        {error && !loading && <Alert variant="danger">{error}</Alert>}
       </div>
 
       {/* Content area */}
       <div className="flex-1 min-h-0 mt-4 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
         {/* ── Batches tab ── */}
         {tab === "batches" && (
-          <Table
+          <Table<any>
             bare
             className="h-full"
             columns={batchColumns}
             rows={rows}
-            rowKey={(r) => r.id}
+            rowKey={(r: any, idx) => r.id || `batch-${idx}`}
             onRowClick={handleBatchRowClick}
             loading={loading}
             initialLoading={initialLoading}
@@ -554,6 +664,29 @@ export default function DocumentRequestListPage() {
             emptyMessage="No requests found."
             hasMore={hasMore}
             onLoadMore={() => setPage((p) => p + 1)}
+            mobileRender={(r) => (
+              <div className="px-4 py-3 bg-white dark:bg-surface-500 border-b border-slate-100 dark:border-surface-400">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300">
+                    {r.mode || r.batch_mode || "REQUEST"}
+                  </span>
+                  <span className="text-[10px] text-slate-400 tabular-nums">
+                    {formatDate(r.due_at || r.created_at)}
+                  </span>
+                </div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-0.5">
+                  {r.title || r.item_title || r.batch_title}
+                </p>
+                <div className="flex items-center justify-between gap-2 overflow-hidden">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    {r.office_code || r.office_name || "—"}
+                  </span>
+                  <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 shrink-0">
+                    {r.status || r.item_status || "Open"}
+                  </span>
+                </div>
+              </div>
+            )}
             gridTemplateColumns={batchGrid}
             sortBy={sortBy}
             sortDir={sortDir as any}
@@ -566,12 +699,12 @@ export default function DocumentRequestListPage() {
 
         {/* ── All Requests tab ── */}
         {tab === "all" && (
-          <Table
+          <Table<any>
             bare
             className="h-full"
             columns={allColumns}
             rows={rows}
-            rowKey={(r) => `${r.row_type}-${r.row_id}`}
+            rowKey={(r: any, idx) => `${r.row_type}-${r.row_id}-${idx}`}
             onRowClick={handleRecipientRowClick}
             loading={loading}
             initialLoading={initialLoading}
@@ -579,6 +712,29 @@ export default function DocumentRequestListPage() {
             emptyMessage="No requests found."
             hasMore={hasMore}
             onLoadMore={() => setPage((p) => p + 1)}
+            mobileRender={(r) => (
+              <div className="px-4 py-3 bg-white dark:bg-surface-500 border-b border-slate-100 dark:border-surface-400">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400">
+                    {r.batch_mode || "REQUEST"}
+                  </span>
+                  <span className="text-[10px] text-slate-400 tabular-nums">
+                    {formatDate(r.due_at || r.created_at)}
+                  </span>
+                </div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-0.5">
+                  {r.item_title ?? r.batch_title}
+                </p>
+                <div className="flex items-center justify-between gap-2 overflow-hidden">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    {r.office_code || r.office_name || "—"}
+                  </span>
+                  <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 shrink-0">
+                    {r.item_status || "Pending"}
+                  </span>
+                </div>
+              </div>
+            )}
             gridTemplateColumns={gridCols}
             sortBy={sortBy}
             sortDir={sortDir as any}

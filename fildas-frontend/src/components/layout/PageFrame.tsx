@@ -10,6 +10,7 @@ type Props = {
   breadcrumbs?: BreadcrumbItem[];
   contentClassName?: string;
   className?: string;
+  fullHeight?: boolean;
   children: React.ReactNode;
 };
 
@@ -21,6 +22,7 @@ export default function PageFrame({
   breadcrumbs,
   contentClassName = "",
   className = "",
+  fullHeight = false,
   children,
 }: Props) {
   return (
@@ -74,9 +76,17 @@ export default function PageFrame({
           </div>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        className={[
+          "min-h-0 flex-1",
+          fullHeight ? "overflow-hidden flex flex-col" : "overflow-y-auto",
+        ].join(" ")}
+      >
         <div
-          className={["px-4 py-4 sm:px-6 sm:py-5", contentClassName].join(" ")}
+          className={[
+            fullHeight ? "flex-1 flex flex-col min-h-0" : "px-4 py-4 sm:px-6 sm:py-5",
+            contentClassName,
+          ].join(" ")}
         >
           {children}
         </div>

@@ -7,7 +7,7 @@ import Alert from "../components/ui/Alert";
 import EmptyState from "../components/ui/EmptyState";
 import RefreshButton from "../components/ui/RefreshButton";
 import { useToast } from "../components/ui/toast/ToastContext";
-import { Search, X, ChevronDown, Tag, LayoutGrid, List } from "lucide-react";
+import { Search, X, ChevronDown, Tag, LayoutGrid, List, SlidersHorizontal } from "lucide-react";
 import { inputCls, selectCls } from "../utils/formStyles";
 import { getAuthUser } from "../lib/auth";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
@@ -62,6 +62,9 @@ const TemplatesPage: React.FC = () => {
   const tagDropdownRef = React.useRef<HTMLDivElement>(null);
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+
+
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q.trim().toLowerCase()), 300);
@@ -82,6 +85,14 @@ const TemplatesPage: React.FC = () => {
     templates.forEach((t) => (t.tags ?? []).forEach((tag) => set.add(tag)));
     return Array.from(set).sort();
   }, [templates]);
+
+  const hasActiveFilters = q || scope !== "all" || activeTag;
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (scope !== "all") count++;
+    if (activeTag) count++;
+    return count;
+  }, [scope, activeTag]);
 
   const filtered = useMemo(() => {
     let list = templates;
@@ -206,7 +217,7 @@ const TemplatesPage: React.FC = () => {
     setUploadingName(null);
   };
 
-  const hasActiveFilters = q || scope !== "all" || activeTag;
+
 
   const tabCls = (active: boolean) =>
     [
@@ -259,130 +270,188 @@ const TemplatesPage: React.FC = () => {
             <List className="h-3.5 w-3.5" />
             List
           </button>
-          {templates.length > 0 && (
-            <span className="ml-auto pr-4 text-xs text-slate-400 dark:text-slate-500">
-              {filtered.length} of {templates.length}
-            </span>
-          )}
+
         </div>
 
-        {/* Filter bar */}
+        {/* Filter bar - updated for mobile responsiveness */}
         <div
-          className={`flex flex-wrap items-center gap-2 shrink-0 py-2.5 ${viewMode === "grid" ? "border-b border-slate-200 dark:border-surface-400" : ""}`}
+          className={`flex flex-col gap-3 sm:gap-2 shrink-0 py-2.5 ${viewMode === "grid" ? "border-b border-slate-200 dark:border-surface-400" : ""}`}
         >
-          {/* Search */}
-          <div className="relative w-full sm:w-64">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search name, file, tags…"
-              className={`${inputCls} pl-9 pr-8`}
-            />
-            {q && (
-              <button
-                type="button"
-                onClick={() => setQ("")}
-                title="Clear"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 sm:max-w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                type="text"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search name, file, tags…"
+                className={`${inputCls} pl-9 pr-8 text-sm`}
+              />
+              {q && (
+                <button
+                  type="button"
+                  onClick={() => setQ("")}
+                  title="Clear"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
 
-          {/* Scope select */}
-          {canChooseScope && (
-            <select
-              value={scope}
-              onChange={(e) => setScope(e.target.value as typeof scope)}
-              className={selectCls}
-            >
-              <option value="all">All</option>
-              <option value="global">Global</option>
-              <option value="mine">Mine</option>
-            </select>
-          )}
-
-          {/* Tags dropdown */}
-          <div ref={tagDropdownRef} className="relative">
             <button
               type="button"
-              onClick={() => setTagDropdownOpen((v) => !v)}
-              className={[
-                "flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition",
-                activeTag
-                  ? "border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-700 dark:bg-surface-400 dark:text-brand-400"
-                  : "border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400",
-              ].join(" ")}
+              onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+              className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${
+                isFiltersOpen || activeFiltersCount > 0
+                  ? "bg-brand-50 border-brand-200 text-brand-600 dark:bg-brand-500/10 dark:border-brand-500/30 dark:text-brand-400 shadow-xs"
+                  : "bg-white border-slate-200 text-slate-600 dark:bg-surface-500 dark:border-surface-400 dark:text-slate-400"
+              }`}
             >
-              <Tag className="h-3.5 w-3.5" />
-              {activeTag ?? "Tags"}
-              {activeTag ? (
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveTag(null);
-                  }}
-                  className="ml-0.5 rounded hover:bg-brand-100 dark:hover:bg-brand-900/40 p-0.5"
-                >
-                  <X className="h-3 w-3" />
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span className="text-xs font-semibold">Filters</span>
+              {activeFiltersCount > 0 && (
+                <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-brand-500 text-white rounded-full">
+                  {activeFiltersCount}
                 </span>
-              ) : (
-                <ChevronDown className="h-3 w-3 ml-0.5" />
               )}
             </button>
 
-            {tagDropdownOpen && (
-              <div className="absolute left-0 top-full mt-1.5 z-20 w-52 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 shadow-lg overflow-hidden">
-                <div className="px-3 py-2 border-b border-slate-100 dark:border-surface-400">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Filter by tag
-                  </p>
-                </div>
-                <div className="max-h-52 overflow-y-auto p-1.5 space-y-0.5">
-                  {allTags.length === 0 ? (
-                    <p className="px-2 py-3 text-xs text-center text-slate-400 dark:text-slate-500">
-                      No tags yet.
-                    </p>
-                  ) : (
-                    allTags.map((tag) => (
+            <div className="hidden sm:flex items-center gap-2 flex-1">
+              {canChooseScope && (
+                <select
+                  value={scope}
+                  onChange={(e) => setScope(e.target.value as typeof scope)}
+                  className={`${selectCls} text-xs w-28 h-8`}
+                >
+                  <option value="all">All Scope</option>
+                  <option value="global">Global</option>
+                  <option value="mine">Mine</option>
+                </select>
+              )}
+
+              <div ref={tagDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setTagDropdownOpen((v) => !v)}
+                  className={[
+                    "flex items-center gap-1.5 rounded-md border px-2.5 h-8 text-[11px] font-medium transition",
+                    activeTag
+                      ? "border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-700 dark:bg-brand-500/10 dark:text-brand-400"
+                      : "border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 shadow-xs",
+                  ].join(" ")}
+                >
+                  <Tag className="h-3 w-3" />
+                  {activeTag ?? "Tags"}
+                  <ChevronDown className="h-3 w-3 ml-0.5 opacity-50" />
+                </button>
+                {tagDropdownOpen && (
+                  <div className="absolute left-0 top-full mt-1.5 z-20 w-52 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                    <div className="px-3 py-2 border-b border-slate-100 dark:border-surface-400 bg-slate-50/50 dark:bg-surface-700/50">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Filter by tag
+                      </p>
+                    </div>
+                    <div className="max-h-52 overflow-y-auto p-1.5 space-y-0.5">
                       <button
-                        key={tag}
                         type="button"
                         onClick={() => {
-                          setActiveTag(tag === activeTag ? null : tag);
+                          setActiveTag(null);
                           setTagDropdownOpen(false);
                         }}
                         className={[
                           "w-full rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
-                          activeTag === tag
-                            ? "bg-brand-50 dark:bg-surface-400 text-brand-700 dark:text-brand-400"
+                          !activeTag
+                            ? "bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400"
                             : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400",
                         ].join(" ")}
                       >
-                        {tag}
+                        All Tags
                       </button>
-                    ))
-                  )}
-                </div>
+                      {allTags.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => {
+                            setActiveTag(tag);
+                            setTagDropdownOpen(false);
+                          }}
+                          className={[
+                            "w-full rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
+                            activeTag === tag
+                              ? "bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400"
+                              : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400",
+                          ].join(" ")}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
+
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQ("");
+                    setScope("all");
+                    setActiveTag(null);
+                  }}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
 
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={() => {
-                setQ("");
-                setScope("all");
-                setActiveTag(null);
-              }}
-              className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
-            >
-              Clear
-            </button>
+          {/* Mobile secondary filters collapsible */}
+          {isFiltersOpen && (
+            <div className="sm:hidden flex flex-col gap-3 p-4 bg-slate-50 dark:bg-surface-600 rounded-xl border border-slate-200 dark:border-surface-400 animate-in fade-in slide-in-from-top-1 duration-200">
+               <div className="grid grid-cols-2 gap-2">
+                 <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Scope</label>
+                    <select
+                      value={scope}
+                      onChange={(e) => setScope(e.target.value as typeof scope)}
+                      className={selectCls}
+                    >
+                      <option value="all">All Scope</option>
+                      <option value="global">Global</option>
+                      <option value="mine">Mine</option>
+                    </select>
+                 </div>
+                 <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Tag</label>
+                    <select
+                      value={activeTag || ""}
+                      onChange={(e) => setActiveTag(e.target.value || null)}
+                      className={selectCls}
+                    >
+                      <option value="">All Tags</option>
+                      {allTags.map(tag => (
+                        <option key={tag} value={tag}>{tag}</option>
+                      ))}
+                    </select>
+                 </div>
+               </div>
+
+               {hasActiveFilters && (
+                 <button
+                    type="button"
+                    onClick={() => {
+                        setQ("");
+                        setScope("all");
+                        setActiveTag(null);
+                    }}
+                    className="w-full py-2.5 text-xs font-bold text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10 rounded-lg transition"
+                 >
+                   Clear all filters
+                 </button>
+               )}
+            </div>
           )}
         </div>
 

@@ -116,18 +116,24 @@ export async function listDocumentsPage(params?: {
 
   // server-side search/filters
   q?: string;
-  status?: string;
+  status?: string | string[];
   doctype?: string;
   owner_office_id?: number;
+  assigned_office_id?: number;
   date_from?: string; // YYYY-MM-DD
   date_to?: string; // YYYY-MM-DD
 
+  // phase / version
+  phase?: string;
+  version_number?: number;
+
   // document library scope
-  scope?: "all" | "owned" | "shared" | "assigned" | "participant";
+  scope?: "all" | "owned" | "shared" | "assigned" | "participant" | "archived";
 
   // sorting
   sort_by?: "title" | "created_at" | "code" | "updated_at";
   sort_dir?: "asc" | "desc";
+  archived?: number;
 }): Promise<Paginated<Document>> {
   try {
     const api = await getApi();
@@ -140,13 +146,16 @@ export async function listDocumentsPage(params?: {
         status: params?.status,
         doctype: params?.doctype,
         owner_office_id: params?.owner_office_id,
+        assigned_office_id: params?.assigned_office_id,
         date_from: params?.date_from,
         date_to: params?.date_to,
 
+        phase: params?.phase,
+        version_number: params?.version_number,
         scope: params?.scope,
-
         sort_by: params?.sort_by,
         sort_dir: params?.sort_dir,
+        archived: params?.archived,
       },
     });
 

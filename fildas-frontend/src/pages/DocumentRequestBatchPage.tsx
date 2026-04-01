@@ -386,6 +386,7 @@ export default function DocumentRequestBatchPage() {
       title={req.title ?? `Request #${requestId}`}
       onBack={() => navigate("/document-requests")}
       breadcrumbs={[{ label: "Document Requests", to: "/document-requests" }]}
+      fullHeight
       right={
         <div className="flex items-center gap-2">
           <RefreshButton
@@ -416,7 +417,7 @@ export default function DocumentRequestBatchPage() {
         </div>
       }
     >
-      <div className="grid h-full min-h-0 overflow-hidden grid-cols-1 gap-5 lg:grid-cols-12">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-full min-h-0 p-4 sm:p-5">
         {/* ── LEFT ── */}
         <section className="lg:col-span-7 min-w-0 flex flex-col gap-4">
           {/* Header card */}
@@ -566,7 +567,7 @@ export default function DocumentRequestBatchPage() {
           )}
 
           {/* Items / recipients list */}
-          <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex flex-col min-h-[30vh]">
+          <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex flex-col flex-1 min-h-0">
             <div className="shrink-0 px-4 py-3 border-b border-slate-200 dark:border-surface-400 bg-slate-50/80 dark:bg-surface-600/80 flex items-center gap-2">
               {isMultiDoc ? (
                 <FileStack className="h-4 w-4 text-violet-500" />
@@ -764,10 +765,8 @@ export default function DocumentRequestBatchPage() {
             </div>
           )}
 
-          {/* Comments + Activity tabbed panel */}
           <div
             className="flex flex-col rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex-1 min-h-0"
-            style={{ minHeight: "360px" }}
           >
             <TabBar
               tabs={[

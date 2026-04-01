@@ -93,9 +93,10 @@ const AnnouncementsBanner: React.FC<Props> = ({ announcements, loading }) => {
                     )}
                     <AnnouncementTypePill type={a.type} />
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">
-                    {a.body}
-                  </p>
+                  <p 
+                    className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2"
+                    dangerouslySetInnerHTML={{ __html: a.body }}
+                  />
                   <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
                     <span>{a.created_by}</span>
                     <span>·</span>

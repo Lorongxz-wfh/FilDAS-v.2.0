@@ -21,6 +21,7 @@ import { listActivityLogs } from "../services/activityApi";
 import type { ActivityLogItem } from "../services/types";
 import { getUserRole, isQA, isSysAdmin } from "../lib/roleFilters";
 import ShareDocumentModal from "../components/documents/ShareDocumentModal";
+import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
 import {
   Download,
@@ -32,9 +33,10 @@ import {
   RefreshCw,
   FileText,
   ChevronDown,
-  GitBranch,
+  History,
 } from "lucide-react";
 import CommentBubble from "../components/documents/documentFlow/CommentBubble";
+import WorkflowFlowTimeline from "../components/documents/documentFlow/WorkflowFlowTimeline";
 import { formatDate, formatDateTime } from "../utils/formatters";
 
 // ── Type badge ────────────────────────────────────────────────────────────────
@@ -107,7 +109,8 @@ export default function DocumentViewPage() {
   const [infoCollapsed, setInfoCollapsed] = React.useState(false);
   const [shareOpen, setShareOpen] = React.useState(false);
   const [fullscreen, setFullscreen] = React.useState(false);
-  const [leftTab, setLeftTab] = React.useState<"comments" | "timeline">("comments");
+  const [flowOpen, setFlowOpen] = React.useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
   const [timeline, setTimeline] = React.useState<ActivityLogItem[]>([]);
   const [timelineLoading, setTimelineLoading] = React.useState(false);
 
@@ -280,6 +283,10 @@ export default function DocumentViewPage() {
       breadcrumbs={parentCrumbs}
       right={
         <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setFlowOpen(true)}>
+            <History className="h-3.5 w-3.5 mr-1.5" />
+            Flow History
+          </Button>
           {canShare && (
             <Button type="button" variant="outline" size="sm" onClick={() => setShareOpen(true)}>
               <Share2 className="h-3.5 w-3.5 mr-1.5" />
@@ -397,30 +404,23 @@ export default function DocumentViewPage() {
             )}
           </div>
 
-          {/* Comments / Timeline card */}
+          {/* Comments card */}
           <div className="flex flex-col rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex-1 min-h-0">
 
-            {/* Tab header */}
-            <div className="shrink-0 px-3 py-2 border-b border-slate-100 dark:border-surface-400 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1 rounded-md bg-slate-100 dark:bg-surface-600 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setLeftTab("comments")}
-                  className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-semibold transition-all ${leftTab === "comments" ? "bg-white dark:bg-surface-400 text-slate-800 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}
-                >
-                  <Send className="h-3 w-3" />
+            {/* Header */}
+            <div className="shrink-0 px-4 py-3 border-b border-slate-100 dark:border-surface-400 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Send className="h-3.5 w-3.5 text-slate-400" />
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-300">
                   Comments
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLeftTab("timeline")}
-                  className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-semibold transition-all ${leftTab === "timeline" ? "bg-white dark:bg-surface-400 text-slate-800 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"}`}
-                >
-                  <GitBranch className="h-3 w-3" />
-                  Timeline
-                </button>
+                </span>
+                {messages.length > 0 && (
+                  <span className="rounded-full bg-slate-100 dark:bg-surface-600 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                    {messages.length}
+                  </span>
+                )}
               </div>
-              {leftTab === "comments" && newMsgCount > 0 && (
+              {newMsgCount > 0 && (
                 <button
                   type="button"
                   onClick={() => {
@@ -434,119 +434,90 @@ export default function DocumentViewPage() {
               )}
             </div>
 
-            {leftTab === "comments" ? (
-              <>
-                {/* Message list */}
-                <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5 min-h-0">
-                  {messagesLoading && messages.length === 0 ? (
-                    <div className="flex h-full items-center justify-center">
-                      <div className="h-5 w-5 rounded-full border-2 border-brand-400 border-t-transparent animate-spin" />
-                    </div>
-                  ) : messages.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center gap-2 py-10">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-surface-400">
-                        <Send className="h-4 w-4 text-slate-400" />
-                      </div>
-                      <p className="text-xs text-slate-400 dark:text-slate-500">No comments yet</p>
-                    </div>
-                  ) : (
-                    messages.map((m) => (
-                      <CommentBubble
-                        key={m.id}
-                        senderName={m.sender?.full_name ?? "Unknown"}
-                        roleName={m.sender?.role?.name ?? null}
-                        when={formatDateTime(m.created_at)}
-                        message={m.message}
-                        type={m.type}
-                        isMine={m.sender_user_id === myId}
-                        avatarLetter={(m.sender?.full_name ?? "?").charAt(0).toUpperCase()}
-                      />
-                    ))
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-
-                {/* Composer */}
-                <div className="shrink-0 border-t border-slate-100 dark:border-surface-400 px-3 py-2.5">
-                  {postErr && (
-                    <p className="mb-1.5 text-[11px] text-rose-600 dark:text-rose-400">{postErr}</p>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); postComment(); }
-                      }}
-                      placeholder="Write a comment…"
-                      disabled={posting}
-                      className="flex-1 rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-3 py-2 text-xs outline-none transition focus:border-brand-400 disabled:opacity-50 dark:text-slate-200 dark:placeholder-slate-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={postComment}
-                      disabled={!commentText.trim() || posting}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-500 text-white transition hover:bg-brand-600 disabled:opacity-40"
-                    >
-                      {posting ? (
-                        <div className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                      ) : (
-                        <Send size={13} />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              /* Timeline */
-              <div className="flex-1 overflow-y-auto px-4 py-3 min-h-0">
-                {timelineLoading ? (
+            {/* Message list */}
+            <div className="flex-1 relative min-h-0">
+              <div
+                onScroll={(e) => {
+                  const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+                  const isScrolledUp = scrollTop + clientHeight < scrollHeight - 150;
+                  setShowScrollToBottom(isScrolledUp);
+                }}
+                className="absolute inset-0 overflow-y-auto px-3 py-3 space-y-2.5 scroll-smooth"
+              >
+                {messagesLoading && messages.length === 0 ? (
                   <div className="flex h-full items-center justify-center">
                     <div className="h-5 w-5 rounded-full border-2 border-brand-400 border-t-transparent animate-spin" />
                   </div>
-                ) : timeline.length === 0 ? (
+                ) : messages.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center gap-2 py-10">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-surface-400">
-                      <GitBranch className="h-4 w-4 text-slate-400" />
+                      <Send className="h-4 w-4 text-slate-400" />
                     </div>
-                    <p className="text-xs text-slate-400 dark:text-slate-500">No workflow events yet</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">No comments yet</p>
                   </div>
                 ) : (
-                  <div className="relative">
-                    {/* Vertical line */}
-                    <div className="absolute left-1.75 top-2 bottom-2 w-px bg-slate-200 dark:bg-surface-400" />
-                    <div className="space-y-0">
-                      {timeline.map((item, i) => {
-                        const isLast = i === timeline.length - 1;
-                        const dotColor =
-                          item.event.includes("distributed") ? "bg-emerald-500" :
-                          item.event.includes("registered") ? "bg-emerald-400" :
-                          item.event.includes("rejected") || item.event.includes("cancelled") ? "bg-rose-500" :
-                          item.event.includes("returned") ? "bg-amber-400" :
-                          item.event.includes("approval") || item.event.includes("president") ? "bg-violet-400" :
-                          item.event.includes("review") || item.event.includes("forwarded") ? "bg-sky-400" :
-                          item.event.includes("created") || item.event.includes("revision") ? "bg-slate-400" :
-                          "bg-brand-400";
-                        return (
-                          <div key={item.id} className={`flex gap-3 ${isLast ? "pb-0" : "pb-3"}`}>
-                            <div className={`relative z-10 mt-1 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-white dark:border-surface-500 ${dotColor}`} />
-                            <div className="min-w-0 flex-1 pb-0.5">
-                              <p className="text-xs font-medium text-slate-800 dark:text-slate-200 leading-snug">
-                                {item.label || item.event}
-                              </p>
-                              <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
-                                {formatDateTime(item.created_at)}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  messages.map((m) => (
+                    <CommentBubble
+                      key={m.id}
+                      senderName={m.sender?.full_name ?? "Unknown"}
+                      roleName={m.sender?.role?.name ?? null}
+                      when={formatDateTime(m.created_at)}
+                      message={m.message}
+                      type={m.type}
+                      isMine={m.sender_user_id === myId}
+                      avatarLetter={(m.sender?.full_name ?? "?").charAt(0).toUpperCase()}
+                    />
+                  ))
                 )}
+                <div ref={messagesEndRef} />
               </div>
-            )}
+
+              {/* Jump to bottom button */}
+              {showScrollToBottom && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+                    setNewMsgCount(0);
+                  }}
+                  className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 shadow-xl border border-slate-200 transition-all duration-200 hover:bg-white hover:text-sky-600 hover:scale-110 active:scale-95 dark:bg-surface-400 dark:border-surface-300 dark:text-sky-400 dark:hover:bg-surface-300 animate-in fade-in slide-in-from-bottom-4"
+                >
+                  <ChevronDown className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+
+            {/* Composer */}
+            <div className="shrink-0 border-t border-slate-100 dark:border-surface-400 px-3 py-2.5">
+              {postErr && (
+                <p className="mb-1.5 text-[11px] text-rose-600 dark:text-rose-400">{postErr}</p>
+              )}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); postComment(); }
+                  }}
+                  placeholder="Write a comment…"
+                  disabled={posting}
+                  className="flex-1 rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-3 py-2 text-xs outline-none transition focus:border-brand-400 disabled:opacity-50 dark:text-slate-200 dark:placeholder-slate-500"
+                />
+                <button
+                  type="button"
+                  onClick={postComment}
+                  disabled={!commentText.trim() || posting}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-500 text-white transition hover:bg-brand-600 disabled:opacity-40"
+                >
+                  {posting ? (
+                    <div className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  ) : (
+                    <Send size={13} />
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -648,6 +619,20 @@ export default function DocumentViewPage() {
           />
         </div>
       )}
+
+      {/* Flow History Modal */}
+      <Modal
+        open={flowOpen}
+        onClose={() => setFlowOpen(false)}
+        title="Document Flow History"
+      >
+        <div className="max-h-[70vh] overflow-y-auto px-1 py-1">
+          <WorkflowFlowTimeline
+            isLoading={timelineLoading}
+            logs={timeline}
+          />
+        </div>
+      </Modal>
 
       <ShareDocumentModal
         open={shareOpen}

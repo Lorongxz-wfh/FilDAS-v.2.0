@@ -3,8 +3,8 @@ import React from "react";
 type Side = "top" | "bottom" | "left" | "right";
 
 interface TooltipProps {
-  /** Tooltip text to display on hover */
-  text: string;
+  /** Tooltip content to display on hover */
+  content: React.ReactNode;
   side?: Side;
   children: React.ReactNode;
   /** Extra classes on the wrapper div */
@@ -28,25 +28,26 @@ const SIDE_CLS: Record<Side, string> = {
  * </Tooltip>
  */
 export default function Tooltip({
-  text,
+  content,
   side = "top",
   children,
   className = "",
 }: TooltipProps) {
+  if (!content) return <>{children}</>;
   return (
     <div className={`group/tt relative inline-flex ${className}`}>
       {children}
-      <span
+      <div
         role="tooltip"
         className={[
           "pointer-events-none absolute z-[9999] whitespace-nowrap rounded",
-          "bg-slate-800 dark:bg-slate-900 px-2 py-1 text-[11px] leading-none text-white shadow-md",
+          "bg-slate-800 dark:bg-slate-900 px-2.5 py-1.5 text-[11px] leading-relaxed text-white shadow-xl border border-white/10",
           "opacity-0 group-hover/tt:opacity-100 transition-opacity duration-150",
           SIDE_CLS[side],
         ].join(" ")}
       >
-        {text}
-      </span>
+        {content}
+      </div>
     </div>
   );
 }

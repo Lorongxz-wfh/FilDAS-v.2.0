@@ -1,174 +1,203 @@
 import React from "react";
-import { Share2 } from "lucide-react";
 import type { TableColumn } from "../../components/ui/Table";
 import type { Document } from "../../services/documents";
 import { formatDate } from "../../utils/formatters";
-import { TypeBadge, ModeBadge, SourceBadge } from "./DocumentLibraryBadges";
-import { StatusBadge } from "../../components/ui/Badge";
+import MiddleTruncate from "../../components/ui/MiddleTruncate";
 import type { LibraryItem } from "./documentLibraryTypes";
 
-// ── DocTitle cell ─────────────────────────────────────────────────────────────
-function DocTitle({ doc }: { doc: Document }) {
+// ── Reusable Cells ────────────────────────────────────────────────────────────
+
+function NormalText({ children, secondary = false }: { children: React.ReactNode; secondary?: boolean }) {
+  const content = typeof children === "object" && children !== null ? (children as any).code || (children as any).name || "—" : children;
   return (
-    <div className="min-w-0">
-      <div className="font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-        {doc.title}
-      </div>
-      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-        {doc.code && (
-          <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500">
-            {doc.code}
-          </span>
-        )}
-        {(doc as any).ownerOffice && (
-          <span className="text-[11px] text-slate-400 dark:text-slate-500">
-            {(doc as any).ownerOffice.name}
-          </span>
-        )}
-        {Array.isArray((doc as any).tags) && (doc as any).tags.length > 0 && (
-          <div className="flex items-center gap-1">
-            {(doc as any).tags.slice(0, 2).map((t: any) => {
-              const name = typeof t === "string" ? t : t.name;
-              return (
-                <span
-                  key={name}
-                  className="rounded-full border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-1.5 py-0 text-[10px] text-slate-400 dark:text-slate-500"
-                >
-                  {name}
-                </span>
-              );
-            })}
-            {(doc as any).tags.length > 2 && (
-              <span className="text-[10px] text-slate-400">
-                +{(doc as any).tags.length - 2}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+    <span className={`text-xs ${secondary ? "text-slate-500 dark:text-slate-400" : "font-medium text-slate-700 dark:text-slate-100"}`}>
+      {content || "—"}
+    </span>
   );
 }
 
-// ── ShareCell ─────────────────────────────────────────────────────────────────
-const ShareCell: React.FC<{
-  doc: Document;
-  canShare: boolean;
-  onShare: (id: number) => void;
-}> = ({ doc, canShare, onShare }) => {
-  if (!canShare) return null;
+function TypeText({ type }: { type: string }) {
   return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onShare(doc.id);
-      }}
-      className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 transition cursor-pointer"
-    >
-      <Share2 className="h-2.5 w-2.5" />
-      Share
-    </button>
+    <span className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+      {type?.toLowerCase() || "—"}
+    </span>
   );
-};
+}
 
 // ── Column builders ───────────────────────────────────────────────────────────
 
-export function buildBaseDocColumns(): TableColumn<Document>[] {
+export function buildCreatedColumns(): TableColumn<Document>[] {
   return [
+    {
+      key: "code",
+      header: "Code",
+      sortKey: "code",
+      skeletonShape: "narrow",
+      render: (doc) => (
+        <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400">
+          {doc.code || "—"}
+        </span>
+      ),
+    },
+    {
+      key: "title",
+      header: "Document Title",
+      skeletonShape: "text",
+      sortKey: "title",
+      render: (doc) => (
+        <div className="min-w-0 pr-4">
+          <MiddleTruncate 
+            text={doc.title}
+            className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-brand-500 transition-colors"
+          />
+        </div>
+      ),
+    },
     {
       key: "type",
       header: "Type",
-      skeletonShape: "badge",
-      render: (doc) => <TypeBadge type={doc.doctype} />,
+      skeletonShape: "text",
+      render: (doc) => <TypeText type={doc.doctype} />,
     },
     {
-      key: "document",
-      header: "Document",
-      skeletonShape: "double",
-      sortKey: "title",
-      render: (doc) => <DocTitle doc={doc} />,
-    },
-    {
-      key: "version",
-      header: "Ver.",
-      skeletonShape: "badge",
-      align: "center" as const,
-      render: (doc) => (
-       <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
-            v{doc.version_number}
-          </span>
+      key: "office",
+      header: "Office",
+      skeletonShape: "text",
+      render: (doc: any) => (
+        <NormalText secondary>
+          {doc.office?.code || doc.ownerOffice?.code || "—"}
+        </NormalText>
       ),
     },
     {
-      key: "effective_date",
-      header: "Effective",
-      skeletonShape: "narrow",
-      render: (doc) => (
-        <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-          {doc.effective_date ? (
-            formatDate(doc.effective_date)
-          ) : (
-            <span className="text-slate-300 dark:text-slate-600">—</span>
-          )}
-        </span>
-      ),
+        key: "version",
+        header: "Ver.",
+        align: "center",
+        skeletonShape: "narrow",
+        render: (doc) => (
+          <NormalText secondary>v{doc.version_number}</NormalText>
+        ),
     },
     {
-      key: "created",
-      header: "Created",
+      key: "date_distributed",
+      header: "Date Distributed",
       skeletonShape: "narrow",
       sortKey: "created_at",
+      align: "right",
       render: (doc) => (
-        <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-          {formatDate(doc.created_at)}
-        </span>
+        <NormalText secondary>
+          {formatDate(doc.effective_date || doc.created_at)}
+        </NormalText>
       ),
     },
   ];
 }
 
-export function buildSharedColumns(
-  canShare: boolean,
-  onShare: (id: number) => void,
-): TableColumn<Document>[] {
-  const base = buildBaseDocColumns();
-  if (!canShare) return base;
+export function buildSharedColumns(): TableColumn<Document>[] {
   return [
-    ...base,
     {
-      key: "actions",
-      header: "",
-      align: "right" as const,
+      key: "code",
+      header: "Code",
+      sortKey: "code",
+      skeletonShape: "narrow",
       render: (doc) => (
-        <ShareCell doc={doc} canShare={canShare} onShare={onShare} />
+        <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400">
+          {doc.code || "—"}
+        </span>
+      ),
+    },
+    {
+      key: "title",
+      header: "Document Title",
+      skeletonShape: "text",
+      sortKey: "title",
+      render: (doc) => (
+        <div className="min-w-0 pr-4">
+          <MiddleTruncate 
+            text={doc.title}
+            className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-brand-500 transition-colors"
+          />
+        </div>
+      ),
+    },
+    {
+      key: "type",
+      header: "Type",
+      skeletonShape: "text",
+      render: (doc) => <TypeText type={doc.doctype} />,
+    },
+    {
+      key: "office",
+      header: "Office",
+      skeletonShape: "text",
+      render: (doc: any) => (
+        <NormalText secondary>
+          {doc.office?.code || doc.ownerOffice?.code || "—"}
+        </NormalText>
+      ),
+    },
+    {
+        key: "version",
+        header: "Ver.",
+        align: "center",
+        skeletonShape: "narrow",
+        render: (doc) => (
+          <NormalText secondary>v{doc.version_number}</NormalText>
+        ),
+    },
+    {
+      key: "date_distributed",
+      header: "Date Distributed",
+      skeletonShape: "narrow",
+      align: "right",
+      render: (doc) => (
+        <NormalText secondary>
+          {formatDate(doc.effective_date)}
+        </NormalText>
+      ),
+    },
+    {
+      key: "date_shared",
+      header: "Date Shared",
+      skeletonShape: "narrow",
+      sortKey: "created_at",
+      align: "right",
+      render: (doc) => (
+        <NormalText secondary>
+          {formatDate(doc.created_at)}
+        </NormalText>
       ),
     },
   ];
 }
+
+// Map old names to new unified builder with correct headers
+export const buildBaseDocColumns = () => buildCreatedColumns();
 
 export function buildRequestedColumns(isQaAdmin: boolean): TableColumn<any>[] {
   const cols: TableColumn<any>[] = [
     {
-      key: "mode",
+      key: "type",
       header: "Type",
-      skeletonShape: "badge",
-      render: (r) => <ModeBadge mode={r.batch_mode} />,
+      skeletonShape: "text",
+      render: (r) => <TypeText type={r.batch_mode || "REQUEST"} />,
     },
     {
       key: "request",
-      header: "Request",
-      skeletonShape: "double",
+      header: "Request Title",
+      skeletonShape: "text",
       sortKey: "title",
       render: (r) => (
-        <div className="min-w-0">
-          <div className="font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-            {r.item_title ?? r.batch_title}
-          </div>
-          {r.item_title && (
-            <div className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
-              {r.batch_title}
-            </div>
+        <div className="min-w-0 pr-4">
+          <MiddleTruncate 
+            text={r.item_title ?? r.batch_title}
+            className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-brand-500 transition-colors"
+          />
+          {r.item_title && r.batch_title && (
+            <MiddleTruncate 
+              text={r.batch_title}
+              className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5"
+            />
           )}
         </div>
       ),
@@ -179,17 +208,11 @@ export function buildRequestedColumns(isQaAdmin: boolean): TableColumn<any>[] {
     cols.push({
       key: "office",
       header: "Office",
+      skeletonShape: "text",
       render: (r) => (
-        <div className="min-w-0">
-          <div className="text-xs text-slate-600 dark:text-slate-300 truncate">
-            {r.office_name ?? "—"}
-          </div>
-          {r.office_code && (
-            <div className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
-              {r.office_code}
-            </div>
-          )}
-        </div>
+        <NormalText secondary>
+          {r.office_code || "—"}
+        </NormalText>
       ),
     });
   }
@@ -198,18 +221,19 @@ export function buildRequestedColumns(isQaAdmin: boolean): TableColumn<any>[] {
     {
       key: "status",
       header: "Status",
-      skeletonShape: "badge",
-      render: () => <StatusBadge status="Accepted" />,
+      skeletonShape: "text",
+      render: () => <NormalText>Accepted</NormalText>,
     },
     {
       key: "date",
-      header: "Date",
+      header: "Date Accepted",
       skeletonShape: "narrow",
       sortKey: "created_at",
+      align: "right",
       render: (r) => (
-        <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+        <NormalText secondary>
           {formatDate(r.created_at)}
-        </span>
+        </NormalText>
       ),
     },
   );
@@ -222,23 +246,26 @@ export function buildAllColumns(): TableColumn<LibraryItem>[] {
     {
       key: "source",
       header: "Source",
-      skeletonShape: "badge",
-      render: (item) => <SourceBadge source={item.source} />,
+      skeletonShape: "narrow",
+      render: (item) => (
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-100 dark:bg-surface-600 dark:text-slate-400 px-1.5 py-0.5 rounded">
+          {item.source}
+        </span>
+      ),
     },
     {
       key: "title",
       header: "Title",
-      skeletonShape: "double",
+      skeletonShape: "text",
       sortKey: "title",
       render: (item) => (
-        <div className="min-w-0">
-          <div className="font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-            {item.title}
-          </div>
-          {item.subtitle && (
-            <div className="font-mono text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
-              {item.subtitle}
-            </div>
+        <div className="min-w-0 pr-4">
+          <MiddleTruncate 
+            text={item.title}
+            className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-brand-500 transition-colors"
+          />
+          {item.code && (
+              <p className="text-[10px] font-mono text-slate-400 dark:text-slate-500 mt-0.5">{item.code}</p>
           )}
         </div>
       ),
@@ -246,46 +273,53 @@ export function buildAllColumns(): TableColumn<LibraryItem>[] {
     {
       key: "type",
       header: "Type",
-      skeletonShape: "badge",
-      render: (item) =>
-        item.doctype ? (
-          <TypeBadge type={item.doctype} />
-        ) : item.mode ? (
-          <ModeBadge mode={item.mode} />
-        ) : null,
+      skeletonShape: "text",
+      render: (item) => <TypeText type={item.doctype || item.mode || "—"} />,
     },
     {
       key: "office",
       header: "Office",
       skeletonShape: "text",
+      render: (item: any) => {
+        const off = item.office;
+        const display = typeof off === "object" && off !== null ? off.code || off.name : off;
+        return (
+          <NormalText secondary>
+            {display}
+          </NormalText>
+        );
+      },
+    },
+    {
+      key: "status",
+      header: "Status",
+      skeletonShape: "text",
       render: (item) => (
-        <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
-          {item.office ?? "—"}
-        </span>
+        <NormalText>
+          {item.status || "—"}
+        </NormalText>
       ),
     },
     {
-      key: "meta",
-      header: "Ver. / Status",
-      skeletonShape: "badge",
-      render: (item) =>
-        item.version != null ? (
-          <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
-            v{item.version}
-          </span>
-        ) : (
-          <StatusBadge status="Accepted" />
-        ),
+      key: "distributed",
+      header: "Distributed",
+      skeletonShape: "narrow",
+      align: "right",
+      render: (item) => (
+        <NormalText secondary>
+          {formatDate(item.dateDistributed || item.date)}
+        </NormalText>
+      ),
     },
     {
-      key: "date",
-      header: "Date",
+      key: "shared",
+      header: "Shared",
       skeletonShape: "narrow",
-      sortKey: "created_at",
+      align: "right",
       render: (item) => (
-        <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-          {formatDate(item.date)}
-        </span>
+        <NormalText secondary>
+          {item.dateShared ? formatDate(item.dateShared) : "—"}
+        </NormalText>
       ),
     },
   ];
@@ -294,45 +328,66 @@ export function buildAllColumns(): TableColumn<LibraryItem>[] {
 export function buildArchiveColumns(): TableColumn<Document>[] {
   return [
     {
-      key: "type",
-      header: "Type",
-      skeletonShape: "badge",
-      render: (doc) => <TypeBadge type={doc.doctype} />,
+      key: "code",
+      header: "Code",
+      sortKey: "code",
+      skeletonShape: "narrow",
+      render: (doc) => (
+        <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400">
+          {doc.code || "—"}
+        </span>
+      ),
     },
     {
-      key: "document",
-      header: "Document",
-      skeletonShape: "double",
+      key: "title",
+      header: "Document Title",
+      skeletonShape: "text",
       sortKey: "title",
-      render: (doc) => <DocTitle doc={doc} />,
+      render: (doc) => (
+        <div className="min-w-0 pr-4">
+          <MiddleTruncate 
+            text={doc.title}
+            className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-brand-500 transition-colors"
+          />
+        </div>
+      ),
+    },
+    {
+      key: "type",
+      header: "Type",
+      skeletonShape: "text",
+      render: (doc) => <TypeText type={doc.doctype} />,
     },
     {
       key: "office",
       header: "Office",
       skeletonShape: "text",
-      render: (doc) => (
-        <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
-          {(doc as any).ownerOffice?.name ?? "—"}
-        </span>
+      render: (doc: any) => (
+        <NormalText secondary>
+          {doc.office?.code || doc.ownerOffice?.code || "—"}
+        </NormalText>
       ),
     },
     {
       key: "status",
       header: "Status",
-      skeletonShape: "badge",
-      render: (doc) => (
-        <StatusBadge status={(doc as any).latestVersion?.status ?? "Cancelled"} />
+      skeletonShape: "text",
+      render: (doc: any) => (
+        <NormalText>
+          {doc.status || "—"}
+        </NormalText>
       ),
     },
     {
       key: "archived_on",
-      header: "Archived On",
+      header: "Date",
       skeletonShape: "narrow",
       sortKey: "updated_at",
+      align: "right",
       render: (doc) => (
-        <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+        <NormalText secondary>
           {doc.updated_at ? formatDate(doc.updated_at) : "—"}
-        </span>
+        </NormalText>
       ),
     },
   ];

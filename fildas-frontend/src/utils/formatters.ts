@@ -61,3 +61,18 @@ export function formatRelative(iso: string): string {
 export function getInitials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 }
+
+
+/** 
+ * Truncates in the middle: "Faculty Accompli...e.pdf" 
+ * default max: 40 chars
+ */
+export function truncateMiddle(str: string | null | undefined, max = 40): string {
+  if (!str) return "—";
+  if (str.length <= max) return str;
+  const chars = max - 3; // for "..."
+  const startNum = Math.ceil(chars / 2);
+  const endNum = Math.floor(chars / 2);
+  return str.substring(0, startNum) + "..." + str.substring(str.length - endNum);
+}
+

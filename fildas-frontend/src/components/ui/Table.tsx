@@ -31,7 +31,7 @@ export type TableProps<T> = {
   error?: string | null;
   emptyMessage?: string;
   onRowClick?: (row: T) => void;
-  rowKey: (row: T) => string | number;
+  rowKey: (row: T, index: number) => string | number;
   className?: string;
   // infinite scroll
   hasMore?: boolean;
@@ -52,6 +52,12 @@ const alignClass = (align: Align | undefined) => {
   if (align === "center") return "text-center";
   if (align === "right") return "text-right";
   return "text-left";
+};
+
+const alignHeaderClass = (align: Align | undefined) => {
+  if (align === "center") return "justify-center text-center";
+  if (align === "right") return "justify-end text-right";
+  return "justify-start text-left";
 };
 
 const SortIcon = ({
@@ -151,8 +157,8 @@ export default function Table<T>({
                 type="button"
                 onClick={() => onSortChange!(c.sortKey!, nextDir)}
                 className={[
-                  "inline-flex items-center gap-0.5 transition-colors select-none",
-                  alignClass(c.align),
+                  "flex items-center gap-1 transition-colors select-none",
+                  alignHeaderClass(c.align),
                   c.headerClassName ?? "",
                   isActive
                     ? "text-slate-700 dark:text-slate-200"
@@ -168,9 +174,11 @@ export default function Table<T>({
           return (
             <div
               key={c.key}
-              className={[alignClass(c.align), c.headerClassName ?? ""].join(
-                " ",
-              )}
+              className={[
+                "flex items-center",
+                alignHeaderClass(c.align),
+                c.headerClassName ?? "",
+              ].join(" ")}
             >
               {c.header}
             </div>
@@ -182,24 +190,26 @@ export default function Table<T>({
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
         {initialLoading ? (
           <div className="divide-y divide-slate-200 dark:divide-surface-400">
-            {Array.from({ length: 10 }).map((_, r) => (
+            {Array.from({ length: 15 }).map((_, r) => (
               <div
                 key={r}
                 className={`grid gap-3 items-center px-4 py-3 sm:py-2 ${mobileRender ? "flex flex-col items-start sm:grid" : "grid"}`}
-                style={mobileRender ? undefined : { gridTemplateColumns: colTemplate }}
+                style={{ gridTemplateColumns: colTemplate }}
               >
-                {columns.slice(0, mobileRender ? 3 : columns.length).map((col, c) => {
+                {columns.slice(0, mobileRender ? (columns.length > 3 ? 3 : columns.length) : columns.length).map((col, c) => {
                   const shape = col.skeletonShape ?? "text";
                   const base =
-                    "animate-pulse rounded bg-slate-100 dark:bg-surface-400";
-                  // vary widths across rows so it doesn't look like a grid
-                  const textWidths = ["72%", "58%", "80%", "64%", "75%"];
+                    "animate-pulse rounded bg-slate-100 dark:bg-surface-400/80";
+                  
+                  // fill more of the column width
+                  const textWidths = ["92%", "85%", "90%", "88%", "94%"];
+                  
                   if (shape === "badge") {
                     return (
                       <div
                         key={c}
                         className={`${base} rounded-full h-5`}
-                        style={{ width: `${56 + (r % 3) * 12}px` }}
+                        style={{ width: `${60 + (r % 3) * 12}px` }}
                       />
                     );
                   }
@@ -207,12 +217,12 @@ export default function Table<T>({
                     return (
                       <div key={c} className="flex flex-col gap-1.5 w-full">
                         <div
-                          className={`${base} h-3`}
+                          className={`${base} h-3.5`}
                           style={{ width: textWidths[r % textWidths.length] }}
                         />
                         <div
-                          className={`${base} h-2`}
-                          style={{ width: `${36 + (r % 4) * 8}%` }}
+                          className={`${base} h-2.5`}
+                          style={{ width: `${60 + (r % 4) * 8}%` }}
                         />
                       </div>
                     );
@@ -221,15 +231,15 @@ export default function Table<T>({
                     return (
                       <div
                         key={c}
-                        className={`${base} h-3`}
-                        style={{ width: `${48 + (r % 3) * 10}%` }}
+                        className={`${base} h-2.5`}
+                        style={{ width: `${80 + (r % 2) * 12}%` }}
                       />
                     );
                   }
                   return (
                     <div
                       key={c}
-                      className={`${base} h-3`}
+                      className={`${base} h-3.5`}
                       style={{ width: textWidths[(c + r) % textWidths.length] }}
                     />
                   );
@@ -249,9 +259,9 @@ export default function Table<T>({
           </div>
         ) : (
           <div className="divide-y divide-slate-200 dark:divide-surface-400">
-            {rows.map((row) => {
+            {rows.map((row, idx) => {
               const clickable = !!onRowClick;
-              const key = rowKey(row);
+              const key = rowKey(row, idx);
               
               // Mobile Card view
               if (mobileRender) {
@@ -334,8 +344,8 @@ export default function Table<T>({
       <div
         className={["flex flex-col min-h-0 h-full", className ?? ""].join(" ")}
       >
-        <div className="flex flex-col min-h-0 h-full overflow-x-auto">
-          <div className="min-w-150 flex flex-col min-h-0 h-full">{inner}</div>
+        <div className="flex-1 overflow-x-auto">
+          <div className="min-w-max flex flex-col min-h-0 h-full">{inner}</div>
         </div>
       </div>
     );
@@ -348,8 +358,8 @@ export default function Table<T>({
         className ?? "",
       ].join(" ")}
     >
-      <div className="flex flex-col min-h-0 h-full overflow-x-auto">
-        <div className="min-w-150 flex flex-col min-h-0 h-full">{inner}</div>
+      <div className="flex-1 overflow-x-auto">
+        <div className="min-w-max flex flex-col min-h-0 h-full">{inner}</div>
       </div>
     </div>
   );

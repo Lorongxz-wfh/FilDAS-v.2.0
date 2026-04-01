@@ -264,9 +264,10 @@ const NotificationBell: React.FC = () => {
                           <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
                             {latest.title}
                           </p>
-                          <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                            {latest.body}
-                          </p>
+                          <p 
+                            className="mt-0.5 line-clamp-2 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: latest.body }}
+                          />
                         </div>
                       </div>
                     );
@@ -379,9 +380,10 @@ const NotificationBell: React.FC = () => {
                             {n.title}
                           </div>
                           {n.body && (
-                            <div className="mt-0.5 line-clamp-2 text-[11px] text-slate-500 dark:text-slate-400">
-                              {n.body}
-                            </div>
+                            <div 
+                              className="mt-0.5 line-clamp-2 text-[11px] text-slate-500 dark:text-slate-400"
+                              dangerouslySetInnerHTML={{ __html: n.body }}
+                            />
                           )}
                         </div>
                         {(() => {

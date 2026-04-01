@@ -7,6 +7,7 @@ import {
 import Table, { type TableColumn } from "../ui/Table";
 import { Download, Trash2 } from "lucide-react";
 import { useToast } from "../ui/toast/ToastContext";
+import MiddleTruncate from "../ui/MiddleTruncate";
 
 import type { SortDir } from "../ui/Table";
 
@@ -100,6 +101,7 @@ const TemplateList: React.FC<Props> = ({
         key: "type",
         header: "Type",
         skeletonShape: "badge",
+        sortKey: "mime_type",
         render: (t) => {
           const label = templateFileTypeLabel(t.mime_type);
           return (
@@ -116,9 +118,10 @@ const TemplateList: React.FC<Props> = ({
         sortKey: "name",
         render: (t) => (
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-              {t.name}
-            </p>
+            <MiddleTruncate 
+              text={t.name}
+              className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors"
+            />
             {t.description && (
               <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
                 {t.description}
@@ -165,6 +168,7 @@ const TemplateList: React.FC<Props> = ({
         key: "size",
         header: "Size",
         skeletonShape: "narrow",
+        sortKey: "file_size",
         render: (t) => (
           <span className="text-xs text-slate-500 dark:text-slate-400">
             {t.file_size_label}
@@ -194,7 +198,7 @@ const TemplateList: React.FC<Props> = ({
       },
       {
         key: "actions",
-        header: "",
+        header: "Actions",
         align: "right",
         render: (t) => (
           <TemplateActions
@@ -217,7 +221,36 @@ const TemplateList: React.FC<Props> = ({
       loading={false}
       onRowClick={onSelect}
       emptyMessage="No templates match your filters."
-      gridTemplateColumns="60px 1fr 70px 70px 130px 100px 72px"
+      mobileRender={(t) => (
+        <div className="px-4 py-3 bg-white dark:bg-surface-500 border-b border-slate-100 dark:border-surface-400">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="rounded bg-slate-100 dark:bg-surface-400 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">
+              {templateFileTypeLabel(t.mime_type)}
+            </span>
+            <span className="text-[10px] text-slate-400">
+              {new Date(t.created_at).toLocaleDateString()}
+            </span>
+          </div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate mb-0.5">
+                {t.name}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                {t.file_size_label} • {t.uploaded_by?.name || "—"}
+              </p>
+            </div>
+            <div className="shrink-0 flex items-center gap-1">
+              <TemplateActions
+                template={t}
+                isDeleting={deletingId === t.id}
+                onDeleteClick={onDeleteClick}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      gridTemplateColumns="60px minmax(120px, 1fr) 80px 100px 140px 100px 100px"
       className="flex-1"
       sortBy={sortBy}
       sortDir={sortDir}

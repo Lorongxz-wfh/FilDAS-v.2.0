@@ -7,14 +7,15 @@ import Table, { type TableColumn } from "../components/ui/Table";
 import { listActivityLogs, getDocumentVersion } from "../services/documents";
 import ActivityCalendar from "../components/activityLogs/ActivityCalendar";
 import ActivityDetailModal from "../components/activityLogs/ActivityDetailModal";
-import { List, CalendarDays, X } from "lucide-react";
+import { List, CalendarDays, X, Search, SlidersHorizontal } from "lucide-react";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import RefreshButton from "../components/ui/RefreshButton";
-import { selectCls } from "../utils/formStyles";
+import { selectCls, inputCls } from "../utils/formStyles";
 import Alert from "../components/ui/Alert";
 import DateRangeInput from "../components/ui/DateRangeInput";
 import { friendlyEvent } from "../utils/activityFormatters";
 import { formatDateTime } from "../utils/formatters";
+import MiddleTruncate from "../components/ui/MiddleTruncate";
 
 type Scope = "all" | "office" | "mine";
 type Category =
@@ -28,12 +29,9 @@ type Category =
 type TabView = "log" | "calendar";
 
 const ActivityLogsPage: React.FC = () => {
-  const me = getAuthUser();
-  if (!me) return <Navigate to="/login" replace />;
-
-  const isOfficeHead = me.role === "OFFICE_HEAD";
-
   const navigate = useNavigate();
+  const me = getAuthUser();
+  const isOfficeHead = me?.role === "OFFICE_HEAD";
 
   const [tab, setTab] = React.useState<TabView>("log");
   const [scope, setScope] = React.useState<Scope>("all");
@@ -47,6 +45,16 @@ const ActivityLogsPage: React.FC = () => {
     "created_at",
   );
   const [sortDir, setSortDir] = React.useState<"asc" | "desc">("desc");
+
+  const [isFiltersOpen, setIsFiltersOpen] = React.useState(false);
+  const activeFiltersCount = React.useMemo(() => {
+    let count = 0;
+    if (scope !== "all") count++;
+    if (category) count++;
+    if (dateFrom) count++;
+    if (dateTo) count++;
+    return count;
+  }, [scope, category, dateFrom, dateTo]);
 
   React.useEffect(() => {
     const t = window.setTimeout(() => setQDebounced(q), 400);
@@ -236,9 +244,10 @@ const ActivityLogsPage: React.FC = () => {
       skeletonShape: "text",
       sortKey: "event",
       render: (r) => (
-        <span className="font-medium text-slate-800 dark:text-slate-200 truncate block group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
-          {friendlyEvent(r.event)}
-        </span>
+        <MiddleTruncate 
+          text={friendlyEvent(r.event)}
+          className="font-medium text-slate-800 dark:text-slate-200 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors"
+        />
       ),
     },
     {
@@ -247,9 +256,10 @@ const ActivityLogsPage: React.FC = () => {
       skeletonShape: "text",
       sortKey: "label",
       render: (r) => (
-        <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
-          {r.label ?? "—"}
-        </span>
+        <MiddleTruncate 
+          text={r.label ?? "—"}
+          className="text-xs text-slate-500 dark:text-slate-400"
+        />
       ),
     },
     {
@@ -257,14 +267,16 @@ const ActivityLogsPage: React.FC = () => {
       header: "Actor",
       skeletonShape: "double",
       render: (r) => (
-        <div className="min-w-0">
-          <div className="text-xs text-slate-700 dark:text-slate-300 truncate">
-            {r.actor_user?.full_name ?? r.actor_user?.name ?? "—"}
-          </div>
+        <div className="flex flex-col min-w-0 py-0.5">
+          <MiddleTruncate 
+            text={r.actor_user?.full_name ?? r.actor_user?.name ?? "—"}
+            className="text-xs font-medium text-slate-800 dark:text-slate-200"
+          />
           {r.actor_office && (
-            <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-              {r.actor_office.name}
-            </div>
+            <MiddleTruncate 
+              text={r.actor_office.name}
+              className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight"
+            />
           )}
         </div>
       ),
@@ -274,9 +286,10 @@ const ActivityLogsPage: React.FC = () => {
       header: "Doc",
       skeletonShape: "text",
       render: (r) => (
-        <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
-          {r.document?.title ?? (r.document_id ? `#${r.document_id}` : "—")}
-        </span>
+        <MiddleTruncate 
+          text={r.document?.title ?? (r.document_id ? `#${r.document_id}` : "—")}
+          className="text-xs text-slate-500 dark:text-slate-400"
+        />
       ),
     },
   ];
@@ -309,6 +322,9 @@ const ActivityLogsPage: React.FC = () => {
       setExporting(false);
     }
   };
+
+
+  if (!me) return <Navigate to="/login" replace />;
 
   return (
     <PageFrame
@@ -378,82 +394,209 @@ const ActivityLogsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Log tab — filters */}
+      {/* Log tab — filters. Updated for mobile responsiveness */}
       {tab === "log" && (
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {isOfficeHead ? (
-            <span className="inline-flex items-center rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400">
-              {me.office?.name ?? "Your office"}
-            </span>
-          ) : (
-            <select
-              value={scope}
-              onChange={(e) => setScope(e.target.value as Scope)}
-              className={selectCls}
-            >
-              <option value="all">All</option>
-              <option value="office">My office</option>
-              <option value="mine">Mine</option>
-            </select>
-          )}
+        <div className="shrink-0 py-3 flex flex-col gap-3 sm:gap-2">
+           <div className="flex items-center gap-2">
+            <div className="relative flex-1 sm:max-w-64">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search event / label…"
+                className={`${inputCls} pl-9 pr-10 text-sm`}
+              />
+              {q && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQ("");
+                    setPage(1);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  title="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
 
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value as Category)}
-            className={selectCls}
-          >
-            <option value="">All categories</option>
-            <option value="workflow">Workflow</option>
-            <option value="request">Document Requests</option>
-            <option value="document">Documents</option>
-            <option value="user">User Management</option>
-            <option value="template">Templates</option>
-            <option value="profile">Profile &amp; Auth</option>
-          </select>
-
-          <div className="relative w-full sm:w-56">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search event/label…"
-              className={`${selectCls} w-full pr-8`}
-            />
-            {q && (
-              <button
-                type="button"
-                onClick={() => setQ("")}
-                title="Clear"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          <DateRangeInput
-            from={dateFrom}
-            to={dateTo}
-            onFromChange={setDateFrom}
-            onToChange={setDateTo}
-          />
-
-          {hasFilters && (
             <button
               type="button"
-              onClick={() => {
-                setQ("");
-                if (!isOfficeHead) setScope("all");
-                setCategory("");
-                setDateFrom("");
-                setDateTo("");
-              }}
-              className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+              onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+              className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${
+                isFiltersOpen || activeFiltersCount > 0
+                  ? "bg-brand-50 border-brand-200 text-brand-600 dark:bg-brand-500/10 dark:border-brand-500/30 dark:text-brand-400 shadow-xs"
+                  : "bg-white border-slate-200 text-slate-600 dark:bg-surface-500 dark:border-surface-400 dark:text-slate-400"
+              }`}
             >
-              Clear
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span className="text-xs font-semibold">Filters</span>
+              {activeFiltersCount > 0 && (
+                <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-brand-500 text-white rounded-full">
+                  {activeFiltersCount}
+                </span>
+              )}
             </button>
-          )}
 
-          {error && <Alert variant="danger">{error}</Alert>}
+            <div className="hidden sm:flex items-center gap-2">
+              {isOfficeHead ? (
+                <span className="inline-flex items-center rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-3 h-8 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  {me.office?.name ?? "Your office"}
+                </span>
+              ) : (
+                <select
+                  value={scope}
+                  onChange={(e) => {
+                    setScope(e.target.value as Scope);
+                    setPage(1);
+                  }}
+                  className={`${selectCls} text-xs h-8 w-24`}
+                >
+                  <option value="all">All</option>
+                  <option value="office">My office</option>
+                  <option value="mine">Mine</option>
+                </select>
+              )}
+
+              <select
+                value={category}
+                onChange={(e) => {
+                  setCategory(e.target.value as Category);
+                  setPage(1);
+                }}
+                className={`${selectCls} text-xs h-8 w-36`}
+              >
+                <option value="">All categories</option>
+                <option value="workflow">Workflow</option>
+                <option value="request">Document Requests</option>
+                <option value="document">Documents</option>
+                <option value="user">User Management</option>
+                <option value="template">Templates</option>
+                <option value="profile">Profile & Auth</option>
+              </select>
+
+              <DateRangeInput
+                from={dateFrom}
+                to={dateTo}
+                onFromChange={(val) => {
+                  setDateFrom(val);
+                  setPage(1);
+                }}
+                onToChange={(val) => {
+                  setDateTo(val);
+                  setPage(1);
+                }}
+              />
+
+              {hasFilters && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScope("all");
+                    setCategory("");
+                    setQ("");
+                    setDateFrom("");
+                    setDateTo("");
+                    setPage(1);
+                  }}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+           </div>
+
+           {/* Mobile secondary filters collapsible */}
+           {isFiltersOpen && (
+             <div className="sm:hidden flex flex-col gap-3 p-4 bg-slate-50 dark:bg-surface-600 rounded-xl border border-slate-200 dark:border-surface-400 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Scope</label>
+                    {isOfficeHead ? (
+                      <div className={inputCls + " text-center bg-slate-100 dark:bg-surface-500 opacity-60 flex items-center justify-center text-[11px] h-9"}>
+                         Office scoped
+                      </div>
+                    ) : (
+                      <select
+                        value={scope}
+                        onChange={(e) => {
+                          setScope(e.target.value as Scope);
+                          setPage(1);
+                        }}
+                        className={selectCls}
+                      >
+                        <option value="all">All</option>
+                        <option value="office">My office</option>
+                        <option value="mine">Mine</option>
+                      </select>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Category</label>
+                    <select
+                      value={category}
+                      onChange={(e) => {
+                        setCategory(e.target.value as Category);
+                        setPage(1);
+                      }}
+                      className={selectCls}
+                    >
+                      <option value="">All categories</option>
+                      <option value="workflow">Workflow</option>
+                      <option value="request">Document Requests</option>
+                      <option value="document">Documents</option>
+                      <option value="user">User Management</option>
+                      <option value="template">Templates</option>
+                      <option value="profile">Profile & Auth</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Date Range</label>
+                  <DateRangeInput
+                    from={dateFrom}
+                    to={dateTo}
+                    onFromChange={(val) => {
+                      setDateFrom(val);
+                      setPage(1);
+                    }}
+                    onToChange={(val) => {
+                      setDateTo(val);
+                      setPage(1);
+                    }}
+                  />
+                </div>
+
+              {hasFilters && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScope("all");
+                    setCategory("");
+                    setQ("");
+                    setDateFrom("");
+                    setDateTo("");
+                    setPage(1);
+                  }}
+                  className="w-full py-2.5 text-xs font-bold text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10 rounded-lg transition"
+                >
+                  Clear all filters
+                </button>
+              )}
+             </div>
+           )}
+
+           {error && (
+             <div className="pt-2">
+               <Alert variant="danger">{error}</Alert>
+             </div>
+           )}
         </div>
       )}
 
@@ -473,7 +616,32 @@ const ActivityLogsPage: React.FC = () => {
             emptyMessage="No logs found."
             hasMore={hasMore}
             onLoadMore={() => setPage((p) => p + 1)}
-            gridTemplateColumns="13rem 1.2fr 1fr 11rem 9rem"
+            mobileRender={(r) => (
+              <div className="px-4 py-3 bg-white dark:bg-surface-500 border-b border-slate-100 dark:border-surface-400">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wide">
+                    {friendlyEvent(r.event)}
+                  </span>
+                  <span className="text-[10px] text-slate-400 tabular-nums">
+                    {formatDateTime(r.created_at)}
+                  </span>
+                </div>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-0.5">
+                  {r.actor_user?.full_name ?? r.actor_user?.name ?? "—"}
+                </p>
+                <div className="flex items-center justify-between gap-4 overflow-hidden">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    {r.actor_office?.name || "No office"}
+                  </p>
+                  {r.document?.title && (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 italic truncate shrink-0 max-w-[40%]">
+                      {r.document.title}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            gridTemplateColumns="12rem minmax(140px, 1.2fr) minmax(120px, 1fr) 12rem 10rem"
             sortBy={sortBy}
             sortDir={sortDir}
             onSortChange={(key, dir) => {
