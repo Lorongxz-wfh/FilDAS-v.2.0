@@ -244,6 +244,91 @@ class DocumentRequestMessageController extends Controller
         } catch (\Throwable) {
         }
 
+        $this->notifyParticipants($requestId, $recipientId, $itemId, $thread, $user, $data['message']);
+
         return response()->json($messagePayload, 201);
+    }
+
+    private function notifyParticipants(int $requestId, ?int $recipientId, ?int $itemId, ?string $thread, \App\Models\User $sender, string $text)
+    {
+        $request = DB::table('document_requests')->where('id', $requestId)->first();
+        if (!$request) return;
+
+        $role = $this->roleNameOf($sender);
+        $isQa = $this->isQaOrAdmin($role);
+
+        $targetUserIds = collect();
+
+        if (!$isQa) {
+            // Office posted: notify QA and Admin users
+            $qaOfficeId = DB::table('offices')->where('code', 'QA')->value('id');
+            $adminRoleIds = DB::table('roles')->whereIn('name', ['QA', 'ADMIN', 'SYSADMIN'])->pluck('id');
+            
+            $targetUserIds = DB::table('users')
+                ->where(function($q) use ($qaOfficeId, $adminRoleIds) {
+                    $q->where('office_id', $qaOfficeId)
+                      ->orWhereIn('role_id', $adminRoleIds);
+                })
+                ->where('id', '!=', $sender->id)
+                ->whereNull('deleted_at')
+                ->whereNull('disabled_at')
+                ->pluck('id');
+        } else {
+            // QA/Admin posted: determine which office(s) to notify
+            if ($thread === 'batch') {
+                // Broadcast: notify all recipients
+                $officeIds = DB::table('document_request_recipients')
+                    ->where('request_id', $requestId)
+                    ->pluck('office_id');
+                
+                $targetUserIds = DB::table('users')
+                    ->whereIn('office_id', $officeIds)
+                    ->where('id', '!=', $sender->id)
+                    ->whereNull('deleted_at')
+                    ->whereNull('disabled_at')
+                    ->pluck('id');
+            } else {
+                // Specific thread (recipient_id or item_id)
+                $targetOfficeId = null;
+                if ($recipientId) {
+                    $targetOfficeId = DB::table('document_request_recipients')
+                        ->where('id', $recipientId)
+                        ->value('office_id');
+                } elseif ($itemId) {
+                    // Item thread — find recipient via item -> request linking or just the request's office if it was 1-to-1
+                    // For the sake of simplicity and robustness, notify all people in the recipient office associated with that item
+                    $targetOfficeId = DB::table('document_request_items as i')
+                        ->join('document_request_recipients as r', 'r.request_id', '=', 'i.request_id')
+                        ->where('i.id', $itemId)
+                        ->value('r.office_id');
+                }
+
+                if ($targetOfficeId) {
+                    $targetUserIds = DB::table('users')
+                        ->where('office_id', $targetOfficeId)
+                        ->where('id', '!=', $sender->id)
+                        ->whereNull('deleted_at')
+                        ->whereNull('disabled_at')
+                        ->pluck('id');
+                }
+            }
+        }
+
+        foreach ($targetUserIds as $uid) {
+            \App\Models\Notification::create([
+                'user_id'     => $uid,
+                'document_id' => null, // This is a request, not a specific doc
+                'event'       => 'document_request.message.posted',
+                'title'       => 'New Request Message',
+                'body'        => "{$sender->full_name} posted a comment on \"{$request->title}\"",
+                'meta'        => [
+                    'request_id'   => $requestId,
+                    'recipient_id' => $recipientId,
+                    'item_id'      => $itemId,
+                    'thread'       => $thread,
+                ],
+                'read_at'     => null,
+            ]);
+        }
     }
 }

@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class WorkflowTask extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'document_version_id',
         'phase',

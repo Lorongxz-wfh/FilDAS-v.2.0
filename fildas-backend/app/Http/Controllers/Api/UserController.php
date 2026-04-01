@@ -229,21 +229,35 @@ class UserController extends Controller
             $this->assertRoleUnique($effectiveRoleId, $effectiveOfficeId, $user->id);
         }
 
+        $oldValues = $user->only(['first_name', 'last_name', 'email', 'role_id', 'office_id']);
+
         $user->fill($payload);
 
         if (array_key_exists('password', $data) && $data['password']) {
-            $user->password = $data['password']; // cast('password' => 'hashed') will hash
+            $user->password = $data['password']; 
         }
 
         $user->save();
-
         $user->load(['role', 'office']);
 
-        $this->logActivity('user.updated', 'Updated a user account', $request->user()->id, $request->user()->office_id, [
-            'target_user_id' => $user->id,
-            'name'           => trim("{$user->first_name} {$user->last_name}"),
-            'changed_fields' => array_keys($payload),
-        ]);
+        $changes = [];
+        foreach ($payload as $key => $newValue) {
+            $oldValue = $oldValues[$key] ?? null;
+            if ($oldValue != $newValue) {
+                $changes[$key] = [
+                    'from' => $oldValue,
+                    'to'   => $newValue
+                ];
+            }
+        }
+
+        if (!empty($changes)) {
+            $this->logActivity('user.updated', 'Updated a user account', $request->user()->id, $request->user()->office_id, [
+                'target_user_id' => $user->id,
+                'name'           => trim("{$user->first_name} {$user->last_name}"),
+                'changes'        => $changes,
+            ]);
+        }
 
         // If role changed, add a dedicated role-change log entry
         $newRoleId = $user->role_id;
@@ -251,9 +265,11 @@ class UserController extends Controller
             $this->logActivity('user.role_changed', 'Changed user role', $request->user()->id, $request->user()->office_id, [
                 'target_user_id' => $user->id,
                 'name'           => trim("{$user->first_name} {$user->last_name}"),
-                'old_role_id'    => $oldRoleId,
-                'new_role_id'    => $newRoleId,
-                'new_role_name'  => $user->role?->name,
+                'role'           => [
+                    'from' => $oldRoleId, // better if we had names, but IDs are the core data
+                    'to'   => $newRoleId,
+                    'name' => $user->role?->name
+                ]
             ]);
         }
 

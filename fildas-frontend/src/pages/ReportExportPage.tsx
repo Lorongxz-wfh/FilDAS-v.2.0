@@ -4,8 +4,7 @@ import { Download } from "lucide-react";
 import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
 import Skeleton from "../components/ui/loader/Skeleton";
-import { getComplianceReport } from "../services/documents";
-import { getRequestsReport, getActivityReport } from "../services/reportsApi";
+import { getComplianceReport, getRequestsReport, getActivityReport, downloadMasterReportZip } from "../services/reportsApi";
 import { useAuthUser } from "../hooks/useAuthUser";
 import {
   exportKpiCsv,
@@ -221,6 +220,7 @@ const ReportExportPage: React.FC = () => {
     activity_top: "csv",
   });
   const [exporting, setExporting] = React.useState(false);
+  const [masterExporting, setMasterExporting] = React.useState(false);
 
   const totals = clusterData.reduce(
     (acc, x) => {
@@ -535,6 +535,18 @@ const ReportExportPage: React.FC = () => {
     setExporting(false);
   };
 
+  const handleDownloadMasterZip = async () => {
+    try {
+      setMasterExporting(true);
+      setError(null);
+      await downloadMasterReportZip({});
+    } catch (e: any) {
+      setError(e.message || "Failed to download master ZIP bundle.");
+    } finally {
+      setMasterExporting(false);
+    }
+  };
+
   const toggleSelect = (key: string) =>
     setSelected((p) => ({ ...p, [key]: !p[key] }));
 
@@ -556,16 +568,30 @@ const ReportExportPage: React.FC = () => {
       breadcrumbs={[{ label: "Reports", to: "/reports" }]}
       contentClassName="flex flex-col gap-6"
       right={
-        <Button
-          variant="primary"
-          size="sm"
-          disabled={selectedCount === 0 || loading}
-          loading={exporting}
-          onClick={handleExportAll}
-        >
-          <Download size={13} />
-          {exporting ? "Exporting…" : `Export ${selectedCount} selected`}
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={loading}
+            loading={masterExporting}
+            onClick={handleDownloadMasterZip}
+            className="border-sky-200 text-sky-700 hover:bg-sky-50 dark:border-sky-900 dark:text-sky-400 dark:hover:bg-sky-950/30"
+          >
+            <Download size={13} />
+            Master Export (ZIP)
+          </Button>
+
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={selectedCount === 0 || loading}
+            loading={exporting}
+            onClick={handleExportAll}
+          >
+            <Download size={13} />
+            {exporting ? "Exporting…" : `Export ${selectedCount} selected`}
+          </Button>
+        </div>
       }
     >
       {/* Global select all / none */}

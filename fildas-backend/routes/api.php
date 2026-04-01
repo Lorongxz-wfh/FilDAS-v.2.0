@@ -29,9 +29,9 @@ Route::get('/ping', fn() => response()->json(['status' => 'ok']));
 Route::post('/broadcasting/auth', function (\Illuminate\Http\Request $request) {
     return \Illuminate\Support\Facades\Broadcast::auth($request);
 })->middleware('auth:sanctum');
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [\App\Http\Controllers\Api\PasswordResetController::class, 'forgot']);
-Route::post('/reset-password', [\App\Http\Controllers\Api\PasswordResetController::class, 'reset']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+Route::post('/forgot-password', [\App\Http\Controllers\Api\PasswordResetController::class, 'forgot'])->middleware('throttle:6,1');
+Route::post('/reset-password', [\App\Http\Controllers\Api\PasswordResetController::class, 'reset'])->middleware('throttle:6,1');
 Route::get('/offices', [OfficeController::class, 'index']);
 
 // ── Signed URLs (no auth middleware — signature is the guard) ──────────────
@@ -179,6 +179,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class]
     Route::get('/reports/flow-health',  [ReportsController::class, 'flowHealth']);
     Route::get('/reports/requests',     [ReportsController::class, 'requests']);
     Route::get('/reports/activity',     [ReportsController::class, 'activity']);
+    Route::get('/reports/export-all',   [\App\Http\Controllers\Api\ReportExportController::class, 'downloadAll']);
 
     // ── Document Requests ──────────────────────────────────────────────────
     Route::get('/document-requests/{request}/messages',  [DocumentRequestMessageController::class, 'index']);

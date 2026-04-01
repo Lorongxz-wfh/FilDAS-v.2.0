@@ -151,14 +151,34 @@ class AdminOfficeController extends Controller
         if (array_key_exists('cluster_kind', $data)) $payload['cluster_kind'] = $data['cluster_kind'];
         if (array_key_exists('parent_office_id', $data)) $payload['parent_office_id'] = $data['parent_office_id'];
 
+        $oldValues = $office->only(['name', 'code', 'description', 'type', 'cluster_kind', 'parent_office_id']);
+        
         $office->fill($payload);
         $office->save();
 
         $office->load(['parentOffice:id,code,name']);
 
-        $this->logActivity('office.updated', 'Updated an office',
-            $request->user()->id, $request->user()->office_id,
-            ['office_id' => $office->id, 'code' => $office->code, 'changed_fields' => array_keys($payload)]);
+        $changes = [];
+        foreach ($payload as $key => $newValue) {
+            $oldValue = $oldValues[$key] ?? null;
+            if ($oldValue != $newValue) {
+                $changes[$key] = [
+                    'from' => $oldValue,
+                    'to'   => $newValue
+                ];
+            }
+        }
+
+        if (!empty($changes)) {
+            $this->logActivity('office.updated', 'Updated an office',
+                $request->user()->id, $request->user()->office_id,
+                [
+                    'office_id' => $office->id, 
+                    'code'      => $office->code, 
+                    'changes'   => $changes
+                ]
+            );
+        }
 
         return response()->json(['office' => $office]);
     }

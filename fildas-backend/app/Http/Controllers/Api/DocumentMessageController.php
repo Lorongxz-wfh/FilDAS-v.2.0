@@ -45,6 +45,8 @@ class DocumentMessageController extends Controller
             'message' => $data['message'],
         ]);
 
+        $this->notifyParticipants($version, $request->user(), $msg);
+
         ActivityLog::create([
             'document_id' => $version->document_id,
             'document_version_id' => $version->id,
@@ -65,5 +67,42 @@ class DocumentMessageController extends Controller
             ]),
             201
         );
+    }
+
+    private function notifyParticipants(DocumentVersion $version, \App\Models\User $sender, DocumentMessage $msg)
+    {
+        $doc = $version->document;
+        if (!$doc) return;
+
+        // Participants = Owner office + any office that has a task for this version
+        $officeIds = \App\Models\WorkflowTask::where('document_version_id', $version->id)
+            ->whereNotNull('assigned_office_id')
+            ->pluck('assigned_office_id')
+            ->push($doc->owner_office_id)
+            ->unique()
+            ->filter()
+            ->all();
+
+        $users = \App\Models\User::whereIn('office_id', $officeIds)
+            ->where('id', '!=', $sender->id)
+            ->whereNull('deleted_at')
+            ->whereNull('disabled_at')
+            ->get();
+
+        foreach ($users as $u) {
+            \App\Models\Notification::create([
+                'user_id'             => $u->id,
+                'document_id'         => $version->document_id,
+                'document_version_id' => $version->id,
+                'event'               => 'message.posted',
+                'title'               => 'New Message',
+                'body'                => "{$sender->full_name} posted a comment on \"{$doc->title}\"",
+                'meta'                => [
+                    'version_id' => $version->id,
+                    'type'       => $msg->type,
+                ],
+                'read_at'             => null,
+            ]);
+        }
     }
 }

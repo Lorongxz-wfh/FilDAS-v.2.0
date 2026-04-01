@@ -167,3 +167,31 @@ export async function getActivityReport(params?: {
   const res = await api.get("/reports/activity", { params });
   return res.data;
 }
+
+export async function downloadMasterReportZip(params?: {
+  date_from?: string;
+  date_to?: string;
+  office_id?: number | null;
+  parent?: string;
+}): Promise<void> {
+  const api = await getApi();
+  const res = await api.get("/reports/export-all", {
+    params,
+    responseType: "blob",
+  });
+
+  const blob = new Blob([res.data], { type: "application/zip" });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const filename = `FilDAS_Report_Bundle_${new Date().toISOString().split("T")[0]}.zip`;
+
+  link.href = url;
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+
+  setTimeout(() => {
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  }, 100);
+}
