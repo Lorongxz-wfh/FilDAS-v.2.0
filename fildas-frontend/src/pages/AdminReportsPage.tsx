@@ -40,6 +40,8 @@ import {
   RotateCcw,
   AlertCircle,
   History,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 
 type Tab = "overview" | "offices" | "users" | "activity";
@@ -410,6 +412,125 @@ const AdminReportsPage: React.FC = () => {
                     <OfficeTable rows={officeData} />
                   )}
                 </ReportChartCard>
+              </>
+            )}
+
+            {/* ── Users tab ─────────────────────────────────────────────── */}
+            {tab === "users" && (
+              <>
+                {/* KPI row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <ReportStatCard
+                    label="Total users"
+                    value={loading ? <Skeleton className="h-8 w-12" /> : (adminStats?.users.total ?? 0)}
+                    sub="Registered accounts"
+                    color="default"
+                    icon={<Users size={16} />}
+                  />
+                  <ReportStatCard
+                    label="Active users"
+                    value={loading ? <Skeleton className="h-8 w-12" /> : (adminStats?.users.active ?? 0)}
+                    sub="Enabled accounts"
+                    color="emerald"
+                    icon={<UserCheck size={16} />}
+                  />
+                  <ReportStatCard
+                    label="Disabled users"
+                    value={loading ? <Skeleton className="h-8 w-12" /> : (adminStats?.users.inactive ?? 0)}
+                    sub="Inactive / suspended"
+                    color="default"
+                    icon={<UserX size={16} />}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                  {/* Users by role */}
+                  <ReportChartCard
+                    title="Users by Role"
+                    subtitle="Account count per system role"
+                    loading={loading}
+                  >
+                    <div className="flex flex-col gap-0">
+                      <div className="flex items-center gap-2 px-1 pb-1.5 border-b border-slate-100 dark:border-surface-400">
+                        <span className="flex-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Role</span>
+                        <span className="w-12 shrink-0 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Count</span>
+                      </div>
+                      {loading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                          <div key={i} className="flex items-center gap-2 px-1 py-2 border-b border-slate-50 dark:border-surface-400/50">
+                            <div className="flex-1 h-3 rounded bg-slate-100 dark:bg-surface-400 animate-pulse" />
+                            <div className="w-8 h-3 rounded bg-slate-100 dark:bg-surface-400 animate-pulse" />
+                          </div>
+                        ))
+                      ) : (adminStats?.users.by_role ?? []).length === 0 ? (
+                        <p className="py-6 text-center text-xs text-slate-400 dark:text-slate-500">No data</p>
+                      ) : (
+                        [...(adminStats?.users.by_role ?? [])]
+                          .sort((a, b) => b.count - a.count)
+                          .map((r, i) => {
+                            const max = Math.max(...(adminStats?.users.by_role ?? []).map((x) => x.count), 1);
+                            return (
+                              <div key={i} className="flex items-center gap-2 px-1 py-2 border-b border-slate-50 dark:border-surface-400/50 last:border-0">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">{r.role}</span>
+                                  </div>
+                                  <div className="h-1 rounded-full bg-slate-100 dark:bg-surface-400 overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full bg-brand-500"
+                                      style={{ width: `${Math.round((r.count / max) * 100)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                                <span className="w-12 shrink-0 text-right text-sm font-bold tabular-nums text-slate-800 dark:text-slate-100">
+                                  {r.count}
+                                </span>
+                              </div>
+                            );
+                          })
+                      )}
+                    </div>
+                  </ReportChartCard>
+
+                  {/* Recent users */}
+                  <ReportChartCard
+                    title="Recently Registered"
+                    subtitle="Newest accounts in the system"
+                    loading={loading}
+                  >
+                    <div className="flex flex-col gap-0">
+                      <div className="flex items-center gap-2 px-1 pb-1.5 border-b border-slate-100 dark:border-surface-400">
+                        <span className="flex-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">User</span>
+                        <span className="w-16 shrink-0 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Status</span>
+                      </div>
+                      {loading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                          <div key={i} className="flex items-center gap-2 px-1 py-2.5 border-b border-slate-50 dark:border-surface-400/50">
+                            <div className="flex-1 space-y-1">
+                              <div className="h-3 w-32 rounded bg-slate-100 dark:bg-surface-400 animate-pulse" />
+                              <div className="h-2.5 w-20 rounded bg-slate-100 dark:bg-surface-400 animate-pulse" />
+                            </div>
+                            <div className="w-12 h-4 rounded bg-slate-100 dark:bg-surface-400 animate-pulse" />
+                          </div>
+                        ))
+                      ) : (adminStats?.users.recent ?? []).length === 0 ? (
+                        <p className="py-6 text-center text-xs text-slate-400 dark:text-slate-500">No users yet</p>
+                      ) : (
+                        (adminStats?.users.recent ?? []).map((u, i) => (
+                          <div key={i} className="flex items-center gap-2 px-1 py-2.5 border-b border-slate-50 dark:border-surface-400/50 last:border-0">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">{u.name}</p>
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{u.role}{u.office_name ? ` · ${u.office_name}` : ""}</p>
+                            </div>
+                            <span className={`w-16 shrink-0 text-right text-[10px] font-semibold ${u.is_active ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500"}`}>
+                              {u.is_active ? "Active" : "Disabled"}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </ReportChartCard>
+                </div>
               </>
             )}
 

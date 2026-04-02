@@ -8,6 +8,7 @@ type Props = {
   right?: React.ReactNode;
   onBack?: () => void;
   breadcrumbs?: BreadcrumbItem[];
+  breadcrumbSize?: "sm" | "md";
   contentClassName?: string;
   className?: string;
   fullHeight?: boolean;
@@ -20,6 +21,7 @@ export default function PageFrame({
   right,
   onBack,
   breadcrumbs,
+  breadcrumbSize = "sm",
   contentClassName = "",
   className = "",
   fullHeight = false,
@@ -61,9 +63,9 @@ export default function PageFrame({
               )}
               <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                 {breadcrumbs && breadcrumbs.length > 0 && (
-                  <Breadcrumb items={breadcrumbs} />
+                  <Breadcrumb items={breadcrumbs} size={breadcrumbSize} />
                 )}
-                <PageHeading title={title} subtitle={subtitle} />
+                {title && <PageHeading title={title} subtitle={subtitle} />}
               </div>
             </div>
 

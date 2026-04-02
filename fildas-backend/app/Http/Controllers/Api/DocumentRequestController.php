@@ -1353,6 +1353,22 @@ class DocumentRequestController extends Controller
                 ->get();
 
             foreach ($users as $u) {
+                // 1. Create Inbox Notification
+                Notification::create([
+                    'user_id'             => $u->id,
+                    'document_id'         => null,
+                    'document_version_id' => null,
+                    'event'               => $event,
+                    'title'               => $notifTitle,
+                    'body'                => ($row->title ?? 'A document request') . ' has been ' . $data['status'],
+                    'meta'                => [
+                        'document_request_id' => $requestId,
+                        'reason'              => $data['reason'] ?? null,
+                    ],
+                    'read_at' => null,
+                ]);
+
+                // 2. Queue Email
                 if (!(bool) ($u->email_doc_updates ?? true) || !$u->email) continue;
                 try {
                     Mail::to($u->email)->queue(new \App\Mail\WorkflowNotificationMail(

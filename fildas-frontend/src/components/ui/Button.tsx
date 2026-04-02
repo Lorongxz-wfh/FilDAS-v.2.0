@@ -2,7 +2,7 @@ import React from "react";
 import Tooltip from "./Tooltip";
 import { Loader2 } from "lucide-react";
 
-type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger" | "success";
 type Size = "xs" | "sm" | "md" | "lg";
 type Side = "top" | "bottom" | "left" | "right";
 
@@ -17,7 +17,7 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const base =
-  "cursor-pointer inline-flex items-center justify-center font-medium rounded-md transition disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap active:scale-95";
+  "cursor-pointer inline-flex items-center justify-center font-medium rounded-md transition-all duration-100 disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap active:scale-95 active:brightness-90";
 
 const variants: Record<Variant, string> = {
   primary:
@@ -29,7 +29,9 @@ const variants: Record<Variant, string> = {
   ghost:
     "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-surface-500",
   danger:
-    "bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-500/90 dark:hover:bg-rose-500 shadow-sm",
+    "bg-red-700 text-white hover:bg-red-800 dark:bg-red-800 dark:hover:bg-red-700",
+  success:
+    "bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-800 dark:hover:bg-emerald-700",
 };
 
 const sizes: Record<Size, string> = {

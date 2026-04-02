@@ -122,17 +122,22 @@ const DashboardStatRow: React.FC<Props> = ({
       sub: "official versions",
       onClick: () => onStatClick?.("Distributed"),
     },
+    {
+      label: "Pending requests",
+      value: pendingRequestsCount,
+      icon: <Inbox className="h-4 w-4" />,
+      iconColor: "text-sky-400 dark:text-sky-400",
+      valueColor: "text-slate-900 dark:text-slate-100",
+      sub: "open doc requests",
+      onClick: () => onStatClick?.("Pending requests"),
+    },
   ];
 
   const items = isQA(role) ? qaItems : officeItems;
 
   return (
     <div
-      className={`grid gap-2 sm:gap-3 ${
-        isQA(role)
-          ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
-          : "grid-cols-2 sm:grid-cols-4"
-      }`}
+      className="grid gap-2 sm:gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
     >
       {items.map((item, idx) => {
         const isActionNeeded = item.label === "Action needed";

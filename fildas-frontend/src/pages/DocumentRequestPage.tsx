@@ -3,10 +3,10 @@ import {
   Navigate,
   useNavigate,
   useParams,
-  useLocation,
+  Link,
 } from "react-router-dom";
 import PageFrame from "../components/layout/PageFrame";
-import Button from "../components/ui/Button";
+
 import { getAuthUser } from "../lib/auth";
 import {
   getDocumentRequestRecipient,
@@ -24,7 +24,7 @@ import {
   updateDocumentRequestRecipient,
   type DocumentRequestMessageRow,
 } from "../services/documentRequests";
-import { MessageSquare, Activity, Pencil, Megaphone } from "lucide-react";
+import { MessageSquare, Activity, Megaphone } from "lucide-react";
 import RefreshButton from "../components/ui/RefreshButton";
 import { useRealtimeUpdates } from "../hooks/useRealtimeUpdates";
 import { roleLower, TabBar } from "../components/documentRequests/shared";
@@ -36,11 +36,11 @@ import RequestSubmissionTab from "../components/documentRequests/RequestSubmissi
 import RequestPreviewModal from "../components/documentRequests/RequestPreviewModal";
 
 import { inputCls } from "../utils/formStyles";
+import { useToast } from "../components/ui/toast/ToastContext";
 
 export default function DocumentRequestPage() {
   const navigate = useNavigate();
   const params = useParams();
-  const location = useLocation();
   const me = getAuthUser();
   if (!me) return <Navigate to="/login" replace />;
 
@@ -57,6 +57,7 @@ export default function DocumentRequestPage() {
   const role = roleLower(me);
   const isQa = role === "qa" || role === "sysadmin" || role === "admin";
   const myUserId = Number(me?.id ?? 0);
+  const toast = useToast();
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [loading, setLoading] = React.useState(true);
@@ -131,8 +132,6 @@ export default function DocumentRequestPage() {
 
   const [qaNote, setQaNote] = React.useState("");
   const [reviewing, setReviewing] = React.useState(false);
-  const [reviewErr, setReviewErr] = React.useState<string | null>(null);
-  const [reviewMsg, setReviewMsg] = React.useState<string | null>(null);
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -140,44 +139,6 @@ export default function DocumentRequestPage() {
   React.useEffect(() => {
     msgCountRef.current = messages.length;
   }, [messages.length]);
-
-  // ── Realtime: instant message updates via Pusher ───────────────────────
-  useRealtimeUpdates({
-    requestId,
-    onRequestMessage: React.useCallback(
-      (msg: any) => {
-        const msgRecipientId = msg.recipient_id ? Number(msg.recipient_id) : null;
-        const msgItemId = msg.item_id ? Number(msg.item_id) : null;
-
-        let isForCurrentThread = false;
-
-        if (isItemView) {
-          isForCurrentThread = msgItemId === itemId;
-        } else {
-          if (commentThread === "broadcast") {
-            isForCurrentThread = msgRecipientId === null;
-          } else {
-            isForCurrentThread = msgRecipientId === recipientId;
-          }
-        }
-
-        if (isForCurrentThread) {
-          setMessages((prev) => {
-            if (prev.find((m) => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
-        } else if (!isQa) {
-          // Update unread counts for inactive thread (Office only)
-          if (msgRecipientId === null) {
-            setBroadcastUnread((u) => u + 1);
-          } else if (msgRecipientId === recipientId) {
-            setPrivateUnread((u) => u + 1);
-          }
-        }
-      },
-      [isItemView, itemId, recipientId, commentThread, isQa],
-    ),
-  });
 
   const handleRefresh = async (): Promise<string | false> => {
     setRefreshing(true);
@@ -225,10 +186,7 @@ export default function DocumentRequestPage() {
     canSubmit &&
     (latestStatus === "rejected" || !latestSubmission) &&
     !hasLocalFile;
-  const showLockNotice =
-    canSubmit &&
-    (latestStatus === "submitted" || latestStatus === "accepted") &&
-    !hasLocalFile;
+
   const canQaReview =
     isQa &&
     !!selectedSubmission?.id &&
@@ -239,23 +197,14 @@ export default function DocumentRequestPage() {
       ? `/document-requests/${requestId}`
       : `/document-requests`;
 
-  // Page title — item title for item view
-  const pageTitle =
-    isItemView && req?.item_title
-      ? req.item_title
-      : (req?.title ?? `Request #${requestId}`);
-
-  const stateCrumbs: { label: string; to?: string }[] = (location.state as any)
-    ?.breadcrumbs ?? [{ label: "Document Requests", to: "/document-requests" }];
-
   // Effective due date — individual override > batch due
   const effectiveDueAt = isItemView
     ? (req?.item_due_at ?? req?.due_at ?? null)
     : (recipient?.due_at ?? req?.due_at ?? null);
 
   // ── Load ───────────────────────────────────────────────────────────────────
-  const load = React.useCallback(async () => {
-    setLoading(true);
+  const load = React.useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       let data: any;
@@ -281,7 +230,7 @@ export default function DocumentRequestPage() {
         e?.response?.data?.message ?? e?.message ?? "Failed to load request.",
       );
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [requestId, recipientId, itemId, isItemView, forceSelectLatestOnce]);
 
@@ -383,9 +332,9 @@ export default function DocumentRequestPage() {
   }, [messages]);
 
   // ── Activity ───────────────────────────────────────────────────────────────
-  const loadActivity = React.useCallback(async () => {
+  const loadActivity = React.useCallback(async (silent = false) => {
     if (leftTab !== "activity") return;
-    setActivityLoading(true);
+    if (!silent) setActivityLoading(true);
     try {
       const { default: api } = await import("../services/api");
       const res = await api.get("/activity", {
@@ -395,13 +344,59 @@ export default function DocumentRequestPage() {
     } catch {
       setActivityLogs([]);
     } finally {
-      setActivityLoading(false);
+      if (!silent) setActivityLoading(false);
     }
   }, [requestId, leftTab]);
 
   React.useEffect(() => {
     loadActivity().catch(() => {});
   }, [loadActivity]);
+
+  // ── Realtime: instant updates via Pusher ───────────────────────────────
+  useRealtimeUpdates({
+    requestId,
+    onRequestMessage: React.useCallback(
+      (msg: any) => {
+        const msgRecipientId = msg.recipient_id ? Number(msg.recipient_id) : null;
+        const msgItemId = msg.item_id ? Number(msg.item_id) : null;
+
+        let isForCurrentThread = false;
+
+        if (isItemView) {
+          isForCurrentThread = msgItemId === itemId;
+        } else {
+          if (commentThread === "broadcast") {
+            isForCurrentThread = msgRecipientId === null;
+          } else {
+            isForCurrentThread = msgRecipientId === recipientId;
+          }
+        }
+
+        if (isForCurrentThread) {
+          setMessages((prev) => {
+            if (prev.find((m) => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+        } else if (!isQa) {
+          // Update unread counts for inactive thread (Office only)
+          if (msgRecipientId === null) {
+            setBroadcastUnread((u) => u + 1);
+          } else if (msgRecipientId === recipientId) {
+            setPrivateUnread((u) => u + 1);
+          }
+        }
+      },
+      [isItemView, itemId, recipientId, commentThread, isQa],
+    ),
+    onWorkspaceChange: React.useCallback(() => {
+      load(true).catch(() => {});
+      loadActivity(true).catch(() => {});
+    }, [load, loadActivity]),
+    onWorkflowUpdate: React.useCallback(() => {
+      load(true).catch(() => {});
+      loadActivity(true).catch(() => {});
+    }, [load, loadActivity]),
+  });
 
   // ── Example preview ────────────────────────────────────────────────────────
   const loadExamplePreview = React.useCallback(async () => {
@@ -539,11 +534,9 @@ export default function DocumentRequestPage() {
 
   const qaReview = async (decision: "accepted" | "rejected") => {
     setReviewing(true);
-    setReviewErr(null);
-    setReviewMsg(null);
     try {
       if (!selectedSubmission?.id) {
-        setReviewErr("No submission selected.");
+        toast.push({ type: "error", message: "No submission selected." });
         return;
       }
       await reviewDocumentRequestSubmission({
@@ -551,15 +544,14 @@ export default function DocumentRequestPage() {
         decision,
         note: qaNote.trim() || null,
       });
-      setReviewMsg(
-        decision === "accepted"
-          ? "Submission accepted."
-          : "Submission rejected.",
-      );
+      toast.push({
+        type: "success",
+        message: decision === "accepted" ? "Submission accepted." : "Submission rejected.",
+      });
       setQaNote("");
       await load();
     } catch (e: any) {
-      setReviewErr(e?.response?.data?.message ?? "Review failed.");
+      toast.push({ type: "error", message: e?.response?.data?.message ?? "Review failed." });
     } finally {
       setReviewing(false);
     }
@@ -626,9 +618,20 @@ export default function DocumentRequestPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <PageFrame
-      title={pageTitle}
+      title={
+        <>
+          <Link
+            to={`/document-requests/${requestId}`}
+            className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 font-semibold transition-colors"
+          >
+            {req.title ?? `Request #${requestId}`}
+          </Link>
+          <span className="mx-1.5 text-slate-300 dark:text-slate-600 font-normal select-none">›</span>
+          {req.item_title ?? recipient?.office_name ?? "—"}
+        </>
+      }
       onBack={() => navigate(backUrl)}
-      breadcrumbs={stateCrumbs}
+      breadcrumbs={[{ label: "Batch", to: "/document-requests" }]}
       fullHeight
       right={
         <RefreshButton
@@ -642,126 +645,31 @@ export default function DocumentRequestPage() {
         {/* ── LEFT ── */}
         <section className="lg:col-span-7 min-w-0 flex flex-col gap-5 lg:h-full lg:overflow-hidden">
           {/* Header + edit panel */}
-          <div className="flex flex-col gap-0 rounded-2xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+          <div className="flex flex-col rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
             <RequestHeaderCard
-              requestId={requestId}
-              req={{ ...req, due_at: effectiveDueAt }}
+              req={req}
               recipient={recipient}
+              isQa={isQa}
+              isItemView={isItemView}
+              effectiveDueAt={effectiveDueAt}
+              editOpen={editOpen}
+              editTitle={editTitle}
+              editDesc={editDesc}
+              editDueAt={editDueAt}
+              editSaving={editSaving}
+              editErr={editErr}
+              inputCls={inputCls}
+              onEditToggle={() => setEditOpen((o) => !o)}
+              onEditTitleChange={setEditTitle}
+              onEditDescChange={setEditDesc}
+              onEditDueAtChange={setEditDueAt}
+              onEditSave={saveEdit}
+              onEditCancel={() => { setEditOpen(false); setEditErr(null); }}
             />
-
-            {/* Individual override bar */}
-            {isQa && (
-              <div className="flex items-center gap-3 px-5 py-2 border-t border-slate-100 dark:border-surface-400 bg-slate-50/50 dark:bg-surface-600/40 text-[11px]">
-                <span className="text-slate-400 dark:text-slate-500">
-                  {isItemView ? "Item due:" : "Office due:"}
-                </span>
-                <span className="font-semibold text-slate-600 dark:text-slate-300">
-                  {effectiveDueAt
-                    ? new Date(effectiveDueAt).toLocaleDateString(undefined, {
-                        dateStyle: "medium",
-                      })
-                    : "—"}
-                </span>
-                {effectiveDueAt !== req.due_at && (
-                  <span className="text-amber-500 dark:text-amber-400 text-[10px]">
-                    (override)
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setEditOpen((o) => !o)}
-                  className="ml-auto flex items-center gap-1 text-slate-400 hover:text-brand-500 dark:hover:text-brand-400 transition"
-                >
-                  <Pencil className="h-3 w-3" />
-                  {editOpen ? "Close" : "Edit"}
-                </button>
-              </div>
-            )}
-
-            {/* Edit panel */}
-            {isQa && editOpen && (
-              <div className="px-5 py-4 border-t border-slate-100 dark:border-surface-400 flex flex-col gap-3 bg-slate-50/30 dark:bg-surface-600/30">
-                {isItemView && (
-                  <>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Item title
-                      </label>
-                      <input
-                        type="text"
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        className={inputCls}
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Item description
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={editDesc}
-                        onChange={(e) => setEditDesc(e.target.value)}
-                        placeholder="Instructions for this document…"
-                        className={inputCls}
-                      />
-                    </div>
-                  </>
-                )}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    {isItemView
-                      ? "Item due date override"
-                      : "Office due date override"}
-                  </label>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                    Batch due:{" "}
-                    {req.due_at
-                      ? new Date(req.due_at).toLocaleDateString(undefined, {
-                          dateStyle: "medium",
-                        })
-                      : "—"}
-                  </p>
-                  <input
-                    type="datetime-local"
-                    value={editDueAt}
-                    onChange={(e) => setEditDueAt(e.target.value)}
-                    className={inputCls}
-                  />
-                </div>
-                {editErr && (
-                  <p className="text-xs text-rose-600 dark:text-rose-400">
-                    {editErr}
-                  </p>
-                )}
-                <div className="flex items-center justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="xs"
-                    onClick={() => {
-                      setEditOpen(false);
-                      setEditErr(null);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="xs"
-                    onClick={saveEdit}
-                    loading={editSaving}
-                  >
-                    Save
-                  </Button>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Comments + Activity - Mobile Accordion Style */}
-          <div className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden dark:border-surface-400 dark:bg-surface-500 flex-1 lg:min-h-0 lg:h-[500px]">
+          <div className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden dark:border-surface-400 dark:bg-surface-500 flex-1 lg:min-h-0 lg:h-125">
             <div className="shrink-0 flex items-center justify-between bg-slate-50/50 dark:bg-surface-600/50 pr-2">
               <TabBar
                 tabs={[
@@ -784,7 +692,7 @@ export default function DocumentRequestPage() {
               />
               {/* Optional: Add a expand/collapse button for mobile if needed, but let's just ensure fixed height on mobile too or flexible with min-h */}
             </div>
-            <div className="flex flex-col flex-1 min-h-[300px] lg:min-h-0 overflow-hidden">
+            <div className="flex flex-col flex-1 min-h-75 lg:min-h-0 overflow-hidden">
               {leftTab === "comments" ? (
                 <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                 {/* Private / Broadcast thread switcher — recipient view only, non-QA */}
@@ -892,7 +800,7 @@ export default function DocumentRequestPage() {
               active={rightTab}
               onChange={setRightTab}
             />
-            <div className="flex flex-1 flex-col min-h-0 overflow-y-auto p-4 gap-3">
+            <div className="flex flex-1 flex-col min-h-0 overflow-hidden p-4 gap-3">
               {rightTab === "example" ? (
                 <RequestExampleTab
                   req={req}
@@ -918,8 +826,7 @@ export default function DocumentRequestPage() {
                   onSelectSubmission={setSelectedSubmissionId}
                   qaNote={qaNote}
                   reviewing={reviewing}
-                  reviewErr={reviewErr}
-                  reviewMsg={reviewMsg}
+
                   canQaReview={canQaReview}
                   onQaNoteChange={setQaNote}
                   onQaReview={qaReview}
@@ -948,7 +855,7 @@ export default function DocumentRequestPage() {
                   localPreviewUrl={localPreviewUrl}
                   hasLocalFile={hasLocalFile}
                   showUploadArea={showUploadArea}
-                  showLockNotice={showLockNotice}
+
                   canSubmit={canSubmit}
                   note={note}
                   submitting={submitting}

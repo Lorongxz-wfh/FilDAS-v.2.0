@@ -20,8 +20,7 @@ import {
   MessageSquare,
   Activity,
   ChevronRight,
-  // Clock,
-  // Calendar,
+  Clock,
   Loader2,
 } from "lucide-react";
 import RefreshButton from "../components/ui/RefreshButton";
@@ -111,37 +110,9 @@ export default function DocumentRequestBatchPage() {
 
   const isMultiDoc = req?.mode === "multi_doc";
 
-  // ── Realtime: instant message updates via Pusher ───────────────────────
-  useRealtimeUpdates({
-    requestId,
-    onRequestMessage: React.useCallback(
-      (msg: any) => {
-        const msgRecipientId = msg.recipient_id ? Number(msg.recipient_id) : null;
-        const msgItemId = msg.item_id ? Number(msg.item_id) : null;
-
-        // On the batch page, we are interested in either the shared thread or a specific recipient
-        const isForActiveThread = activeRecipientId === msgRecipientId && msgItemId === null;
-
-        if (isForActiveThread) {
-          setMessages((prev) => {
-            if (prev.find((m) => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
-        }
-
-        // Always pulse/count if not the current thread
-        if (!isForActiveThread && isQa) {
-          // You could implement per-recipient unread badges here if desired,
-          // for now we'll just let the next poll catch it or implement a simple badge logic.
-        }
-      },
-      [activeRecipientId, isQa],
-    ),
-  });
-
   // ── Load ───────────────────────────────────────────────────────────────────
-  const load = React.useCallback(async () => {
-    setLoading(true);
+  const load = React.useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const data = await getDocumentRequest(requestId);
@@ -151,7 +122,7 @@ export default function DocumentRequestBatchPage() {
     } catch (e: any) {
       setError(e?.response?.data?.message ?? e?.message ?? "Failed to load.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [requestId]);
 
@@ -162,7 +133,7 @@ export default function DocumentRequestBatchPage() {
   // Poll every 15s for status/progress updates
   React.useEffect(() => {
     const id = window.setInterval(() => {
-      load().catch(() => { });
+      load(true).catch(() => { });
     }, 15_000);
     return () => window.clearInterval(id);
   }, [load]);
@@ -244,8 +215,8 @@ export default function DocumentRequestBatchPage() {
   }, [req?.id]);
 
   // ── Activity ───────────────────────────────────────────────────────────────
-  const loadActivity = React.useCallback(async () => {
-    setActivityLoading(true);
+  const loadActivity = React.useCallback(async (silent = false) => {
+    if (!silent) setActivityLoading(true);
     try {
       const { default: api } = await import("../services/api");
       const res = await api.get("/activity", {
@@ -255,7 +226,7 @@ export default function DocumentRequestBatchPage() {
     } catch {
       setActivityLogs([]);
     } finally {
-      setActivityLoading(false);
+      if (!silent) setActivityLoading(false);
     }
   }, [requestId]);
 
@@ -272,14 +243,14 @@ export default function DocumentRequestBatchPage() {
     return { thread: "batch" as const };
   }, [isMultiDoc, activeRecipientId]);
 
-  const loadMessages = React.useCallback(async () => {
-    setMessagesLoading(true);
+  const loadMessages = React.useCallback(async (silent = false) => {
+    if (!silent) setMessagesLoading(true);
     try {
       setMessages(await getDocumentRequestMessages(requestId, messageScope));
     } catch {
       /* silent */
     } finally {
-      setMessagesLoading(false);
+      if (!silent) setMessagesLoading(false);
     }
   }, [requestId, messageScope]);
 
@@ -290,9 +261,42 @@ export default function DocumentRequestBatchPage() {
   // Poll messages every 10s when on comments tab
   React.useEffect(() => {
     if (rightTab !== "comments") return;
-    const id = window.setInterval(() => loadMessages().catch(() => { }), 10_000);
+    const id = window.setInterval(() => loadMessages(true).catch(() => { }), 10_000);
     return () => window.clearInterval(id);
   }, [loadMessages, rightTab]);
+
+  // ── Realtime: instant updates via Pusher ───────────────────────────────
+  useRealtimeUpdates({
+    requestId,
+    // Live comments and thread synchronization
+    onRequestMessage: React.useCallback(
+      (msg: any) => {
+        const msgRecipientId = msg.recipient_id ? Number(msg.recipient_id) : null;
+        const msgItemId = msg.item_id ? Number(msg.item_id) : null;
+
+        // On the batch page, we are interested in either the shared thread or a specific recipient
+        const isForActiveThread = activeRecipientId === msgRecipientId && msgItemId === null;
+
+        if (isForActiveThread) {
+          setMessages((prev) => {
+            if (prev.find((m) => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+        }
+      },
+      [activeRecipientId],
+    ),
+    // Live data updates (items, recipients, progress)
+    onWorkspaceChange: React.useCallback(() => {
+      load(true).catch(() => {});
+      loadActivity(true).catch(() => {});
+    }, [load, loadActivity]),
+    // Live workflow transitions (accepted/rejected/closed)
+    onWorkflowUpdate: React.useCallback(() => {
+      load(true).catch(() => {});
+      loadActivity(true).catch(() => {});
+    }, [load, loadActivity]),
+  });
 
   // New message badge
   React.useEffect(() => {
@@ -407,7 +411,7 @@ export default function DocumentRequestBatchPage() {
     <PageFrame
       title={req.title ?? `Request #${requestId}`}
       onBack={() => navigate("/document-requests")}
-      breadcrumbs={[{ label: "Document Requests", to: "/document-requests" }]}
+      breadcrumbs={[{ label: "Batch", to: "/document-requests" }]}
       fullHeight
       right={
         <div className="flex items-center gap-2">
@@ -471,139 +475,86 @@ export default function DocumentRequestBatchPage() {
         {/* ── LEFT (Items) ── */}
         <section className={`lg:col-span-7 min-w-0 flex flex-col gap-4 ${mobileTab !== "items" ? "hidden lg:flex" : "flex"}`}>
           {/* Header card */}
-          <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
-            <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100 dark:border-surface-400">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0">
-                #{requestId}
-              </span>
+          <div className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+            {/* Title row */}
+            <div className="flex items-center gap-3 px-5 py-4">
               {isQa ? (
                 <InlineEditField
                   value={req.title ?? ""}
                   onSave={saveTitle}
-                  className="flex-1 text-base font-bold tracking-tight text-slate-900 dark:text-slate-100"
+                  className="flex-1 text-sm font-semibold text-slate-900 dark:text-slate-100"
                 />
               ) : (
-                <h1 className="flex-1 text-base font-bold tracking-tight text-slate-900 dark:text-slate-100 truncate">
+                <h1 className="flex-1 text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
                   {req.title}
                 </h1>
               )}
               <StatusBadge status={req.status} />
-              <span
-                className={[
-                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold shrink-0",
-                  isMultiDoc
-                    ? "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-400"
-                    : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-400",
-                ].join(" ")}
-              >
-                {isMultiDoc ? (
-                  <FileStack className="h-3 w-3" />
-                ) : (
-                  <Users className="h-3 w-3" />
-                )}
+              <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 px-2 py-0.5 text-xs text-slate-500 dark:text-slate-400 shrink-0">
+                {isMultiDoc ? <FileStack className="h-3 w-3" /> : <Users className="h-3 w-3" />}
                 {isMultiDoc ? "Multi-Doc" : "Multi-Office"}
               </span>
             </div>
 
-            {/* Meta row */}
-            <div className="flex items-center gap-4 px-5 py-2.5 bg-slate-50/50 dark:bg-surface-600/40 flex-wrap text-[11px]">
-              <span className="text-slate-500 dark:text-slate-400">
-                Due:{" "}
-                <strong className="text-slate-700 dark:text-slate-300">
-                  {req.due_at
-                    ? new Date(req.due_at).toLocaleDateString(undefined, {
-                      dateStyle: "medium",
-                    })
-                    : "—"}
-                </strong>
-              </span>
-              <span className="text-slate-500 dark:text-slate-400">
-                Created:{" "}
-                <strong className="text-slate-700 dark:text-slate-300">
-                  {req.created_at
-                    ? new Date(req.created_at).toLocaleDateString(undefined, {
-                      dateStyle: "medium",
-                    })
-                    : "—"}
-                </strong>
-              </span>
-              {isQa && (
-                <button
-                  type="button"
-                  onClick={() => setEditOpen((o) => !o)}
-                  className="ml-auto flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-brand-500 dark:hover:text-brand-400 transition"
-                >
-                  <Pencil className="h-3 w-3" />
-                  {editOpen ? "Close" : "Edit details"}
-                </button>
-              )}
-            </div>
+            {/* Description — editable textarea when open, plain text otherwise */}
+            {editOpen && isQa && (
+              <div className="px-5 pb-3">
+                <textarea
+                  rows={2}
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  placeholder="Add instructions for recipients…"
+                  className={`w-full resize-none ${inputCls}`}
+                />
+              </div>
+            )}
+            {req.description && !editOpen && (
+              <div className="px-5 pb-3">
+                <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{req.description}</p>
+              </div>
+            )}
 
-            {/* Edit panel — QA only */}
-            {isQa && editOpen && (
-              <div className="px-5 py-4 border-t border-slate-100 dark:border-surface-400 flex flex-col gap-3 bg-slate-50/30 dark:bg-surface-600/30">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Description
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={editDesc}
-                    onChange={(e) => setEditDesc(e.target.value)}
-                    placeholder="Add instructions for recipients…"
-                    className={inputCls}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Due date (batch)
-                  </label>
+            {/* Meta strip */}
+            <div className="flex items-center gap-3 px-5 py-2.5 border-t border-slate-100 dark:border-surface-400 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <Clock size={11} className="text-slate-400 dark:text-slate-500 shrink-0" />
+                <span className="text-xs text-slate-400 dark:text-slate-500">Due</span>
+                {editOpen && isQa ? (
                   <input
                     type="datetime-local"
                     value={editDueAt}
                     onChange={(e) => setEditDueAt(e.target.value)}
-                    className={inputCls}
+                    className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2 py-1 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-slate-400 transition"
                   />
-                </div>
-                {editErr && (
-                  <p className="text-xs text-rose-600 dark:text-rose-400">
-                    {editErr}
-                  </p>
+                ) : (
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                    {req.due_at ? new Date(req.due_at).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}
+                  </span>
                 )}
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditOpen(false);
-                      setEditErr(null);
-                    }}
-                    className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={saveDetails}
-                    disabled={editSaving}
-                    className="rounded-md bg-brand-500 hover:bg-brand-600 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-white transition"
-                  >
-                    {editSaving ? "Saving…" : "Save"}
-                  </button>
+              </div>
+              <span className="text-slate-200 dark:text-surface-400">·</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-400 dark:text-slate-500">Created</span>
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                  {req.created_at ? new Date(req.created_at).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}
+                </span>
+              </div>
+              {isQa && (
+                <div className="ml-auto flex items-center gap-2">
+                  {editOpen ? (
+                    <>
+                      {editErr && <span className="text-xs text-red-500">{editErr}</span>}
+                      <Button variant="outline" size="xs" onClick={() => { setEditOpen(false); setEditErr(null); }}>Cancel</Button>
+                      <Button variant="primary" size="xs" onClick={saveDetails} loading={editSaving}>Save</Button>
+                    </>
+                  ) : (
+                    <Button variant="ghost" size="xs" onClick={() => setEditOpen(true)} className="gap-1">
+                      <Pencil className="h-3 w-3" /> Edit
+                    </Button>
+                  )}
                 </div>
-              </div>
-            )}
-
-            {/* Description display */}
-            {req.description && !editOpen && (
-              <div className="px-5 py-3 border-t border-blue-100 bg-blue-50/30 dark:border-blue-900/40 dark:bg-blue-950/10">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 dark:text-blue-400 mb-1">
-                  Instructions
-                </p>
-                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                  {req.description}
-                </p>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Progress */}
@@ -647,7 +598,7 @@ export default function DocumentRequestBatchPage() {
                             state: {
                               breadcrumbs: [
                                 {
-                                  label: "Document Requests",
+                                  label: "Batch",
                                   to: "/document-requests",
                                 },
                                 {
@@ -698,7 +649,7 @@ export default function DocumentRequestBatchPage() {
                           state: {
                             breadcrumbs: [
                               {
-                                label: "Document Requests",
+                                label: "Batch",
                                 to: "/document-requests",
                               },
                               {

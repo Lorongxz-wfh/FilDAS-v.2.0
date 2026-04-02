@@ -325,6 +325,7 @@ const OfficeDashboard: React.FC<
           onStatClick={(label) => {
             if (label === "Action needed" || label === "In progress") navigate("/work-queue");
             if (label === "My documents" || label === "Distributed") navigate("/documents");
+            if (label === "Pending requests") navigate("/document-requests");
           }}
         />
 

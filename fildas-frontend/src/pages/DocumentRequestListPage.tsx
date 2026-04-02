@@ -155,11 +155,17 @@ export default function DocumentRequestListPage() {
   const qDebounced = useDebouncedValue(q, 400);
   const navigate = useNavigate();
 
-  const reloadRequests = React.useCallback(async () => {
-    setRows([]);
-    setPage(1);
-    setHasMore(true);
-    setInitialLoading(true);
+  const reloadRequests = React.useCallback(async (silent = false) => {
+    if (!silent) {
+      setRows([]);
+      setPage(1);
+      setHasMore(true);
+      setInitialLoading(true);
+    } else {
+      // For silent reload, just reset page to 1 but keep current rows
+      // until the new data arrives
+      setPage(1);
+    }
   }, []);
 
   const { refresh: refreshRequests, refreshing: refreshingRequests } =
@@ -167,7 +173,7 @@ export default function DocumentRequestListPage() {
 
   React.useEffect(() => {
     const id = window.setInterval(() => {
-      reloadRequests().catch(() => { });
+      reloadRequests(true).catch(() => { });
     }, 30_000);
     return () => window.clearInterval(id);
   }, [reloadRequests]);

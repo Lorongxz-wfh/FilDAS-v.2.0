@@ -3,10 +3,17 @@ import { Link } from "react-router-dom";
 
 export type BreadcrumbItem = { label: string; to?: string };
 
-export default function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
+export default function Breadcrumb({
+  items,
+  size = "sm",
+}: {
+  items: BreadcrumbItem[];
+  size?: "sm" | "md";
+}) {
   if (!items.length) return null;
+  const textSize = size === "md" ? "text-sm" : "text-xs";
   return (
-    <nav className="flex items-center gap-0.5 text-xs leading-none" aria-label="Breadcrumb">
+    <nav className={`flex items-center gap-0.5 ${textSize} leading-none`} aria-label="Breadcrumb">
       {items.map((item, i) => {
         const isLast = i === items.length - 1;
         return (
@@ -15,7 +22,7 @@ export default function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
               <span className="mx-1 text-slate-300 dark:text-slate-600 select-none">›</span>
             )}
             {isLast || !item.to ? (
-              <span className="text-slate-600 dark:text-slate-300 font-medium truncate max-w-40">
+              <span className={`text-slate-700 dark:text-slate-200 font-semibold truncate max-w-60`}>
                 {item.label}
               </span>
             ) : (
