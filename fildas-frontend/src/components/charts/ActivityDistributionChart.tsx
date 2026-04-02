@@ -52,7 +52,14 @@ interface Props {
 }
 
 const ActivityDistributionChart: React.FC<Props> = ({ data, height = 220, loading = false }) => {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (loading) return <ChartSkeleton height={height} />;
+  if (!mounted) return <div style={{ height }} className="w-full h-full" />;
+
   if (!data || data.length === 0 || data.every(d => d.count === 0)) {
     return <EmptyChart height={height} />;
   }
@@ -60,8 +67,8 @@ const ActivityDistributionChart: React.FC<Props> = ({ data, height = 220, loadin
   const total = data.reduce((sum, d) => sum + d.count, 0);
 
   return (
-    <div className="relative" style={{ height }}>
-      <ResponsiveContainer width="100%" height="100%">
+    <div style={{ height, minHeight: height, minWidth: 0, display: "block" }} className="w-full relative">
+      <ResponsiveContainer width="100%" height="100%" debounce={100}>
         <PieChart>
           <Pie
             data={data}

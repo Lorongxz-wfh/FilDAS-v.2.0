@@ -73,7 +73,13 @@ interface Props {
 }
 
 const DailyActivityStackedBarChart: React.FC<Props> = ({ data, height = 220, loading = false }) => {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (loading) return <ChartSkeleton height={height} />;
+  if (!mounted) return <div style={{ height }} className="w-full h-full" />;
 
   // Label formatting for XAxis
   const formatDateLabel = (tick: string) => {
@@ -81,8 +87,8 @@ const DailyActivityStackedBarChart: React.FC<Props> = ({ data, height = 220, loa
   };
 
   return (
-    <div style={{ height }} className="w-full">
-      <ResponsiveContainer width="100%" height="100%" debounce={50}>
+    <div style={{ height, minHeight: height, minWidth: 0, display: "block" }} className="w-full">
+      <ResponsiveContainer width="100%" height="100%" debounce={100}>
         <BarChart
           data={data}
           margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
@@ -104,11 +110,11 @@ const DailyActivityStackedBarChart: React.FC<Props> = ({ data, height = 220, loa
           />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(148,163,184,0.05)" }} />
           <Legend 
-            verticalAlign="top" 
-            align="right"
+            verticalAlign="bottom" 
+            align="center"
             iconType="circle"
             iconSize={8}
-            wrapperStyle={{ fontSize: 11, paddingBottom: 15 }}
+            wrapperStyle={{ fontSize: 11, paddingTop: 15 }}
           />
           <Bar name="Workflows" dataKey="Workflows" stackId="a" fill={CATEGORY_COLORS.Workflows} radius={[0, 0, 0, 0]} />
           <Bar name="Access" dataKey="Access" stackId="a" fill={CATEGORY_COLORS.Access} radius={[0, 0, 0, 0]} />

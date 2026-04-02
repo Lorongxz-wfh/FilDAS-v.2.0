@@ -37,6 +37,11 @@ const StatusDonutChart: React.FC<FullProps> = ({
   size = 160,
   loading = false,
 }) => {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center gap-6">
@@ -55,6 +60,8 @@ const StatusDonutChart: React.FC<FullProps> = ({
       </div>
     );
   }
+  if (!mounted) return <div style={{ width: size, height: size }} />;
+
   const total = segments.reduce((s, x) => s + x.value, 0);
   const data = segments.filter((s) => s.value > 0);
   const displayData = data.length ? data : [{ label: "Empty", value: 1, color: "#e2e8f0" }];
@@ -62,8 +69,8 @@ const StatusDonutChart: React.FC<FullProps> = ({
   return (
     <div className="flex items-center gap-6">
       {/* Donut */}
-      <div style={{ width: size, height: size }} className="relative shrink-0">
-        <ResponsiveContainer width="100%" height="100%">
+      <div style={{ width: size, height: size, minWidth: 0 }} className="relative shrink-0">
+        <ResponsiveContainer width="100%" height="100%" debounce={100}>
           <PieChart>
             <Pie
               data={displayData}

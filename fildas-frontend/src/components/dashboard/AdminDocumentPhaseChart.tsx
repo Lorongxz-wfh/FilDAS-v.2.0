@@ -35,7 +35,14 @@ const PHASES = [
 ];
 
 const AdminDocumentPhaseChart: React.FC<Props> = ({ byPhase, height = 180, loading = false }) => {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (loading) return <ChartSkeleton height={height} />;
+  if (!mounted) return <div style={{ height }} className="w-full" />;
+
   const data = PHASES.map((p) => ({
     label: p.label,
     count: byPhase?.[p.key] ?? 0,
@@ -53,48 +60,50 @@ const AdminDocumentPhaseChart: React.FC<Props> = ({ byPhase, height = 180, loadi
   }
 
   return (
-    <ResponsiveContainer width="100%" height={height}>
-      <BarChart
-        layout="vertical"
-        data={data}
-        margin={{ top: 0, right: 32, left: 0, bottom: 0 }}
-      >
-        <XAxis
-          type="number"
-          allowDecimals={false}
-          tick={{ fontSize: 11 }}
-          axisLine={false}
-          tickLine={false}
-        />
-        <YAxis
-          type="category"
-          dataKey="label"
-          width={82}
-          tick={{ fontSize: 11 }}
-          axisLine={false}
-          tickLine={false}
-        />
-        <Tooltip
-          cursor={{ fill: "rgba(148,163,184,0.08)" }}
-          content={({ active, payload, label }: any) => {
-            if (!active || !payload?.length) return null;
-            return (
-              <div className="rounded-lg border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-500 px-3 py-2 shadow-md text-xs">
-                <p className="font-semibold text-slate-700 dark:text-slate-200 mb-0.5">{label}</p>
-                <p className="text-slate-500 dark:text-slate-400">
-                  <span className="font-semibold text-slate-800 dark:text-slate-100">{payload[0].value}</span> documents
-                </p>
-              </div>
-            );
-          }}
-        />
-        <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={20}>
-          {data.map((entry, i) => (
-            <Cell key={i} fill={entry.color} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <div style={{ height, minHeight: height, minWidth: 0, display: "block" }} className="w-full">
+      <ResponsiveContainer width="100%" height="100%" debounce={100}>
+        <BarChart
+          layout="vertical"
+          data={data}
+          margin={{ top: 0, right: 32, left: 0, bottom: 0 }}
+        >
+          <XAxis
+            type="number"
+            allowDecimals={false}
+            tick={{ fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            type="category"
+            dataKey="label"
+            width={82}
+            tick={{ fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            cursor={{ fill: "rgba(148,163,184,0.08)" }}
+            content={({ active, payload, label }: any) => {
+              if (!active || !payload?.length) return null;
+              return (
+                <div className="rounded-lg border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-500 px-3 py-2 shadow-md text-xs">
+                  <p className="font-semibold text-slate-700 dark:text-slate-200 mb-0.5">{label}</p>
+                  <p className="text-slate-500 dark:text-slate-400">
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">{payload[0].value}</span> documents
+                  </p>
+                </div>
+              );
+            }}
+          />
+          <Bar dataKey="count" radius={[0, 4, 4, 0]} maxBarSize={20}>
+            {data.map((entry, i) => (
+              <Cell key={i} fill={entry.color} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
 

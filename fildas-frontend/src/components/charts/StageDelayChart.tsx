@@ -134,50 +134,52 @@ const StageDelayChart: React.FC<{
       </div>
 
       {/* Chart */}
-      <ResponsiveContainer width="100%" height={height}>
-        <BarChart
-          data={chartData}
-          layout="vertical"
-          margin={{ top: 0, right: 52, left: 4, bottom: 0 }}
-          barCategoryGap="28%"
-        >
-          <XAxis
-            type="number"
-            domain={[0, maxVal * 1.15]}
-            tick={{ fontSize: 10 }}
-            unit="h"
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            type="category"
-            dataKey="stage"
-            tick={{ fontSize: 12, fontWeight: 500 }}
-            width={88}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(148,163,184,0.06)" }} />
-          <Bar dataKey="display_hours" radius={[0, 4, 4, 0]} maxBarSize={28}>
-            <LabelList
-              dataKey="display_hours"
-              position="right"
-              formatter={(v: unknown) => {
-                const n = v as number;
-                return n > 0 ? `${n}h` : "—";
-              }}
-              style={{ fontSize: 11 }}
+      <div style={{ height, minWidth: 0 }} className="w-full">
+        <ResponsiveContainer width="100%" height="100%" debounce={1}>
+          <BarChart
+            data={chartData}
+            layout="vertical"
+            margin={{ top: 0, right: 52, left: 4, bottom: 0 }}
+            barCategoryGap="28%"
+          >
+            <XAxis
+              type="number"
+              domain={[0, maxVal * 1.15]}
+              tick={{ fontSize: 10 }}
+              unit="h"
+              axisLine={false}
+              tickLine={false}
             />
-            {chartData.map((entry) => (
-              <Cell
-                key={entry.stage}
-                fill={phaseColor(entry.stage)}
-                opacity={entry.stage === bottleneckStage ? 1 : 0.65}
+            <YAxis
+              type="category"
+              dataKey="stage"
+              tick={{ fontSize: 12, fontWeight: 500 }}
+              width={88}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(148,163,184,0.06)" }} />
+            <Bar dataKey="display_hours" radius={[0, 4, 4, 0]} maxBarSize={28}>
+              <LabelList
+                dataKey="display_hours"
+                position="right"
+                formatter={(v: unknown) => {
+                  const n = v as number;
+                  return n > 0 ? `${n}h` : "—";
+                }}
+                style={{ fontSize: 11 }}
               />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+              {chartData.map((entry) => (
+                <Cell
+                  key={entry.stage}
+                  fill={phaseColor(entry.stage)}
+                  opacity={entry.stage === bottleneckStage ? 1 : 0.65}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
 
       {/* Footnote */}
       <p className="text-[10px] text-slate-400 dark:text-slate-500 px-1">

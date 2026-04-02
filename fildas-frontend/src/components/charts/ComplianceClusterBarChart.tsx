@@ -1,3 +1,4 @@
+import React from "react";
 import { BarChart2 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -6,8 +7,8 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   CartesianGrid,
+  Legend,
 } from "recharts";
 
 export type ComplianceClusterDatum = {
@@ -61,13 +62,19 @@ export default function ComplianceClusterBarChart(props: {
   height?: number;
   loading?: boolean;
 }) {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const height = props.height ?? 280;
   if (props.loading) return <ChartSkeleton height={height} />;
+  if (!mounted) return <div style={{ height }} className="w-full h-full" />;
   if (!props.data?.length) return <EmptyChart height={height} />;
 
   return (
-    <div style={{ width: "100%", height: "100%", minHeight: height }}>
-      <ResponsiveContainer width="100%" height={height}>
+    <div style={{ width: "100%", height: "100%", minHeight: height, minWidth: 0 }}>
+      <ResponsiveContainer width="100%" height={height} debounce={1}>
         <BarChart
           data={props.data}
           margin={{ top: 10, right: 16, left: 0, bottom: 0 }}
@@ -75,8 +82,14 @@ export default function ComplianceClusterBarChart(props: {
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
           <XAxis dataKey="cluster" tick={{ fontSize: 11 }} />
           <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(148,163,184,0.06)" }} />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(148,163,184,0.07)" }} />
+          <Legend 
+            verticalAlign="bottom" 
+            align="center"
+            iconType="circle"
+            iconSize={8}
+            wrapperStyle={{ fontSize: 11, paddingTop: 15 }}
+          />
           <Bar dataKey="in_review" fill="#0ea5e9" name="In review" radius={[3, 3, 0, 0] as any} />
           <Bar dataKey="sent_to_qa" fill="#a855f7" name="Sent to QA" radius={[3, 3, 0, 0] as any} />
           <Bar dataKey="approved" fill="#10b981" name="Final approved" radius={[3, 3, 0, 0] as any} />

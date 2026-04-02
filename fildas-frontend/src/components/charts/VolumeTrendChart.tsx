@@ -29,6 +29,7 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  Legend,
 } from "recharts";
 
 export type VolumeSeries = {
@@ -58,34 +59,49 @@ const VolumeTrendChart: React.FC<{ data: VolumeSeries[]; height?: number; loadin
   height = 200,
   loading = false,
 }) => {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (loading) return <ChartSkeleton height={height} />;
   if (!data?.length) return <EmptyChart height={height} />;
+  if (!mounted) return <div style={{ height }} className="w-full" />;
   return (
-  <ResponsiveContainer width="100%" height={height}>
-    <BarChart
-      data={data}
-      margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
-      barCategoryGap="40%"
-      barGap={3}
-    >
-      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.12)" vertical={false} />
-      <XAxis
-        dataKey="label"
-        tick={{ fontSize: 11, fill: "currentColor" }}
-        axisLine={false}
-        tickLine={false}
-      />
-      <YAxis
-        allowDecimals={false}
-        tick={{ fontSize: 11, fill: "currentColor" }}
-        axisLine={false}
-        tickLine={false}
-      />
-      <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(148,163,184,0.07)" }} />
-      <Bar dataKey="created" name="Created" fill="#38bdf8" radius={[4, 4, 0, 0]} maxBarSize={32} />
-      <Bar dataKey="approved_final" name="Approved" fill="#34d399" radius={[4, 4, 0, 0]} maxBarSize={32} />
-    </BarChart>
-  </ResponsiveContainer>
+    <div style={{ height, minWidth: 0 }} className="w-full">
+      <ResponsiveContainer width="100%" height="100%" debounce={1}>
+        <BarChart
+          data={data}
+          margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
+          barCategoryGap="40%"
+          barGap={3}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.12)" vertical={false} />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 11, fill: "currentColor" }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            allowDecimals={false}
+            tick={{ fontSize: 11, fill: "currentColor" }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(148,163,184,0.07)" }} />
+          <Legend 
+            verticalAlign="bottom" 
+            align="center"
+            iconType="circle"
+            iconSize={8}
+            wrapperStyle={{ fontSize: 11, paddingTop: 15 }}
+          />
+          <Bar dataKey="created" name="Created" fill="#38bdf8" radius={[4, 4, 0, 0]} maxBarSize={32} />
+          <Bar dataKey="approved_final" name="Approved" fill="#34d399" radius={[4, 4, 0, 0]} maxBarSize={32} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
 
