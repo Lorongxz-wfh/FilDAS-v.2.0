@@ -11,6 +11,8 @@ use App\Models\Notification;
 use App\Models\User;
 use App\Services\DocumentRequests\DocumentRequestFileService;
 use App\Services\DocumentRequests\DocumentRequestProgressService;
+use App\Services\DocumentRequests\DocumentRequestService;
+use App\Repositories\DocumentRequestRepository;
 use App\Traits\RoleNameTrait;
 use App\Traits\LogsActivityTrait;
 use Illuminate\Http\Request;
@@ -24,6 +26,8 @@ class DocumentRequestController extends Controller
     public function __construct(
         private DocumentRequestFileService $files,
         private DocumentRequestProgressService $progress,
+        private DocumentRequestService $service,
+        private DocumentRequestRepository $repository,
     ) {}
 
     // ── GET /api/document-requests (QA/Admin) ──────────────────────────────
@@ -154,97 +158,14 @@ class DocumentRequestController extends Controller
 
         $perPage = (int) ($data['per_page'] ?? 25);
         $page    = max(1, (int) ($data['page'] ?? 1));
-        $offset  = ($page - 1) * $perPage;
-        $term    = !empty($data['q']) ? trim($data['q']) : null;
-        $reqSt   = $data['request_status'] ?? null;
-        $status  = $data['status'] ?? null;
 
-        // ── Sub-query A: multi_office recipients ──────────────────────────
-        $q1 = DB::table('document_request_recipients as rr')
-            ->join('document_requests as r', 'r.id', '=', 'rr.request_id')
-            ->join('offices as o', 'o.id', '=', 'rr.office_id')
-            ->where('r.mode', 'multi_office')
-            ->select([
-                DB::raw("'recipient' as row_type"),
-                'rr.id as row_id',
-                'r.id as request_id',
-                'r.title as batch_title',
-                'r.mode as batch_mode',
-                'r.status as batch_status',
-                'r.due_at',
-                'rr.created_at',
-                'rr.status as item_status',
-                'o.name as office_name',
-                'o.code as office_code',
-                DB::raw('NULL as item_title'),
-                'rr.id as recipient_id',
-                DB::raw('NULL as item_id'),
-            ]);
-
-        if (!$isQa) $q1->where('rr.office_id', $officeId);
-        if ($term)  $q1->where(function ($qq) use ($term) {
-            $qq->where('r.title', 'like', "%{$term}%")
-               ->orWhere('r.description', 'like', "%{$term}%");
-        });
-        if ($reqSt) $q1->where('r.status', $reqSt);
-        if ($status) $q1->where('rr.status', $status);
-
-        // ── Sub-query B: multi_doc items ──────────────────────────────────
-        $q2 = DB::table('document_request_items as dri')
-            ->join('document_requests as r', 'r.id', '=', 'dri.request_id')
-            ->join('document_request_recipients as rr', 'rr.request_id', '=', 'r.id')
-            ->join('offices as o', 'o.id', '=', 'rr.office_id')
-            ->where('r.mode', 'multi_doc')
-            ->select([
-                DB::raw("'item' as row_type"),
-                'dri.id as row_id',
-                'r.id as request_id',
-                'r.title as batch_title',
-                'r.mode as batch_mode',
-                'r.status as batch_status',
-                DB::raw('COALESCE(dri.due_at, r.due_at) as due_at'),
-                'dri.created_at',
-                DB::raw('COALESCE((SELECT s.status FROM document_request_submissions s WHERE s.item_id = dri.id AND s.recipient_id = rr.id ORDER BY s.attempt_no DESC LIMIT 1), \'pending\') as item_status'),
-                'o.name as office_name',
-                'o.code as office_code',
-                'dri.title as item_title',
-                'rr.id as recipient_id',
-                'dri.id as item_id',
-            ]);
-
-        if (!$isQa) $q2->where('rr.office_id', $officeId);
-        if ($term)  $q2->where(function ($qq) use ($term) {
-            $qq->where('r.title', 'like', "%{$term}%")
-               ->orWhere('dri.title', 'like', "%{$term}%");
-        });
-        if ($reqSt) $q2->where('r.status', $reqSt);
-
-        // ── UNION ALL + optional status outer filter ───────────────────────
-        $unionSql      = "({$q1->toSql()}) UNION ALL ({$q2->toSql()})";
-        $unionBindings = array_merge($q1->getBindings(), $q2->getBindings());
-
-        if ($status) {
-            // Item status for multi_doc is a computed column — filter on the outer query
-            $outerSql      = "SELECT * FROM ({$unionSql}) as combined WHERE item_status = ?";
-            $outerBindings = array_merge($unionBindings, [$status]);
-        } else {
-            $outerSql      = $unionSql;
-            $outerBindings = $unionBindings;
-        }
-
-        $total = DB::selectOne("SELECT COUNT(*) as agg FROM ({$outerSql}) as t", $outerBindings)->agg ?? 0;
-        $rows  = DB::select(
-            "SELECT * FROM ({$outerSql}) as t ORDER BY created_at DESC LIMIT {$perPage} OFFSET {$offset}",
-            $outerBindings
-        );
-
-        return response()->json([
-            'data'         => $rows,
-            'current_page' => $page,
-            'last_page'    => max(1, (int) ceil($total / $perPage)),
-            'per_page'     => $perPage,
-            'total'        => (int) $total,
-        ]);
+        return response()->json($this->repository->getIndividualRequests(
+            filters:  $data,
+            perPage:  $perPage,
+            page:     $page,
+            isQa:     $isQa,
+            officeId: $officeId
+        ));
     }
 
     // ── GET /api/document-requests/inbox (office users) ───────────────────
@@ -505,153 +426,26 @@ class DocumentRequestController extends Controller
             'due_at'      => 'nullable|date',
             'mode'        => 'required|in:multi_office,multi_doc',
 
-            // multi_office: multiple offices, one example file
             'office_ids'   => 'required_if:mode,multi_office|array|min:1|max:50',
             'office_ids.*' => 'integer|exists:offices,id',
             'example_file' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,ppt,pptx|max:10240',
 
-            // multi_doc: one office, multiple items
             'office_id'    => 'required_if:mode,multi_doc|integer|exists:offices,id',
             'items'        => 'required_if:mode,multi_doc|array|min:1|max:10',
             'items.*.title'       => 'required|string|max:180',
             'items.*.description' => 'nullable|string',
         ]);
 
-        $user = $request->user();
+        $requestId = $this->service->createRequest(
+            data:        $data,
+            actor:       $request->user(),
+            exampleFile: $request->file('example_file')
+        );
 
-        return DB::transaction(function () use ($request, $data, $user) {
-            $now  = now();
-            $mode = $data['mode'];
-
-            $requestId = DB::table('document_requests')->insertGetId([
-                'title'              => $data['title'],
-                'description'        => $data['description'] ?? null,
-                'due_at'             => $data['due_at'] ?? null,
-                'status'             => 'open',
-                'mode'               => $mode,
-                'created_by_user_id' => $user->id,
-                'created_at'         => $now,
-                'updated_at'         => $now,
-            ]);
-
-            $officeIds = [];
-
-            if ($mode === 'multi_office') {
-                // Optional single example file for the whole request
-                if ($request->hasFile('example_file')) {
-                    $payload = $this->files->saveRequestExampleFile($requestId, $request->file('example_file'));
-                    DB::table('document_requests')->where('id', $requestId)->update([
-                        'example_original_filename' => $payload['original_filename'],
-                        'example_file_path'         => $payload['file_path'],
-                        'example_preview_path'      => $payload['preview_path'],
-                        'updated_at'                => now(),
-                    ]);
-                }
-
-                $officeIds = array_values(array_unique(array_map('intval', $data['office_ids'] ?? [])));
-                foreach ($officeIds as $oid) {
-                    DB::table('document_request_recipients')->insert([
-                        'request_id'       => $requestId,
-                        'office_id'        => $oid,
-                        'status'           => 'pending',
-                        'last_submitted_at' => null,
-                        'last_reviewed_at'  => null,
-                        'created_at'       => $now,
-                        'updated_at'       => $now,
-                    ]);
-                }
-            } else {
-                // multi_doc — one recipient office
-                $officeId = (int) $data['office_id'];
-                $officeIds = [$officeId];
-
-                DB::table('document_request_recipients')->insert([
-                    'request_id'       => $requestId,
-                    'office_id'        => $officeId,
-                    'status'           => 'pending',
-                    'last_submitted_at' => null,
-                    'last_reviewed_at'  => null,
-                    'created_at'       => $now,
-                    'updated_at'       => $now,
-                ]);
-
-                // Create items — example files uploaded separately after creation
-                $itemIds = [];
-                foreach (($data['items'] ?? []) as $i => $itemData) {
-                    $itemIds[] = DB::table('document_request_items')->insertGetId([
-                        'request_id'  => $requestId,
-                        'title'       => $itemData['title'],
-                        'description' => $itemData['description'] ?? null,
-                        'sort_order'  => $i,
-                        'created_at'  => $now,
-                        'updated_at'  => $now,
-                    ]);
-                }
-            }
-
-            // Activity log
-            $this->logActivity('document_request.created', 'Created a document request', $user->id, $user->office_id, [
-                'document_request_id' => $requestId,
-                'mode'                => $mode,
-                'office_ids'          => $officeIds,
-                'due_at'              => $data['due_at'] ?? null,
-            ]);
-
-            // Notifications
-            $actor     = $request->user();
-            $actorName = trim(($actor->first_name ?? '') . ' ' . ($actor->last_name ?? '')) ?: 'QA';
-            $frontendUrl = rtrim(env('FRONTEND_URL', config('app.url')), '/');
-
-            $users = User::query()
-                ->whereIn('office_id', $officeIds)
-                ->select(['id', 'office_id', 'email', 'first_name', 'last_name', 'email_doc_updates'])
-                ->get();
-
-            foreach ($users as $u) {
-                Notification::create([
-                    'user_id'             => $u->id,
-                    'document_id'         => null,
-                    'document_version_id' => null,
-                    'event'               => 'document_request.created',
-                    'title'               => 'Action Required: New Evidence Request from QA',
-                    'body'                => 'A new document request has been issued: ' . $data['title'],
-                    'meta'                => [
-                        'document_request_id' => $requestId,
-                        'office_id'           => (int) $u->office_id,
-                    ],
-                    'read_at' => null,
-                ]);
-
-                if ($u->email && (bool) ($u->email_doc_updates ?? true)) {
-                    try {
-                        Mail::to($u->email)->queue(new WorkflowNotificationMail(
-                            recipientName:   trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) ?: $u->email,
-                            notifTitle:      'Action Required: New Evidence Request from QA',
-                            notifBody:       "A new evidence request <strong>\"{$data['title']}\"</strong> has been issued by QA. Please provide the required documents by the deadline.",
-                            documentTitle:   $data['title'],
-                            documentStatus:  'Open',
-                            isReject:        false,
-                            actorName:       $actorName,
-                            documentId:      null,
-                            cardLabel:       'Document Request',
-                            appUrl:          $frontendUrl,
-                            appName:         config('app.name', 'FilDAS'),
-                            overrideLinkUrl: $frontendUrl . '/document-requests/' . $requestId,
-                        ));
-                    } catch (\Throwable) {}
-                }
-            }
-
-            try {
-                broadcast(new \App\Events\WorkspaceChanged('request'));
-            } catch (\Throwable) {}
-
-            return response()->json([
-                'message'  => 'Document request created.',
-                'id'       => $requestId,
-                'item_ids' => $itemIds ?? [],
-            ], 201);
-        });
+        return response()->json([
+            'message' => 'Document request created.',
+            'id'      => $requestId,
+        ], 201);
     }
 
     // ── POST /api/document-requests/{request}/recipients/{recipient}/submit
@@ -686,138 +480,22 @@ class DocumentRequestController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
-        // For multi_doc, item_id is required
         if ($req->mode === 'multi_doc' && empty($data['item_id'])) {
             return response()->json(['message' => 'item_id is required for multi-document requests.'], 422);
         }
 
-        return DB::transaction(function () use ($request, $data, $user, $officeId, $requestId, $recipientId, $req) {
-            $now    = now();
-            $itemId = isset($data['item_id']) ? (int) $data['item_id'] : null;
+        $submissionId = $this->service->submitSubmission(
+            requestId:     $requestId,
+            recipientId:   $recipientId,
+            data:          $data,
+            actor:         $user,
+            uploadedFiles: $request->file('files')
+        );
 
-            // attempt_no scoped per recipient only (unique constraint is on recipient_id + attempt_no)
-            $attemptNo = (int) (DB::table('document_request_submissions')
-                ->where('recipient_id', $recipientId)
-                ->max('attempt_no') ?? 0) + 1;
-
-            $submissionId = DB::table('document_request_submissions')->insertGetId([
-                'recipient_id'           => $recipientId,
-                'item_id'                => $itemId,
-                'attempt_no'             => $attemptNo,
-                'submitted_by_user_id'   => $user->id,
-                'note'                   => $data['note'] ?? null,
-                'status'                 => 'submitted',
-                'qa_reviewed_by_user_id' => null,
-                'qa_review_note'         => null,
-                'reviewed_at'            => null,
-                'created_at'             => $now,
-                'updated_at'             => $now,
-            ]);
-
-            $files = $request->file('files');
-            $i = 1;
-            foreach ($files as $f) {
-                $payload = $this->files->saveSubmissionFile($submissionId, $f, $i);
-                DB::table('document_request_submission_files')->insert([
-                    'submission_id'     => $submissionId,
-                    'original_filename' => $payload['original_filename'],
-                    'file_path'         => $payload['file_path'],
-                    'preview_path'      => $payload['preview_path'],
-                    'mime'              => $payload['mime'],
-                    'size_bytes'        => $payload['size_bytes'],
-                    'created_at'        => $now,
-                    'updated_at'        => $now,
-                ]);
-                $i++;
-            }
-
-            // Update recipient status
-            DB::table('document_request_recipients')
-                ->where('id', $recipientId)
-                ->update([
-                    'status'            => 'submitted',
-                    'last_submitted_at' => $now,
-                    'updated_at'        => $now,
-                ]);
-
-            $this->logActivity('document_request.submission.submitted', 'Submitted document request evidence', $user->id, $officeId, [
-                'document_request_id' => $requestId,
-                'recipient_id'        => $recipientId,
-                'submission_id'       => $submissionId,
-                'item_id'             => $itemId,
-                'attempt_no'          => $attemptNo,
-            ]);
-
-            // System message for submission — scoped to recipient thread
-            $uploadMsg = "Submitted attempt #{$attemptNo}";
-            if (!empty($data['note'])) $uploadMsg .= ": " . $data['note'];
-            DB::table('document_request_messages')->insert([
-                'document_request_id' => $requestId,
-                'recipient_id'        => $recipientId,
-                'item_id'             => $itemId,
-                'sender_user_id'      => $user->id,
-                'type'                => 'upload',
-                'message'             => $uploadMsg,
-                'created_at'          => $now,
-                'updated_at'          => $now,
-            ]);
-
-            // Notify QA
-            $submitter     = $request->user();
-            $submitterName = trim(($submitter->first_name ?? '') . ' ' . ($submitter->last_name ?? '')) ?: 'An office';
-            $frontendUrl   = rtrim(env('FRONTEND_URL', config('app.url')), '/');
-
-            $qaUsers = User::query()
-                ->whereHas('role', fn($q) => $q->whereIn('name', ['QA', 'SYSADMIN']))
-                ->select(['id', 'office_id', 'email', 'first_name', 'last_name', 'email_doc_updates'])
-                ->get();
-
-            foreach ($qaUsers as $u) {
-                Notification::create([
-                    'user_id'             => $u->id,
-                    'document_id'         => null,
-                    'document_version_id' => null,
-                    'event'               => 'document_request.submission.submitted',
-                    'title'               => 'Document request submission received',
-                    'body'                => 'An office submitted evidence for a document request.',
-                    'meta'                => [
-                        'document_request_id' => $requestId,
-                        'recipient_id'        => $recipientId,
-                        'submission_id'       => $submissionId,
-                        'from_office_id'      => $officeId,
-                    ],
-                    'read_at' => null,
-                ]);
-
-                if ($u->email && (bool) ($u->email_doc_updates ?? true)) {
-                    try {
-                        Mail::to($u->email)->queue(new WorkflowNotificationMail(
-                            recipientName:   trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) ?: $u->email,
-                            notifTitle:      'Evidence Submission Received: ' . ($req->title ?? 'Request'),
-                            notifBody:       "<strong>{$submitterName}</strong> has submitted evidence for the request <strong>\"" . ($req->title ?? 'Request') . "\"</strong>. It is now awaiting your review.",
-                            documentTitle:   $req->title ?? 'Document Request',
-                            documentStatus:  'Submitted',
-                            isReject:        false,
-                            actorName:       $submitterName,
-                            documentId:      null,
-                            cardLabel:       'Document Request',
-                            appUrl:          $frontendUrl,
-                            appName:         config('app.name', 'FilDAS'),
-                            overrideLinkUrl: $frontendUrl . '/document-requests/' . $requestId,
-                        ));
-                    } catch (\Throwable) {}
-                }
-            }
-
-            try {
-                broadcast(new \App\Events\WorkspaceChanged('request'));
-            } catch (\Throwable) {}
-
-            return response()->json([
-                'message'       => 'Submission uploaded.',
-                'submission_id' => $submissionId,
-            ], 201);
-        });
+        return response()->json([
+            'message'       => 'Submission uploaded.',
+            'submission_id' => $submissionId,
+        ], 201);
     }
 
     // ── POST /api/document-request-submissions/{submission}/review ─────────
@@ -830,144 +508,13 @@ class DocumentRequestController extends Controller
             'note'     => 'nullable|string|max:2000',
         ]);
 
-        $user = $request->user();
-        $now  = now();
+        $this->service->reviewSubmission(
+            submissionId: $submissionId,
+            data:         $data,
+            actor:        $request->user()
+        );
 
-        $submission = DB::table('document_request_submissions')->where('id', $submissionId)->first();
-        if (!$submission) return response()->json(['message' => 'Not found'], 404);
-        if (($submission->status ?? '') !== 'submitted') {
-            return response()->json(['message' => 'Submission is not in submitted status.'], 422);
-        }
-
-        $recipient  = DB::table('document_request_recipients')->where('id', $submission->recipient_id)->first();
-        if (!$recipient) return response()->json(['message' => 'Recipient not found'], 404);
-
-        $requestRow = DB::table('document_requests')->where('id', $recipient->request_id)->first();
-
-        return DB::transaction(function () use ($data, $user, $now, $submissionId, $submission, $recipient, $requestRow) {
-            DB::table('document_request_submissions')->where('id', $submissionId)->update([
-                'status'                 => $data['decision'],
-                'qa_reviewed_by_user_id' => $user->id,
-                'qa_review_note'         => $data['note'] ?? null,
-                'reviewed_at'            => $now,
-                'updated_at'             => $now,
-            ]);
-
-            // For multi_office: update recipient status
-            // For multi_doc: only update recipient if ALL items accepted
-            if ($requestRow->mode === 'multi_office') {
-                DB::table('document_request_recipients')->where('id', $recipient->id)->update([
-                    'status'            => $data['decision'] === 'accepted' ? 'accepted' : 'rejected',
-                    'last_reviewed_at'  => $now,
-                    'updated_at'        => $now,
-                ]);
-            } else {
-                // Check if all items have an accepted latest submission
-                $items     = DB::table('document_request_items')->where('request_id', $requestRow->id)->get(['id']);
-                $itemIds   = $items->pluck('id')->all();
-                $allAccepted = true;
-
-                foreach ($itemIds as $itemId) {
-                    $latest = DB::table('document_request_submissions')
-                        ->where('recipient_id', $recipient->id)
-                        ->where('item_id', $itemId)
-                        ->orderByDesc('attempt_no')
-                        ->value('status');
-
-                    if ($latest !== 'accepted') {
-                        $allAccepted = false;
-                        break;
-                    }
-                }
-
-                DB::table('document_request_recipients')->where('id', $recipient->id)->update([
-                    'status'           => $allAccepted ? 'accepted' : 'submitted',
-                    'last_reviewed_at' => $now,
-                    'updated_at'       => $now,
-                ]);
-            }
-
-            $this->logActivity('document_request.submission.reviewed', $data['decision'] === 'accepted'
-                    ? 'Accepted document request submission'
-                    : 'Rejected document request submission', $user->id, $user->office_id, [
-                'document_request_id' => (int) ($recipient->request_id ?? null),
-                'recipient_id'        => (int) $recipient->id,
-                'submission_id'       => (int) $submissionId,
-                'decision'            => $data['decision'],
-            ], null, null, (int) ($recipient->office_id ?? null));
-
-            // System message for review decision — scoped to recipient thread
-            $reviewMsg = $data['decision'] === 'accepted'
-                ? 'Submission accepted'
-                : 'Submission rejected';
-            if (!empty($data['note'])) $reviewMsg .= ": " . $data['note'];
-            DB::table('document_request_messages')->insert([
-                'document_request_id' => (int) ($recipient->request_id ?? null),
-                'recipient_id'        => (int) $recipient->id,
-                'item_id'             => $submission->item_id ? (int) $submission->item_id : null,
-                'sender_user_id'      => $user->id,
-                'type'                => 'review',
-                'message'             => $reviewMsg,
-                'created_at'          => $now,
-                'updated_at'          => $now,
-            ]);
-
-            // Notify office users
-            $users = User::query()
-                ->where('office_id', (int) $recipient->office_id)
-                ->select(['id', 'first_name', 'last_name', 'email', 'office_id', 'email_doc_updates'])
-                ->get();
-
-            $isAccepted = $data['decision'] === 'accepted';
-            $actorName  = trim($user->first_name . ' ' . $user->last_name) ?: 'QA';
-            $reqTitle   = $requestRow?->title ?? 'Document request';
-            $notifTitle = $isAccepted ? 'Document request submission accepted' : 'Document request submission rejected';
-            $notifBody  = $reqTitle . ($data['note'] ? ': ' . $data['note'] : '') . ' — ' . ($isAccepted ? 'accepted' : 'rejected') . ' by ' . $actorName . '.';
-
-            foreach ($users as $u) {
-                Notification::create([
-                    'user_id'             => $u->id,
-                    'document_id'         => null,
-                    'document_version_id' => null,
-                    'event'               => $isAccepted
-                        ? 'document_request.submission.accepted'
-                        : 'document_request.submission.rejected',
-                    'title'               => $notifTitle,
-                    'body'                => $reqTitle,
-                    'meta'                => [
-                        'document_request_id' => (int) ($recipient->request_id ?? null),
-                        'recipient_id'        => (int) $recipient->id,
-                        'submission_id'       => (int) $submissionId,
-                        'qa_note'             => $data['note'] ?? null,
-                    ],
-                    'read_at' => null,
-                ]);
-
-                if (!(bool) ($u->email_doc_updates ?? true) || !$u->email) continue;
-                try {
-                    Mail::to($u->email)->queue(new WorkflowNotificationMail(
-                        recipientName:   trim($u->first_name . ' ' . $u->last_name) ?: $u->email,
-                        notifTitle:      $notifTitle,
-                        notifBody:       "The evidence for <strong>\"{$reqTitle}\"</strong> has been <strong>" . ($isAccepted ? 'Accepted' : 'Returned for Revision') . "</strong> by QA." . ($data['note'] ? "<br><br><strong>Note from QA:</strong> " . $data['note'] : ""),
-                        documentTitle:   $reqTitle,
-                        documentStatus:  $isAccepted ? 'Accepted' : 'Rejected',
-                        isReject:        !$isAccepted,
-                        actorName:       $actorName,
-                        documentId:      null,
-                        cardLabel:       'Document Request',
-                        overrideLinkUrl: rtrim(env('FRONTEND_URL', config('app.url')), '/') . '/document-requests',
-                        appUrl:          rtrim(env('FRONTEND_URL', config('app.url')), '/'),
-                        appName:         config('app.name', 'FilDAS'),
-                    ));
-                } catch (\Throwable) {}
-            }
-
-            try {
-                broadcast(new \App\Events\WorkspaceChanged('request'));
-            } catch (\Throwable) {}
-
-            return response()->json(['message' => 'Reviewed.'], 200);
-        });
+        return response()->json(['message' => 'Reviewed.'], 200);
     }
 
     // GET /api/document-requests/{id}/recipients/{recipientId}

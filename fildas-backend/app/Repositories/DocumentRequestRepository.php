@@ -1,0 +1,105 @@
+<?php
+
+namespace App\Repositories;
+
+use Illuminate\Support\Facades\DB;
+
+class DocumentRequestRepository
+{
+    /**
+     * Get a unified list of individual document requests (multi_office recipients & multi_doc items).
+     */
+    public function getIndividualRequests(array $filters, int $perPage, int $page, bool $isQa, int $officeId): array
+    {
+        $offset  = ($page - 1) * $perPage;
+        $term    = !empty($filters['q']) ? trim($filters['q']) : null;
+        $reqSt   = $filters['request_status'] ?? null;
+        $status  = $filters['status'] ?? null;
+
+        // ── Sub-query A: multi_office recipients ──────────────────────────
+        $q1 = DB::table('document_request_recipients as rr')
+            ->join('document_requests as r', 'r.id', '=', 'rr.request_id')
+            ->join('offices as o', 'o.id', '=', 'rr.office_id')
+            ->where('r.mode', 'multi_office')
+            ->select([
+                DB::raw("'recipient' as row_type"),
+                'rr.id as row_id',
+                'r.id as request_id',
+                'r.title as batch_title',
+                'r.mode as batch_mode',
+                'r.status as batch_status',
+                'r.due_at',
+                'rr.created_at',
+                'rr.status as item_status',
+                'o.name as office_name',
+                'o.code as office_code',
+                DB::raw('NULL as item_title'),
+                'rr.id as recipient_id',
+                DB::raw('NULL as item_id'),
+            ]);
+
+        if (!$isQa) $q1->where('rr.office_id', $officeId);
+        if ($term)  $q1->where(function ($qq) use ($term) {
+            $qq->where('r.title', 'like', "%{$term}%")
+               ->orWhere('r.description', 'like', "%{$term}%");
+        });
+        if ($reqSt) $q1->where('r.status', $reqSt);
+        if ($status) $q1->where('rr.status', $status);
+
+        // ── Sub-query B: multi_doc items ──────────────────────────────────
+        $q2 = DB::table('document_request_items as dri')
+            ->join('document_requests as r', 'r.id', '=', 'dri.request_id')
+            ->join('document_request_recipients as rr', 'rr.request_id', '=', 'r.id')
+            ->join('offices as o', 'o.id', '=', 'rr.office_id')
+            ->where('r.mode', 'multi_doc')
+            ->select([
+                DB::raw("'item' as row_type"),
+                'dri.id as row_id',
+                'r.id as request_id',
+                'r.title as batch_title',
+                'r.mode as batch_mode',
+                'r.status as batch_status',
+                DB::raw('COALESCE(dri.due_at, r.due_at) as due_at'),
+                'dri.created_at',
+                DB::raw("COALESCE((SELECT s.status FROM document_request_submissions s WHERE s.item_id = dri.id AND s.recipient_id = rr.id ORDER BY s.attempt_no DESC LIMIT 1), 'pending') as item_status"),
+                'o.name as office_name',
+                'o.code as office_code',
+                'dri.title as item_title',
+                'rr.id as recipient_id',
+                'dri.id as item_id',
+            ]);
+
+        if (!$isQa) $q2->where('rr.office_id', $officeId);
+        if ($term)  $q2->where(function ($qq) use ($term) {
+            $qq->where('r.title', 'like', "%{$term}%")
+               ->orWhere('dri.title', 'like', "%{$term}%");
+        });
+        if ($reqSt) $q2->where('r.status', $reqSt);
+
+        // ── UNION ALL + optional status outer filter ───────────────────────
+        $unionSql      = "({$q1->toSql()}) UNION ALL ({$q2->toSql()})";
+        $unionBindings = array_merge($q1->getBindings(), $q2->getBindings());
+
+        if ($status) {
+            $outerSql      = "SELECT * FROM ({$unionSql}) as combined WHERE item_status = ?";
+            $outerBindings = array_merge($unionBindings, [$status]);
+        } else {
+            $outerSql      = $unionSql;
+            $outerBindings = $unionBindings;
+        }
+
+        $total = DB::selectOne("SELECT COUNT(*) as agg FROM ({$outerSql}) as t", $outerBindings)->agg ?? 0;
+        $rows  = DB::select(
+            "SELECT * FROM ({$outerSql}) as t ORDER BY created_at DESC LIMIT {$perPage} OFFSET {$offset}",
+            $outerBindings
+        );
+
+        return [
+            'data'         => $rows,
+            'current_page' => $page,
+            'last_page'    => max(1, (int) ceil($total / $perPage)),
+            'per_page'     => $perPage,
+            'total'        => (int) $total,
+        ];
+    }
+}
