@@ -195,3 +195,16 @@ export async function downloadMasterReportZip(params?: {
     window.URL.revokeObjectURL(url);
   }, 100);
 }
+export async function getOffices(): Promise<{ id: number; name: string; code: string }[]> {
+  try {
+    const api = await getApi();
+    const res = await api.get("/offices");
+    return res.data;
+  } catch (e: any) {
+    const status = e?.response?.status;
+    const msg =
+      e?.response?.data?.message ||
+      (status ? `Failed to load offices (${status})` : "Failed to load offices");
+    throw new Error(msg);
+  }
+}
