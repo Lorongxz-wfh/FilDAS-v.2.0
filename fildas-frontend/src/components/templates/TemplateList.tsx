@@ -251,7 +251,7 @@ const TemplateList: React.FC<Props> = ({
         </div>
       )}
       gridTemplateColumns="60px minmax(120px, 1fr) 80px 100px 140px 100px 100px"
-      className="flex-1"
+      className="flex-1 min-h-0"
       sortBy={sortBy}
       sortDir={sortDir}
       onSortChange={onSortChange}

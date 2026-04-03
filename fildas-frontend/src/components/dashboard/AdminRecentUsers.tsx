@@ -1,5 +1,5 @@
-import React from "react";
 import Skeleton from "../ui/loader/Skeleton";
+import RoleBadge from "../ui/RoleBadge";
 
 type User = {
   id: number;
@@ -11,28 +11,7 @@ type User = {
   created_at: string;
 };
 
-const ROLE_LABELS: Record<string, string> = {
-  qa: "QA",
-  admin: "Admin",
-  president: "President",
-  vp: "VP",
-  office_head: "Office Head",
-  office_staff: "Office Staff",
-  auditor: "Auditor",
-  sysadmin: "Sysadmin",
-};
 
-const ROLE_COLORS: Record<string, string> = {
-  qa: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300",
-  admin: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
-  president:
-    "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
-  vp: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
-  office_head:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-  office_staff:
-    "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
-};
 
 const AdminRecentUsers: React.FC<{ users: User[]; loading: boolean }> = ({
   users,
@@ -59,11 +38,11 @@ const AdminRecentUsers: React.FC<{ users: User[]; loading: boolean }> = ({
                 {u.office_name ?? "No office"}
               </p>
             </div>
-            <span
-              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${ROLE_COLORS[u.role] ?? "bg-slate-100 text-slate-600"}`}
-            >
-              {ROLE_LABELS[u.role] ?? u.role}
-            </span>
+            <RoleBadge 
+              role={u.role} 
+              className="shrink-0"
+              dot
+            />
             <span
               className={`h-1.5 w-1.5 shrink-0 rounded-full ${u.is_active ? "bg-emerald-400" : "bg-slate-300"}`}
             />

@@ -6,10 +6,10 @@ import RefreshButton from "../components/ui/RefreshButton";
 import { getDocumentVersion, listActivityLogs } from "../services/documents";
 import { friendlyEvent } from "../utils/activityFormatters";
 import { formatDateTime } from "../utils/formatters";
-import { X, Search, SlidersHorizontal } from "lucide-react";
-import { selectCls, inputCls } from "../utils/formStyles";
+import { selectCls } from "../utils/formStyles";
 import DateRangeInput from "../components/ui/DateRangeInput";
 import ActivityDetailModal from "../components/activityLogs/ActivityDetailModal";
+import SearchFilterBar from "../components/ui/SearchFilterBar";
 
 type ActivityLogRow = {
   id: number;
@@ -67,7 +67,6 @@ const MyActivityPage: React.FC = () => {
   const [qDebounced, setQDebounced] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   const activeFiltersCount = React.useMemo(() => {
     let count = 0;
@@ -201,7 +200,6 @@ const MyActivityPage: React.FC = () => {
     }
   };
 
-  const hasFilters = category || q || dateFrom || dateTo;
 
   const columns: TableColumn<ActivityLogRow>[] = [
     {
@@ -308,102 +306,23 @@ const MyActivityPage: React.FC = () => {
         </div>
       }
     >
-      {/* Filters bar */}
-      <div className="shrink-0 py-3 flex flex-col gap-3 sm:gap-2">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 sm:max-w-64">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Search event / label…"
-              className={`${inputCls} pl-9 pr-10 text-sm`}
-            />
-            {q && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQ("");
-                  setPage(1);
-                }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                title="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-            className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${
-              isFiltersOpen || activeFiltersCount > 0
-                ? "bg-brand-50 border-brand-200 text-brand-600 dark:bg-brand-500/10 dark:border-brand-500/30 dark:text-brand-400 shadow-xs"
-                : "bg-white border-slate-200 text-slate-600 dark:bg-surface-500 dark:border-surface-400 dark:text-slate-400"
-            }`}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span className="text-xs font-semibold">Filters</span>
-            {activeFiltersCount > 0 && (
-              <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-brand-500 text-white rounded-full">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
-
-          <div className="hidden sm:flex items-center gap-2">
-            <select
-              value={category}
-              onChange={(e) => {
-                setCategory(e.target.value as Category);
-                setPage(1);
-              }}
-              className={`${selectCls} text-xs h-8 w-40`}
-            >
-              <option value="">All actions</option>
-              <option value="workflow">Workflow</option>
-              <option value="document">Documents &amp; Files</option>
-              <option value="request">Requests</option>
-            </select>
-
-            <DateRangeInput
-              from={dateFrom}
-              to={dateTo}
-              onFromChange={(val) => {
-                setDateFrom(val);
-                setPage(1);
-              }}
-              onToChange={(val) => {
-                setDateTo(val);
-                setPage(1);
-              }}
-            />
-
-            {hasFilters && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCategory("");
-                  setQ("");
-                  setDateFrom("");
-                  setDateTo("");
-                  setPage(1);
-                }}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Mobile secondary filters collapsible */}
-        {isFiltersOpen && (
-          <div className="sm:hidden flex flex-col gap-3 p-4 bg-slate-50 dark:bg-surface-600 rounded-xl border border-slate-200 dark:border-surface-400 animate-in fade-in slide-in-from-top-1 duration-200">
+      <SearchFilterBar
+        search={q}
+        setSearch={(val) => {
+          setQ(val);
+          setPage(1);
+        }}
+        placeholder="Search event / label…"
+        activeFiltersCount={activeFiltersCount}
+        onClear={() => {
+          setCategory("");
+          setQ("");
+          setDateFrom("");
+          setDateTo("");
+          setPage(1);
+        }}
+        mobileFilters={
+          <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Category</label>
               <select
@@ -436,25 +355,36 @@ const MyActivityPage: React.FC = () => {
                 }}
               />
             </div>
-
-            {hasFilters && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCategory("");
-                  setQ("");
-                  setDateFrom("");
-                  setDateTo("");
-                  setPage(1);
-                }}
-                className="w-full py-2.5 text-xs font-bold text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10 rounded-lg transition"
-              >
-                Clear all filters
-              </button>
-            )}
           </div>
-        )}
-      </div>
+        }
+      >
+        <select
+          value={category}
+          onChange={(e) => {
+            setCategory(e.target.value as Category);
+            setPage(1);
+          }}
+          className={`${selectCls} text-xs h-8 w-40`}
+        >
+          <option value="">All actions</option>
+          <option value="workflow">Workflow</option>
+          <option value="document">Documents &amp; Files</option>
+          <option value="request">Requests</option>
+        </select>
+
+        <DateRangeInput
+          from={dateFrom}
+          to={dateTo}
+          onFromChange={(val) => {
+            setDateFrom(val);
+            setPage(1);
+          }}
+          onToChange={(val) => {
+            setDateTo(val);
+            setPage(1);
+          }}
+        />
+      </SearchFilterBar>
 
       {/* Table */}
       <div className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden flex-1 min-h-0">
@@ -468,7 +398,7 @@ const MyActivityPage: React.FC = () => {
           loading={loading}
           initialLoading={initialLoading}
           error={error}
-          emptyMessage="No activity found."
+          emptyMessage={q || category || dateFrom || dateTo ? "No activities match your filters." : "No activities found."}
           hasMore={hasMore}
           onLoadMore={() => setPage((p) => p + 1)}
           mobileRender={(r) => (

@@ -13,6 +13,7 @@ interface Props {
   onLoadMore: () => void;
   onRowClick: (row: ActivityLogItem) => void;
   error: string | null;
+  emptyMessage?: string;
   sortBy: string;
   sortDir: "asc" | "desc";
   onSortChange: (key: string, dir: "asc" | "desc") => void;
@@ -29,6 +30,7 @@ const ActivityLogsTable: React.FC<Props> = ({
   sortBy,
   sortDir,
   onSortChange,
+  emptyMessage,
 }) => {
   const columns: TableColumn<ActivityLogItem>[] = [
     {
@@ -110,7 +112,7 @@ const ActivityLogsTable: React.FC<Props> = ({
         loading={loading}
         initialLoading={initialLoading}
         error={error}
-        emptyMessage="No logs found."
+        emptyMessage={emptyMessage ?? "No logs found."}
         hasMore={hasMore}
         onLoadMore={onLoadMore}
         mobileRender={(r) => (

@@ -13,12 +13,13 @@ import {
 } from "../services/admin";
 import UserEditModal from "../components/admin/UserEditModal";
 import Alert from "../components/ui/Alert";
-import { inputCls, selectCls } from "../utils/formStyles";
-import { X, Search, SlidersHorizontal } from "lucide-react";
+import { selectCls } from "../utils/formStyles";
 import RefreshButton from "../components/ui/RefreshButton";
 import MiddleTruncate from "../components/ui/MiddleTruncate";
 import { formatDate } from "../utils/formatters";
 import { StatusBadge } from "../components/ui/Badge";
+import RoleBadge from "../components/ui/RoleBadge";
+import SearchFilterBar from "../components/ui/SearchFilterBar";
 
 const UserManagerPage: React.FC = () => {
   const role = getUserRole();
@@ -43,7 +44,6 @@ const UserManagerPage: React.FC = () => {
   );
   const [roleFilter, setRoleFilter] = useState<number | "">("");
   const [roles, setRoles] = useState<AdminRole[]>([]);
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (statusFilter) count++;
@@ -148,7 +148,6 @@ const UserManagerPage: React.FC = () => {
     setReloadTick((t) => t + 1);
   };
 
-  const hasActiveFilters = !!search || !!statusFilter || !!roleFilter;
   const clearFilters = () => {
     setSearch("");
     setStatusFilter("");
@@ -197,16 +196,7 @@ const UserManagerPage: React.FC = () => {
         key: "role",
         header: "Role",
         skeletonShape: "text",
-        render: (u) => {
-          const raw = u.role?.name ?? "none";
-          // Replace underscores and Title Case
-          const label = raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-          return (
-             <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-               {label}
-             </span>
-          );
-        },
+        render: (u) => <RoleBadge role={u.role?.name ?? "none"} />,
       },
       {
         key: "status",
@@ -261,140 +251,76 @@ const UserManagerPage: React.FC = () => {
         </div>
       }
     >
-      {/* Filter bar - updated for mobile responsiveness */}
-      <div className="shrink-0 py-3 flex flex-col gap-3 sm:gap-2">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 sm:max-w-64">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Search name / email…"
-              className={`${inputCls} pl-9 pr-8 text-sm`}
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("");
-                  setPage(1);
-                }}
-                title="Clear"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+      <SearchFilterBar
+        search={search}
+        setSearch={(val) => {
+          setSearch(val);
+          setPage(1);
+        }}
+        placeholder="Search name / email…"
+        activeFiltersCount={activeFiltersCount}
+        onClear={clearFilters}
+        mobileFilters={
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className={selectCls}
               >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-            className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${
-              isFiltersOpen || activeFiltersCount > 0
-                ? "bg-brand-50 border-brand-200 text-brand-600 dark:bg-brand-500/10 dark:border-brand-500/30 dark:text-brand-400 shadow-xs"
-                : "bg-white border-slate-200 text-slate-600 dark:bg-surface-500 dark:border-surface-400 dark:text-slate-400"
-            }`}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span className="text-xs font-semibold">Filters</span>
-            {activeFiltersCount > 0 && (
-              <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-brand-500 text-white rounded-full">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
-
-          <div className="hidden sm:flex items-center gap-2">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
-              className={`${selectCls} text-xs h-8 w-32`}
-            >
-              <option value="">All statuses</option>
-              <option value="active">Active</option>
-              <option value="disabled">Disabled</option>
-            </select>
-
-            <select
-              value={roleFilter}
-              onChange={(e) =>
-                setRoleFilter(e.target.value === "" ? "" : Number(e.target.value))
-              }
-              className={`${selectCls} text-xs h-8 w-40`}
-            >
-              <option value="">All roles</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.label || r.name}
-                </option>
-              ))}
-            </select>
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Mobile secondary filters collapsible */}
-        {isFiltersOpen && (
-          <div className="sm:hidden flex flex-col gap-3 p-4 bg-slate-50 dark:bg-surface-600 rounded-xl border border-slate-200 dark:border-surface-400 animate-in fade-in slide-in-from-top-1 duration-200">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Status</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as any)}
-                  className={selectCls}
-                >
-                  <option value="">All statuses</option>
-                  <option value="active">Active</option>
-                  <option value="disabled">Disabled</option>
-                </select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Role</label>
-                <select
-                  value={roleFilter}
-                  onChange={(e) =>
-                    setRoleFilter(e.target.value === "" ? "" : Number(e.target.value))
-                  }
-                  className={selectCls}
-                >
-                  <option value="">All roles</option>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.label || r.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <option value="">All statuses</option>
+                <option value="active">Active</option>
+                <option value="disabled">Disabled</option>
+              </select>
             </div>
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="w-full py-2.5 text-xs font-bold text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10 rounded-lg transition"
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Role</label>
+              <select
+                value={roleFilter}
+                onChange={(e) =>
+                  setRoleFilter(e.target.value === "" ? "" : Number(e.target.value))
+                }
+                className={selectCls}
               >
-                Clear all filters
-              </button>
-            )}
+                <option value="">All roles</option>
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label || r.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        )}
+        }
+      >
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as any)}
+          className={`${selectCls} text-xs h-8 w-32`}
+        >
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="disabled">Disabled</option>
+        </select>
 
-        {error && <Alert variant="danger">{error}</Alert>}
-      </div>
+        <select
+          value={roleFilter}
+          onChange={(e) =>
+            setRoleFilter(e.target.value === "" ? "" : Number(e.target.value))
+          }
+          className={`${selectCls} text-xs h-8 w-40`}
+        >
+          <option value="">All roles</option>
+          {roles.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.label || r.name}
+            </option>
+          ))}
+        </select>
+      </SearchFilterBar>
+
+      {error && <Alert variant="danger">{error}</Alert>}
 
       <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
         <Table<AdminUser>
@@ -406,8 +332,7 @@ const UserManagerPage: React.FC = () => {
           onRowClick={openEdit}
           loading={loading}
           initialLoading={initialLoading}
-          error={error}
-          emptyMessage="No users found."
+          emptyMessage={search || statusFilter || roleFilter ? "No users match your filters." : "No users found."}
           hasMore={hasMore}
           onLoadMore={() => setPage((p) => p + 1)}
           gridTemplateColumns="minmax(140px, 0.8fr) minmax(180px, 0.8fr) minmax(220px, 1.6fr) 8rem 7rem 8rem"

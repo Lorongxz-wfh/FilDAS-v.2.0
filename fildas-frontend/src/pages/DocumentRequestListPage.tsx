@@ -14,21 +14,19 @@ import { getAuthUser } from "../lib/auth.ts";
 import CreateDocumentRequestModal from "../components/documentRequests/CreateDocumentRequestModal";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import {
-  Search,
-  X,
   Users,
   FileStack,
   PlusCircle,
   LayoutList,
   TableProperties,
-  SlidersHorizontal,
 } from "lucide-react";
-import { inputCls, selectCls } from "../utils/formStyles";
+import { selectCls } from "../utils/formStyles";
 import { formatDate } from "../utils/formatters";
 import MiddleTruncate from "../components/ui/MiddleTruncate";
 import { StatusBadge, TypePill } from "../components/ui/Badge";
 import Alert from "../components/ui/Alert";
 import RefreshButton from "../components/ui/RefreshButton";
+import SearchFilterBar from "../components/ui/SearchFilterBar";
 
 type ViewTab = "batches" | "all";
 
@@ -135,7 +133,6 @@ export default function DocumentRequestListPage() {
   const [sortBy, setSortBy] = React.useState<string>("created_at");
   const [sortDir, setSortDir] = React.useState<"asc" | "desc">("desc");
 
-  const [isFiltersOpen, setIsFiltersOpen] = React.useState(false);
   const activeFiltersCount = React.useMemo(() => {
     let count = 0;
     if (status) count++;
@@ -162,8 +159,6 @@ export default function DocumentRequestListPage() {
       setHasMore(true);
       setInitialLoading(true);
     } else {
-      // For silent reload, just reset page to 1 but keep current rows
-      // until the new data arrives
       setPage(1);
     }
   }, []);
@@ -249,12 +244,10 @@ export default function DocumentRequestListPage() {
       alive = false;
       window.clearTimeout(safety);
     };
-    // hasMore intentionally omitted — tracked via hasMoreRef to avoid re-trigger
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, page, qDebounced, status, recipientStatus, isQaAdmin, sortBy, sortDir]);
 
   function handleBatchRowClick(row: any) {
-    // Batches tab: row.id = batch id, row.recipient_id from inbox
     if (isQaAdmin || row.mode === "multi_doc") {
       navigate(`/document-requests/${row.id}`);
     } else {
@@ -272,7 +265,6 @@ export default function DocumentRequestListPage() {
     }
   }
 
-  // ── Table columns for "Batches" tab ───────────────────────────────────────
   const batchColumns: TableColumn<any>[] = React.useMemo(() => {
     return [
       {
@@ -338,7 +330,6 @@ export default function DocumentRequestListPage() {
 
   const batchGrid = "100px minmax(120px, 1fr) 240px 100px 140px";
 
-  // ── Table columns for "All Requests" tab (individual items/recipients) ────
   const allColumns: TableColumn<any>[] = React.useMemo(() => {
     return [
       {
@@ -443,7 +434,6 @@ export default function DocumentRequestListPage() {
       }
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
-      {/* Tabs — scrollable on mobile */}
       <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0 overflow-x-auto overflow-y-hidden hide-scrollbar">
         <button
           type="button"
@@ -479,116 +469,32 @@ export default function DocumentRequestListPage() {
         </button>
       </div>
 
-      {/* Filters bar - updated for mobile responsiveness */}
-      <div className="shrink-0 py-3 flex flex-col gap-3 sm:gap-2">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 sm:max-w-64">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search title/description…"
-              className={`${inputCls} pl-9 pr-8 text-sm`}
-            />
-            {q && (
-              <button
-                type="button"
-                onClick={() => setQ("")}
-                title="Clear"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-            className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${isFiltersOpen || activeFiltersCount > 0
-                ? "bg-brand-50 border-brand-200 text-brand-600 dark:bg-brand-500/10 dark:border-brand-500/30 dark:text-brand-400 shadow-xs"
-                : "bg-white border-slate-200 text-slate-600 dark:bg-surface-500 dark:border-surface-400 dark:text-slate-400"
-              }`}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span className="text-xs font-semibold">Filters</span>
-            {activeFiltersCount > 0 && (
-              <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-brand-500 text-white rounded-full">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
-
-          <div className="hidden sm:flex flex-wrap items-center gap-2 flex-1">
-            {/* Batch status filter — batches tab (QA only) */}
-            {isQaAdmin && tab === "batches" && (
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-                className={`${selectCls} text-xs h-8`}
-              >
-                <option value="">All statuses</option>
-                <option value="open">Open</option>
-                <option value="closed">Closed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            )}
-
-            {/* All Requests tab filters */}
-            {tab === "all" && (
-              <>
-                {isQaAdmin && (
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
-                    className={`${selectCls} text-xs h-8`}
-                  >
-                    <option value="">All batches</option>
-                    <option value="open">Open</option>
-                    <option value="closed">Closed</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                )}
-                <select
-                  value={recipientStatus}
-                  onChange={(e) => setRecipientStatus(e.target.value as any)}
-                  className={`${selectCls} text-xs h-8`}
-                >
-                  <option value="">All progress</option>
-                  <option value="pending">Pending</option>
-                  <option value="submitted">Submitted</option>
-                  <option value="accepted">Accepted</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </>
-            )}
-
-            {(q || status || recipientStatus) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQ("");
-                  setStatus("");
-                  setRecipientStatus("");
-                }}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Mobile secondary filters collapsible */}
-        {isFiltersOpen && (
-          <div className="sm:hidden flex flex-col gap-3 p-4 bg-slate-50 dark:bg-surface-600 rounded-xl border border-slate-200 dark:border-surface-400 animate-in fade-in slide-in-from-top-1 duration-200">
+      <SearchFilterBar
+        search={q}
+        setSearch={(val) => {
+          setQ(val);
+          setPage(1);
+        }}
+        placeholder="Search title/description…"
+        activeFiltersCount={activeFiltersCount}
+        onClear={() => {
+          setQ("");
+          setStatus("");
+          setRecipientStatus("");
+          setPage(1);
+        }}
+        mobileFilters={
+          <div className="flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-2">
               {isQaAdmin && tab === "batches" && (
                 <div className="flex flex-col gap-1.5 col-span-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Status</label>
                   <select
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as any)}
+                    onChange={(e) => {
+                      setStatus(e.target.value as any);
+                      setPage(1);
+                    }}
                     className={selectCls}
                   >
                     <option value="">All statuses</option>
@@ -606,7 +512,10 @@ export default function DocumentRequestListPage() {
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Batch</label>
                       <select
                         value={status}
-                        onChange={(e) => setStatus(e.target.value as any)}
+                        onChange={(e) => {
+                          setStatus(e.target.value as any);
+                          setPage(1);
+                        }}
                         className={selectCls}
                       >
                         <option value="">All batches</option>
@@ -620,7 +529,10 @@ export default function DocumentRequestListPage() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Progress</label>
                     <select
                       value={recipientStatus}
-                      onChange={(e) => setRecipientStatus(e.target.value as any)}
+                      onChange={(e) => {
+                        setRecipientStatus(e.target.value as any);
+                        setPage(1);
+                      }}
                       className={selectCls}
                     >
                       <option value="">All progress</option>
@@ -633,29 +545,63 @@ export default function DocumentRequestListPage() {
                 </>
               )}
             </div>
-
-            {(q || status || recipientStatus) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQ("");
-                  setStatus("");
-                  setRecipientStatus("");
-                }}
-                className="w-full py-2.5 text-xs font-bold text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10 rounded-lg transition"
-              >
-                Clear all filters
-              </button>
-            )}
           </div>
+        }
+      >
+        {isQaAdmin && tab === "batches" && (
+          <select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value as any);
+              setPage(1);
+            }}
+            className={`${selectCls} text-xs h-8 w-32`}
+          >
+            <option value="">All statuses</option>
+            <option value="open">Open</option>
+            <option value="closed">Closed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
         )}
 
-        {error && !loading && <Alert variant="danger">{error}</Alert>}
-      </div>
+        {tab === "all" && (
+          <>
+            {isQaAdmin && (
+              <select
+                value={status}
+                onChange={(e) => {
+                  setStatus(e.target.value as any);
+                  setPage(1);
+                }}
+                className={`${selectCls} text-xs h-8 w-32`}
+              >
+                <option value="">All batches</option>
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            )}
+            <select
+              value={recipientStatus}
+              onChange={(e) => {
+                setRecipientStatus(e.target.value as any);
+                setPage(1);
+              }}
+              className={`${selectCls} text-xs h-8 w-32`}
+            >
+              <option value="">All progress</option>
+              <option value="pending">Pending</option>
+              <option value="submitted">Submitted</option>
+              <option value="accepted">Accepted</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </>
+        )}
+      </SearchFilterBar>
 
-      {/* Content area */}
+      {error && !loading && <Alert variant="danger" className="mt-4">{error}</Alert>}
+
       <div className="flex-1 min-h-0 mt-4 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
-        {/* ── Batches tab ── */}
         {tab === "batches" && (
           <Table<any>
             bare
@@ -666,8 +612,7 @@ export default function DocumentRequestListPage() {
             onRowClick={handleBatchRowClick}
             loading={loading}
             initialLoading={initialLoading}
-            error={error}
-            emptyMessage="No requests found."
+            emptyMessage={q || status ? "No requests match your filters." : "No requests found."}
             hasMore={hasMore}
             onLoadMore={() => setPage((p) => p + 1)}
             mobileRender={(r) => (
@@ -703,7 +648,6 @@ export default function DocumentRequestListPage() {
           />
         )}
 
-        {/* ── All Requests tab ── */}
         {tab === "all" && (
           <Table<any>
             bare
@@ -714,8 +658,7 @@ export default function DocumentRequestListPage() {
             onRowClick={handleRecipientRowClick}
             loading={loading}
             initialLoading={initialLoading}
-            error={error}
-            emptyMessage="No requests found."
+            emptyMessage={q || status || recipientStatus ? "No matches found." : "No requests found."}
             hasMore={hasMore}
             onLoadMore={() => setPage((p) => p + 1)}
             mobileRender={(r) => (

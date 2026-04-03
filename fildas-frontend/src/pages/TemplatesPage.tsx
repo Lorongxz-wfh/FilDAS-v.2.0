@@ -7,10 +7,11 @@ import Alert from "../components/ui/Alert";
 import EmptyState from "../components/ui/EmptyState";
 import RefreshButton from "../components/ui/RefreshButton";
 import { useToast } from "../components/ui/toast/ToastContext";
-import { Search, X, ChevronDown, Tag, LayoutGrid, List, SlidersHorizontal, Upload } from "lucide-react";
-import { inputCls, selectCls } from "../utils/formStyles";
+import { Tag, LayoutGrid, List, Upload, ChevronDown } from "lucide-react";
+import { selectCls } from "../utils/formStyles";
 import { getAuthUser } from "../lib/auth";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
+import SearchFilterBar from "../components/ui/SearchFilterBar";
 
 import {
   listTemplates,
@@ -62,9 +63,6 @@ const TemplatesPage: React.FC = () => {
   const tagDropdownRef = React.useRef<HTMLDivElement>(null);
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-
-
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q.trim().toLowerCase()), 300);
@@ -86,7 +84,6 @@ const TemplatesPage: React.FC = () => {
     return Array.from(set).sort();
   }, [templates]);
 
-  const hasActiveFilters = q || scope !== "all" || activeTag;
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (scope !== "all") count++;
@@ -119,7 +116,6 @@ const TemplatesPage: React.FC = () => {
 
   const templateIdsRef = React.useRef<string>("");
 
-  // Initial mount — serve from cache if available, no loading flash on revisit
   useEffect(() => {
     let alive = true;
     setLoading(true);
@@ -140,9 +136,8 @@ const TemplatesPage: React.FC = () => {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [sortBy, sortDir]);
 
-  // Refresh button — always bypasses cache and re-fetches from server
   const fetchTemplates = useCallback(async (): Promise<string | void> => {
     const prevIds = templateIdsRef.current;
     invalidateTemplatesCache();
@@ -162,7 +157,7 @@ const TemplatesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sortBy, sortDir]);
 
   const handleDeleteClick = async (id: number) => {
     if (!window.confirm("Delete this template? This cannot be undone.")) return;
@@ -184,22 +179,11 @@ const TemplatesPage: React.FC = () => {
     }
   };
 
-  // Optimistic upload state
   const [uploadingName, setUploadingName] = useState<string | null>(null);
 
   const handleSortChange = (key: string, dir: "asc" | "desc") => {
     setSortBy(key);
     setSortDir(dir);
-    invalidateTemplatesCache();
-    setLoading(true);
-    setError(null);
-    listTemplates({ sort_by: key, sort_dir: dir })
-      .then((data) => {
-        templateIdsRef.current = data.map((t) => t.id).join(",");
-        setTemplates(data);
-      })
-      .catch((e: any) => setError(e?.message ?? "Failed to load templates."))
-      .finally(() => setLoading(false));
   };
 
   const handleUploadStart = (name: string) => {
@@ -217,8 +201,6 @@ const TemplatesPage: React.FC = () => {
     setUploadingName(null);
   };
 
-
-
   const tabCls = (active: boolean) =>
     [
       "flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px",
@@ -231,7 +213,7 @@ const TemplatesPage: React.FC = () => {
     <>
       <PageFrame
         title="Document Templates"
-        contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
+        contentClassName="flex flex-col min-h-0 gap-0 h-full"
         right={
           <div className="flex items-center gap-2">
             <RefreshButton
@@ -254,7 +236,6 @@ const TemplatesPage: React.FC = () => {
           </div>
         }
       >
-        {/* View tabs + refresh */}
         <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0">
           <button
             type="button"
@@ -272,145 +253,20 @@ const TemplatesPage: React.FC = () => {
             <List className="h-3.5 w-3.5" />
             List
           </button>
-
         </div>
 
-        {/* Filter bar - updated for mobile responsiveness */}
-        <div
-          className={`flex flex-col gap-3 sm:gap-2 shrink-0 py-2.5 ${viewMode === "grid" ? "border-b border-slate-200 dark:border-surface-400" : ""}`}
-        >
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1 sm:max-w-64">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-              <input
-                type="text"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search name, file, tags…"
-                className={`${inputCls} pl-9 pr-8 text-sm`}
-              />
-              {q && (
-                <button
-                  type="button"
-                  onClick={() => setQ("")}
-                  title="Clear"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-              className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${isFiltersOpen || activeFiltersCount > 0
-                  ? "bg-brand-50 border-brand-200 text-brand-600 dark:bg-brand-500/10 dark:border-brand-500/30 dark:text-brand-400 shadow-xs"
-                  : "bg-white border-slate-200 text-slate-600 dark:bg-surface-500 dark:border-surface-400 dark:text-slate-400"
-                }`}
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              <span className="text-xs font-semibold">Filters</span>
-              {activeFiltersCount > 0 && (
-                <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-brand-500 text-white rounded-full">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </button>
-
-            <div className="hidden sm:flex items-center gap-2 flex-1">
-              {canChooseScope && (
-                <select
-                  value={scope}
-                  onChange={(e) => setScope(e.target.value as typeof scope)}
-                  className={`${selectCls} text-xs w-28 h-8`}
-                >
-                  <option value="all">All Scope</option>
-                  <option value="global">Global</option>
-                  <option value="mine">Mine</option>
-                </select>
-              )}
-
-              <div ref={tagDropdownRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setTagDropdownOpen((v) => !v)}
-                  className={[
-                    "flex items-center gap-1.5 rounded-md border px-2.5 h-8 text-[11px] font-medium transition",
-                    activeTag
-                      ? "border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-700 dark:bg-brand-500/10 dark:text-brand-400"
-                      : "border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 shadow-xs",
-                  ].join(" ")}
-                >
-                  <Tag className="h-3 w-3" />
-                  {activeTag ?? "Tags"}
-                  <ChevronDown className="h-3 w-3 ml-0.5 opacity-50" />
-                </button>
-                {tagDropdownOpen && (
-                  <div className="absolute left-0 top-full mt-1.5 z-20 w-52 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                    <div className="px-3 py-2 border-b border-slate-100 dark:border-surface-400 bg-slate-50/50 dark:bg-surface-700/50">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Filter by tag
-                      </p>
-                    </div>
-                    <div className="max-h-52 overflow-y-auto p-1.5 space-y-0.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTag(null);
-                          setTagDropdownOpen(false);
-                        }}
-                        className={[
-                          "w-full rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
-                          !activeTag
-                            ? "bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400"
-                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400",
-                        ].join(" ")}
-                      >
-                        All Tags
-                      </button>
-                      {allTags.map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => {
-                            setActiveTag(tag);
-                            setTagDropdownOpen(false);
-                          }}
-                          className={[
-                            "w-full rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
-                            activeTag === tag
-                              ? "bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400"
-                              : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400",
-                          ].join(" ")}
-                        >
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQ("");
-                    setScope("all");
-                    setActiveTag(null);
-                  }}
-                  className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Mobile secondary filters collapsible */}
-          {isFiltersOpen && (
-            <div className="sm:hidden flex flex-col gap-3 p-4 bg-slate-50 dark:bg-surface-600 rounded-xl border border-slate-200 dark:border-surface-400 animate-in fade-in slide-in-from-top-1 duration-200">
+        <SearchFilterBar
+          search={q}
+          setSearch={(val) => setQ(val)}
+          placeholder="Search name, file, tags…"
+          activeFiltersCount={activeFiltersCount}
+          onClear={() => {
+            setQ("");
+            setScope("all");
+            setActiveTag(null);
+          }}
+          mobileFilters={
+            <div className="flex flex-col gap-3">
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Scope</label>
@@ -438,25 +294,83 @@ const TemplatesPage: React.FC = () => {
                   </select>
                 </div>
               </div>
-
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQ("");
-                    setScope("all");
-                    setActiveTag(null);
-                  }}
-                  className="w-full py-2.5 text-xs font-bold text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10 rounded-lg transition"
-                >
-                  Clear all filters
-                </button>
-              )}
             </div>
+          }
+        >
+          {canChooseScope && (
+            <select
+              value={scope}
+              onChange={(e) => setScope(e.target.value as typeof scope)}
+              className={`${selectCls} text-xs w-28 h-8`}
+            >
+              <option value="all">All Scope</option>
+              <option value="global">Global</option>
+              <option value="mine">Mine</option>
+            </select>
           )}
-        </div>
 
-        {/* Optimistic upload banner */}
+          <div ref={tagDropdownRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setTagDropdownOpen((v) => !v)}
+              className={[
+                "flex items-center gap-1.5 rounded-md border px-2.5 h-8 text-[11px] font-medium transition",
+                activeTag
+                  ? "border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-700 dark:bg-brand-500/10 dark:text-brand-400"
+                  : "border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-surface-400 shadow-xs",
+              ].join(" ")}
+            >
+              <Tag className="h-3 w-3" />
+              {activeTag ?? "Tags"}
+              <ChevronDown className="h-3 w-3 ml-0.5 opacity-50" />
+            </button>
+            {tagDropdownOpen && (
+              <div className="absolute left-0 top-full mt-1.5 z-20 w-52 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="px-3 py-2 border-b border-slate-100 dark:border-surface-400 bg-slate-50/50 dark:bg-surface-700/50">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Filter by tag
+                  </p>
+                </div>
+                <div className="max-h-52 overflow-y-auto p-1.5 space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTag(null);
+                      setTagDropdownOpen(false);
+                    }}
+                    className={[
+                      "w-full rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
+                      !activeTag
+                        ? "bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400"
+                        : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400",
+                    ].join(" ")}
+                  >
+                    All Tags
+                  </button>
+                  {allTags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        setActiveTag(tag);
+                        setTagDropdownOpen(false);
+                      }}
+                      className={[
+                        "w-full rounded-md px-3 py-1.5 text-left text-xs font-medium transition",
+                        activeTag === tag
+                          ? "bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-400"
+                          : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400",
+                      ].join(" ")}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </SearchFilterBar>
+
         {uploadingName && (
           <div className="shrink-0 flex items-center gap-2.5 border-b border-slate-200 dark:border-surface-400 bg-sky-50 dark:bg-sky-950/20 px-4 py-2.5">
             <svg
@@ -484,84 +398,92 @@ const TemplatesPage: React.FC = () => {
           </div>
         )}
 
-        {/* Content */}
-        {error ? (
-          <div className="p-4 shrink-0">
-            <Alert variant="danger">
-              {error}{" "}
-              <button
-                type="button"
-                className="underline"
-                onClick={fetchTemplates}
-              >
-                Retry
-              </button>
-            </Alert>
-          </div>
-        ) : viewMode === "grid" ? (
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            {loading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 animate-pulse overflow-hidden aspect-3/4 flex flex-col"
-                  >
-                    <div className="flex-1 bg-slate-100 dark:bg-surface-600" />
-                    <div className="p-2.5 space-y-1.5">
-                      <div
-                        className="h-2.5 rounded bg-slate-100 dark:bg-surface-600"
-                        style={{ width: `${55 + (i % 4) * 10}%` }}
-                      />
-                      <div
-                        className="h-2 rounded bg-slate-100 dark:bg-surface-600"
-                        style={{ width: `${35 + (i % 3) * 8}%` }}
-                      />
+        <div className="flex-1 min-h-0 flex flex-col">
+          {error ? (
+            <div className="p-4 shrink-0">
+              <Alert variant="danger">
+                {error}{" "}
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={fetchTemplates}
+                >
+                  Retry
+                </button>
+              </Alert>
+            </div>
+          ) : viewMode === "grid" ? (
+            <>
+              {loading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 animate-pulse overflow-hidden aspect-3/4 flex flex-col"
+                    >
+                      <div className="flex-1 bg-slate-100 dark:bg-surface-600" />
+                      <div className="p-2.5 space-y-1.5">
+                        <div
+                          className="h-2.5 rounded bg-slate-100 dark:bg-surface-600"
+                          style={{ width: `${55 + (i % 4) * 10}%` }}
+                        />
+                        <div
+                          className="h-2 rounded bg-slate-100 dark:bg-surface-600"
+                          style={{ width: `${35 + (i % 3) * 8}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <EmptyState
+                    label={
+                      templates.length === 0
+                        ? "No templates yet."
+                        : "No templates match your filters."
+                    }
+                    description={
+                      templates.length === 0
+                        ? "Upload the first template using the button above."
+                        : "Try adjusting your search or filters."
+                    }
+                    isSearch={templates.length > 0}
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+                  <div className="h-full overflow-y-auto">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
+                      {filtered.map((t) => (
+                        <TemplateGridCard
+                          key={t.id}
+                          template={t}
+                          onSelect={setSelectedTemplate}
+                          onDeleteClick={handleDeleteClick}
+                          isDeleting={deletingId === t.id}
+                        />
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : filtered.length === 0 ? (
-              <EmptyState
-                label={
-                  templates.length === 0
-                    ? "No templates yet."
-                    : "No templates match your filters."
-                }
-                description={
-                  templates.length === 0
-                    ? "Upload the first template using the button above."
-                    : "Try adjusting your search or filters."
-                }
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col flex-1 min-h-0">
+              <TemplateList
+                templates={filtered}
+                loading={loading}
+                deletingId={deletingId}
+                onDeleteClick={handleDeleteClick}
+                onSelect={setSelectedTemplate}
+                sortBy={sortBy}
+                sortDir={sortDir}
+                onSortChange={handleSortChange}
               />
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4">
-                {filtered.map((t) => (
-                  <TemplateGridCard
-                    key={t.id}
-                    template={t}
-                    onSelect={setSelectedTemplate}
-                    onDeleteClick={handleDeleteClick}
-                    isDeleting={deletingId === t.id}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col flex-1 min-h-0">
-            <TemplateList
-              templates={filtered}
-              loading={loading}
-              deletingId={deletingId}
-              onDeleteClick={handleDeleteClick}
-              onSelect={setSelectedTemplate}
-              sortBy={sortBy}
-              sortDir={sortDir}
-              onSortChange={handleSortChange}
-            />
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </PageFrame>
 
       <TemplateDetailPanel
@@ -586,6 +508,6 @@ const TemplatesPage: React.FC = () => {
       </Modal>
     </>
   );
-};;
+};
 
 export default TemplatesPage;

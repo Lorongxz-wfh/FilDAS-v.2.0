@@ -1,48 +1,56 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  listDocumentsPage,
-  getCurrentUserOfficeId,
-} from "../services/documents";
-import { listDocumentRequestIndividual } from "../services/documentRequests";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageFrame from "../components/layout/PageFrame";
-import {
-  getUserRole,
-  isQA,
+import { 
+  getUserRole, 
+  isQA, 
   isAuditor,
 } from "../lib/roleFilters";
+import { getAuthUser } from "../lib/auth";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import Button from "../components/ui/Button";
 import Table from "../components/ui/Table";
 import Select from "../components/ui/Select";
-import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
-import { Search, X, PlusCircle, SlidersHorizontal, Archive } from "lucide-react";
-import { inputCls } from "../utils/formStyles";
-import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import Alert from "../components/ui/Alert";
 import DateRangeInput from "../components/ui/DateRangeInput";
 import RefreshButton from "../components/ui/RefreshButton";
+import SearchFilterBar from "../components/ui/SearchFilterBar";
+import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
+import { PlusCircle, Archive, LayoutGrid, List, Share2, ClipboardList } from "lucide-react";
+import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import { formatDate } from "../utils/formatters";
 
 import {
   type LibTab,
-  TAB_LABELS,
-  TAB_ICONS,
   type LibraryItem,
   docToLibraryItem,
   reqToLibraryItem,
 } from "./documentLibrary/documentLibraryTypes";
 import {
-  buildBaseDocColumns,
-  buildSharedColumns,
-  buildRequestedColumns,
-  buildAllColumns,
-} from "./documentLibrary/DocumentLibraryColumns";
+  listDocumentsPage,
+} from "../services/documents";
+import { listDocumentRequestIndividual } from "../services/documentRequests";
+import { buildBaseDocColumns, buildSharedColumns, buildRequestedColumns, buildAllColumns } from "./documentLibrary/DocumentLibraryColumns";
+
+const TAB_LABELS: Record<LibTab, string> = {
+  all: "All Documents",
+  created: "My Documents",
+  requested: "Requested",
+  shared: "Shared with Me",
+};
+
+const TAB_ICONS: Record<LibTab, React.ReactNode> = {
+  all: <LayoutGrid className="h-4 w-4" />,
+  created: <List className="h-4 w-4" />,
+  requested: <ClipboardList className="h-4 w-4" />,
+  shared: <Share2 className="h-4 w-4" />,
+};
 
 export default function DocumentLibraryPage() {
   const navigate = useNavigate();
   const role = getUserRole();
-  const myOfficeId = getCurrentUserOfficeId();
+  const user = getAuthUser();
+  const myOfficeId = user?.office_id;
   const isAdmin = ["ADMIN", "SYSADMIN"].includes(String(role).toUpperCase());
   const adminDebugMode = useAdminDebugMode();
   const canCreate =
@@ -55,14 +63,12 @@ export default function DocumentLibraryPage() {
   const [q, setQ] = useState("");
   const [qDebounced, setQDebounced] = useState("");
   const [typeFilter, setTypeFilter] = useState("ALL");
-  const [sourceFilter, setSourceFilter] = useState<"all" | "doc" | "req">(
-    "all",
-  );
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [sortBy, setSortBy] = useState<"title" | "created_at">("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<"all" | "doc" | "req">("all");
+
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (typeFilter !== "ALL") count++;
@@ -86,8 +92,6 @@ export default function DocumentLibraryPage() {
   const [allReqPage, setAllReqPage] = useState(1);
   const [allDocHasMore, setAllDocHasMore] = useState(true);
   const [allReqHasMore, setAllReqHasMore] = useState(true);
-
-  // ── Share modal ───────────────────────────────────────────────────────────
 
   // Debounce search
   useEffect(() => {
@@ -141,8 +145,6 @@ export default function DocumentLibraryPage() {
         const more = res.current_page != null && res.last_page != null && res.current_page < res.last_page;
         setHasMore(more);
         setPage(targetPage);
-        setHasMore(more);
-        setPage(targetPage);
       } else if (tab === "all") {
         // Parallel load for All tab
         const [docRes, reqRes] = await Promise.all([
@@ -180,16 +182,16 @@ export default function DocumentLibraryPage() {
 
         if (!isNextPage) {
           const items = [
-            ...docIn.map(d => docToLibraryItem(d, (isAdmin || !myOfficeId || (d as any).owner_office_id === myOfficeId) ? "created" : "shared")),
-            ...reqIn.map(reqToLibraryItem)
+            ...docIn.map((d: any) => docToLibraryItem(d, (isAdmin || !myOfficeId || (d as any).owner_office_id === myOfficeId) ? "created" : "shared")),
+            ...reqIn.map((r: any) => reqToLibraryItem(r))
           ];
           setRows(items);
           setAllDocPage(1);
           setAllReqPage(1);
         } else {
           const items = [
-            ...docIn.map(d => docToLibraryItem(d, (isAdmin || !myOfficeId || (d as any).owner_office_id === myOfficeId) ? "created" : "shared")),
-            ...reqIn.map(reqToLibraryItem)
+            ...docIn.map((d: any) => docToLibraryItem(d, (isAdmin || !myOfficeId || (d as any).owner_office_id === myOfficeId) ? "created" : "shared")),
+            ...reqIn.map((r: any) => reqToLibraryItem(r))
           ];
           setRows(prev => [...prev, ...items]);
           if (docRes) setAllDocPage(p => p + 1);
@@ -255,14 +257,11 @@ export default function DocumentLibraryPage() {
       title="Document Library"
       right={
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Refresh Icon Button */}
           <RefreshButton
             onRefresh={async () => { await loadData(false); }}
             loading={refreshing || loading}
             title="Refresh library"
           />
-
-
 
           <Button
             type="button"
@@ -316,101 +315,24 @@ export default function DocumentLibraryPage() {
         ))}
       </div>
 
-      {/* Filter bar */}
-      <div className="shrink-0 py-3 flex flex-col gap-3 sm:gap-2">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 sm:max-w-64">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search library..."
-              className={`${inputCls} pl-9 pr-8 text-sm`}
-            />
-            {q && (
-              <button
-                type="button"
-                onClick={() => setQ("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-            className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${isFiltersOpen || activeFiltersCount > 0
-                ? "bg-brand-50 border-brand-200 text-brand-600 dark:bg-brand-500/10 dark:border-brand-500/30 dark:text-brand-400 shadow-xs"
-                : "bg-white border-slate-200 text-slate-600 dark:bg-surface-500 dark:border-surface-400 dark:text-slate-400"
-              }`}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span className="text-xs font-semibold">Filters</span>
-            {activeFiltersCount > 0 && (
-              <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-brand-500 text-white rounded-full">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
-
-          <div className="hidden sm:flex flex-wrap items-center gap-2 flex-1">
-            <Select
-              value={typeFilter}
-              onChange={(val) => setTypeFilter(val as string)}
-              placeholder="All Types"
-              className="w-32"
-              options={[
-                { value: "ALL", label: "All Types" },
-                { value: "INTERNAL", label: "Internal" },
-                { value: "EXTERNAL", label: "External" },
-                { value: "FORMS", label: "Forms" },
-              ]}
-            />
-
-            {tab === "all" && !isAuditor(role) && (
-              <Select
-                value={sourceFilter}
-                onChange={(val) => setSourceFilter(val as "all" | "doc" | "req")}
-                placeholder="All Sources"
-                className="w-36"
-                options={[
-                  { value: "all", label: "All Sources" },
-                  { value: "doc", label: "Docs only" },
-                  { value: "req", label: "Reqs only" },
-                ]}
-              />
-            )}
-
-            <DateRangeInput
-              from={dateFrom}
-              to={dateTo}
-              onFromChange={setDateFrom}
-              onToChange={setDateTo}
-            />
-
-            {(q || typeFilter !== "ALL" || dateFrom || dateTo) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQ("");
-                  setTypeFilter("ALL");
-                  setDateFrom("");
-                  setDateTo("");
-                  setSourceFilter("all");
-                }}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Mobile secondary filters collapsible */}
-        {isFiltersOpen && (
-          <div className="sm:hidden flex flex-col gap-3 p-4 bg-slate-50 dark:bg-surface-600 rounded-xl border border-slate-200 dark:border-surface-400 animate-in fade-in slide-in-from-top-1 duration-200">
+      <SearchFilterBar
+        search={q}
+        setSearch={(val) => {
+          setQ(val);
+          setPage(1);
+        }}
+        placeholder="Search library..."
+        activeFiltersCount={activeFiltersCount}
+        onClear={() => {
+          setQ("");
+          setTypeFilter("ALL");
+          setDateFrom("");
+          setDateTo("");
+          setSourceFilter("all");
+          setPage(1);
+        }}
+        mobileFilters={
+          <div className="flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-2">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Type</label>
@@ -455,25 +377,43 @@ export default function DocumentLibraryPage() {
                 onToChange={setDateTo}
               />
             </div>
-
-            {(q || typeFilter !== "ALL" || dateFrom || dateTo) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQ("");
-                  setTypeFilter("ALL");
-                  setDateFrom("");
-                  setDateTo("");
-                  setSourceFilter("all");
-                }}
-                className="w-full py-2.5 text-xs font-bold text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10 rounded-lg transition"
-              >
-                Clear all filters
-              </button>
-            )}
           </div>
+        }
+      >
+        <Select
+          value={typeFilter}
+          onChange={(val) => setTypeFilter(val as string)}
+          placeholder="All Types"
+          className="w-32"
+          options={[
+            { value: "ALL", label: "All Types" },
+            { value: "INTERNAL", label: "Internal" },
+            { value: "EXTERNAL", label: "External" },
+            { value: "FORMS", label: "Forms" },
+          ]}
+        />
+
+        {tab === "all" && !isAuditor(role) && (
+          <Select
+            value={sourceFilter}
+            onChange={(val) => setSourceFilter(val as "all" | "doc" | "req")}
+            placeholder="All Sources"
+            className="w-36"
+            options={[
+              { value: "all", label: "All Sources" },
+              { value: "doc", label: "Docs only" },
+              { value: "req", label: "Reqs only" },
+            ]}
+          />
         )}
-      </div>
+
+        <DateRangeInput
+          from={dateFrom}
+          to={dateTo}
+          onFromChange={setDateFrom}
+          onToChange={setDateTo}
+        />
+      </SearchFilterBar>
 
       {error && <Alert variant="danger" className="mb-4">{error}</Alert>}
 

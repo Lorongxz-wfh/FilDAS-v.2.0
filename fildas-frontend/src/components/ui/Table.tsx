@@ -1,4 +1,5 @@
 import React from "react";
+import EmptyState from "./EmptyState";
 
 type Align = "left" | "center" | "right";
 
@@ -30,6 +31,7 @@ export type TableProps<T> = {
   initialLoading?: boolean;
   error?: string | null;
   emptyMessage?: string;
+  emptyState?: React.ReactNode;
   onRowClick?: (row: T) => void;
   rowKey: (row: T, index: number) => string | number;
   className?: string;
@@ -113,6 +115,7 @@ export default function Table<T>({
   sortBy = "",
   sortDir = "desc" as SortDir,
   mobileRender,
+  emptyState,
 }: TableProps<T>) {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const sentinelRef = React.useRef<HTMLDivElement>(null);
@@ -269,9 +272,16 @@ export default function Table<T>({
             </div>
           </div>
         ) : rows.length === 0 ? (
-          <div className="flex h-40 items-center justify-center text-sm text-slate-400 dark:text-slate-500">
-            {emptyMessage}
-          </div>
+          emptyState ?? (
+            <EmptyState
+              label={emptyMessage}
+              isSearch={
+                !!emptyMessage &&
+                (emptyMessage.toLowerCase().includes("search") ||
+                  emptyMessage.toLowerCase().includes("filter"))
+              }
+            />
+          )
         ) : (
           <div className="divide-y divide-slate-200 dark:divide-surface-400">
             {rows.map((row, idx) => {

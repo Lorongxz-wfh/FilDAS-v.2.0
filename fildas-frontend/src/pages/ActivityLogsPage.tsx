@@ -141,6 +141,7 @@ const ActivityLogsPage: React.FC = () => {
             sortBy={params.sortBy}
             sortDir={params.sortDir}
             onSortChange={(key, dir) => updateParams({ sortBy: key as any, sortDir: dir })}
+            emptyMessage={params.q || params.category || params.dateFrom || params.dateTo ? "No logs match your filters." : "No logs found."}
           />
         </>
       )}

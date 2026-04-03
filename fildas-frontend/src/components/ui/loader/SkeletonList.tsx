@@ -3,20 +3,23 @@ import Skeleton from "./Skeleton";
 
 type Props = {
   count?: number;
+  rows?: number; // Alias for count
   variant?: "simple" | "card" | "activity" | "document" | "text";
   rowClassName?: string; // only applies to 'simple' variant
   className?: string;    // applies to the container
 };
 
 const SkeletonList: React.FC<Props> = ({
-  count = 3,
+  count,
+  rows,
   variant = "simple",
   rowClassName = "h-10",
   className = "space-y-4",
 }) => {
+  const finalCount = count ?? rows ?? 3;
   return (
     <div className={["animate-pulse", className].join(" ")}>
-      {Array.from({ length: count }).map((_, i) => {
+      {Array.from({ length: finalCount }).map((_, i) => {
         if (variant === "card") {
           return (
             <div

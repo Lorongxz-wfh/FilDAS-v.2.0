@@ -8,13 +8,12 @@ import PageFrame from "../components/layout/PageFrame";
 import Table, { type TableColumn } from "../components/ui/Table";
 import Button from "../components/ui/Button";
 import Alert from "../components/ui/Alert";
-import RefreshButton from "../components/ui/RefreshButton";
-import DateRangeInput from "../components/ui/DateRangeInput";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
-import { Search, X, SlidersHorizontal } from "lucide-react";
-import { inputCls } from "../utils/formStyles";
+import RefreshButton from "../components/ui/RefreshButton";
+import SearchFilterBar from "../components/ui/SearchFilterBar";
 import { formatDate } from "../utils/formatters";
 import Select from "../components/ui/Select";
+import DateRangeInput from "../components/ui/DateRangeInput";
 
 import { StatusBadge } from "../components/ui/Badge";
 
@@ -54,7 +53,6 @@ export default function MyWorkQueueListPage() {
   );
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (phaseFilter) count++;
@@ -359,138 +357,25 @@ export default function MyWorkQueueListPage() {
       </div>
 
       {/* Filter bar - updated for mobile responsiveness */}
-      <div className="shrink-0 py-3 flex flex-col gap-3 sm:gap-2">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 sm:max-w-64">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <input
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Search title, code, office…"
-              className={`${inputCls} pl-9 pr-8 text-sm`}
-            />
-            {q && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQ("");
-                  setPage(1);
-                }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                title="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-            className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${
-              isFiltersOpen || activeFiltersCount > 0
-                ? "bg-brand-50 border-brand-200 text-brand-600 dark:bg-brand-500/10 dark:border-brand-500/30 dark:text-brand-400 shadow-xs"
-                : "bg-white border-slate-200 text-slate-600 dark:bg-surface-500 dark:border-surface-400 dark:text-slate-400"
-            }`}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span className="text-xs font-semibold">Filters</span>
-            {activeFiltersCount > 0 && (
-              <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-brand-500 text-white rounded-full">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
-
-          <div className="hidden sm:flex flex-wrap items-center gap-2 flex-1">
-            <Select
-              value={phaseFilter}
-              onChange={(val) => {
-                setPhaseFilter(val as string);
-                setPage(1);
-              }}
-              placeholder="All Phases"
-              className="w-32"
-              options={[
-                { value: "", label: "All Phases" },
-                { value: "draft", label: "Draft" },
-                { value: "review", label: "Review" },
-                { value: "approval", label: "Approval" },
-                { value: "finalization", label: "Finalization" },
-                { value: "distributed", label: "Distributed" },
-              ]}
-            />
-
-            <Select
-              value={officeFilter}
-              onChange={(val) => {
-                setOfficeFilter(val as string);
-                setPage(1);
-              }}
-              placeholder="All Offices"
-              className="w-40"
-              options={[
-                { value: "", label: "All Offices" },
-                ...availableOffices,
-              ]}
-            />
-
-            <Select
-              value={versionFilter}
-              onChange={(val) => {
-                setVersionFilter(val as string);
-                setPage(1);
-              }}
-              placeholder="All Ver."
-              className="w-24"
-              options={[
-                { value: "", label: "All Ver." },
-                ...[0, 1, 2, 3, 4, 5].map((v) => ({
-                  value: String(v),
-                  label: `v${v}`,
-                })),
-              ]}
-            />
-
-            <DateRangeInput
-              from={dateFrom}
-              to={dateTo}
-              onFromChange={(val) => {
-                setDateFrom(val);
-                setPage(1);
-              }}
-              onToChange={(val) => {
-                setDateTo(val);
-                setPage(1);
-              }}
-            />
-
-            {hasFilters && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQ("");
-                  setPhaseFilter("");
-                  setOfficeFilter("");
-                  setVersionFilter("");
-                  setDateFrom("");
-                  setDateTo("");
-                  setPage(1);
-                }}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Mobile secondary filters collapsible */}
-        {isFiltersOpen && (
-          <div className="sm:hidden flex flex-col gap-3 p-4 bg-slate-50 dark:bg-surface-600 rounded-xl border border-slate-200 dark:border-surface-400 animate-in fade-in slide-in-from-top-1 duration-200">
+      <SearchFilterBar
+        search={q}
+        setSearch={(val) => {
+          setQ(val);
+          setPage(1);
+        }}
+        placeholder="Search title, code, office..."
+        activeFiltersCount={activeFiltersCount}
+        onClear={() => {
+          setQ("");
+          setPhaseFilter("");
+          setOfficeFilter("");
+          setVersionFilter("");
+          setDateFrom("");
+          setDateTo("");
+          setPage(1);
+        }}
+        mobileFilters={
+          <div className="flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-2">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Phase</label>
@@ -562,27 +447,71 @@ export default function MyWorkQueueListPage() {
                 }}
               />
             </div>
-
-            {hasFilters && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQ("");
-                  setPhaseFilter("");
-                  setOfficeFilter("");
-                  setVersionFilter("");
-                  setDateFrom("");
-                  setDateTo("");
-                  setPage(1);
-                }}
-                className="w-full py-2.5 text-xs font-bold text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10 rounded-lg transition"
-              >
-                Clear all filters
-              </button>
-            )}
           </div>
-        )}
-      </div>
+        }
+      >
+        <Select
+          value={phaseFilter}
+          onChange={(val) => {
+            setPhaseFilter(val as string);
+            setPage(1);
+          }}
+          placeholder="All Phases"
+          className="w-32"
+          options={[
+            { value: "", label: "All Phases" },
+            { value: "draft", label: "Draft" },
+            { value: "review", label: "Review" },
+            { value: "approval", label: "Approval" },
+            { value: "finalization", label: "Finalization" },
+            { value: "distributed", label: "Distributed" },
+          ]}
+        />
+
+        <Select
+          value={officeFilter}
+          onChange={(val) => {
+            setOfficeFilter(val as string);
+            setPage(1);
+          }}
+          placeholder="All Offices"
+          className="w-40"
+          options={[
+            { value: "", label: "All Offices" },
+            ...availableOffices,
+          ]}
+        />
+
+        <Select
+          value={versionFilter}
+          onChange={(val) => {
+            setVersionFilter(val as string);
+            setPage(1);
+          }}
+          placeholder="All Ver."
+          className="w-24"
+          options={[
+            { value: "", label: "All Ver." },
+            ...[0, 1, 2, 3, 4, 5].map((v) => ({
+              value: String(v),
+              label: `v${v}`,
+            })),
+          ]}
+        />
+
+        <DateRangeInput
+          from={dateFrom}
+          to={dateTo}
+          onFromChange={(val) => {
+            setDateFrom(val);
+            setPage(1);
+          }}
+          onToChange={(val) => {
+            setDateTo(val);
+            setPage(1);
+          }}
+        />
+      </SearchFilterBar>
 
       {error && (
         <div className="shrink-0 pb-3">
