@@ -18,7 +18,7 @@ import {
   Users,
   FileStack,
 } from "lucide-react";
-import { selectCls, tabCls } from "../utils/formStyles";
+import { tabCls } from "../utils/formStyles";
 import { PageActions, CreateAction, RefreshAction } from "../components/ui/PageActions";
 import { formatDate } from "../utils/formatters";
 import MiddleTruncate from "../components/ui/MiddleTruncate";

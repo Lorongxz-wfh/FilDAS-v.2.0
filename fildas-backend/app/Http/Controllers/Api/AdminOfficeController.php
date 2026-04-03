@@ -20,10 +20,15 @@ class AdminOfficeController extends Controller
         $status = $request->get('status', 'active');
         $type   = $request->get('type', '');
 
+        // Sorting params
+        $allowedSorts = ['code', 'name', 'type', 'created_at'];
+        $sortBy  = in_array($request->query('sort_by'), $allowedSorts, true)
+            ? $request->query('sort_by') : 'name';
+        $sortDir = $request->query('sort_dir') === 'desc' ? 'desc' : 'asc';
+
         $query = Office::query()
             ->with(['parentOffice:id,code,name'])
-            ->orderBy('code')
-            ->orderBy('name');
+            ->orderBy($sortBy, $sortDir);
 
         if ($status === 'disabled') {
             $query->onlyTrashed();

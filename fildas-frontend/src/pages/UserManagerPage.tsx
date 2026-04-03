@@ -131,7 +131,7 @@ const UserManagerPage: React.FC = () => {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, searchDebounced, statusFilter, roleFilter, reloadTick]);
+  }, [page, searchDebounced, statusFilter, roleFilter, reloadTick, sortBy, sortDir]);
 
   const openEdit = (u: AdminUser) => {
     setEditMode("edit");

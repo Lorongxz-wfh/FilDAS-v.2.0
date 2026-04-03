@@ -5,7 +5,7 @@ import Table, { type TableColumn } from "../components/ui/Table";
 import { getDocumentVersion, listActivityLogs } from "../services/documents";
 import { friendlyEvent } from "../utils/activityFormatters";
 import { formatDateTime } from "../utils/formatters";
-import { selectCls } from "../utils/formStyles";
+// import { selectCls } from "../utils/formStyles";
 import DateRangeInput from "../components/ui/DateRangeInput";
 import { PageActions, RefreshAction, ExportSplitAction } from "../components/ui/PageActions";
 import ActivityDetailModal from "../components/activityLogs/ActivityDetailModal";

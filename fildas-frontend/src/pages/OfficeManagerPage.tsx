@@ -22,7 +22,7 @@ export function OfficeManagerPage() {
     "active" | "disabled" | "all"
   >("active");
   const [typeFilter, setTypeFilter] = useState("");
-  const [sortBy, setSortBy] = useState<"name" | "code" | "type">("name");
+  const [sortBy, setSortBy] = useState<"name" | "code" | "type" | "created_at">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [reloadTick, setReloadTick] = useState(0);
 
@@ -164,6 +164,7 @@ export function OfficeManagerPage() {
     {
       key: "type",
       header: "Type",
+      sortKey: "type",
       skeletonShape: "narrow",
       render: (o) => {
         const raw = o.type ?? "office";
@@ -184,6 +185,7 @@ export function OfficeManagerPage() {
     {
       key: "created",
       header: "Created",
+      sortKey: "created_at",
       skeletonShape: "narrow",
       render: (o) => (
         <span className="text-xs text-slate-500 dark:text-slate-400">

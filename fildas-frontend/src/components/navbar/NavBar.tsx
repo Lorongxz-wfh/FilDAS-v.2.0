@@ -14,8 +14,8 @@ const Navbar: React.FC<NavbarProps> = ({
   onMobileMenuOpen,
 }) => {
   return (
-    <header className="relative z-50 border-b border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
-      <div className="flex items-center gap-3 px-4 py-2.5 h-13.5">
+    <header className="relative z-50 h-13.5 border-b border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
+      <div className="flex h-full items-center gap-3 px-4">
         {/* Mobile menu toggle */}
         <button
           type="button"

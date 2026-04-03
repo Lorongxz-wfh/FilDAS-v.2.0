@@ -6,7 +6,7 @@ import Alert from "../components/ui/Alert";
 import EmptyState from "../components/ui/EmptyState";
 import { useToast } from "../components/ui/toast/ToastContext";
 import { Tag, LayoutGrid, List, ChevronDown } from "lucide-react";
-import { selectCls, tabCls } from "../utils/formStyles";
+import { tabCls } from "../utils/formStyles";
 import { getAuthUser } from "../lib/auth";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import { PageActions, RefreshAction, UploadAction } from "../components/ui/PageActions";

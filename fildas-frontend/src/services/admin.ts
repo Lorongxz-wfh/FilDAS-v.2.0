@@ -99,7 +99,7 @@ export async function getAdminOffices(params?: {
   type?: string;
   page?: number;
   per_page?: number;
-  sort_by?: "name" | "code" | "type";
+  sort_by?: "name" | "code" | "type" | "created_at";
   sort_dir?: "asc" | "desc";
 }): Promise<AdminOfficesResponse> {
   const res = await api.get("/admin/offices", { params });
