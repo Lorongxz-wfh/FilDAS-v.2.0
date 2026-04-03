@@ -1,7 +1,7 @@
 import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import MainLayout from "../../layout/MainLayout";
-import { clearAuth, getAuthToken } from "../auth";
+import { getAuthToken, logoutUser } from "../auth";
 import { useIdleTimeout } from "../../hooks/useIdleTimeout";
 import api from "../../services/api";
 
@@ -34,11 +34,11 @@ export default function ProtectedLayout() {
   }, [token]);
 
   const handleLogout = () => {
-    clearAuth();
-    window.location.href = "/login";
+    logoutUser("manual");
   };
 
   const { showWarning, stayLoggedIn } = useIdleTimeout(
+    () => logoutUser("inactivity"),
     30 * 60 * 1000,
     5 * 60 * 1000,
   );
@@ -62,10 +62,7 @@ export default function ProtectedLayout() {
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  clearAuth();
-                  window.location.href = "/login";
-                }}
+                onClick={() => logoutUser("manual")}
                 className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-surface-300 dark:text-slate-300 dark:hover:bg-surface-400 transition"
               >
                 Log out now

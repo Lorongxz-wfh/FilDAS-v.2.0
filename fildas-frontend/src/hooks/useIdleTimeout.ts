@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { clearAuthAndRedirect } from "../lib/auth";
+
 
 const IDLE_EVENTS: (keyof WindowEventMap)[] = [
   "mousemove",
@@ -15,6 +15,7 @@ const IDLE_EVENTS: (keyof WindowEventMap)[] = [
  * Shows a warning dialog `warningMs` before the timeout fires.
  */
 export function useIdleTimeout(
+  onTimeout: () => void,
   timeoutMs = 30 * 60 * 1000,   // 30 minutes
   warningMs = 5 * 60 * 1000,    // warn 5 min before
 ) {
@@ -36,9 +37,9 @@ export function useIdleTimeout(
     }, timeoutMs - warningMs);
 
     timeoutRef.current = setTimeout(() => {
-      clearAuthAndRedirect();
+      onTimeout();
     }, timeoutMs);
-  }, [timeoutMs, warningMs, clearTimers]);
+  }, [timeoutMs, warningMs, clearTimers, onTimeout]);
 
   // Reset on any user interaction
   useEffect(() => {

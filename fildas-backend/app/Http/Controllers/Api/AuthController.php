@@ -94,8 +94,11 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         $user = $request->user();
+        $reason = $request->input('reason', 'manual'); // default to manual
 
-        $this->logActivity('auth.logout', 'Logged out', $user->id, $user->office_id);
+        $this->logActivity('auth.logout', 'Logged out', $user->id, $user->office_id, [
+            'reason' => $reason
+        ]);
 
         $user->currentAccessToken()->delete();
 

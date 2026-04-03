@@ -1,3 +1,5 @@
+import { api } from "../services/api";
+
 export type AuthUser = {
   id: number;
   full_name: string;
@@ -61,9 +63,21 @@ export function clearAuthUser(): void {
 }
 
 export function clearAuthAndRedirect(): void {
-  localStorage.removeItem(AUTH_TOKEN_KEY);
-  localStorage.removeItem("authtoken"); // back-compat cleanup
-  clearAuthUser();
-  sessionStorage.removeItem("from_workqueue_session");
+  clearAuth();
   window.location.href = "/login";
 }
+
+/**
+ * Perform a graceful logout by notifying the backend and then clearing local state.
+ */
+export async function logoutUser(reason: "manual" | "inactivity" = "manual"): Promise<void> {
+  try {
+    // We attempt to notify the backend, but we don't block the UI logout on failure
+    await api.post("/logout", { reason });
+  } catch (err) {
+    console.error("Failed to notify backend of logout:", err);
+  } finally {
+    clearAuthAndRedirect();
+  }
+}
+
