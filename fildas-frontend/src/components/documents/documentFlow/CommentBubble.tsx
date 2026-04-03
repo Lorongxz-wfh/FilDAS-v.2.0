@@ -11,6 +11,11 @@ type Props = {
   avatarLetter?: string;
 };
 
+const formatRole = (role: string | null | undefined) => {
+  if (!role) return null;
+  return role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
 const CommentBubble: React.FC<Props> = ({
   senderName,
   roleName,
@@ -30,19 +35,20 @@ const CommentBubble: React.FC<Props> = ({
   }, [isNew]);
 
   const initial = avatarLetter ?? senderName.charAt(0).toUpperCase();
+  const formattedRole = formatRole(roleName);
 
   return (
     <div
       ref={ref}
-      className={`flex gap-2 transition-all duration-700 ${isMine ? "flex-row-reverse" : "flex-row"}`}
+      className={`flex gap-3 transition-all duration-700 ${isMine ? "flex-row-reverse" : "flex-row"}`}
     >
       {/* Avatar */}
-      <div className="shrink-0 mt-1">
+      <div className="shrink-0 mt-0.5">
         <div
-          className={`h-7 w-7 rounded-full flex items-center justify-center text-[11px] font-bold ${
+          className={`h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold ring-1 ring-slate-200 dark:ring-surface-400/50 ${
             isMine
-              ? "bg-sky-600 text-white"
-              : "bg-slate-200 dark:bg-surface-400 text-slate-600 dark:text-slate-300"
+              ? "bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900"
+              : "bg-slate-100 dark:bg-surface-400 text-slate-500 dark:text-slate-400"
           }`}
         >
           {initial}
@@ -51,22 +57,22 @@ const CommentBubble: React.FC<Props> = ({
 
       {/* Content */}
       <div
-        className={`flex flex-col gap-1 max-w-[78%] ${isMine ? "items-end" : "items-start"}`}
+        className={`flex flex-col gap-1 max-w-[85%] mb-1 ${isMine ? "items-end" : "items-start"}`}
       >
         {/* Name + role + type */}
         <div
-          className={`flex items-center gap-1.5 flex-wrap ${isMine ? "flex-row-reverse" : "flex-row"}`}
+          className={`flex items-center gap-2 flex-wrap font-display ${isMine ? "flex-row-reverse" : "flex-row"}`}
         >
-          <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+          <span className="text-[12px] font-bold text-slate-900 dark:text-slate-100 tracking-tight">
             {senderName}
           </span>
-          {roleName && (
-            <span className="text-[10px] text-slate-400 dark:text-slate-500">
-              {roleName}
+          {formattedRole && (
+            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+              {formattedRole}
             </span>
           )}
           {type && type !== "comment" && (
-            <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-300 capitalize">
+            <span className="rounded-sm bg-slate-100 dark:bg-surface-300 px-1.5 py-0.5 text-[9px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-widest">
               {type}
             </span>
           )}
@@ -75,18 +81,18 @@ const CommentBubble: React.FC<Props> = ({
         {/* Bubble */}
         <div
           className={[
-            "px-3.5 py-2 text-sm leading-relaxed transition-all duration-500 rounded-2xl",
+            "px-3 py-2 text-[13.5px] leading-[1.5] transition-all duration-500 border",
             isMine
-              ? "bg-sky-600 text-white"
+              ? "bg-sky-100 border-sky-200 text-sky-900 dark:bg-sky-900 dark:border-sky-800 dark:text-sky-100 rounded-lg rounded-tr-none font-medium"
               : isNew
-                ? "bg-sky-50 border border-sky-200 text-slate-800 dark:bg-sky-950/40 dark:border-sky-700 dark:text-slate-200 ring-1 ring-sky-200 dark:ring-sky-700"
-                : "bg-white border border-slate-200 text-slate-800 dark:bg-surface-400 dark:border-surface-300 dark:text-slate-200",
+                ? "bg-amber-100 border-amber-200 text-amber-900 rounded-lg rounded-tl-none dark:bg-amber-900 dark:border-amber-800 dark:text-amber-100"
+                : "bg-slate-100 border-slate-200 text-slate-900 rounded-lg rounded-tl-none dark:bg-surface-400 dark:border-surface-300 dark:text-slate-100",
           ].join(" ")}
         >
           {message}
         </div>
 
-        <span className="text-[10px] text-slate-400 dark:text-slate-500">
+        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest px-0.5 font-display">
           {when}
         </span>
       </div>

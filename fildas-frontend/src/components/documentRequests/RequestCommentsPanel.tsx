@@ -1,6 +1,7 @@
 import React from "react";
-import { Send, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import CommentBubble from "../documents/documentFlow/CommentBubble";
+import CommentComposer from "../ui/CommentComposer";
 import type { DocumentRequestMessageRow } from "../../services/documentRequests";
 import { formatDateTime } from "./shared";
 import SkeletonList from "../ui/loader/SkeletonList";
@@ -95,12 +96,12 @@ export default function RequestCommentsPanel({
   };
 
   return (
-    <>
+    <div className="flex flex-col flex-1 min-h-0 gap-2">
       {newMessageCount > 0 && (
         <button
           type="button"
           onClick={handleScrollToNew}
-          className="mx-4 mt-2 flex w-[calc(100%-2rem)] items-center justify-center gap-1.5 rounded-md bg-sky-500 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-sky-600 transition animate-pulse"
+          className="shrink-0 w-full flex items-center justify-center gap-1.5 rounded-md bg-sky-500 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-sky-600 transition animate-pulse"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-white" />
           {newMessageCount} new message{newMessageCount > 1 ? "s" : ""} · Click
@@ -112,13 +113,13 @@ export default function RequestCommentsPanel({
         <div
           ref={scrollAreaRef}
           onScroll={handleScroll}
-          className="absolute inset-0 overflow-y-auto px-4 py-3 bg-slate-50/30 dark:bg-surface-600/30 space-y-4 scroll-smooth"
+          className="absolute inset-0 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/60 dark:border-surface-400 dark:bg-surface-600/60 px-4 py-3 space-y-4 scroll-smooth"
         >
           {loading ? (
             <SkeletonList variant="comments" rows={4} className="py-2" />
           ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
-              <p className="text-sm text-slate-400 dark:text-slate-500">
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-center h-full">
+              <p className="text-xs text-slate-400 dark:text-slate-500">
                 {readOnly 
                   ? "No announcements have been posted to this thread yet." 
                   : "No comments yet. Start the conversation."
@@ -160,47 +161,27 @@ export default function RequestCommentsPanel({
       </div>
 
       {readOnly ? (
-        <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3 dark:border-surface-400 dark:bg-surface-600/50">
-          <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">
+        <div className="shrink-0 border border-slate-200 bg-slate-50 rounded-xl px-4 py-3 dark:border-surface-400 dark:bg-surface-600/50">
+          <p className="text-center text-[11px] text-slate-400 dark:text-slate-500 font-display font-bold uppercase tracking-widest leading-none">
             {readOnlyLabel}
           </p>
         </div>
       ) : (
-        <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3 dark:border-surface-400 dark:bg-surface-500">
+        <div className="shrink-0 space-y-2">
           {postErr && (
-            <p className="mb-2 text-xs text-rose-600 dark:text-rose-400">
+            <p className="px-2 text-xs font-bold text-rose-600 dark:text-rose-400">
               {postErr}
             </p>
           )}
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={commentText}
-              onChange={(e) => onCommentChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  onPost();
-                }
-              }}
-              placeholder="Write a comment…"
-              disabled={posting}
-              className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 disabled:opacity-50 dark:border-surface-400 dark:bg-surface-600 dark:text-slate-200 dark:placeholder-slate-500"
-            />
-            <button
-              onClick={onPost}
-              disabled={!commentText.trim() || posting}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-600 text-white transition hover:bg-sky-700 disabled:opacity-40"
-            >
-              {posting ? (
-                <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-              ) : (
-                <Send size={14} />
-              )}
-            </button>
-          </div>
+          <CommentComposer
+            value={commentText}
+            onChange={onCommentChange}
+            onSend={onPost}
+            isSending={posting}
+            placeholder="Write a comment…"
+          />
         </div>
       )}
-    </>
+    </div>
   );
 }

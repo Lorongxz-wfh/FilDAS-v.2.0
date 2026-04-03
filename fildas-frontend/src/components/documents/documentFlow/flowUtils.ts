@@ -17,12 +17,10 @@ export function officeIdByCode(
   );
 }
 
+import { formatDateTime } from "../../../utils/formatters";
+
 export function formatWhen(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return iso;
-  }
+  return formatDateTime(iso);
 }
 
 export function findCurrentStep(status: string, steps: FlowStep[]): FlowStep {

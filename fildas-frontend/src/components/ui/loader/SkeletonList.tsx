@@ -76,18 +76,17 @@ const SkeletonList: React.FC<Props> = ({
           const widths = ["w-1/2", "w-2/5", "w-2/3", "w-1/3", "w-3/5"];
           const bubbleWidth = widths[i % widths.length];
           return (
-            <div key={i} className={["flex items-start gap-2 py-1", isMine ? "justify-end" : "justify-start"].join(" ")}>
-              {!isMine && <Skeleton className="h-7 w-7 rounded-full shrink-0 opacity-40" />}
-              <div className={["flex flex-col gap-1.5", isMine ? "items-end" : "items-start"].join(" ")}>
-                 <div className="flex items-center gap-1.5">
-                    <Skeleton className="h-2.5 w-16 opacity-30" />
-                    <Skeleton className="h-2.5 w-12 opacity-20" />
+            <div key={i} className={["flex items-start gap-3 py-1.5", isMine ? "flex-row-reverse" : "flex-row"].join(" ")}>
+              <Skeleton className="h-8 w-8 rounded-full shrink-0 opacity-40 ring-2 ring-white dark:ring-surface-400/20" />
+              <div className={["flex flex-col gap-2", isMine ? "items-end" : "items-start", "flex-1 min-w-0"].join(" ")}>
+                 <div className={["flex items-center gap-2", isMine ? "flex-row-reverse" : "flex-row"].join(" ")}>
+                    <Skeleton className="h-3 w-20 opacity-30" />
+                    <Skeleton className="h-2.5 w-14 opacity-20" />
                  </div>
                  <Skeleton 
-                  className={["h-9 rounded-xl", bubbleWidth, isMine ? "rounded-tr-none" : "rounded-tl-none"].join(" ")} 
+                  className={["h-10 rounded-lg", bubbleWidth, isMine ? "rounded-tr-none" : "rounded-tl-none"].join(" ")} 
                  />
               </div>
-              {isMine && <Skeleton className="h-7 w-7 rounded-full shrink-0 opacity-40 ml-1" />}
             </div>
           );
         }
