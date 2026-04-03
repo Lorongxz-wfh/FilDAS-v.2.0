@@ -4,6 +4,7 @@ import type { Document } from "../../services/documents";
 import { formatDate } from "../../utils/formatters";
 import MiddleTruncate from "../../components/ui/MiddleTruncate";
 import type { LibraryItem } from "./documentLibraryTypes";
+import { StatusBadge } from "../../components/ui/Badge";
 
 // ── Reusable Cells ────────────────────────────────────────────────────────────
 
@@ -221,8 +222,8 @@ export function buildRequestedColumns(isQaAdmin: boolean): TableColumn<any>[] {
     {
       key: "status",
       header: "Status",
-      skeletonShape: "text",
-      render: () => <NormalText>Accepted</NormalText>,
+      skeletonShape: "badge",
+      render: () => <StatusBadge status="Accepted" />,
     },
     {
       key: "date",
@@ -293,12 +294,8 @@ export function buildAllColumns(): TableColumn<LibraryItem>[] {
     {
       key: "status",
       header: "Status",
-      skeletonShape: "text",
-      render: (item) => (
-        <NormalText>
-          {item.status || "—"}
-        </NormalText>
-      ),
+      skeletonShape: "badge",
+      render: (item) => <StatusBadge status={item.status || "Distributed"} />,
     },
     {
       key: "distributed",
@@ -402,15 +399,7 @@ export function buildArchiveColumns(): TableColumn<Document>[] {
         // Normalize "Superseded" label
         if (reason === "Superseded") reason = "Superseded (New Version)";
         
-        return (
-          <span className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border ${
-            reason === 'Manually Archived' ? 'text-brand-600 bg-brand-50 border-brand-200 dark:text-brand-400 dark:bg-brand-500/10 dark:border-brand-500/30' : 
-            reason === 'Superseded (New Version)' ? 'text-amber-600 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-500/30' :
-            'text-rose-600 bg-rose-50 border-rose-200 dark:text-rose-400 dark:bg-rose-500/10 dark:border-rose-500/30'
-          }`}>
-            {reason}
-          </span>
-        );
+        return <StatusBadge status={reason} />;
       },
     },
   ];

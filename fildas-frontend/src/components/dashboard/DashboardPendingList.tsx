@@ -1,37 +1,13 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import Skeleton from "../ui/loader/Skeleton";
+import { StatusBadge } from "../ui/Badge";
+import SkeletonList from "../ui/loader/SkeletonList";
 import type { PendingAction } from "../../services/types";
 import { FileText, CheckCircle, Megaphone } from "lucide-react";
 
 type Props = {
   items: PendingAction[];
   loading: boolean;
-};
-
-const statusColor: Record<string, string> = {
-  // Document statuses
-  Draft: "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300",
-  "For Office Review":
-    "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
-  "For VP Review":
-    "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
-  "For President Approval":
-    "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400",
-  "For Office Approval":
-    "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400",
-  "For VP Approval":
-    "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400",
-  "For QA Final Check":
-    "bg-brand-50 text-brand-600 dark:bg-brand-950/30 dark:text-brand-400",
-  "For QA Registration":
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
-  "For QA Distribution":
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
-  // Request statuses
-  Pending: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
-  Rejected: "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",
-  Open: "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400",
 };
 
 const DashboardPendingList: React.FC<Props> = ({ items, loading }) => {
@@ -61,15 +37,14 @@ const DashboardPendingList: React.FC<Props> = ({ items, loading }) => {
       {/* List */}
       <div className="divide-y divide-slate-100 dark:divide-surface-400">
         {loading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-2.5 sm:gap-3 p-3.5 sm:px-4 sm:py-3 cursor-wait">
-              <Skeleton className="h-7 w-7 rounded shrink-0" />
-              <div className="flex-1 space-y-1.5 min-w-0">
-                <Skeleton className="h-3.5 w-3/4" />
-                <Skeleton className="h-2.5 w-1/3" />
-              </div>
+          <div className="flex flex-col h-full bg-white dark:bg-surface-500">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-surface-400">
+              <SkeletonList variant="text" count={1} />
             </div>
-          ))
+            <div className="flex-1 overflow-y-auto p-5">
+              <SkeletonList variant="document" count={5} />
+            </div>
+          </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-center px-4">
             <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950/40">
@@ -84,10 +59,6 @@ const DashboardPendingList: React.FC<Props> = ({ items, loading }) => {
           </div>
         ) : (
           items.slice(0, 5).map((x) => {
-            const colorClass =
-              statusColor[x.status] ??
-              "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300";
-            
             const isRequest = x.type === "request";
             const Icon = isRequest ? Megaphone : FileText;
 
@@ -122,11 +93,7 @@ const DashboardPendingList: React.FC<Props> = ({ items, loading }) => {
                 </div>
 
                 {/* Status badge */}
-                <span
-                  className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold leading-tight max-w-[80px] sm:max-w-none truncate sm:whitespace-nowrap ${colorClass}`}
-                >
-                  {x.status}
-                </span>
+                <StatusBadge status={x.status} className="shrink-0" />
               </button>
             );
           })

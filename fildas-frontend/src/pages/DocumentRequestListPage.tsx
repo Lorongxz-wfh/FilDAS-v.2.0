@@ -26,7 +26,7 @@ import {
 import { inputCls, selectCls } from "../utils/formStyles";
 import { formatDate } from "../utils/formatters";
 import MiddleTruncate from "../components/ui/MiddleTruncate";
-import { TypePill } from "../components/ui/Badge";
+import { StatusBadge, TypePill } from "../components/ui/Badge";
 import Alert from "../components/ui/Alert";
 import RefreshButton from "../components/ui/RefreshButton";
 
@@ -318,8 +318,8 @@ export default function DocumentRequestListPage() {
       {
         key: "status",
         header: "Status",
-        skeletonShape: "narrow",
-        render: (row) => <NormalText>{row.status}</NormalText>,
+        skeletonShape: "badge",
+        render: (row) => <StatusBadge status={row.status} />,
       },
       {
         key: "dates",
@@ -364,8 +364,8 @@ export default function DocumentRequestListPage() {
       {
         key: "item_status",
         header: "Status",
-        skeletonShape: "narrow",
-        render: (r) => <NormalText>{r.item_status || "Pending"}</NormalText>,
+        skeletonShape: "badge",
+        render: (r) => <StatusBadge status={r.item_status || "Pending"} />,
       },
       {
         key: "mode",

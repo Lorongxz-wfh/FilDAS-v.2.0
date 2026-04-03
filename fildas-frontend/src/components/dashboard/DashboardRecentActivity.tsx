@@ -1,5 +1,4 @@
-import React from "react";
-import Skeleton from "../ui/loader/Skeleton";
+import SkeletonList from "../ui/loader/SkeletonList";
 import type { ActivityLogItem } from "../../services/documents";
 import {
   Send,
@@ -72,15 +71,7 @@ const DashboardRecentActivity: React.FC<Props> = ({ logs, loading }) => {
   return (
     <div className="min-h-[210px] divide-y divide-slate-100 dark:divide-surface-400">
       {loading ? (
-        Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex items-start gap-2.5 sm:gap-3 py-3 px-1 sm:px-0">
-            <Skeleton className="mt-0.5 h-6 w-6 rounded shrink-0" />
-            <div className="flex-1 space-y-1.5 min-w-0">
-              <Skeleton className="h-3.5 w-2/3" />
-              <Skeleton className="h-2.5 w-1/4" />
-            </div>
-          </div>
-        ))
+        <SkeletonList variant="activity" rows={5} className="divide-y divide-slate-100 dark:divide-surface-400" />
       ) : logs.length === 0 ? (
         <div className="py-10 text-center text-sm text-slate-400 dark:text-slate-500">
           No activity yet.

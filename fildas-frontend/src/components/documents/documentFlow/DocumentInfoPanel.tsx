@@ -14,6 +14,7 @@ import {
 
 import { InfoRow, fmt } from "./documentInfoHelpers";
 import DocumentInfoParticipantsTab from "./DocumentInfoParticipantsTab";
+import { StatusBadge } from "../../ui/Badge";
 
 type Props = {
   document: Document;
@@ -252,9 +253,7 @@ const DocumentInfoPanel: React.FC<Props> = ({
                       <span className="font-mono text-slate-400 dark:text-slate-500">
                         {(document as any).reserved_code}
                       </span>
-                      <span className="rounded bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-tighter text-amber-600 dark:text-amber-400">
-                        pending
-                      </span>
+                      <StatusBadge status="pending" className="!text-[8px] !px-1 font-black uppercase tracking-tighter" />
                     </span>
                   ) : (
                     "—"

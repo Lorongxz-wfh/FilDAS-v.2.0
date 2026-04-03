@@ -12,6 +12,7 @@ import { X, Search, SlidersHorizontal } from "lucide-react";
 import RefreshButton from "../components/ui/RefreshButton";
 import MiddleTruncate from "../components/ui/MiddleTruncate";
 import { formatDate } from "../utils/formatters";
+import { StatusBadge } from "../components/ui/Badge";
 
 const OFFICE_TYPES = ["office", "vp", "president", "committee", "unit"];
 
@@ -128,6 +129,7 @@ export function OfficeManagerPage() {
       key: "code",
       header: "Code",
       sortKey: "code",
+      skeletonShape: "narrow",
       render: (o) => (
         <span className="font-mono text-xs font-medium text-slate-700 dark:text-slate-300">
           {o.code}
@@ -138,6 +140,7 @@ export function OfficeManagerPage() {
       key: "name",
       header: "Name",
       sortKey: "name",
+      skeletonShape: "text",
       render: (o) => (
         <MiddleTruncate 
           text={o.name}
@@ -148,6 +151,7 @@ export function OfficeManagerPage() {
     {
       key: "parent",
       header: "Parent",
+      skeletonShape: "text",
       render: (o) => {
         const text = o.parent_office 
           ? `${o.parent_office.name} (${o.parent_office.code})` 
@@ -163,6 +167,7 @@ export function OfficeManagerPage() {
     {
       key: "type",
       header: "Type",
+      skeletonShape: "narrow",
       render: (o) => {
         const raw = o.type ?? "office";
         const label = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
@@ -176,15 +181,13 @@ export function OfficeManagerPage() {
     {
       key: "status",
       header: "Status",
-      render: (o) => (
-        <span className={`text-xs font-medium ${o.deleted_at ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-          {o.deleted_at ? "Disabled" : "Active"}
-        </span>
-      ),
+      skeletonShape: "badge",
+      render: (o) => <StatusBadge status={o.deleted_at ? "Disabled" : "Active"} />,
     },
     {
       key: "created",
       header: "Created",
+      skeletonShape: "narrow",
       render: (o) => (
         <span className="text-xs text-slate-500 dark:text-slate-400">
           {(o as any).created_at ? formatDate((o as any).created_at) : "—"}

@@ -3,6 +3,7 @@ import Modal from "../ui/Modal";
 import { friendlyEvent } from "../../utils/activityFormatters";
 import { formatDateTime } from "../../utils/formatters";
 import ActivityDiff from "../ui/ActivityDiff";
+import { StatusBadge } from "../ui/Badge";
 
 function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return (
@@ -84,13 +85,9 @@ const ActivityDetailModal: React.FC<ActivityDetailModalProps> = ({ row, onClose,
         {fromStatus && toStatus && (
           <Field label="Transition">
             <div className="flex items-center gap-2 flex-wrap mt-0.5">
-              <span className="px-2 py-0.5 rounded-md text-xs bg-slate-100 dark:bg-surface-600 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-surface-400">
-                {fromStatus}
-              </span>
+              <StatusBadge status={fromStatus} className="opacity-70" />
               <span className="text-slate-400 text-xs text-center font-bold">→</span>
-              <span className="px-2 py-0.5 rounded-md text-xs bg-brand-500/10 dark:bg-brand-500/20 text-brand-600 dark:text-brand-300 border border-brand-200 dark:border-brand-500/40 font-medium">
-                {toStatus}
-              </span>
+              <StatusBadge status={toStatus} />
             </div>
           </Field>
         )}

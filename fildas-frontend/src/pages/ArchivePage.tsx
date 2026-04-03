@@ -12,7 +12,7 @@ import Alert from "../components/ui/Alert";
 import DateRangeInput from "../components/ui/DateRangeInput";
 import RefreshButton from "../components/ui/RefreshButton";
 import { formatDate } from "../utils/formatters";
-import { buildBaseDocColumns } from "./documentLibrary/DocumentLibraryColumns";
+import { buildArchiveColumns } from "./documentLibrary/DocumentLibraryColumns";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 
 export default function ArchivePage() {
@@ -90,7 +90,7 @@ export default function ArchivePage() {
 
   const { refreshing } = usePageBurstRefresh(() => loadData(false));
 
-  const columns = useMemo(() => buildBaseDocColumns(), []);
+  const columns = useMemo(() => buildArchiveColumns(), []);
   const gridTemplate = "130px minmax(120px, 1fr) 100px 110px 70px 140px";
 
   const handleRowClick = (row: any) => {

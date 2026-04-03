@@ -16,23 +16,7 @@ import { inputCls } from "../utils/formStyles";
 import { formatDate } from "../utils/formatters";
 import Select from "../components/ui/Select";
 
-// ── Badge helpers ────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-      {status || "—"}
-    </span>
-  );
-}
-
-function TypeBadge({ type }: { type: string }) {
-  return (
-    <span className="text-xs text-slate-500 dark:text-slate-400 capitalize">
-      {type || "—"}
-    </span>
-  );
-}
+import { StatusBadge } from "../components/ui/Badge";
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -275,7 +259,11 @@ export default function MyWorkQueueListPage() {
         key: "type",
         header: "Type",
         skeletonShape: "badge",
-        render: (doc) => <TypeBadge type={doc.doctype} />,
+        render: (doc) => (
+          <span className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+            {doc.doctype || "—"}
+          </span>
+        ),
       },
     ];
 

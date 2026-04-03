@@ -207,6 +207,7 @@ const MyActivityPage: React.FC = () => {
     {
       key: "when",
       header: "When",
+      skeletonShape: "narrow",
       render: (r) => (
         <span className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
           {formatDateTime(r.created_at)}
@@ -216,6 +217,7 @@ const MyActivityPage: React.FC = () => {
     {
       key: "event",
       header: "Event",
+      skeletonShape: "text",
       render: (r) => (
         <span className="font-medium text-slate-800 dark:text-slate-200 truncate block group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
           {friendlyEvent(r.event)}
@@ -225,6 +227,7 @@ const MyActivityPage: React.FC = () => {
     {
       key: "label",
       header: "Label",
+      skeletonShape: "text",
       render: (r) => (
         <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
           {r.label ?? "—"}
@@ -234,6 +237,7 @@ const MyActivityPage: React.FC = () => {
     {
       key: "category",
       header: "Category",
+      skeletonShape: "badge",
       render: (r) => {
         const cat = categoryFromEvent(r.event);
         return (

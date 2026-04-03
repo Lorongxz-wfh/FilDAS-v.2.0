@@ -196,26 +196,29 @@ export default function Table<T>({
                 className={`grid gap-3 items-center px-4 py-3 sm:py-2 ${mobileRender ? "flex flex-col items-start sm:grid" : "grid"}`}
                 style={{ gridTemplateColumns: colTemplate }}
               >
-                {columns.slice(0, mobileRender ? (columns.length > 3 ? 3 : columns.length) : columns.length).map((col, c) => {
+                {columns.map((col, c) => {
                   const shape = col.skeletonShape ?? "text";
                   const base =
                     "animate-pulse rounded bg-slate-100 dark:bg-surface-400/80";
                   
                   // fill more of the column width
                   const textWidths = ["92%", "85%", "90%", "88%", "94%"];
+
+                  // Alignment logic for skeleton container
+                  const cellAlign = col.align === "center" ? "justify-center" : col.align === "right" ? "justify-end" : "justify-start";
                   
+                  let skeletonElement: React.ReactNode;
+
                   if (shape === "badge") {
-                    return (
+                    skeletonElement = (
                       <div
-                        key={c}
                         className={`${base} rounded-full h-5`}
-                        style={{ width: `${60 + (r % 3) * 12}px` }}
+                        style={{ width: `${60 + (r % 3) * 10}%`, maxWidth: '100px' }}
                       />
                     );
-                  }
-                  if (shape === "double") {
-                    return (
-                      <div key={c} className="flex flex-col gap-1.5 w-full">
+                  } else if (shape === "double") {
+                    skeletonElement = (
+                      <div className="flex flex-col gap-1.5 w-full">
                         <div
                           className={`${base} h-3.5`}
                           style={{ width: textWidths[r % textWidths.length] }}
@@ -226,22 +229,34 @@ export default function Table<T>({
                         />
                       </div>
                     );
-                  }
-                  if (shape === "narrow") {
-                    return (
+                  } else if (shape === "narrow") {
+                    skeletonElement = (
                       <div
-                        key={c}
                         className={`${base} h-2.5`}
                         style={{ width: `${80 + (r % 2) * 12}%` }}
                       />
                     );
+                  } else {
+                    skeletonElement = (
+                      <div
+                        className={`${base} h-3.5`}
+                        style={{ width: textWidths[(c + r) % textWidths.length] }}
+                      />
+                    );
                   }
+
                   return (
-                    <div
-                      key={c}
-                      className={`${base} h-3.5`}
-                      style={{ width: textWidths[(c + r) % textWidths.length] }}
-                    />
+                    <div 
+                      key={c} 
+                      className={[
+                        "flex w-full min-w-0 px-0.5",
+                        cellAlign,
+                        // hide extra columns on mobile if using card view
+                        mobileRender && c >= (columns.length > 3 ? 3 : columns.length) ? "hidden sm:flex" : "flex"
+                      ].join(" ")}
+                    >
+                      {skeletonElement}
+                    </div>
                   );
                 })}
               </div>

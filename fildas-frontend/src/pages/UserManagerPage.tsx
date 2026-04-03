@@ -18,6 +18,7 @@ import { X, Search, SlidersHorizontal } from "lucide-react";
 import RefreshButton from "../components/ui/RefreshButton";
 import MiddleTruncate from "../components/ui/MiddleTruncate";
 import { formatDate } from "../utils/formatters";
+import { StatusBadge } from "../components/ui/Badge";
 
 const UserManagerPage: React.FC = () => {
   const role = getUserRole();
@@ -161,6 +162,7 @@ const UserManagerPage: React.FC = () => {
         key: "name",
         header: "Name",
         sortKey: "last_name",
+        skeletonShape: "text",
         render: (u) => (
           <MiddleTruncate 
             text={u.full_name}
@@ -172,6 +174,7 @@ const UserManagerPage: React.FC = () => {
         key: "email",
         header: "Email",
         sortKey: "email",
+        skeletonShape: "text",
         render: (u) => (
           <MiddleTruncate 
             text={u.email}
@@ -182,6 +185,7 @@ const UserManagerPage: React.FC = () => {
       {
         key: "office",
         header: "Office",
+        skeletonShape: "text",
         render: (u) => (
           <MiddleTruncate 
             text={u.office?.name ?? "—"}
@@ -192,6 +196,7 @@ const UserManagerPage: React.FC = () => {
       {
         key: "role",
         header: "Role",
+        skeletonShape: "text",
         render: (u) => {
           const raw = u.role?.name ?? "none";
           // Replace underscores and Title Case
@@ -206,16 +211,14 @@ const UserManagerPage: React.FC = () => {
       {
         key: "status",
         header: "Status",
-        render: (u) => (
-          <span className={`text-xs font-medium ${u.disabled_at ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-            {u.disabled_at ? "Disabled" : "Active"}
-          </span>
-        ),
+        skeletonShape: "badge",
+        render: (u) => <StatusBadge status={u.disabled_at ? "Disabled" : "Active"} />,
       },
       {
         key: "created",
         header: "Joined",
         sortKey: "created_at",
+        skeletonShape: "narrow",
         render: (u) => (
           <div className="text-xs text-slate-500 dark:text-slate-400">
             {formatDate(u.created_at)}
