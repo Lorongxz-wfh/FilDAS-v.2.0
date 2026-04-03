@@ -1,16 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import PageFrame from "../components/layout/PageFrame";
-import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import Alert from "../components/ui/Alert";
 import EmptyState from "../components/ui/EmptyState";
-import RefreshButton from "../components/ui/RefreshButton";
 import { useToast } from "../components/ui/toast/ToastContext";
-import { Tag, LayoutGrid, List, Upload, ChevronDown } from "lucide-react";
+import { Tag, LayoutGrid, List, ChevronDown } from "lucide-react";
 import { selectCls, tabCls } from "../utils/formStyles";
 import { getAuthUser } from "../lib/auth";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
+import { PageActions, RefreshAction, UploadAction } from "../components/ui/PageActions";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
 
 import {
@@ -208,25 +207,18 @@ const TemplatesPage: React.FC = () => {
         title="Document Templates"
         contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
         right={
-          <div className="flex items-center gap-2">
-            <RefreshButton
+          <PageActions>
+            <RefreshAction
               onRefresh={fetchTemplates}
               loading={loading}
-              title="Refresh templates"
             />
             {canUpload && (
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
+              <UploadAction
+                label="Upload template"
                 onClick={() => setModalOpen(true)}
-                title="Upload template"
-              >
-                <Upload size={15} />
-                <span className="hidden sm:inline font-bold">Upload template</span>
-              </Button>
+              />
             )}
-          </div>
+          </PageActions>
         }
       >
         <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0">

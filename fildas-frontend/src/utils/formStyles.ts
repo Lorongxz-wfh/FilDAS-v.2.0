@@ -10,11 +10,11 @@ export const inputCls =
 
 /** Select or fixed-width date/filter input (no forced w-full — caller sets width) */
 export const selectCls =
-  "rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-brand-400 dark:focus:border-brand-300 transition";
+  "rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 outline-none focus:border-sky-500 dark:focus:border-sky-400 transition";
 
 /** Compact select/input for filter panels and sidebars */
 export const filterSelectCls =
-  "w-full rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-brand-400 dark:focus:border-brand-300 transition";
+  "w-full rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1.5 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-sky-500 dark:focus:border-sky-400 transition";
 
 /** Form field label */
 export const labelCls =
@@ -25,6 +25,6 @@ export const tabCls = (active: boolean) =>
   [
     "flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap",
     active
-      ? "border-sky-500 text-slate-900 dark:text-slate-50"
+      ? "border-sky-600 text-slate-900 dark:text-slate-50"
       : "border-transparent text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300",
   ].join(" ");

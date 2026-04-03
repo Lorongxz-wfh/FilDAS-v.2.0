@@ -101,7 +101,7 @@ const ActivityLogsTable: React.FC<Props> = ({
   ];
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden flex-1 min-h-0">
+    <div className="rounded-sm border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden flex-1 min-h-0">
       <Table
         bare
         className="h-full"

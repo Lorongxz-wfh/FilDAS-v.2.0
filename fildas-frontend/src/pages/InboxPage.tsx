@@ -3,8 +3,8 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { getAuthUser } from "../lib/auth";
 import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
-import { Search, X, Trash2, BellOff } from "lucide-react";
-import RefreshButton from "../components/ui/RefreshButton";
+import { BellOff, Trash2, Search, X } from "lucide-react";
+import { PageActions, RefreshAction } from "../components/ui/PageActions";
 import { tabCls } from "../utils/formStyles";
 import {
   listNotifications,
@@ -118,6 +118,7 @@ const InboxPage: React.FC = () => {
   const [markingAll, setMarkingAll] = React.useState(false);
   const [deletingAll, setDeletingAll] = React.useState(false);
   const [confirmClearAll, setConfirmClearAll] = React.useState(false);
+  const [selectionMode, setSelectionMode] = React.useState(false);
 
   // ── Filters ──────────────────────────────────────────────────────────────
   const [tab, setTab] = React.useState<FilterTab>("all");
@@ -251,11 +252,14 @@ const InboxPage: React.FC = () => {
           : undefined
       }
       right={
-        <div className="flex items-center gap-2">
-          <RefreshButton
-            onClick={() => { setItems([]); setPage(1); setReloadTick((t) => t + 1); }}
+        <PageActions>
+          <RefreshAction
+            onRefresh={() => {
+              setItems([]);
+              setPage(1);
+              setReloadTick((t) => t + 1);
+            }}
             loading={loading}
-            title="Refresh inbox"
           />
           <Button
             type="button"
@@ -265,6 +269,14 @@ const InboxPage: React.FC = () => {
             onClick={handleMarkAllRead}
           >
             {markingAll ? "Marking…" : "Mark all read"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectionMode(!selectionMode)}
+          >
+            {selectionMode ? "Cancel" : "Select"}
           </Button>
           <Button
             type="button"
@@ -284,7 +296,7 @@ const InboxPage: React.FC = () => {
                 ? "Confirm clear all?"
                 : "Clear all"}
           </Button>
-        </div>
+        </PageActions>
       }
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
@@ -331,7 +343,7 @@ const InboxPage: React.FC = () => {
       </div>
 
       {/* List */}
-      <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 p-3">
+      <div className="flex-1 min-h-0 overflow-y-auto rounded-sm border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 p-3">
         {loading ? (
           <div className="space-y-2">
             {Array.from({ length: 5 }).map((_, i) => (

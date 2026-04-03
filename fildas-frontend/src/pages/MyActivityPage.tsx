@@ -2,12 +2,12 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import PageFrame from "../components/layout/PageFrame";
 import Table, { type TableColumn } from "../components/ui/Table";
-import RefreshButton from "../components/ui/RefreshButton";
 import { getDocumentVersion, listActivityLogs } from "../services/documents";
 import { friendlyEvent } from "../utils/activityFormatters";
 import { formatDateTime } from "../utils/formatters";
 import { selectCls } from "../utils/formStyles";
 import DateRangeInput from "../components/ui/DateRangeInput";
+import { PageActions, RefreshAction, ExportSplitAction } from "../components/ui/PageActions";
 import ActivityDetailModal from "../components/activityLogs/ActivityDetailModal";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
 
@@ -281,29 +281,14 @@ const MyActivityPage: React.FC = () => {
       contentClassName="flex flex-col min-h-0 h-full"
       onBack={() => navigate(-1)}
       right={
-        <div className="flex items-center gap-2">
-          <div className="flex items-center rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden text-xs font-medium shrink-0 shadow-sm">
-            <button
-              type="button"
-              onClick={() => handleExport("csv")}
-              disabled={exporting || initialLoading}
-              title="Export current view to CSV"
-              className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition border-r border-slate-200 dark:border-surface-400 disabled:opacity-50"
-            >
-              CSV
-            </button>
-            <button
-              type="button"
-              onClick={() => handleExport("pdf")}
-              disabled={exporting || initialLoading}
-              title="Export current view to PDF"
-              className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition disabled:opacity-50"
-            >
-              PDF
-            </button>
-          </div>
-          <RefreshButton onRefresh={refresh} loading={exporting} title="Refresh activity" />
-        </div>
+        <PageActions>
+          <ExportSplitAction
+            onExport={handleExport}
+            loading={exporting}
+            disabled={initialLoading}
+          />
+          <RefreshAction onRefresh={refresh} loading={exporting} />
+        </PageActions>
       }
     >
       <SearchFilterBar
@@ -387,7 +372,7 @@ const MyActivityPage: React.FC = () => {
       </SearchFilterBar>
 
       {/* Table */}
-      <div className="rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden flex-1 min-h-0">
+      <div className="rounded-sm border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden flex-1 min-h-0">
         <Table
           bare
           className="h-full"

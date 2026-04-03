@@ -13,7 +13,7 @@ import {
   Loader2,
   Calendar,
 } from "lucide-react";
-import RefreshButton from "../components/ui/RefreshButton";
+import { PageActions, RefreshAction } from "../components/ui/PageActions";
 import {
   getBackupSummary,
   downloadBackup,
@@ -160,11 +160,12 @@ export default function BackupPage() {
       onBack={() => navigate(-1)}
       contentClassName="flex flex-col overflow-hidden"
       right={
-        <RefreshButton
-          onClick={() => fetchSummary()}
-          loading={loading}
-          title="Refresh summary"
-        />
+        <PageActions>
+          <RefreshAction
+            onRefresh={async () => fetchSummary()}
+            loading={loading}
+          />
+        </PageActions>
       }
     >
       {/* ── Header ── */}

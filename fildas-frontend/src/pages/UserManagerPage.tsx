@@ -4,7 +4,6 @@ import { pageCache } from "../lib/pageCache";
 import { getUserRole } from "../lib/roleFilters";
 import PageFrame from "../components/layout/PageFrame";
 import Table, { type TableColumn } from "../components/ui/Table";
-import Button from "../components/ui/Button";
 import {
   getAdminUsers,
   getAdminRoles,
@@ -14,11 +13,11 @@ import {
 import UserEditModal from "../components/admin/UserEditModal";
 import Alert from "../components/ui/Alert";
 import { selectCls } from "../utils/formStyles";
-import RefreshButton from "../components/ui/RefreshButton";
 import MiddleTruncate from "../components/ui/MiddleTruncate";
 import { formatDate } from "../utils/formatters";
 import { StatusBadge } from "../components/ui/Badge";
 import RoleBadge from "../components/ui/RoleBadge";
+import { PageActions, CreateAction, RefreshAction } from "../components/ui/PageActions";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
 
 const UserManagerPage: React.FC = () => {
@@ -234,21 +233,16 @@ const UserManagerPage: React.FC = () => {
       title="User Manager"
       contentClassName="flex flex-col min-h-0 h-full"
       right={
-        <div className="flex items-center gap-2">
-          <RefreshButton
-            onClick={() => setReloadTick((t) => t + 1)}
+        <PageActions>
+          <RefreshAction
+            onRefresh={async () => { setReloadTick((t) => t + 1); }}
             loading={loading || initialLoading}
-            title="Refresh users"
           />
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
+          <CreateAction
+            label="New user"
             onClick={openCreate}
-          >
-            New user
-          </Button>
-        </div>
+          />
+        </PageActions>
       }
     >
       <SearchFilterBar
@@ -322,7 +316,7 @@ const UserManagerPage: React.FC = () => {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+      <div className="flex-1 min-h-0 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
         <Table<AdminUser>
           bare
           className="h-full"

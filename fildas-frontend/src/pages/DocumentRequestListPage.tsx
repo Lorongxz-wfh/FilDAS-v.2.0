@@ -1,7 +1,6 @@
 import React from "react";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import PageFrame from "../components/layout/PageFrame.tsx";
-import Button from "../components/ui/Button.tsx";
 import Table, { type TableColumn } from "../components/ui/Table";
 import {
   listDocumentRequestInbox,
@@ -14,18 +13,17 @@ import { getAuthUser } from "../lib/auth.ts";
 import CreateDocumentRequestModal from "../components/documentRequests/CreateDocumentRequestModal";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import {
-  Users,
-  FileStack,
-  PlusCircle,
   LayoutList,
   TableProperties,
+  Users,
+  FileStack,
 } from "lucide-react";
 import { selectCls, tabCls } from "../utils/formStyles";
+import { PageActions, CreateAction, RefreshAction } from "../components/ui/PageActions";
 import { formatDate } from "../utils/formatters";
 import MiddleTruncate from "../components/ui/MiddleTruncate";
 import { StatusBadge, TypePill } from "../components/ui/Badge";
 import Alert from "../components/ui/Alert";
-import RefreshButton from "../components/ui/RefreshButton";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
 
 type ViewTab = "batches" | "all";
@@ -411,26 +409,18 @@ export default function DocumentRequestListPage() {
     <PageFrame
       title="Document Requests"
       right={
-        <div className="flex items-center gap-2">
-          <RefreshButton
+        <PageActions>
+          <RefreshAction
             onRefresh={refreshRequests}
             loading={refreshingRequests}
-            disabled={loading}
-            title="Refresh requests"
           />
           {isQaAdmin && (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              responsive
+            <CreateAction
+              label="Create request"
               onClick={() => setCreateOpen(true)}
-            >
-              <PlusCircle size={15} />
-              <span className="hidden sm:inline font-bold">Create request</span>
-            </Button>
+            />
           )}
-        </div>
+        </PageActions>
       }
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
@@ -591,7 +581,7 @@ export default function DocumentRequestListPage() {
 
       {error && !loading && <Alert variant="danger" className="mt-4">{error}</Alert>}
 
-      <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+      <div className="flex-1 min-h-0 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
         {tab === "batches" && (
           <Table<any>
             bare

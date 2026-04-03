@@ -8,15 +8,14 @@ import {
 } from "../lib/roleFilters";
 import { getAuthUser } from "../lib/auth";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
-import Button from "../components/ui/Button";
 import Table from "../components/ui/Table";
 import Select from "../components/ui/Select";
 import Alert from "../components/ui/Alert";
 import DateRangeInput from "../components/ui/DateRangeInput";
-import RefreshButton from "../components/ui/RefreshButton";
+import { PageActions, CreateAction, RefreshAction, ArchiveAction } from "../components/ui/PageActions";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
-import { PlusCircle, Archive, LayoutGrid, List, Share2, ClipboardList } from "lucide-react";
+import { LayoutGrid, List, Share2, ClipboardList } from "lucide-react";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import { formatDate } from "../utils/formatters";
 import { tabCls } from "../utils/formStyles";
@@ -257,39 +256,24 @@ export default function DocumentLibraryPage() {
     <PageFrame
       title="Document Library"
       right={
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <RefreshButton
+        <PageActions>
+          <RefreshAction
             onRefresh={async () => { await loadData(false); }}
             loading={refreshing || loading}
-            title="Refresh library"
           />
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => navigate("/archive")}
-            className="hidden sm:flex"
-          >
-            <Archive size={15} />
-            <span className="font-bold">Archive</span>
-          </Button>
+          <ArchiveAction onClick={() => navigate("/archive")} />
 
           {canCreate && (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
+            <CreateAction
+              label="Create document"
               onClick={() => {
                 markWorkQueueSession();
                 navigate("/documents/create", { state: { fromWorkQueue: true } });
               }}
-            >
-              <PlusCircle size={15} />
-              <span className="hidden sm:inline font-bold">Create document</span>
-            </Button>
+            />
           )}
-        </div>
+        </PageActions>
       }
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
@@ -414,7 +398,7 @@ export default function DocumentLibraryPage() {
       {error && <Alert variant="danger" className="mb-4">{error}</Alert>}
 
       {/* Table Container */}
-      <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+      <div className="flex-1 min-h-0 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
         <Table<any>
           bare
           className="h-full"

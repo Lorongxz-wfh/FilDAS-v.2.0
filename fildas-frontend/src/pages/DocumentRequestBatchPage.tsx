@@ -23,7 +23,7 @@ import {
   Clock,
   Loader2,
 } from "lucide-react";
-import RefreshButton from "../components/ui/RefreshButton";
+import { PageActions, RefreshAction } from "../components/ui/PageActions";
 import { useRealtimeUpdates } from "../hooks/useRealtimeUpdates";
 import {
   roleLower,
@@ -271,11 +271,14 @@ export default function DocumentRequestBatchPage() {
     // Live comments and thread synchronization
     onRequestMessage: React.useCallback(
       (msg: any) => {
-        const msgRecipientId = msg.recipient_id ? Number(msg.recipient_id) : null;
+        const msgRecipientId = msg.recipient_id
+          ? Number(msg.recipient_id)
+          : null;
         const msgItemId = msg.item_id ? Number(msg.item_id) : null;
 
         // On the batch page, we are interested in either the shared thread or a specific recipient
-        const isForActiveThread = activeRecipientId === msgRecipientId && msgItemId === null;
+        const isForActiveThread =
+          activeRecipientId === msgRecipientId && msgItemId === null;
 
         if (isForActiveThread) {
           setMessages((prev) => {
@@ -414,12 +417,8 @@ export default function DocumentRequestBatchPage() {
       breadcrumbs={[{ label: "Batch", to: "/document-requests" }]}
       fullHeight
       right={
-        <div className="flex items-center gap-2">
-          <RefreshButton
-            onRefresh={handleRefresh}
-            loading={refreshing || loading}
-            title="Refresh request"
-          />
+        <PageActions>
+          <RefreshAction onRefresh={handleRefresh} loading={refreshing || loading} />
           {isQa && req?.status === "open" && (
             <>
               <Button
@@ -429,12 +428,11 @@ export default function DocumentRequestBatchPage() {
                 responsive
                 onClick={() => handleStatusChange("closed")}
                 disabled={statusUpdating}
-                tooltip="Close request"
               >
                 {statusUpdating ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Check className="h-3.5 w-3.5 sm:mr-1.5" />
+                  <Check className="h-3.5 w-3.5" />
                 )}
                 <span>Close</span>
               </Button>
@@ -445,18 +443,17 @@ export default function DocumentRequestBatchPage() {
                 responsive
                 onClick={() => handleStatusChange("cancelled")}
                 disabled={statusUpdating}
-                tooltip="Cancel request"
               >
                 {statusUpdating ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin sm:mr-1.5" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Ban className="h-3.5 w-3.5 sm:mr-1.5" />
+                  <Ban className="h-3.5 w-3.5" />
                 )}
                 <span>Cancel</span>
               </Button>
             </>
           )}
-        </div>
+        </PageActions>
       }
     >
       <div className="flex flex-col lg:grid lg:grid-cols-12 gap-5 lg:h-full min-h-0 p-4 sm:p-5">

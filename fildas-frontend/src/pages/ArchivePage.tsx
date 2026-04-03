@@ -6,11 +6,11 @@ import { useNavigate } from "react-router-dom";
 import PageFrame from "../components/layout/PageFrame";
 import Table from "../components/ui/Table";
 import Alert from "../components/ui/Alert";
-import RefreshButton from "../components/ui/RefreshButton";
 import { formatDate } from "../utils/formatters";
 import { buildArchiveColumns } from "./documentLibrary/DocumentLibraryColumns";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
+import { PageActions, RefreshAction } from "../components/ui/PageActions";
 import Select from "../components/ui/Select";
 import DateRangeInput from "../components/ui/DateRangeInput";
 
@@ -105,11 +105,12 @@ export default function ArchivePage() {
       title="Archive"
       onBack={() => navigate("/documents")}
       right={
-        <RefreshButton
-          onRefresh={async () => { await loadData(false); }}
-          loading={refreshing || loading}
-          title="Refresh archive"
-        />
+        <PageActions>
+          <RefreshAction
+            onRefresh={async () => { await loadData(false); }}
+            loading={refreshing || loading}
+          />
+        </PageActions>
       }
       contentClassName="flex flex-col min-h-0 h-full"
     >
@@ -181,7 +182,7 @@ export default function ArchivePage() {
 
       {error && <Alert variant="danger" className="mb-4">{error}</Alert>}
 
-      <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+      <div className="flex-1 min-h-0 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
         <Table<any>
           bare
           className="h-full"

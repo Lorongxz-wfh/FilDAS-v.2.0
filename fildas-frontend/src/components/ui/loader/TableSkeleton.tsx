@@ -30,7 +30,7 @@ const TableSkeleton: React.FC<Props> = ({
           {Array.from({ length: colCount }).map((_, i) => (
             <div
               key={i}
-              className="h-2.5 rounded-full bg-slate-200 animate-pulse dark:bg-surface-400"
+              className="h-2.5 rounded-sm bg-slate-200 animate-pulse dark:bg-surface-400"
             />
           ))}
         </div>
@@ -45,7 +45,7 @@ const TableSkeleton: React.FC<Props> = ({
             {Array.from({ length: colCount }).map((_, c) => (
               <div
                 key={c}
-                className="h-3 rounded-full animate-pulse bg-slate-100 dark:bg-surface-400"
+                className="h-3 rounded-sm animate-pulse bg-slate-100 dark:bg-surface-400"
                 style={{ width: c === 1 ? "60%" : c === 0 ? "50%" : "75%" }}
               />
             ))}
@@ -58,7 +58,7 @@ const TableSkeleton: React.FC<Props> = ({
   if (bare) return <>{content}</>;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
+    <div className="overflow-hidden rounded-sm border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
       {content}
     </div>
   );

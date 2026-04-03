@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import PageFrame from "../components/layout/PageFrame";
 import Alert from "../components/ui/Alert";
-import RefreshButton from "../components/ui/RefreshButton";
+import { PageActions, RefreshAction } from "../components/ui/PageActions";
 import ReportStatCard from "../components/reports/ReportStatCard";
 import ReportChartCard from "../components/reports/ReportChartCard";
 import VolumeTrendChart from "../components/charts/VolumeTrendChart";
@@ -186,14 +186,15 @@ const AdminReportsPage: React.FC = () => {
       title="Reports"
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
       right={
-        <RefreshButton
-          loading={loading}
-          onRefresh={async () => {
-            setRefreshKey((k) => k + 1);
-            return "Report data refreshed.";
-          }}
-          title="Refresh report"
-        />
+        <PageActions>
+          <RefreshAction
+            loading={loading}
+            onRefresh={async () => {
+              setRefreshKey((k) => k + 1);
+              return "Report data refreshed.";
+            }}
+          />
+        </PageActions>
       }
     >
       {error && (

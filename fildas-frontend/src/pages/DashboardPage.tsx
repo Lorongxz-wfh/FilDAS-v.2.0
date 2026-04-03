@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import Skeleton from "../components/ui/loader/Skeleton";
-import RefreshButton from "../components/ui/RefreshButton";
+import { PageActions, RefreshAction } from "../components/ui/PageActions";
 import Button from "../components/ui/Button";
 
 // Shared charts
@@ -554,7 +554,6 @@ const DashboardPage: React.FC = () => {
   const firstName =
     user?.first_name?.trim() || user?.full_name?.split(" ")[0] || "there";
 
-
   const hour = new Date().getHours();
   const greeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -579,33 +578,33 @@ const DashboardPage: React.FC = () => {
             </h1>
           </div>
 
+          <div className="flex shrink-0 items-center gap-3">
+            {!loading && (
+              <div className="hidden sm:flex items-center gap-2">
+                {pendingCount > 0 ? (
+                  <div className="flex items-center gap-1.5 rounded-sm border border-rose-200 bg-rose-50 px-2.5 py-1 dark:border-rose-900 dark:bg-rose-950/15">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-500" />
+                    </span>
+                    <span className="text-[11px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-tight">
+                      {pendingCount} pending
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 rounded-sm border border-emerald-200 bg-emerald-50 px-2.5 py-1 dark:border-emerald-900 dark:bg-emerald-950/15">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-tight">
+                      All caught up
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
-          <div className="flex shrink-0 items-center gap-2">
-            {!loading &&
-              (pendingCount > 0 ? (
-                <div className="hidden sm:flex items-center gap-1.5 rounded border border-rose-200 bg-rose-50 px-2.5 py-1 dark:border-rose-900 dark:bg-rose-950/15">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-500" />
-                  </span>
-                  <span className="text-xs font-semibold text-rose-700 dark:text-rose-300">
-                    {pendingCount} pending
-                  </span>
-                </div>
-              ) : (
-                <div className="hidden sm:flex items-center gap-1.5 rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 dark:border-emerald-900 dark:bg-emerald-950/15">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                    All caught up
-                  </span>
-                </div>
-              ))}
-
-            <RefreshButton
-              onRefresh={handleRefresh}
-              loading={refreshing || loading}
-              title="Refresh dashboard"
-            />
+            <PageActions>
+              <RefreshAction onRefresh={handleRefresh} loading={refreshing || loading} />
+            </PageActions>
           </div>
         </div>
       </div>
@@ -614,30 +613,13 @@ const DashboardPage: React.FC = () => {
       <div className="flex-1 overflow-y-auto bg-slate-50/50 dark:bg-surface-600/50">
         <div className="px-3.5 sm:px-5 py-4 space-y-3.5 sm:space-y-4">
           {isAdmin ? (
-            <AdminDashboard
-              {...dashData}
-              navigate={navigate}
-              announcements={announcements}
-            />
+            <AdminDashboard {...dashData} navigate={navigate} announcements={announcements} />
           ) : isAuditor(role) ? (
-            <AuditorDashboard
-              {...dashData}
-              navigate={navigate}
-              announcements={announcements}
-            />
+            <AuditorDashboard {...dashData} navigate={navigate} announcements={announcements} />
           ) : isQA(role) ? (
-            <QADashboard
-              {...dashData}
-              navigate={navigate}
-              announcements={announcements}
-            />
+            <QADashboard {...dashData} navigate={navigate} announcements={announcements} />
           ) : (
-            <OfficeDashboard
-              {...dashData}
-              navigate={navigate}
-              role={role}
-              announcements={announcements}
-            />
+            <OfficeDashboard {...dashData} navigate={navigate} role={role} announcements={announcements} />
           )}
         </div>
       </div>

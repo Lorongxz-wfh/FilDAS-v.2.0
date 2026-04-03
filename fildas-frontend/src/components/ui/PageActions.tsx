@@ -1,0 +1,199 @@
+import Button from "./Button";
+import RefreshButton from "./RefreshButton";
+import { Plus, Archive, FileDown, Upload, Trash2 } from "lucide-react";
+
+/**
+ * A flex container for page-level actions in the header.
+ * Ensures consistent spacing and alignment.
+ */
+export function PageActions({ children }: { children: React.ReactNode }) {
+  return <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">{children}</div>;
+}
+
+/**
+ * Standardizes the "Create" action across all pages.
+ * - Primary variant
+ * - Plus icon
+ * - Responsive text (icon only on mobile)
+ */
+export function CreateAction({
+  label = "Create",
+  onClick,
+  disabled,
+  loading,
+}: {
+  label?: string;
+  onClick: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
+  return (
+    <Button
+      variant="primary"
+      size="sm"
+      responsive
+      onClick={onClick}
+      disabled={disabled}
+      loading={loading}
+    >
+      <Plus className="h-3.5 w-3.5" />
+      <span className="font-bold">{label}</span>
+    </Button>
+  );
+}
+
+/**
+ * A wrapper for RefreshButton to keep things in one place.
+ */
+export function RefreshAction({
+  onRefresh,
+  loading,
+  title = "Refresh",
+}: {
+  onRefresh: () => void | Promise<any>;
+  loading: boolean;
+  title?: string;
+}) {
+  return (
+    <RefreshButton
+      onRefresh={onRefresh as any}
+      loading={loading}
+      title={title}
+    />
+  );
+}
+
+/**
+ * Standardizes the "Archive" link/button.
+ */
+export function ArchiveAction({ onClick }: { onClick: () => void }) {
+  return (
+    <Button variant="outline" size="sm" responsive onClick={onClick}>
+      <Archive className="h-3.5 w-3.5" />
+      <span className="font-bold">Archive</span>
+    </Button>
+  );
+}
+
+/**
+ * Standardizes the "Export" or "Download" action.
+ */
+export function ExportAction({
+  onClick,
+  label = "Export",
+  loading,
+  disabled,
+}: {
+  onClick: () => void;
+  label?: string;
+  loading?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      responsive
+      onClick={onClick}
+      loading={loading}
+      disabled={disabled}
+    >
+      <FileDown className="h-3.5 w-3.5" />
+      <span className="font-bold">{label}</span>
+    </Button>
+  );
+}
+
+/**
+ * Standardizes the "Upload" action.
+ */
+export function UploadAction({
+  label = "Upload",
+  onClick,
+  disabled,
+  loading,
+}: {
+  label?: string;
+  onClick: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
+  return (
+    <Button
+      variant="primary"
+      size="sm"
+      responsive
+      onClick={onClick}
+      disabled={disabled}
+      loading={loading}
+    >
+      <Upload className="h-3.5 w-3.5" />
+      <span className="font-bold">{label}</span>
+    </Button>
+  );
+}
+
+/**
+ * Standardizes the "Export" split button (CSV/PDF common pair).
+ */
+export function ExportSplitAction({
+  onExport,
+  loading,
+  disabled,
+}: {
+  onExport: (format: "csv" | "pdf") => void;
+  loading?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex bg-white dark:bg-surface-500 border border-slate-200 dark:border-surface-400 rounded-sm overflow-hidden divide-x divide-slate-200 dark:divide-surface-400 shadow-sm shrink-0">
+      <button
+        type="button"
+        onClick={() => onExport("csv")}
+        disabled={loading || disabled}
+        title="Export to CSV"
+        className="px-3 py-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors disabled:opacity-50"
+      >
+        CSV
+      </button>
+      <button
+        type="button"
+        onClick={() => onExport("pdf")}
+        disabled={loading || disabled}
+        title="Export to PDF"
+        className="px-3 py-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors disabled:opacity-50"
+      >
+        PDF
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Standardizes the "Delete" or "Cancel" action.
+ */
+export function DeleteAction({
+  label = "Delete",
+  onClick,
+  disabled,
+  loading,
+}: {
+  label?: string;
+  onClick: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
+  return (
+    <Button
+      variant="danger"
+      size="sm"
+      responsive
+      onClick={onClick}
+      disabled={disabled}
+      loading={loading}
+    >
+      <Trash2 className="h-3.5 w-3.5" />
+      <span className="font-bold">{label}</span>
+    </Button>
+  );
+}

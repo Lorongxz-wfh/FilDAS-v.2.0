@@ -67,7 +67,7 @@ export default function DocFrame({
             </div>
           </div>
           {actions && (
-            <div className="shrink-0 flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">{actions}</div>
+            <div className="shrink-0 flex items-center gap-2 overflow-x-auto overflow-y-hidden sm:pb-0">{actions}</div>
           )}
         </div>
 

@@ -2,16 +2,15 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { pageCache } from "../lib/pageCache";
 import PageFrame from "../components/layout/PageFrame";
-import Button from "../components/ui/Button";
 import Table, { type TableColumn } from "../components/ui/Table";
 import { getAdminOffices, type AdminOffice } from "../services/admin";
 import OfficeEditModal from "../components/admin/OfficeEditModal";
 import Alert from "../components/ui/Alert";
 import { selectCls } from "../utils/formStyles";
-import RefreshButton from "../components/ui/RefreshButton";
 import MiddleTruncate from "../components/ui/MiddleTruncate";
 import { formatDate } from "../utils/formatters";
 import { StatusBadge } from "../components/ui/Badge";
+import { PageActions, CreateAction, RefreshAction } from "../components/ui/PageActions";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
 
 const OFFICE_TYPES = ["office", "vp", "president", "committee", "unit"];
@@ -199,16 +198,16 @@ export function OfficeManagerPage() {
       title="Office Manager"
       contentClassName="flex flex-col min-h-0 h-full"
       right={
-        <div className="flex items-center gap-2">
-          <RefreshButton
-            onClick={() => setReloadTick((t) => t + 1)}
+        <PageActions>
+          <RefreshAction
+            onRefresh={async () => { setReloadTick((t) => t + 1); }}
             loading={loading || initialLoading}
-            title="Refresh offices"
           />
-          <Button type="button" variant="primary" size="sm" onClick={openCreate}>
-            New office
-          </Button>
-        </div>
+          <CreateAction
+            label="New office"
+            onClick={openCreate}
+          />
+        </PageActions>
       }
     >
       <SearchFilterBar
@@ -279,7 +278,7 @@ export function OfficeManagerPage() {
       {error && <Alert variant="danger">{error}</Alert>}
 
       {/* Table Container */}
-      <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+      <div className="flex-1 min-h-0 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
         <Table<AdminOffice>
           bare
           className="h-full"

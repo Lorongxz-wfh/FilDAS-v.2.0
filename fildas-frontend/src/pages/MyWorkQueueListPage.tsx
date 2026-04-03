@@ -6,15 +6,14 @@ import { getUserRole, isQA, isSysAdmin } from "../lib/roleFilters";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import PageFrame from "../components/layout/PageFrame";
 import Table, { type TableColumn } from "../components/ui/Table";
-import Button from "../components/ui/Button";
 import Alert from "../components/ui/Alert";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
-import RefreshButton from "../components/ui/RefreshButton";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
 import { formatDate } from "../utils/formatters";
 import Select from "../components/ui/Select";
 import DateRangeInput from "../components/ui/DateRangeInput";
 import { tabCls } from "../utils/formStyles";
+import { PageActions, CreateAction, RefreshAction } from "../components/ui/PageActions";
 
 import { StatusBadge } from "../components/ui/Badge";
 
@@ -311,28 +310,23 @@ export default function MyWorkQueueListPage() {
       onBack={() => navigate("/work-queue")}
       breadcrumbs={[{ label: "Work Queue", to: "/work-queue" }]}
       right={
-        <div className="flex items-center gap-2">
-          <RefreshButton
+        <PageActions>
+          <RefreshAction
             onRefresh={refresh}
             loading={loading || refreshing}
-            title="Refresh"
           />
           {canCreate && (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
+            <CreateAction
+              label="Create document"
               onClick={() => {
                 markWorkQueueSession();
                 navigate("/documents/create", {
                   state: { fromWorkQueue: true },
                 });
               }}
-            >
-              + Create document
-            </Button>
+            />
           )}
-        </div>
+        </PageActions>
       }
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
@@ -514,7 +508,7 @@ export default function MyWorkQueueListPage() {
       )}
 
       {/* Table card */}
-      <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+      <div className="flex-1 min-h-0 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
         <Table<Document>
           bare
           className="h-full"

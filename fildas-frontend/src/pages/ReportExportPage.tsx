@@ -1,11 +1,12 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Download } from "lucide-react";
+import { Download, FileArchive } from "lucide-react";
 import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
 import Skeleton from "../components/ui/loader/Skeleton";
 import { getComplianceReport, getRequestsReport, getActivityReport, downloadMasterReportZip } from "../services/reportsApi";
 import { useAuthUser } from "../hooks/useAuthUser";
+import { PageActions, RefreshAction } from "../components/ui/PageActions";
 import {
   exportKpiCsv,
   exportKpiPdf,
@@ -154,6 +155,7 @@ const ReportExportPage: React.FC = () => {
 
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = React.useState(0);
 
   // Overview data
   const [kpis, setKpis] = React.useState<ComplianceKpis>({
@@ -261,7 +263,7 @@ const ReportExportPage: React.FC = () => {
         setLoading(false);
       }
     })();
-  }, [me]);
+  }, [me, refreshKey]);
 
   const sections: ExportSection[] = [
     // ── Overview ──────────────────────────────────────────────────────────────
@@ -568,33 +570,41 @@ const ReportExportPage: React.FC = () => {
       breadcrumbs={[{ label: "Reports", to: "/reports" }]}
       contentClassName="flex flex-col gap-6"
       right={
-        <div className="flex items-center gap-1.5 sm:gap-3">
+        <PageActions>
+          <RefreshAction
+            loading={loading}
+            onRefresh={async () => {
+              setRefreshKey((k) => k + 1);
+              return "Report data refreshed.";
+            }}
+          />
           <Button
             variant="outline"
             size="sm"
+            responsive
             disabled={loading}
             loading={masterExporting}
             onClick={handleDownloadMasterZip}
-            className="h-9 px-3 sm:py-1.5 sm:h-auto sm:px-4 rounded-xl sm:rounded-lg border-sky-200 text-sky-700 hover:bg-sky-50 dark:border-sky-900 dark:text-sky-400 dark:hover:bg-sky-950/30 transition-all active:scale-95"
+            className="border-sky-200 text-sky-700 hover:bg-sky-50 dark:border-sky-900 dark:text-sky-400 dark:hover:bg-sky-950/30"
           >
-            <Download size={13} />
-            <span className="hidden sm:inline">Master Export (ZIP)</span>
-            <span className="sm:hidden font-bold leading-none">Master ZIP</span>
+            <FileArchive className="h-3.5 w-3.5" />
+            <span className="font-bold">Master ZIP</span>
           </Button>
 
           <Button
             variant="primary"
             size="sm"
+            responsive
             disabled={selectedCount === 0 || loading}
             loading={exporting}
             onClick={handleExportAll}
-            className="h-9 px-3 sm:py-1.5 sm:h-auto sm:px-4 rounded-xl sm:rounded-lg transition-all active:scale-95"
           >
-            <Download size={13} />
-            <span className="hidden sm:inline">{exporting ? "Exporting…" : `Export ${selectedCount} selected`}</span>
-            <span className="sm:hidden font-bold leading-none">{exporting ? "..." : `Export (${selectedCount})`}</span>
+            <Download className="h-3.5 w-3.5" />
+            <span className="font-bold">
+              {exporting ? "Exporting…" : `Export (${selectedCount})`}
+            </span>
           </Button>
-        </div>
+        </PageActions>
       }
     >
       {/* Global select all / none */}

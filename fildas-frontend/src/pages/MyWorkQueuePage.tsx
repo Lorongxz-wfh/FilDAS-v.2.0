@@ -18,10 +18,10 @@ import {
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
-import RefreshButton from "../components/ui/RefreshButton";
+import { PageActions, RefreshAction, CreateAction } from "../components/ui/PageActions";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
-import { CheckCircle2, Search, X, FileText, PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, Search, X, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { tabCls } from "../utils/formStyles";
 import StatCard from "../components/workQueue/StatCard";
 import QueueCard from "../components/workQueue/QueueCard";
@@ -231,13 +231,13 @@ const MyWorkQueuePage: React.FC = () => {
       title={isAdmin ? "Work Queue" : "My Work Queue"}
       contentClassName="flex flex-col min-h-0 gap-5 h-full"
       right={
-        <div className="flex items-center gap-2">
-          <RefreshButton
+        <PageActions>
+          <RefreshAction
             onRefresh={async () => {
               const prevCount = queueCountRef.current;
               await loadAll();
               const nextCount = queueCountRef.current;
-              if (prevCount === null) return false; // initial load — suppress toast
+              if (prevCount === null) return false;
               if (nextCount !== prevCount) {
                 const diff = (nextCount ?? 0) - (prevCount ?? 0);
                 return diff > 0
@@ -247,36 +247,29 @@ const MyWorkQueuePage: React.FC = () => {
               return "Already up to date.";
             }}
             loading={refreshing || loading}
-            title="Refresh queue"
           />
           <Button
             type="button"
             variant="outline"
             size="sm"
+            responsive
             onClick={() => navigate("/documents/all")}
-            title="All Workflows"
           >
-            <FileText size={15} />
-            <span className="hidden sm:inline font-bold">All workflows</span>
+            <FileText className="h-3.5 w-3.5" />
+            <span className="font-bold">All workflows</span>
           </Button>
           {canCreate && (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
+            <CreateAction
+              label="Create document"
               onClick={() => {
                 markWorkQueueSession();
                 navigate("/documents/create", {
                   state: { fromWorkQueue: true },
                 });
               }}
-              title="Create Document"
-            >
-              <PlusCircle size={15} />
-              <span className="hidden sm:inline font-bold">Create document</span>
-            </Button>
+            />
           )}
-        </div>
+        </PageActions>
       }
     >
       {/* Error */}

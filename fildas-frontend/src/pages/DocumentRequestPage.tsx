@@ -25,7 +25,7 @@ import {
   type DocumentRequestMessageRow,
 } from "../services/documentRequests";
 import { MessageSquare, Activity, Megaphone } from "lucide-react";
-import RefreshButton from "../components/ui/RefreshButton";
+import { PageActions, RefreshAction } from "../components/ui/PageActions";
 import { useRealtimeUpdates } from "../hooks/useRealtimeUpdates";
 import { roleLower, TabBar } from "../components/documentRequests/shared";
 import RequestHeaderCard from "../components/documentRequests/RequestHeaderCard";
@@ -634,11 +634,12 @@ export default function DocumentRequestPage() {
       breadcrumbs={[{ label: "Batch", to: "/document-requests" }]}
       fullHeight
       right={
-        <RefreshButton
-          onRefresh={handleRefresh}
-          loading={refreshing || loading}
-          title="Refresh page"
-        />
+        <PageActions>
+          <RefreshAction
+            onRefresh={handleRefresh}
+            loading={refreshing || loading}
+          />
+        </PageActions>
       }
     >
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:h-full min-h-0 p-4 sm:p-5">

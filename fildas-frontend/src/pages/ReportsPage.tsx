@@ -4,13 +4,13 @@ import { useAuthUser } from "../hooks/useAuthUser";
 import { getUserRole, isQA } from "../lib/roleFilters";
 import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
-import RefreshButton from "../components/ui/RefreshButton";
 import ReportFilters from "../components/reports/ReportFilters";
 import { useReportsData } from "../hooks/useReportsData";
 import { useReportFilters } from "../hooks/useReportFilters";
 import { getOffices } from "../services/reportsApi";
-import { SlidersHorizontal, TrendingUp } from "lucide-react";
+import { SlidersHorizontal, BarChart3 } from "lucide-react";
 import { tabCls } from "../utils/formStyles";
+import { PageActions, RefreshAction } from "../components/ui/PageActions";
 
 // Tabs
 import OverviewTab from "../components/reports/tabs/OverviewTab";
@@ -117,27 +117,26 @@ const ReportsPage: React.FC = () => {
       title="Reports"
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
       right={
-        <div className="flex items-center gap-2">
-          <RefreshButton
+        <PageActions>
+          <RefreshAction
             loading={loading}
             onRefresh={async () => {
               setRefreshKey((k) => k + 1);
               return "Report data refreshed.";
             }}
-            title="Refresh report"
           />
 
           <Button
             type="button"
             variant="primary"
             size="sm"
+            responsive
             onClick={() => navigate("/reports/export")}
-            title="Export reports"
           >
-            <TrendingUp size={15} />
-            <span className="hidden sm:inline font-bold">Export reports</span>
+            <BarChart3 className="h-3.5 w-3.5" />
+            <span className="font-bold">Export reports</span>
           </Button>
-        </div>
+        </PageActions>
       }
     >
       {/* Tab nav */}

@@ -19,7 +19,7 @@ import {
 } from "react-router-dom";
 import Alert from "../components/ui/Alert";
 import Button from "../components/ui/Button";
-import RefreshButton from "../components/ui/RefreshButton";
+import { PageActions, RefreshAction } from "../components/ui/PageActions";
 import DocFrame from "../components/layout/DocFrame";
 import DocumentRightPanel from "../components/documents/documentFlow/DocumentRightPanel";
 import VersionsDropdown from "../components/documents/documentFlow/VersionsDropdown";
@@ -35,6 +35,8 @@ import {
   Library,
   Loader2,
   XCircle,
+  Trash2,
+  FileDown,
   ArrowRightToLine,
   ArrowLeftCircle,
   CheckCircle2,
@@ -42,6 +44,8 @@ import {
   Terminal,
   Layers,
   RefreshCcw,
+  Undo2,
+  History,
 } from "lucide-react";
 import { normalizeError } from "../lib/normalizeError";
 import VersionComparisonModal from "../components/documents/documentFlow/VersionComparisonModal";
@@ -425,32 +429,6 @@ const refreshAndSelectBest = React.useCallback(
                   {headerState?.title ?? document?.title}
                 </span>
               )}
-              {!loading && (
-                <RefreshButton
-                  onRefresh={async () => {
-                    setIsRefreshing(true);
-                    const prevStatus = selectedVersion?.status;
-                    const prevVersionCount = allVersions.length;
-                    try {
-                      await refreshAndSelectBest({
-                        preferVersionId: selectedVersion?.id,
-                      });
-                      const statusChanged =
-                        selectedVersion?.status !== prevStatus;
-                      const newVersionAdded =
-                        allVersions.length > prevVersionCount;
-                      if (statusChanged || newVersionAdded)
-                        return "Document updated.";
-                      return "Already up to date.";
-                    } finally {
-                      setIsRefreshing(false);
-                    }
-                  }}
-                  loading={isRefreshing}
-                  title="Refresh document"
-                  className="!h-7 !w-7"
-                />
-              )}
             </div>
           </div>
         }
@@ -461,7 +439,31 @@ const refreshAndSelectBest = React.useCallback(
         rightCollapsed={rightCollapsed}
         onCollapseToggle={() => setRightCollapsed((v) => !v)}
         actions={
-          <div className="flex flex-wrap gap-2">
+          <PageActions>
+            {!loading && (
+              <RefreshAction
+                onRefresh={async () => {
+                  setIsRefreshing(true);
+                  const prevStatus = selectedVersion?.status;
+                  const prevVersionCount = allVersions.length;
+                  try {
+                    await refreshAndSelectBest({
+                      preferVersionId: selectedVersion?.id,
+                    });
+                    const statusChanged =
+                      selectedVersion?.status !== prevStatus;
+                    const newVersionAdded =
+                      allVersions.length > prevVersionCount;
+                    if (statusChanged || newVersionAdded)
+                      return "Document updated.";
+                    return "Already up to date.";
+                  } finally {
+                    setIsRefreshing(false);
+                  }
+                }}
+                loading={isRefreshing || loading}
+              />
+            )}
             {current?.status === "Distributed" && isOwner && role !== "AUDITOR" && !isArchived && (
               <Button
                 type="button"
@@ -470,7 +472,7 @@ const refreshAndSelectBest = React.useCallback(
                 responsive
                 disabled={isLoadingSelectedVersion}
                 onClick={() => setShareOpen(true)}
-                tooltip="Share"
+                tooltip="Share document with other offices"
               >
                 <Share2 className="h-3.5 w-3.5 sm:mr-1" />
                 <span>Share</span>
@@ -484,7 +486,7 @@ const refreshAndSelectBest = React.useCallback(
                 responsive
                 disabled={isLoadingSelectedVersion}
                 onClick={() => navigate(`/documents/${id}/view`)}
-                tooltip="View in Library"
+                tooltip="Open document in Library view"
               >
                 <Library className="h-3.5 w-3.5 sm:mr-1" />
                 <span>View in Library</span>
@@ -493,21 +495,22 @@ const refreshAndSelectBest = React.useCallback(
             {current?.status === "Distributed" && isOwner && role !== "AUDITOR" && !isArchived && (
               <Button
                 type="button"
-                variant="outline"
+                variant="primary"
                 size="sm"
                 responsive
                 disabled={isLoadingSelectedVersion}
                 onClick={() => {
+                  if (selectedVersion) logOpenedVersion(selectedVersion.id, "revise_action");
                   setReviseModalOpen(true);
                 }}
-                tooltip="Revise"
+                tooltip="Start a new revision for this document"
               >
                 <RefreshCcw className="h-3.5 w-3.5 sm:mr-1" />
                 <span>Revise</span>
               </Button>
             )}
             {!headerState?.isTasksReady && current?.status !== "Distributed" ? (
-              <div className="h-7 w-28 rounded-md bg-slate-200 dark:bg-surface-400 animate-pulse" />
+              <div className="h-7 w-28 rounded-sm bg-slate-200 dark:bg-surface-400 animate-pulse" />
             ) : (
               (headerState?.headerActions ?? []).map((a: any) => {
                 const isThis = processingKey === a.key || a.loading;
@@ -521,9 +524,9 @@ const refreshAndSelectBest = React.useCallback(
                 const Icon = 
                   a.icon ? a.icon :
                   a.key === "REJECT" ? XCircle :
-                  a.key.includes("CANCEL") ? XCircle :
+                  a.key.includes("CANCEL") || a.key.includes("DELETE") ? Trash2 :
                   a.key.includes("SEND") || a.key.includes("FORWARD") ? ArrowRightToLine :
-                  a.key.includes("BACK") ? ArrowLeftCircle :
+                  a.key.includes("BACK") || a.key.includes("RETURN") ? ArrowLeftCircle :
                   a.key.includes("APPROVAL") || a.key === "QA_PRESIDENT_APPROVE" || a.key === "OFFICE_PRESIDENT_APPROVE" ? CheckCircle2 :
                   a.key.includes("REGISTER") ? Hash :
                   a.key.includes("DISTRIBUTE") ? Share2 :
@@ -537,7 +540,11 @@ const refreshAndSelectBest = React.useCallback(
                     type="button"
                     size="sm"
                     responsive
-                    variant={a.variant === "danger" ? "danger" : a.variant === "outline" ? "outline" : "primary"}
+                    variant={
+                      (a.key.includes("DISTRIBUTE") || a.key.includes("FINALIZATION")) ? "success" :
+                      a.variant === "danger" ? "danger" : 
+                      a.variant === "outline" ? "outline" : "primary"
+                    }
                     disabled={isBusy || a.disabled}
                     onClick={() => handleHeaderActionClick(a)}
                     tooltip={a.label}
@@ -552,31 +559,38 @@ const refreshAndSelectBest = React.useCallback(
                 );
               })
             )}
-            {(headerState?.versionActions ?? []).map((a: any) => (
-              <Button
-                key={a.key}
-                type="button"
-                size="sm"
-                responsive
-                variant={
-                  a.variant === "danger"
-                    ? "danger"
-                    : a.variant === "outline"
-                      ? "outline"
-                      : "secondary"
-                }
-                onClick={() => a.onClick()}
-                disabled={
-                  !!processingKey ||
-                  isLoadingSelectedVersion ||
-                  pendingUploadPct !== null
-                }
-                tooltip={a.label}
-              >
-                <span>{a.label}</span>
-              </Button>
-            ))}
-          </div>
+             {(headerState?.versionActions ?? []).map((a: any) => {
+               const Icon = 
+                 a.key === "download" ? FileDown :
+                 a.key === "delete_draft" ? Trash2 :
+                 a.key === "restore" ? Undo2 :
+                 History;
+
+               return (
+                 <Button
+                   key={a.key}
+                   type="button"
+                   size="sm"
+                   responsive
+                   variant={
+                     a.variant === "danger"
+                       ? "danger"
+                       : "outline"
+                   }
+                   onClick={() => a.onClick()}
+                   disabled={
+                     !!processingKey ||
+                     isLoadingSelectedVersion ||
+                     pendingUploadPct !== null
+                   }
+                   tooltip={a.label}
+                 >
+                   <Icon className="h-3.5 w-3.5 sm:mr-1" />
+                   <span>{a.label}</span>
+                 </Button>
+               );
+             })}
+          </PageActions>
         }
         rightHeader={rightHeader}
         left={

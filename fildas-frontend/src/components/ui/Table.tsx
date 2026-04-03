@@ -211,7 +211,7 @@ export default function Table<T>({
                   if (shape === "badge") {
                     skeletonElement = (
                       <Skeleton
-                        className="rounded-full h-5"
+                        className="rounded-sm h-5"
                         style={{ width: `${60 + (r % 3) * 10}%`, maxWidth: '80px' }}
                       />
                     );
@@ -405,7 +405,7 @@ export default function Table<T>({
   return (
     <div
       className={[
-        "flex flex-col min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500",
+        "flex flex-col min-h-0 overflow-hidden rounded-sm border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500",
         className ?? "",
       ].join(" ")}
     >
