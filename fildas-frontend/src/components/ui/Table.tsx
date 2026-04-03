@@ -17,8 +17,9 @@ export type TableColumn<T> = {
    * double  — two stacked lines (title + subtitle)
    * narrow  — short single line (date/code/version)
    * text    — regular single line (default)
+   * circle  — small circle (activity indicator)
    */
-  skeletonShape?: "badge" | "double" | "narrow" | "text";
+  skeletonShape?: "badge" | "double" | "narrow" | "text" | "circle";
   /** If set, this column header becomes clickable for sorting. Value is the sort_by key sent to the API. */
   sortKey?: string;
 };
@@ -227,6 +228,12 @@ export default function Table<T>({
                           style={{ width: `${60 + (r % 4) * 8}%` }}
                         />
                       </div>
+                    );
+                  } else if (shape === "circle") {
+                    skeletonElement = (
+                      <Skeleton
+                        className="rounded-full h-2 w-2"
+                      />
                     );
                   } else if (shape === "narrow") {
                     skeletonElement = (

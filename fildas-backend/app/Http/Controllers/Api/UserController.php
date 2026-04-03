@@ -74,7 +74,7 @@ class UserController extends Controller
         $sortDir = $request->query('sort_dir') === 'asc' ? 'asc' : 'desc';
 
         $query = User::with(['role', 'office'])
-            ->select('id', 'first_name', 'middle_name', 'last_name', 'suffix', 'email', 'profile_photo_path', 'role_id', 'office_id', 'disabled_at', 'disabled_by', 'created_at', 'updated_at', 'deleted_at')
+            ->select('id', 'first_name', 'middle_name', 'last_name', 'suffix', 'email', 'profile_photo_path', 'role_id', 'office_id', 'disabled_at', 'disabled_by', 'last_active_at', 'created_at', 'updated_at', 'deleted_at')
             ->orderBy($sortBy, $sortDir);
 
         $showDeleted = $request->boolean('deleted', false);

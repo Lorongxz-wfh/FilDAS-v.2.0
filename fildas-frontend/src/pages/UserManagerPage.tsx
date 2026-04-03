@@ -157,6 +157,25 @@ const UserManagerPage: React.FC = () => {
   const columns: TableColumn<AdminUser>[] = useMemo(
     () => [
       {
+        key: "activity",
+        header: "",
+        skeletonShape: "circle",
+        render: (u) => {
+          const isEnabled = !u.disabled_at;
+          const lastActive = u.last_active_at ? new Date(u.last_active_at) : null;
+          const isOnline = isEnabled && lastActive && (Date.now() - lastActive.getTime() < 30 * 60 * 1000);
+          
+          return (
+            <div className="flex justify-center">
+              <div 
+                className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-slate-300 dark:bg-surface-400'}`}
+                title={isOnline ? 'Online' : u.disabled_at ? 'Disabled' : 'Offline'}
+              />
+            </div>
+          );
+        },
+      },
+      {
         key: "name",
         header: "Name",
         sortKey: "last_name",
@@ -199,7 +218,7 @@ const UserManagerPage: React.FC = () => {
       },
       {
         key: "status",
-        header: "Status",
+        header: "Account",
         skeletonShape: "badge",
         render: (u) => <StatusBadge status={u.disabled_at ? "Disabled" : "Active"} />,
       },
@@ -331,7 +350,7 @@ const UserManagerPage: React.FC = () => {
           emptyMessage={search || statusFilter || roleFilter ? "No users match your filters." : "No users found."}
           hasMore={hasMore}
           onLoadMore={() => setPage((p) => p + 1)}
-          gridTemplateColumns="minmax(140px, 0.8fr) minmax(180px, 0.8fr) minmax(220px, 1.6fr) 8rem 7rem 8rem"
+          gridTemplateColumns="3rem minmax(140px, 0.8fr) minmax(180px, 0.8fr) minmax(220px, 1.6fr) 8rem 7rem 8rem"
           sortBy={sortBy}
           sortDir={sortDir}
           onSortChange={(key, dir) => {

@@ -15,6 +15,7 @@ export interface AdminUser {
 
   disabled_at?: string | null;
   disabled_by?: number | null;
+  last_active_at?: string | null;
   deleted_at?: string | null;
 
   created_at: string;
