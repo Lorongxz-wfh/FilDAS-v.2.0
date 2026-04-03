@@ -25,7 +25,7 @@ import type {
   AdminDashboardStats,
 } from "../services/documents";
 import Skeleton from "../components/ui/loader/Skeleton";
-import { filterSelectCls } from "../utils/formStyles";
+import { filterSelectCls, tabCls } from "../utils/formStyles";
 import {
   FileText,
   CheckCircle2,
@@ -180,13 +180,6 @@ const AdminReportsPage: React.FC = () => {
     !!dateTo,
   ].filter(Boolean).length;
 
-  const tabCls = (active: boolean) =>
-    [
-      "px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px",
-      active
-        ? "border-brand-500 text-brand-600 dark:text-brand-400"
-        : "border-transparent text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300",
-    ].join(" ");
 
   return (
     <PageFrame

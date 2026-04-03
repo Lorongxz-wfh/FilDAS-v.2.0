@@ -278,7 +278,7 @@ const MyActivityPage: React.FC = () => {
     <PageFrame
       title="My Activity"
       breadcrumbs={[{ label: "Activity Logs", to: "/activity-logs" }]}
-      contentClassName="flex flex-col gap-4 h-full"
+      contentClassName="flex flex-col min-h-0 h-full"
       onBack={() => navigate(-1)}
       right={
         <div className="flex items-center gap-2">

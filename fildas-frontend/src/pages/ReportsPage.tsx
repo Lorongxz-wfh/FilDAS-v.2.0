@@ -10,6 +10,7 @@ import { useReportsData } from "../hooks/useReportsData";
 import { useReportFilters } from "../hooks/useReportFilters";
 import { getOffices } from "../services/reportsApi";
 import { SlidersHorizontal, TrendingUp } from "lucide-react";
+import { tabCls } from "../utils/formStyles";
 
 // Tabs
 import OverviewTab from "../components/reports/tabs/OverviewTab";
@@ -110,14 +111,6 @@ const ReportsPage: React.FC = () => {
   }, [filtersOpen]);
 
   if (!me) return <Navigate to="/login" replace />;
-
-  const tabCls = (active: boolean) =>
-    [
-      "px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px",
-      active
-        ? "border-sky-500 text-sky-600 dark:text-sky-400"
-        : "border-transparent text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300",
-    ].join(" ");
 
   return (
     <PageFrame

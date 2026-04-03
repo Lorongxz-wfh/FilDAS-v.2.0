@@ -19,6 +19,7 @@ import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
 import { PlusCircle, Archive, LayoutGrid, List, Share2, ClipboardList } from "lucide-react";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import { formatDate } from "../utils/formatters";
+import { tabCls } from "../utils/formStyles";
 
 import {
   type LibTab,
@@ -290,10 +291,10 @@ export default function DocumentLibraryPage() {
           )}
         </div>
       }
-      contentClassName="flex flex-col min-h-0 h-full"
+      contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
       {/* Tabs */}
-      <div className="shrink-0 flex items-center border-b border-slate-200 dark:border-surface-400 overflow-x-auto overflow-y-hidden hide-scrollbar">
+      <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0 overflow-x-auto hide-scrollbar">
         {(isAuditor(role)
           ? (["all"] as LibTab[])
           : (["all", "created", "requested", "shared"] as LibTab[])
@@ -302,12 +303,7 @@ export default function DocumentLibraryPage() {
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={[
-              "flex items-center gap-2 px-4 py-3 text-xs font-bold border-b-2 transition-all shrink-0 -mb-px",
-              tab === t
-                ? "border-brand-500 text-brand-600 dark:text-brand-400"
-                : "border-transparent text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300",
-            ].join(" ")}
+          className={tabCls(tab === t)}
           >
             {TAB_ICONS[t]}
             {TAB_LABELS[t]}

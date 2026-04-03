@@ -91,7 +91,7 @@ const ActivityLogsPage: React.FC = () => {
   return (
     <PageFrame
       title="Activity Logs"
-      contentClassName="flex flex-col min-h-0 gap-4 h-full"
+      contentClassName="flex flex-col min-h-0 h-full"
       right={
         <ActivityLogsHeader
           tab={tab}

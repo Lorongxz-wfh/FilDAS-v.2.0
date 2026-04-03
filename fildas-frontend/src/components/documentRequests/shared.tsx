@@ -51,7 +51,7 @@ export function TabBar<T extends string>({
           onClick={() => onChange(t.value)}
           className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px ${
             active === t.value
-              ? "border-sky-500 text-sky-600 dark:text-sky-400"
+              ? "border-sky-500 text-slate-900 dark:text-slate-50"
               : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >

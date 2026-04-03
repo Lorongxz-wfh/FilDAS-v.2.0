@@ -12,6 +12,7 @@ import type {
 import DocumentInfoPanel from "./DocumentInfoPanel";
 import DocumentCommentsPanel from "./DocumentCommentsPanel";
 import DocumentActivityPanel from "./DocumentActivityPanel";
+import { tabCls } from "../../../utils/formStyles";
 
 type Props = {
   document: Document | null;
@@ -173,7 +174,7 @@ const DocumentRightPanel: React.FC<Props> = ({
             className={`h-3 w-3 shrink-0 text-slate-400 transition-transform duration-150 ${commentsExpanded ? "rotate-90" : "rotate-0"}`}
           />
           <div
-            className="flex items-center gap-1 p-1 bg-slate-100/50 dark:bg-surface-400/30 rounded-md"
+            className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
             {(["comments", "logs"] as const).map((tab) => (
@@ -186,26 +187,14 @@ const DocumentRightPanel: React.FC<Props> = ({
                   if (tab === "comments") clearNewMessageCount();
                   if (!commentsExpanded) setCommentsExpanded(true);
                 }}
-                className={[
-                  "px-3 py-1 text-xs font-semibold rounded-md transition-all duration-200",
-                  activeSideTab === tab
-                    ? "bg-white dark:bg-surface-300 text-slate-900 dark:text-slate-100 shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:bg-white/40 dark:hover:bg-surface-300/20 hover:text-slate-700 dark:hover:text-slate-200",
-                ].join(" ")}
+                className={tabCls(activeSideTab === tab)}
               >
                 {tab === "comments" ? "Comments" : "Activity"}
                 {tab === "comments" && newMessageCount > 0 && (
-                  <span className="ml-1 rounded-full bg-rose-500 px-1.5 text-xs font-bold text-white animate-pulse">
-                    +{newMessageCount}
+                  <span className="ml-1.5 inline-flex items-center justify-center rounded bg-sky-100 dark:bg-sky-950/40 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-400">
+                    {newMessageCount}
                   </span>
                 )}
-                {tab === "comments" &&
-                  newMessageCount === 0 &&
-                  messages.length > 0 && (
-                    <span className="ml-1 rounded-full bg-slate-200 dark:bg-surface-300 px-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
-                      {messages.length}
-                    </span>
-                  )}
               </button>
             ))}
           </div>

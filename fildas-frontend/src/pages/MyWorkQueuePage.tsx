@@ -22,6 +22,7 @@ import RefreshButton from "../components/ui/RefreshButton";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import { CheckCircle2, Search, X, FileText, PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { tabCls } from "../utils/formStyles";
 import StatCard from "../components/workQueue/StatCard";
 import QueueCard from "../components/workQueue/QueueCard";
 import FinishedCard from "../components/workQueue/FinishedCard";
@@ -329,23 +330,17 @@ const MyWorkQueuePage: React.FC = () => {
               </p>
             </div>
 
-            {/* Tab switcher — horizontal scroll on mobile */}
-            <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0">
+            <div className="flex items-center overflow-x-auto hide-scrollbar -mx-1 px-1 sm:mx-0 sm:px-0 -mb-3 sm:-mb-3">
               {tabs.map((t) => (
                 <button
                   key={t.value}
                   type="button"
                   onClick={() => setTab(t.value)}
-                  className={[
-                    "flex items-center gap-1.5 shrink-0 px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold rounded-md transition-all whitespace-nowrap",
-                    tab === t.value
-                      ? "bg-slate-100 dark:bg-surface-400 text-slate-900 dark:text-slate-100 shadow-sm"
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-surface-400",
-                  ].join(" ")}
+                  className={tabCls(tab === t.value)}
                 >
                   {t.label}
                   {t.count != null && (
-                    <span className="inline-flex items-center justify-center rounded bg-slate-200 dark:bg-surface-300 px-1.5 py-0.5 text-[9px] font-bold text-slate-600 dark:text-slate-300">
+                    <span className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-[9px] font-bold transition-colors ${tab === t.value ? 'bg-sky-100 dark:bg-sky-950/40 text-sky-700 dark:text-sky-400' : 'bg-slate-100 dark:bg-surface-400 text-slate-500 dark:text-slate-400'}`}>
                       {t.count}
                     </span>
                   )}

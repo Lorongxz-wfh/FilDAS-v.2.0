@@ -8,7 +8,7 @@ import EmptyState from "../components/ui/EmptyState";
 import RefreshButton from "../components/ui/RefreshButton";
 import { useToast } from "../components/ui/toast/ToastContext";
 import { Tag, LayoutGrid, List, Upload, ChevronDown } from "lucide-react";
-import { selectCls } from "../utils/formStyles";
+import { selectCls, tabCls } from "../utils/formStyles";
 import { getAuthUser } from "../lib/auth";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
@@ -201,19 +201,12 @@ const TemplatesPage: React.FC = () => {
     setUploadingName(null);
   };
 
-  const tabCls = (active: boolean) =>
-    [
-      "flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px",
-      active
-        ? "border-sky-500 text-sky-600 dark:text-sky-400"
-        : "border-transparent text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300",
-    ].join(" ");
 
   return (
     <>
       <PageFrame
         title="Document Templates"
-        contentClassName="flex flex-col min-h-0 gap-0 h-full"
+        contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
         right={
           <div className="flex items-center gap-2">
             <RefreshButton

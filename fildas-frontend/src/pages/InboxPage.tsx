@@ -5,6 +5,7 @@ import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
 import { Search, X, Trash2, BellOff } from "lucide-react";
 import RefreshButton from "../components/ui/RefreshButton";
+import { tabCls } from "../utils/formStyles";
 import {
   listNotifications,
   markAllNotificationsRead,
@@ -285,27 +286,21 @@ const InboxPage: React.FC = () => {
           </Button>
         </div>
       }
-      contentClassName="flex flex-col min-h-0 gap-4"
+      contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
       {/* Filter bar */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
-        {/* Tabs */}
-        <div className="flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 p-1 shrink-0">
+        <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0">
           {tabs.map((t) => (
             <button
               key={t.key}
               type="button"
               onClick={() => setTab(t.key)}
-              className={[
-                "rounded-md px-3 py-1 text-xs font-medium transition",
-                tab === t.key
-                  ? "bg-white dark:bg-surface-500 text-slate-900 dark:text-slate-100 shadow-sm border border-slate-200 dark:border-surface-400"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
-              ].join(" ")}
+              className={tabCls(tab === t.key)}
             >
               {t.label}
               {t.key === "unread" && unreadCount > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-sky-100 dark:bg-sky-950/40 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-400">
+                <span className="ml-1.5 inline-flex items-center justify-center rounded bg-sky-100 dark:bg-sky-950/40 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-400">
                   {unreadCount}
                 </span>
               )}

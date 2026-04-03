@@ -14,6 +14,7 @@ import {
 
 import { InfoRow, fmt } from "./documentInfoHelpers";
 import DocumentInfoParticipantsTab from "./DocumentInfoParticipantsTab";
+import { tabCls } from "../../../utils/formStyles";
 import { StatusBadge } from "../../ui/Badge";
 
 type Props = {
@@ -151,19 +152,13 @@ const DocumentInfoPanel: React.FC<Props> = ({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Tab switcher */}
-      <div className="flex items-center gap-1 mb-4 p-1 rounded-md bg-slate-100/50 dark:bg-surface-400/30 border border-slate-200/60 dark:border-surface-400/20 shadow-sm">
+      <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0 mb-4">
         {(["details", "participants"] as const).map((tab) => (
           <button
             key={tab}
             type="button"
             onClick={() => setActiveTab(tab)}
-            className={[
-              "flex-1 px-3 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-tight transition-all duration-200",
-              activeTab === tab
-                ? "bg-white dark:bg-surface-300 text-slate-900 dark:text-slate-100 shadow-sm"
-                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-surface-300/20",
-            ].join(" ")}
+            className={tabCls(activeTab === tab)}
           >
             {tab === "details" ? "Details" : "Participants"}
           </button>

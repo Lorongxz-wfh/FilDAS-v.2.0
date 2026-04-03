@@ -14,6 +14,7 @@ import SearchFilterBar from "../components/ui/SearchFilterBar";
 import { formatDate } from "../utils/formatters";
 import Select from "../components/ui/Select";
 import DateRangeInput from "../components/ui/DateRangeInput";
+import { tabCls } from "../utils/formStyles";
 
 import { StatusBadge } from "../components/ui/Badge";
 
@@ -212,13 +213,6 @@ export default function MyWorkQueueListPage() {
     }));
   }, [rows]);
 
-  const tabCls = (active: boolean) =>
-    [
-      "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
-      active
-        ? "border-brand-500 text-brand-600 dark:text-brand-400"
-        : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
-    ].join(" ");
 
   // ── Table columns ──────────────────────────────────────────────────────────
   const columns: TableColumn<Document>[] = useMemo(() => {
@@ -316,7 +310,6 @@ export default function MyWorkQueueListPage() {
       title="Workflow Documents"
       onBack={() => navigate("/work-queue")}
       breadcrumbs={[{ label: "Work Queue", to: "/work-queue" }]}
-      contentClassName="flex flex-col min-h-0 h-full"
       right={
         <div className="flex items-center gap-2">
           <RefreshButton
@@ -341,9 +334,10 @@ export default function MyWorkQueueListPage() {
           )}
         </div>
       }
+      contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
       {/* Tabs */}
-      <div className="shrink-0 flex items-center border-b border-slate-200 dark:border-surface-400 overflow-x-auto overflow-y-hidden hide-scrollbar">
+      <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0 overflow-x-auto hide-scrollbar">
         {TABS.map((t) => (
           <button
             key={t.value}

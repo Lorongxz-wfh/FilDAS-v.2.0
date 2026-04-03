@@ -20,7 +20,7 @@ import {
   LayoutList,
   TableProperties,
 } from "lucide-react";
-import { selectCls } from "../utils/formStyles";
+import { selectCls, tabCls } from "../utils/formStyles";
 import { formatDate } from "../utils/formatters";
 import MiddleTruncate from "../components/ui/MiddleTruncate";
 import { StatusBadge, TypePill } from "../components/ui/Badge";
@@ -434,19 +434,14 @@ export default function DocumentRequestListPage() {
       }
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
-      <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0 overflow-x-auto overflow-y-hidden hide-scrollbar">
+      <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0 overflow-x-auto hide-scrollbar">
         <button
           type="button"
           onClick={() => {
             setTab("batches");
             setRecipientStatus("");
           }}
-          className={[
-            "flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px",
-            tab === "batches"
-              ? "border-sky-500 text-sky-600 dark:text-sky-400"
-              : "border-transparent text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300",
-          ].join(" ")}
+          className={tabCls(tab === "batches")}
         >
           <LayoutList className="h-3.5 w-3.5" />
           Request Batches
@@ -457,12 +452,7 @@ export default function DocumentRequestListPage() {
             setTab("all");
             setStatus("");
           }}
-          className={[
-            "flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors -mb-px",
-            tab === "all"
-              ? "border-sky-500 text-sky-600 dark:text-sky-400"
-              : "border-transparent text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300",
-          ].join(" ")}
+          className={tabCls(tab === "all")}
         >
           <TableProperties className="h-3.5 w-3.5" />
           All Requests
@@ -601,7 +591,7 @@ export default function DocumentRequestListPage() {
 
       {error && !loading && <Alert variant="danger" className="mt-4">{error}</Alert>}
 
-      <div className="flex-1 min-h-0 mt-4 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+      <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
         {tab === "batches" && (
           <Table<any>
             bare
