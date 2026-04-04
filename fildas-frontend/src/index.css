@@ -10,14 +10,15 @@
   --color-primary-500: #0e84d4;
   --color-primary-600: #026aa2;
 
-  /* Brand - FilDAS Indigo */
-  --color-brand-50: #f5f8ff;
-  --color-brand-100: #ebf1ff;
-  --color-brand-200: #d6e3ff;
-  --color-brand-300: #adbcff;
-  --color-brand-400: #8491ff;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
+  /* Brand - FilDAS Sky Blue (Cleaner, Professional) */
+  --color-brand-50: #f0f9ff;
+  --color-brand-100: #e0f2fe;
+  --color-brand-200: #bae6fd;
+  --color-brand-300: #7dd3fc;
+  --color-brand-400: #38bdf8;
+  --color-brand-500: #0ea5e9;
+  --color-brand-600: #0284c7;
+  --color-brand-700: #0369a1;
 
   /* Surface Tokens (Dark Mode) - Solid, no-blur textures */
   --color-surface-50: #f0f6fc;
@@ -77,7 +78,7 @@
 @layer base {
   :root {
     color-scheme: light;
-    accent-color: var(--color-brand-500);
+    accent-color: var(--color-brand-600);
   }
 
   .dark {
@@ -89,12 +90,17 @@
   body {
     font-family: "Inter", -apple-system, system-ui, sans-serif;
     font-size: 14px;
-    font-weight: 450; /* Slightly heavier base for secondary text crispness */
+    font-weight: 450;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
+    text-rendering: tabular-nums;
     font-display: swap;
+  }
+
+  /* Global Icon Hardening */
+  svg.lucide {
+    stroke-width: 2.25px !important; /* Thickened for better rendering when small */
   }
 
   body:not(.dark) {
@@ -106,7 +112,7 @@
     font-family: "Plus Jakarta Sans", system-ui, sans-serif;
     font-weight: 700;
     line-height: 1.2;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em; /* Tightened for sharpness */
     color: var(--color-neutral-900);
   }
 

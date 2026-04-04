@@ -6,7 +6,7 @@ import React from "react";
 
 const STATUS_MAP: Record<string, string> = {
   // ── Document Phases & Workflow Tasks ──────────────────────────────────────
-  draft: "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300",
+  draft: "bg-neutral-100 text-neutral-600 dark:bg-surface-400 dark:text-neutral-300",
   
   // Review Phase
   "for office review": "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
@@ -16,7 +16,7 @@ const STATUS_MAP: Record<string, string> = {
   // Approval Phase
   "for office approval": "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400",
   "for vp approval": "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400",
-  "for president approval": "bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400",
+  "for president approval": "bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300",
   approval: "bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400",
   
   // Finalization Phase
@@ -42,8 +42,8 @@ const STATUS_MAP: Record<string, string> = {
   // ── Document Requests & Generic Tasks ─────────────────────────────────────
   pending: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
   open: "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400",
-  submitted: "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-400",
-  closed: "bg-slate-100 text-slate-500 dark:bg-surface-400 dark:text-slate-500",
+  submitted: "bg-neutral-100 text-neutral-600 dark:bg-surface-400 dark:text-neutral-400",
+  closed: "bg-neutral-100 text-neutral-500 dark:bg-surface-400 dark:text-neutral-500",
   warning: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
   urgent: "bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400",
 
@@ -62,7 +62,7 @@ export function StatusBadge({
   const s = String(status).toLowerCase();
   const cls =
     STATUS_MAP[s] ??
-    "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-400";
+    "bg-neutral-100 text-neutral-600 dark:bg-surface-400 dark:text-neutral-400";
   
   return (
     <span
@@ -86,7 +86,7 @@ export function TypePill({
   className?: string;
 }) {
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-surface-400 dark:text-slate-400 ${className}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-0.5 text-[11px] font-medium text-neutral-600 dark:bg-surface-400 dark:text-neutral-400 ${className}`}>
       {icon}
       {label}
     </span>
@@ -107,7 +107,7 @@ export function AnnouncementTypePill({ type, className = "" }: { type: string, c
   const t = String(type).toLowerCase();
   const cls =
     ANN_TYPE_MAP[t] ??
-    "bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-400";
+    "bg-neutral-100 text-neutral-600 dark:bg-surface-400 dark:text-neutral-400";
   const label = t.charAt(0).toUpperCase() + t.slice(1);
   return (
     <span

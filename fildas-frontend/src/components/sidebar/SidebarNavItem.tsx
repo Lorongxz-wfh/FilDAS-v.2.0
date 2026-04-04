@@ -86,15 +86,15 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
     "group relative flex w-full items-center cursor-pointer overflow-hidden transition-all duration-150",
     // Desktop Styles
     !mobileOpen ? [
-      "rounded-lg text-[13.5px] font-medium leading-none",
-      collapsed ? "justify-center px-0 py-3" : "gap-3 px-3 py-2.5",
+      "rounded-lg text-[14.5px] font-medium leading-none",
+      collapsed ? "justify-center px-0 py-3.5" : "gap-3.5 px-3.5 py-3",
       isActuallyActive
-        ? "text-brand-700 dark:text-brand-50"
-        : "text-neutral-500 hover:bg-neutral-100/80 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-surface-400 dark:hover:text-surface-50",
+        ? "text-neutral-900 dark:text-surface-50"
+        : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-surface-400 dark:hover:text-surface-50",
     ].join(" ") : "",
     // Mobile Styles
     mobileOpen ? [
-      "rounded-xl text-[12px] font-bold duration-150 active:scale-[0.98] gap-3 px-3 py-1.5 h-10",
+      "rounded-xl text-[13px] font-bold duration-150 active:scale-[0.98] gap-3 px-3 py-1.5 h-11",
       isActuallyActive
         ? "text-brand-600 dark:text-brand-400"
         : "text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-white/5 dark:hover:text-surface-50 shadow-none",
@@ -106,7 +106,7 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
     isActuallyActive ? "opacity-100" : "opacity-70 group-hover:opacity-100",
     // Desktop Icon colors
     !mobileOpen ? [
-      isActuallyActive ? "text-brand-600 dark:text-brand-400" : "text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300"
+      isActuallyActive ? "text-brand-500 dark:text-brand-400" : "text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300"
     ].join(" ") : "",
     // Mobile Icon colors
     mobileOpen ? [
@@ -126,12 +126,12 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
           <>
             <motion.div
               layoutId="active-bg"
-              className="absolute inset-0 bg-brand-50/60 dark:bg-brand-500/10 rounded-lg border border-brand-100/50 dark:border-brand-500/20"
+              className="absolute inset-0 bg-neutral-100 dark:bg-surface-400 rounded-lg border border-neutral-200 dark:border-surface-300"
               transition={{ type: "spring", bounce: 0, duration: 0.3 }}
             />
             <motion.div
               layoutId="active-pill"
-              className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-brand-500 dark:bg-brand-400 rounded-r-full shadow-[0_0_8px_rgba(99,102,241,0.4)]"
+              className="absolute left-0 top-3 bottom-3 w-1 bg-brand-500 rounded-r-full shadow-[0_0_8px_rgba(14,165,233,0.4)]"
               transition={{ type: "spring", bounce: 0, duration: 0.3 }}
             />
           </>
@@ -144,8 +144,8 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
           />
         )}
         
-        <div className={!mobileOpen ? "flex items-center justify-center w-5" : ""}>
-          <Icon className={iconCls} size={mobileOpen ? 16 : 18} />
+        <div className={!mobileOpen ? "flex items-center justify-center w-6" : ""}>
+          <Icon className={iconCls} size={mobileOpen ? 18 : 20} />
         </div>
         
         {(!collapsed || mobileOpen) && (
@@ -164,7 +164,7 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
             className={[
               "transition-transform duration-300 z-10",
               isExpanded ? "rotate-0" : "-rotate-90",
-              isActuallyActive ? "text-sky-500" : "text-slate-400"
+              isActuallyActive ? "text-neutral-900 dark:text-neutral-100" : "text-neutral-400"
             ].join(" ")} 
           />
         )}
