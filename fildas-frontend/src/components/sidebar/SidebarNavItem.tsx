@@ -185,33 +185,49 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
         >
           <div className="overflow-hidden">
             <ul className={[
-              "mt-1 mb-2 flex flex-col gap-0.5",
-              !mobileOpen ? "ml-4 pl-4 border-l border-slate-100 dark:border-surface-400/50" : "ml-4"
+              "mt-1 mb-2 flex flex-col gap-1 relative",
+              !mobileOpen ? "ml-5" : "ml-4"
             ].join(" ")}>
-              {filteredChildren.map((child) => (
-                <li key={child.to}>
-                  <NavLink
-                    to={child.to}
-                    onClick={() => {
-                      if (mobileOpen) onMobileClose?.();
-                    }}
-                    className={({ isActive }) => [
-                      "group relative flex items-center gap-3 px-3 py-1.5 rounded-md transition-all cursor-pointer",
-                      "text-[13px] font-medium leading-tight",
-                      isActive
-                        ? "text-slate-900 dark:text-slate-100"
-                        : "text-slate-500 hover:bg-slate-50/50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-surface-400/30 dark:hover:text-slate-200",
-                    ].join(" ")}
-                  >
-                    {({ isActive }) => (
+              {filteredChildren.map((child, idx) => {
+                const isLast = idx === filteredChildren.length - 1;
+                return (
+                  <li key={child.to} className="relative">
+                    {!mobileOpen && (
                       <>
-                        {isActive && (
-                          <motion.div
-                            layoutId="sub-active-bg"
-                            className="absolute inset-0 bg-neutral-100/50 dark:bg-surface-400/30 rounded-md"
-                            transition={{ type: "spring", bounce: 0, duration: 0.2 }}
-                          />
-                        )}
+                        {/* Vertical Connector Segment */}
+                        <div className={[
+                          "absolute -left-[1px] top-0",
+                          isLast ? "h-4.5" : "bottom-[-10px]", // Stop at junction for last, else continue to next gap
+                          "w-[1.5px] bg-slate-300 dark:bg-surface-300"
+                        ].join(" ")} />
+                        
+                        {/* Horizontal Branch */}
+                        <div className="absolute -left-[1px] top-4.5 w-4.5 h-[1.5px] bg-slate-300 dark:bg-surface-300" />
+                      </>
+                    )}
+                    <NavLink
+                      to={child.to}
+                      onClick={() => {
+                        if (mobileOpen) onMobileClose?.();
+                      }}
+                      className={({ isActive }) => [
+                        "group relative flex items-center gap-3 px-3 py-1.5 rounded-md transition-all cursor-pointer",
+                        "text-[13px] font-medium leading-tight",
+                        !mobileOpen ? "ml-4.5" : "",
+                        isActive
+                          ? "text-slate-900 dark:text-slate-100"
+                          : "text-slate-500 hover:bg-slate-50/50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-surface-400/30 dark:hover:text-slate-200",
+                      ].join(" ")}
+                    >
+                      {({ isActive }) => (
+                        <>
+                          {isActive && (
+                            <motion.div
+                              layoutId="sub-active-bg"
+                              className="absolute inset-0 bg-neutral-100/50 dark:bg-surface-400/30 rounded-md"
+                              transition={{ type: "spring", bounce: 0, duration: 0.2 }}
+                            />
+                          )}
                         <child.icon size={14} className={[
                           "shrink-0 transition-colors z-10",
                           isActive ? "text-brand-600 dark:text-brand-400" : "text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600"
@@ -221,10 +237,11 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
                           isActive ? "font-semibold text-neutral-900 dark:text-surface-50" : "font-medium text-neutral-500 dark:text-neutral-400"
                         ].join(" ")}>{child.label}</span>
                       </>
-                    )}
-                  </NavLink>
-                </li>
-              ))}
+                      )}
+                    </NavLink>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </div>
