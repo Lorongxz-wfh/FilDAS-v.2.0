@@ -56,7 +56,7 @@ export const newActions: NewAction[] = [
     label: "New Request",
     to: "/document-requests",
     icon: FileInput,
-    roles: ["QA", "SYSADMIN"],
+    roles: ["QA", "SYSADMIN", "OFFICE_STAFF", "OFFICE_HEAD"],
     state: { openModal: true },
   },
   {
@@ -108,6 +108,18 @@ export const navGroups: NavGroup[] = [
             to: "/documents/all",
             label: "Workflows",
             icon: FileText,
+            roles: [
+              "OFFICE_STAFF",
+              "OFFICE_HEAD",
+              "VPAA",
+              "VPAD",
+              "VPF",
+              "VPR",
+              "PRESIDENT",
+              "ADMIN",
+              "QA",
+              "SYSADMIN",
+            ],
           },
           {
             to: "/document-requests",

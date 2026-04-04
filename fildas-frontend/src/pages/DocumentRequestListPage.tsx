@@ -118,6 +118,8 @@ export default function DocumentRequestListPage() {
   const adminDebugMode = useAdminDebugMode();
   const isQaAdmin =
     ["qa", "sysadmin"].includes(role) || (role === "admin" && adminDebugMode);
+  
+  const canCreate = isQaAdmin || ["office_staff", "office_head"].includes(role);
 
   const [tab, setTab] = React.useState<ViewTab>("batches");
   const [q, setQ] = React.useState("");
@@ -171,7 +173,7 @@ export default function DocumentRequestListPage() {
           request_status: isQaAdmin ? status || undefined : undefined,
           status: recipientStatus || undefined,
         });
-      } else if (isQaAdmin) {
+      } else if (isQaAdmin || canCreate) {
         data = await listDocumentRequests({
           ...baseParams,
           status: status || undefined,
@@ -392,7 +394,7 @@ export default function DocumentRequestListPage() {
             onRefresh={refreshRequests}
             loading={isRefreshing}
           />
-          {isQaAdmin && (
+          {canCreate && (
             <CreateAction
               label="Create request"
               onClick={() => setCreateOpen(true)}

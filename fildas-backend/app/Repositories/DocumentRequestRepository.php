@@ -9,7 +9,7 @@ class DocumentRequestRepository
     /**
      * Get a unified list of individual document requests (multi_office recipients & multi_doc items).
      */
-    public function getIndividualRequests(array $filters, int $perPage, int $page, bool $isQa, int $officeId): array
+    public function getIndividualRequests(array $filters, int $perPage, int $page, bool $isQa, int $officeId, int $userId): array
     {
         $offset  = ($page - 1) * $perPage;
         $term    = !empty($filters['q']) ? trim($filters['q']) : null;
@@ -38,7 +38,12 @@ class DocumentRequestRepository
                 DB::raw('NULL as item_id'),
             ]);
 
-        if (!$isQa) $q1->where('rr.office_id', $officeId);
+        if (!$isQa) {
+            $q1->where(function($qq) use ($officeId, $userId) {
+                $qq->where('rr.office_id', $officeId)
+                   ->orWhere('r.created_by_user_id', $userId);
+            });
+        }
         if ($term)  $q1->where(function ($qq) use ($term) {
             $qq->where('r.title', 'like', "%{$term}%")
                ->orWhere('r.description', 'like', "%{$term}%");
@@ -69,7 +74,12 @@ class DocumentRequestRepository
                 'dri.id as item_id',
             ]);
 
-        if (!$isQa) $q2->where('rr.office_id', $officeId);
+        if (!$isQa) {
+            $q2->where(function($qq) use ($officeId, $userId) {
+                $qq->where('rr.office_id', $officeId)
+                   ->orWhere('r.created_by_user_id', $userId);
+            });
+        }
         if ($term)  $q2->where(function ($qq) use ($term) {
             $qq->where('r.title', 'like', "%{$term}%")
                ->orWhere('dri.title', 'like', "%{$term}%");

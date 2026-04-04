@@ -33,7 +33,9 @@ class DocumentRequestController extends Controller
     // ── GET /api/document-requests (QA/Admin) ──────────────────────────────
     public function index(Request $request)
     {
-        $this->assertQaOrSysadmin($request);
+        $user = $request->user();
+        $role = $this->roleName($request);
+        $isQa = $this->isQaOrAdmin($role);
 
         $data = $request->validate([
             'status'   => 'nullable|in:open,closed,cancelled',
@@ -45,6 +47,10 @@ class DocumentRequestController extends Controller
         $perPage = (int) ($data['per_page'] ?? 25);
 
         $q = DB::table('document_requests')->orderByDesc('id');
+
+        if (!$isQa) {
+            $q->where('created_by_user_id', $user->id);
+        }
 
         if (!empty($data['status'])) $q->where('status', $data['status']);
         if (!empty($data['mode']))   $q->where('mode', $data['mode']);
@@ -164,7 +170,8 @@ class DocumentRequestController extends Controller
             perPage:  $perPage,
             page:     $page,
             isQa:     $isQa,
-            officeId: $officeId
+            officeId: $officeId,
+            userId:   $user->id
         ));
     }
 
@@ -240,11 +247,17 @@ class DocumentRequestController extends Controller
 
         if (!$isQa) {
             if ($officeId <= 0) return response()->json(['message' => 'Forbidden.'], 403);
+            
             $isRecipient = DB::table('document_request_recipients')
                 ->where('request_id', $requestId)
                 ->where('office_id', $officeId)
                 ->exists();
-            if (!$isRecipient) return response()->json(['message' => 'Forbidden.'], 403);
+            
+            $isCreator = (int)($row->created_by_user_id ?? 0) === $user->id;
+
+            if (!$isRecipient && !$isCreator) {
+                return response()->json(['message' => 'Forbidden.'], 403);
+            }
         }
 
         // Recipient
@@ -418,7 +431,10 @@ class DocumentRequestController extends Controller
     // ── POST /api/document-requests ───────────────────────────────────────
     public function store(Request $request)
     {
-        $this->assertQaOrSysadmin($request);
+        $role = $this->roleName($request);
+        if (!$this->isQaOrAdmin($role) && !in_array($role, ['office_staff', 'office_head'], true)) {
+            abort(403, 'Forbidden.');
+        }
 
         $data = $request->validate([
             'title'       => 'required|string|max:180',
@@ -537,8 +553,10 @@ class DocumentRequestController extends Controller
 
         if (!$recipient) return response()->json(['message' => 'Recipient not found'], 404);
 
-        // Office users can only see their own recipient
-        if (!$isQa && (int) ($recipient->office_id ?? 0) !== $officeId) {
+        $isCreator = (int)($row->created_by_user_id ?? 0) === $user->id;
+
+        // Office users can only see their own recipient (unless they are the creator of the whole batch)
+        if (!$isQa && (int) ($recipient->office_id ?? 0) !== $officeId && !$isCreator) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -631,10 +649,14 @@ class DocumentRequestController extends Controller
             ->where('rr.request_id', $requestId)
             ->select(['rr.*', 'o.name as office_name', 'o.code as office_code']);
 
-        if (!$isQa) $recipientQ->where('rr.office_id', $officeId);
-
+        $isCreator = (int)($row->created_by_user_id ?? 0) === $user->id;
         $recipient = $recipientQ->first();
+
         if (!$recipient) return response()->json(['message' => 'Recipient not found'], 404);
+
+        if (!$isQa && (int) ($recipient->office_id ?? 0) !== $officeId && !$isCreator) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
 
         $requestPayload              = (array) $row;
         $requestPayload['office_id']   = (int) ($recipient->office_id ?? 0);
@@ -713,16 +735,16 @@ class DocumentRequestController extends Controller
     // PATCH /api/document-requests/{id}
     public function update(Request $request, int $requestId)
     {
-        $this->assertQaOrSysadmin($request);
-
-        $data = $request->validate([
-            'title'       => 'sometimes|string|max:180',
-            'description' => 'sometimes|nullable|string',
-            'due_at'      => 'sometimes|nullable|date',
-        ]);
+        $user = $request->user();
+        $role = $this->roleName($request);
+        $isQa = $this->isQaOrAdmin($role);
 
         $row = DB::table('document_requests')->where('id', $requestId)->first();
         if (!$row) return response()->json(['message' => 'Not found.'], 404);
+
+        if (!$isQa && (int)$row->created_by_user_id !== $user->id) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
 
         $payload = [];
         $changes = [];
