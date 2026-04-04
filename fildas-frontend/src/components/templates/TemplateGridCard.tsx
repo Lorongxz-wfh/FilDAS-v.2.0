@@ -1,9 +1,8 @@
 import React, { useState } from "react";
 import type { DocumentTemplate } from "../../services/templates";
-import {
-  templateFileTypeLabel,
-  downloadTemplate,
-} from "../../services/templates";
+import { templateFileTypeLabel, downloadTemplate } from "../../services/templates";
+import { getAuthUser } from "../../lib/auth";
+import { isAdmin } from "../../lib/roleFilters";
 import { useToast } from "../ui/toast/ToastContext";
 
 type Props = {
@@ -11,6 +10,7 @@ type Props = {
   onSelect: (t: DocumentTemplate) => void;
   onDeleteClick: (id: number) => void;
   isDeleting: boolean;
+  adminDebugMode?: boolean;
 };
 
 const TemplateGridCard: React.FC<Props> = ({
@@ -18,8 +18,14 @@ const TemplateGridCard: React.FC<Props> = ({
   onSelect,
   onDeleteClick,
   isDeleting,
+  adminDebugMode,
 }) => {
   const { push } = useToast();
+  const me = getAuthUser();
+  const userRole = me?.role ?? "";
+  const isAdminUser = isAdmin(userRole as any);
+
+  const canDeleteActual = template.can_delete && (!isAdminUser || adminDebugMode);
   const [downloading, setDownloading] = useState(false);
   const [imgError, setImgError] = useState(false);
 
@@ -81,7 +87,7 @@ const TemplateGridCard: React.FC<Props> = ({
           >
             {downloading ? "Downloading…" : "Download"}
           </button>
-          {template.can_delete && (
+          {canDeleteActual && (
             <button
               type="button"
               onClick={(e) => {

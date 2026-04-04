@@ -13,12 +13,7 @@ import {
 import { useDocumentWorkflow } from "./useDocumentWorkflow";
 import { useDocumentAutoSave } from "./useDocumentAutoSave";
 import { useDocumentFileUpload } from "./useDocumentFileUpload";
-import {
-  officeIdByCode,
-  buildCustomFlowSteps,
-  findCurrentStep,
-  phaseOrder,
-} from "../components/documents/documentFlow/flowUtils";
+import { officeIdByCode, buildCustomFlowSteps, findCurrentStep, phaseOrder } from "../components/documents/documentFlow/flowUtils";
 import {
   phases,
   flowStepsOffice,
@@ -186,20 +181,22 @@ export function useDocumentFlowUI({
 
   // ── Derived ──────────────────────────────────────────────────
   const qaOfficeId = useMemo(() => offices?.length ? officeIdByCode(offices, "QA") : null, [offices]);
-  const isQAOfficeUser = useMemo(() => !!qaOfficeId && myOfficeId === qaOfficeId, [qaOfficeId, myOfficeId]);
-  const isQAStep = [
+  const isQAOfficeUser = useMemo(() => !!qaOfficeId && Number(myOfficeId) === Number(qaOfficeId), [qaOfficeId, myOfficeId]);
+  
+  const terminalStatuses = useMemo(() => new Set(["Distributed", "Cancelled", "Superseded"]), []);
+  const effectiveStatus = localVersion?.status ?? version?.status ?? "";
+  const isTerminal = useMemo(() => terminalStatuses.has(effectiveStatus), [terminalStatuses, effectiveStatus]);
+
+  const isQAStep = useMemo(() => [
     "Draft",
     "For QA Final Check",
     "For QA Registration",
     "For QA Distribution",
     "QA_EDIT",
-  ].includes(localVersion?.status ?? "");
-  const canEditEffectiveDate = isQAOfficeUser && isQAStep;
-  const [activeSideTab, setActiveSideTab] = useState<"details" | "comments" | "participants" | "logs">("details");
+  ].includes(localVersion?.status ?? ""), [localVersion?.status]);
 
-  const terminalStatuses = new Set(["Distributed", "Cancelled", "Superseded"]);
-  const effectiveStatus = localVersion?.status ?? version?.status ?? "";
-  const isTerminal = terminalStatuses.has(effectiveStatus);
+  const canEditEffectiveDate = useMemo(() => isQAOfficeUser && isQAStep, [isQAOfficeUser, isQAStep]);
+  const [activeSideTab, setActiveSideTab] = useState<"details" | "comments" | "participants" | "logs">("details");
 
   // ── Sub-hooks ────────────────────────────────────────────────
   const workflow = useDocumentWorkflow({
@@ -503,7 +500,7 @@ export function useDocumentFlowUI({
             if (res) {
               handleActionResult(res);
               push({ type: "success", title: "Workflow updated", message: res.message || "Action completed." });
-              if (code === "REJECT") setActiveSideTab("comments");
+              if (code === "REJECT") setActiveSideTab("logs");
             }
           } catch (e: any) {
             push({ type: "error", title: "Action failed", message: e?.message ?? "Action failed." });
@@ -536,7 +533,7 @@ export function useDocumentFlowUI({
               key: "ARCHIVE_DOCUMENT",
               label: "Archive",
               variant: "outline" as const,
-              disabled: workflow.isChangingStatus,
+              disabled: workflow.isChangingStatus || !canAct,
               onClick: async () => {
                 try {
                   await archiveDocument(document!.id);
@@ -565,7 +562,7 @@ export function useDocumentFlowUI({
               key: "RESTORE_DOCUMENT",
               label: "Restore to Library",
               variant: "primary" as const,
-              disabled: workflow.isChangingStatus,
+              disabled: workflow.isChangingStatus || !canAct,
               onClick: async () => {
                 try {
                   await restoreDocument(document!.id);

@@ -199,7 +199,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
             actions.setSigningEditMode(editMode ?? false);
             actions.setSigningOpen(true);
           }}
-          onTriggerUpload={actions.fileUpload.triggerFilePicker}
+          onTriggerUpload={() => {
+            if (!state.canAct) return;
+            actions.fileUpload.triggerFilePicker();
+          }}
           onRemoveSignature={async () => {
             actions.setRemovingSignature(true);
             try {
@@ -246,7 +249,7 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
               localVersion={state.localVersion}
               allVersions={allVersions}
               selectedVersionId={selectedVersion?.id ?? null}
-              canReplace={state.localVersion.status === "Draft" || state.localVersion.status === "Office Draft"}
+              canReplace={(state.localVersion.status === "Draft" || state.localVersion.status === "Office Draft") && state.canAct}
               isActiveApprover={state.isActiveApprover}
               approverHasDownloaded={state.approverHasDownloaded}
               onApproverDownload={async () => {
@@ -257,7 +260,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                   push({ type: "error", title: "Download failed", message: e?.message ?? "Could not download." });
                 }
               }}
-              onApproverUpload={actions.fileUpload.triggerFilePicker}
+              onApproverUpload={() => {
+                if (!state.canAct) return;
+                actions.fileUpload.triggerFilePicker();
+              }}
               signedPreviewUrl={state.signedPreviewUrl}
               previewNonce={state.previewNonce}
               isUploading={actions.fileUpload.isUploading}
@@ -269,7 +275,10 @@ const DocumentFlow: React.FC<DocumentFlowProps> = ({
                 const res = await getDocumentPreviewLink(state.localVersion!.id);
                 window.open(res.url, "_blank");
               }}
-              onClickReplace={actions.fileUpload.triggerFilePicker}
+              onClickReplace={() => {
+                if (!state.canAct) return;
+                actions.fileUpload.triggerFilePicker();
+              }}
               onReloadPreview={async () => {
                 // This logic is mostly handled in hook useEffect, but we can trigger a refresh via actions if needed
                 invalidatePreviewCache(state.localVersion!.id);

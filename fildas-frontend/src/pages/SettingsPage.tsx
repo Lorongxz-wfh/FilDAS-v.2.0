@@ -581,80 +581,6 @@ const SettingsPage: React.FC = () => {
             </form>
           </SectionCard>
 
-          {/* Signature */}
-          {!isAuditorUser && (
-            <SectionCard
-              icon={<PenLine className="h-4 w-4" />}
-              title="E-signature"
-              subtitle="Upload your signature to sign documents directly in FilDAS."
-            >
-              <div className="flex items-start gap-4">
-                {/* Preview box */}
-                <div className="relative shrink-0">
-                  <div className="flex h-16 w-40 items-center justify-center rounded-md border border-dashed border-slate-300 dark:border-surface-300 bg-slate-50 dark:bg-surface-600 overflow-hidden">
-                    {sigUrl ? (
-                      <img
-                        src={sigUrl}
-                        alt="Signature"
-                        className="max-h-full max-w-full object-contain"
-                      />
-                    ) : (
-                      <span className="text-xs text-slate-400 dark:text-slate-500">No signature</span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => sigInputRef.current?.click()}
-                    disabled={sigLoading}
-                    className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-500 hover:bg-brand-400 text-white shadow transition-colors disabled:opacity-50"
-                  >
-                    <Camera className="h-3 w-3" />
-                  </button>
-                </div>
-
-                {/* Controls */}
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Upload a PNG or JPG image of your signature. Max 1 MB.
-                  </p>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => sigInputRef.current?.click()}
-                      disabled={sigLoading}
-                      className="text-xs font-medium text-brand-500 dark:text-brand-400 hover:underline disabled:opacity-50"
-                    >
-                      {sigLoading ? "Uploading…" : sigUrl ? "Change signature" : "Upload signature"}
-                    </button>
-                    {sigUrl && (
-                      <>
-                        <span className="text-slate-300 dark:text-surface-400">·</span>
-                        <button
-                          type="button"
-                          onClick={handleSigRemove}
-                          disabled={sigLoading}
-                          className="text-xs font-medium text-rose-500 hover:underline disabled:opacity-50 flex items-center gap-1"
-                        >
-                          <Trash2 className="h-3 w-3" /> Remove
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  {sigError && (
-                    <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">{sigError}</p>
-                  )}
-                </div>
-              </div>
-              <input
-                ref={sigInputRef}
-                type="file"
-                accept="image/png,image/jpeg"
-                className="hidden"
-                onChange={handleSigUpload}
-              />
-            </SectionCard>
-          )}
-
           {/* Password */}
           <SectionCard
             icon={<KeyRound className="h-4 w-4" />}
@@ -714,8 +640,108 @@ const SettingsPage: React.FC = () => {
           </SectionCard>
         </div>
 
-        {/* Right col — notifications */}
+        {/* Right col — notifications & tools */}
         <div className="flex flex-col gap-6">
+          {isAdminUser && (
+            <SectionCard
+              icon={<Wrench className="h-4 w-4" />}
+              title="Developer tools"
+              subtitle="Admin-only tools for testing and debugging."
+            >
+              <div className="divide-y divide-slate-100 dark:divide-surface-400">
+                <Toggle
+                  checked={adminDebugMode}
+                  onChange={handleDebugModeToggle}
+                  label="Developer / debug mode"
+                  description="Allow admin to perform workflow actions and create documents on behalf of offices. Use with care."
+                />
+              </div>
+            </SectionCard>
+          )}
+
+          {!isAuditorUser && (
+            <SectionCard
+              icon={<PenLine className="h-4 w-4" />}
+              title="E-signature"
+              subtitle="Upload your signature to sign documents directly in FilDAS."
+            >
+              <div className="flex items-start gap-4">
+                {/* Preview box */}
+                <div className="relative shrink-0">
+                  <div className="flex h-16 w-40 items-center justify-center rounded-md border border-dashed border-slate-300 dark:border-surface-300 bg-slate-50 dark:bg-surface-600 overflow-hidden">
+                    {sigUrl ? (
+                      <img
+                        src={sigUrl}
+                        alt="Signature"
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400 dark:text-slate-500">
+                        No signature
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => sigInputRef.current?.click()}
+                    disabled={sigLoading}
+                    className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-500 hover:bg-brand-400 text-white shadow transition-colors disabled:opacity-50"
+                  >
+                    <Camera className="h-3 w-3" />
+                  </button>
+                </div>
+
+                {/* Controls */}
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Upload a PNG or JPG image of your signature. Max 1 MB.
+                  </p>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => sigInputRef.current?.click()}
+                      disabled={sigLoading}
+                      className="text-xs font-medium text-brand-500 dark:text-brand-400 hover:underline disabled:opacity-50"
+                    >
+                      {sigLoading
+                        ? "Uploading…"
+                        : sigUrl
+                          ? "Change signature"
+                          : "Upload signature"}
+                    </button>
+                    {sigUrl && (
+                      <>
+                        <span className="text-slate-300 dark:text-surface-400">
+                          ·
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleSigRemove}
+                          disabled={sigLoading}
+                          className="text-xs font-medium text-rose-500 hover:underline disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <Trash2 className="h-3 w-3" /> Remove
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {sigError && (
+                    <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">
+                      {sigError}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <input
+                ref={sigInputRef}
+                type="file"
+                accept="image/png,image/jpeg"
+                className="hidden"
+                onChange={handleSigUpload}
+              />
+            </SectionCard>
+          )}
+
           <SectionCard
             icon={<Bell className="h-4 w-4" />}
             title="Email notifications"
@@ -757,23 +783,6 @@ const SettingsPage: React.FC = () => {
               />
             </div>
           </SectionCard>
-
-          {isAdminUser && (
-            <SectionCard
-              icon={<Wrench className="h-4 w-4" />}
-              title="Developer tools"
-              subtitle="Admin-only tools for testing and debugging."
-            >
-              <div className="divide-y divide-slate-100 dark:divide-surface-400">
-                <Toggle
-                  checked={adminDebugMode}
-                  onChange={handleDebugModeToggle}
-                  label="Developer / debug mode"
-                  description="Allow admin to perform workflow actions and create documents on behalf of offices. Use with care."
-                />
-              </div>
-            </SectionCard>
-          )}
         </div>
       </div>
     </PageFrame>

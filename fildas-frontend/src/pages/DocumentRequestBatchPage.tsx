@@ -3,6 +3,8 @@ import { Navigate, useNavigate, useParams } from "react-router-dom";
 import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
 import { getAuthUser } from "../lib/auth";
+import { isAdmin } from "../lib/roleFilters";
+import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import {
   getDocumentRequest,
   updateDocumentRequest,
@@ -53,7 +55,11 @@ export default function DocumentRequestBatchPage() {
     return <Navigate to="/dashboard" replace />;
 
   const role = roleLower(me);
-  const isQa = role === "qa" || role === "sysadmin" || role === "admin";
+  const adminDebugMode = useAdminDebugMode();
+  const isAdminUser = isAdmin(me.role as any);
+  const isQa = role === "qa" || isAdminUser;
+  // canManage is for actions like Close, Cancel, Edit
+  const canManage = role === "qa" || (isAdminUser && adminDebugMode);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [loading, setLoading] = React.useState(true);
@@ -419,7 +425,7 @@ export default function DocumentRequestBatchPage() {
       right={
         <PageActions>
           <RefreshAction onRefresh={handleRefresh} loading={refreshing || loading} />
-          {isQa && req?.status === "open" && (
+          {canManage && req?.status === "open" && (
             <>
               <Button
                 type="button"
@@ -475,7 +481,7 @@ export default function DocumentRequestBatchPage() {
           <div className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
             {/* Title row */}
             <div className="flex items-center gap-3 px-5 py-4">
-              {isQa ? (
+              {canManage ? (
                 <InlineEditField
                   value={req.title ?? ""}
                   onSave={saveTitle}
@@ -494,7 +500,7 @@ export default function DocumentRequestBatchPage() {
             </div>
 
             {/* Description — editable textarea when open, plain text otherwise */}
-            {editOpen && isQa && (
+            {editOpen && canManage && (
               <div className="px-5 pb-3">
                 <textarea
                   rows={2}
@@ -516,7 +522,7 @@ export default function DocumentRequestBatchPage() {
               <div className="flex items-center gap-1.5">
                 <Clock size={11} className="text-slate-400 dark:text-slate-500 shrink-0" />
                 <span className="text-xs text-slate-400 dark:text-slate-500">Due</span>
-                {editOpen && isQa ? (
+                {editOpen && canManage ? (
                   <input
                     type="datetime-local"
                     value={editDueAt}
@@ -536,7 +542,7 @@ export default function DocumentRequestBatchPage() {
                   {req.created_at ? new Date(req.created_at).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}
                 </span>
               </div>
-              {isQa && (
+              {canManage && (
                 <div className="ml-auto flex items-center gap-2">
                   {editOpen ? (
                     <>

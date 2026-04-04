@@ -8,6 +8,8 @@ import {
 import PageFrame from "../components/layout/PageFrame";
 
 import { getAuthUser } from "../lib/auth";
+import { isAdmin } from "../lib/roleFilters";
+import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import {
   getDocumentRequestRecipient,
   getDocumentRequestItem,
@@ -55,7 +57,11 @@ export default function DocumentRequestPage() {
 
   const isItemView = !!itemId;
   const role = roleLower(me);
-  const isQa = role === "qa" || role === "sysadmin" || role === "admin";
+  const adminDebugMode = useAdminDebugMode();
+  const isAdminUser = isAdmin(me.role as any);
+  const isQa = role === "qa" || isAdminUser;
+  // canManage for Review, Edit
+  const canManage = role === "qa" || (isAdminUser && adminDebugMode);
   const myUserId = Number(me?.id ?? 0);
   const toast = useToast();
 
@@ -188,7 +194,7 @@ export default function DocumentRequestPage() {
     !hasLocalFile;
 
   const canQaReview =
-    isQa &&
+    canManage &&
     !!selectedSubmission?.id &&
     String(selectedSubmission?.status) === "submitted";
   // QA/item-view: go back to batch; office recipient (multi-office): go back to list
@@ -651,6 +657,7 @@ export default function DocumentRequestPage() {
               req={req}
               recipient={recipient}
               isQa={isQa}
+              canManage={canManage}
               isItemView={isItemView}
               effectiveDueAt={effectiveDueAt}
               editOpen={editOpen}

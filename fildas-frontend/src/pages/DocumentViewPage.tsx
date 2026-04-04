@@ -19,7 +19,8 @@ import {
 } from "../services/documents";
 import { listActivityLogs } from "../services/activityApi";
 import type { ActivityLogItem } from "../services/types";
-import { getUserRole, isQA, isSysAdmin } from "../lib/roleFilters";
+import { getUserRole, isQA, isSysAdmin, isAdmin } from "../lib/roleFilters";
+import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import ShareDocumentModal from "../components/documents/ShareDocumentModal";
 import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
@@ -210,7 +211,11 @@ export default function DocumentViewPage() {
     return false;
   }, [doc, role, isOwner, myId]);
 
-  const canShare = (isOwner || isQA(role) || isSysAdmin(role)) && version?.status === "Distributed";
+  const adminDebugMode = useAdminDebugMode();
+  const isAdminUser = isAdmin(role as any);
+  const canShare = (isOwner || isQA(role) || isSysAdmin(role)) && 
+                   version?.status === "Distributed" && 
+                   (!isAdminUser || adminDebugMode);
 
   // ── Post comment ─────────────────────────────────────────────────────────────
   const postComment = async () => {

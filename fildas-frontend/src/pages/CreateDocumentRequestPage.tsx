@@ -3,6 +3,8 @@ import { Navigate, useNavigate, useLocation } from "react-router-dom";
 import { getAuthUser } from "../lib/auth";
 import { createDocumentRequest, uploadDocumentRequestItemExample } from "../services/documentRequests";
 import type { RequestMode } from "../services/documentRequests";
+import { isAdmin } from "../lib/roleFilters";
+import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import {
   createTempPreview,
   deleteTempPreview,
@@ -66,6 +68,10 @@ export default function CreateDocumentRequestPage() {
   if (!me) return <Navigate to="/login" replace />;
 
   const state = location.state as LocationState;
+  const adminDebugMode = useAdminDebugMode();
+  const isAdminUser = isAdmin(me.role as any);
+
+  if (isAdminUser && !adminDebugMode) return <Navigate to="/document-requests" replace />;
   if (!state?.title) return <Navigate to="/document-requests" replace />;
 
   const mode = state.mode as RequestMode;

@@ -8,6 +8,7 @@ import { useToast } from "../components/ui/toast/ToastContext";
 import { Tag, LayoutGrid, List, ChevronDown } from "lucide-react";
 import { Tabs, TabContent } from "../components/ui/Tabs";
 import { getAuthUser } from "../lib/auth";
+import { isAdmin } from "../lib/roleFilters";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import { PageActions, RefreshAction, UploadAction } from "../components/ui/PageActions";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
@@ -40,11 +41,10 @@ const TemplatesPage: React.FC = () => {
   const authUser = getAuthUser();
   const userRole = authUser?.role?.toLowerCase() ?? "";
   const canChooseScope = userRole === "qa" || userRole === "sysadmin";
-  const isAdminUser = userRole === "admin" || userRole === "sysadmin";
   const adminDebugMode = useAdminDebugMode();
   const canUpload =
-    ["qa", "sysadmin", "office_staff", "office_head"].includes(userRole) ||
-    (isAdminUser && adminDebugMode);
+    ["qa", "office_staff", "office_head"].includes(userRole) ||
+    (isAdmin(authUser?.role as any) && adminDebugMode);
 
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -431,6 +431,7 @@ const TemplatesPage: React.FC = () => {
                         onSelect={setSelectedTemplate}
                         onDeleteClick={handleDeleteClick}
                         isDeleting={deletingId === t.id}
+                        adminDebugMode={adminDebugMode}
                       />
                     ))}
                   </div>
@@ -448,6 +449,7 @@ const TemplatesPage: React.FC = () => {
                     sortBy={sortBy}
                     sortDir={sortDir}
                     onSortChange={handleSortChange}
+                    adminDebugMode={adminDebugMode}
                   />
                 </div>
               </TabContent>
@@ -461,6 +463,7 @@ const TemplatesPage: React.FC = () => {
         onClose={() => setSelectedTemplate(null)}
         isDeleting={deletingId === selectedTemplate?.id}
         onDeleteClick={handleDeleteClick}
+        adminDebugMode={adminDebugMode}
       />
 
       <Modal

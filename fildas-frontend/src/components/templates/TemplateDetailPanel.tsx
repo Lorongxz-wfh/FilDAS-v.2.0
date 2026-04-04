@@ -12,12 +12,15 @@ import {
 import { useToast } from "../ui/toast/ToastContext";
 import { Download, Trash2, X, Plus } from "lucide-react";
 import { updateTemplateTags } from "../../services/templates";
+import { getAuthUser } from "../../lib/auth";
+import { isAdmin } from "../../lib/roleFilters";
 
 type Props = {
   template: DocumentTemplate | null;
   onClose: () => void;
   isDeleting: boolean;
   onDeleteClick: (id: number) => void;
+  adminDebugMode?: boolean;
 };
 
 const TemplateDetailPanel: React.FC<Props> = ({
@@ -25,8 +28,14 @@ const TemplateDetailPanel: React.FC<Props> = ({
   onClose,
   isDeleting,
   onDeleteClick,
+  adminDebugMode,
 }) => {
   const { push } = useToast();
+  const me = getAuthUser();
+  const userRole = me?.role ?? "";
+  const isAdminUser = isAdmin(userRole as any);
+
+  const canEditActual = template?.can_delete && (!isAdminUser || adminDebugMode);
   const [downloading, setDownloading] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
@@ -265,7 +274,7 @@ const TemplateDetailPanel: React.FC<Props> = ({
                 {downloading ? "Downloading…" : "Download"}
               </button>
 
-              {template.can_delete && (
+              {canEditActual && (
                 <button
                   type="button"
                   disabled={isDeleting}
@@ -279,7 +288,7 @@ const TemplateDetailPanel: React.FC<Props> = ({
             </div>
 
             {/* Tags */}
-            {template.can_delete && (
+            {canEditActual && (
               <div className="shrink-0 border-b border-slate-200 dark:border-surface-400 px-5 py-3">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-medium text-slate-500 dark:text-slate-400">

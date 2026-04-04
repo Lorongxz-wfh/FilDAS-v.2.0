@@ -414,6 +414,7 @@ const refreshAndSelectBest = React.useCallback(
 
   const current = selectedVersion ?? allVersions[0] ?? null;
   const isOwner = !!myOfficeId && !!document?.owner_office_id && Number(myOfficeId) === Number(document.owner_office_id);
+  const canActPage = !isAdmin || adminDebugMode;
 
   return (
     <>
@@ -470,7 +471,7 @@ const refreshAndSelectBest = React.useCallback(
                 variant="outline"
                 size="sm"
                 responsive
-                disabled={isLoadingSelectedVersion}
+                disabled={isLoadingSelectedVersion || !canActPage}
                 onClick={() => setShareOpen(true)}
                 tooltip="Share document with other offices"
               >
@@ -498,7 +499,7 @@ const refreshAndSelectBest = React.useCallback(
                 variant="primary"
                 size="sm"
                 responsive
-                disabled={isLoadingSelectedVersion}
+                disabled={isLoadingSelectedVersion || !canActPage}
                 onClick={() => {
                   if (selectedVersion) logOpenedVersion(selectedVersion.id, "revise_action");
                   setReviseModalOpen(true);

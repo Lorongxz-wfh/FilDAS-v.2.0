@@ -25,8 +25,7 @@ const WorkflowActionBar: React.FC<Props> = ({
   if (!actions.length) return null;
 
   const handleClick = async (action: HeaderActionButton) => {
-    const bypassCanAct = action.key === "CANCEL_DOCUMENT";
-    if (isChangingStatus || (!bypassCanAct && !canAct)) return;
+    if (isChangingStatus || !canAct) return;
 
     if (action.skipConfirm) {
       setProcessingKey(action.key);
@@ -81,10 +80,10 @@ const WorkflowActionBar: React.FC<Props> = ({
               type="button"
               size="sm"
               variant={a.variant === "danger" ? "danger" : "primary"}
-              disabled={isBusy || (a.key !== "CANCEL_DOCUMENT" && !canAct)}
+              disabled={isBusy || !canAct}
               onClick={() => handleClick(a)}
               className={
-                (a.key !== "CANCEL_DOCUMENT" && !canAct) && !isBusy ? "opacity-40 cursor-not-allowed" : ""
+                !canAct && !isBusy ? "opacity-40 cursor-not-allowed" : ""
               }
             >
               {isThis ? (

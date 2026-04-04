@@ -21,6 +21,7 @@ type Props = {
   onEditDueAtChange?: (v: string) => void;
   onEditSave?: () => void;
   onEditCancel?: () => void;
+  canManage?: boolean;
 };
 
 export default function RequestHeaderCard({
@@ -42,6 +43,7 @@ export default function RequestHeaderCard({
   onEditDueAtChange,
   onEditSave,
   onEditCancel,
+  canManage = false,
 }: Props) {
   const batchDue = req.due_at ?? null;
   const itemDue = effectiveDueAt ?? batchDue;
@@ -51,7 +53,7 @@ export default function RequestHeaderCard({
     <>
       {/* Title row */}
       <div className="flex items-center gap-3 px-5 py-4">
-        {editOpen && isItemView ? (
+        {editOpen && canManage && isItemView ? (
           <input
             type="text"
             value={editTitle}
@@ -68,7 +70,7 @@ export default function RequestHeaderCard({
       </div>
 
       {/* Item description — only visible when editing */}
-      {editOpen && isItemView && (
+      {editOpen && canManage && isItemView && (
         <div className="px-5 pb-3">
           <textarea
             rows={2}
@@ -119,7 +121,7 @@ export default function RequestHeaderCard({
             {isItemView ? "Item due" : "Office due"}
           </span>
 
-          {editOpen ? (
+          {editOpen && canManage ? (
             <>
               <div className="flex flex-col gap-1 flex-1 min-w-0">
                 {batchDue && (
@@ -153,15 +155,17 @@ export default function RequestHeaderCard({
                 ? <span className="text-xs text-amber-500 dark:text-amber-400">overridden</span>
                 : <span className="text-xs text-slate-400 dark:text-slate-500 italic">inherited from batch</span>
               }
-              <Button
-                variant="ghost"
-                size="xs"
-                onClick={onEditToggle}
-                className="ml-auto gap-1"
-              >
-                <Pencil className="h-3 w-3" />
-                Edit
-              </Button>
+              {canManage && (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  onClick={onEditToggle}
+                  className="ml-auto gap-1"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edit
+                </Button>
+              )}
             </>
           )}
         </div>

@@ -46,6 +46,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
   hasPreSignBackup,
   currentUserSignatureUrl,
   needsFileReplacement,
+  canAct,
   
   onDownload,
   onTriggerSign,
@@ -76,7 +77,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                   variant="primary"
                   size="sm"
                   onClick={onDownload}
-                  disabled={isChangingStatus || signingInBackground}
+                  disabled={isChangingStatus || signingInBackground || !canAct}
                   className="!bg-amber-600 hover:!bg-amber-700 font-bold border-none"
                 >
                   Download
@@ -86,7 +87,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => onTriggerSign(false)}
-                  disabled={isChangingStatus || signingInBackground}
+                  disabled={isChangingStatus || signingInBackground || !canAct}
                   className="!border-amber-500 !text-amber-500 hover:!bg-amber-500/10 font-bold"
                 >
                   {signingInBackground && <Loader2 size={12} className="animate-spin mr-1" />}
@@ -126,7 +127,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                 variant="primary"
                 size="sm"
                 onClick={onTriggerUpload}
-                disabled={isUploading || isChangingStatus}
+                disabled={isUploading || isChangingStatus || !canAct}
               >
                 {isUploading ? "Uploading…" : "Upload signed"}
               </Button>
@@ -135,7 +136,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                 variant="outline"
                 size="sm"
                 onClick={() => onTriggerSign(false)}
-                disabled={isUploading || isChangingStatus || signingInBackground}
+                disabled={isUploading || isChangingStatus || signingInBackground || !canAct}
               >
                 {signingInBackground && <Loader2 size={12} className="animate-spin mr-1" />}
                 {signingInBackground ? "Signing…" : "Sign in-app"}
@@ -162,7 +163,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                     variant="outline"
                     size="xs"
                     onClick={() => onTriggerSign(true)}
-                    disabled={isChangingStatus || removingSignature}
+                    disabled={isChangingStatus || removingSignature || !canAct}
                     className="!border-emerald-400 !text-emerald-700 font-medium"
                   >
                     Edit signature
@@ -172,7 +173,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                   type="button"
                   variant="outline"
                   size="xs"
-                  disabled={isChangingStatus || removingSignature}
+                  disabled={isChangingStatus || removingSignature || !canAct}
                   onClick={onRemoveSignature}
                   className="!border-rose-300 !text-rose-600 font-medium"
                 >

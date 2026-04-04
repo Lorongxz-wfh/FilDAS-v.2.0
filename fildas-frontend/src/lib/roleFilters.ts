@@ -58,6 +58,7 @@ export const getUserRole = (): UserRole => {
   return "OFFICE_STAFF";
 };
 
+export const isAdmin = (role: UserRole): boolean => role === "ADMIN" || role === "SYSADMIN";
 export const isSysAdmin = (role: UserRole): boolean => role === "SYSADMIN";
 
 export const isPendingForRole = (_status: string, _role: UserRole): boolean => {

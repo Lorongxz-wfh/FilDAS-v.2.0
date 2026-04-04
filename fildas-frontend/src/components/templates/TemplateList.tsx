@@ -8,6 +8,8 @@ import Table, { type TableColumn } from "../ui/Table";
 import { Download, Trash2 } from "lucide-react";
 import { useToast } from "../ui/toast/ToastContext";
 import MiddleTruncate from "../ui/MiddleTruncate";
+import { getAuthUser } from "../../lib/auth";
+import { isAdmin } from "../../lib/roleFilters";
 
 import type { SortDir } from "../ui/Table";
 
@@ -20,6 +22,7 @@ type Props = {
   sortBy?: string;
   sortDir?: SortDir;
   onSortChange?: (key: string, dir: SortDir) => void;
+  adminDebugMode?: boolean;
 };
 
 // ── Action cell — isolated so download state is per-row ───────────────────
@@ -27,8 +30,14 @@ const TemplateActions: React.FC<{
   template: DocumentTemplate;
   isDeleting: boolean;
   onDeleteClick: (id: number) => void;
-}> = ({ template, isDeleting, onDeleteClick }) => {
+  adminDebugMode?: boolean;
+}> = ({ template, isDeleting, onDeleteClick, adminDebugMode }) => {
   const { push } = useToast();
+  const me = getAuthUser();
+  const userRole = me?.role ?? "";
+  const isAdminUser = isAdmin(userRole as any);
+
+  const canDeleteActual = template.can_delete && (!isAdminUser || adminDebugMode);
   const [downloading, setDownloading] = React.useState(false);
 
   const handleDownload = async (e: React.MouseEvent) => {
@@ -62,7 +71,7 @@ const TemplateActions: React.FC<{
           <Download className="h-3.5 w-3.5" />
         )}
       </button>
-      {template.can_delete && (
+      {canDeleteActual && (
         <button
           type="button"
           disabled={isDeleting}
@@ -94,6 +103,7 @@ const TemplateList: React.FC<Props> = ({
   sortBy,
   sortDir,
   onSortChange,
+  adminDebugMode,
 }) => {
   const columns: TableColumn<DocumentTemplate>[] = React.useMemo(
     () => [
@@ -205,11 +215,12 @@ const TemplateList: React.FC<Props> = ({
             template={t}
             isDeleting={deletingId === t.id}
             onDeleteClick={onDeleteClick}
+            adminDebugMode={adminDebugMode}
           />
         ),
       },
     ],
-    [deletingId, onDeleteClick],
+    [deletingId, onDeleteClick, adminDebugMode],
   );
 
   return (
@@ -245,6 +256,7 @@ const TemplateList: React.FC<Props> = ({
                 template={t}
                 isDeleting={deletingId === t.id}
                 onDeleteClick={onDeleteClick}
+                adminDebugMode={adminDebugMode}
               />
             </div>
           </div>
