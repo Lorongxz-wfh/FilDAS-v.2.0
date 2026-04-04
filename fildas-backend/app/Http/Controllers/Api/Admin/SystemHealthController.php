@@ -200,27 +200,32 @@ class SystemHealthController extends Controller
             return response()->json(['logs' => 'Log file not found.']);
         }
 
+        // ── Optimized Tail implementation (Chunked) ──
         $lines = [];
         $fp = fopen($logPath, "r");
+        $chunkSize = 4096;
         fseek($fp, 0, SEEK_END);
         $pos = ftell($fp);
-        $count = 0;
+        $buffer = '';
 
-        while ($pos > 0 && $count < 100) {
-            fseek($fp, $pos--);
-            $char = fgetc($fp);
-            if ($char == "\n") {
-                $line = fgets($fp);
-                if ($line) {
-                    array_unshift($lines, trim($line));
-                    $count++;
-                }
-                fseek($fp, $pos);
+        while ($pos > 0 && count($lines) < 100) {
+            $readSize = min($pos, $chunkSize);
+            $pos -= $readSize;
+            fseek($fp, $pos);
+            $chunk = fread($fp, $readSize);
+            $buffer = $chunk . $buffer;
+            
+            // split into lines and count back from end
+            $currentLines = explode("\n", $buffer);
+            if (count($currentLines) > 100) {
+                $lines = array_slice($currentLines, -100);
+                break;
             }
+            $lines = $currentLines;
         }
         fclose($fp);
 
-        return response()->json(['logs' => implode("\n", $lines)]);
+        return response()->json(['logs' => implode("\n", array_filter($lines))]);
     }
 
     public function diagnostics()
@@ -230,13 +235,16 @@ class SystemHealthController extends Controller
             'cache_io' => false,
             'storage_io' => false,
             'pusher' => false,
+            'broadcasting_driver' => config('broadcasting.default'),
             'timestamp' => now()->toIso8601String()
         ];
 
         // 1. DB Latency (execute tiny query)
-        $start = microtime(true);
-        DB::select('SELECT 1');
-        $results['db_latency'] = round((microtime(true) - $start) * 1000, 2);
+        try {
+            $start = microtime(true);
+            DB::select('SELECT 1');
+            $results['db_latency'] = round((microtime(true) - $start) * 1000, 2);
+        } catch (\Exception $e) {}
 
         // 2. Cache IO (Deep)
         try {
@@ -250,27 +258,32 @@ class SystemHealthController extends Controller
         try {
             $testFile = storage_path('app/diag_test_' . time() . '.txt');
             file_put_contents($testFile, 'DIAG_PASSED');
-            if (file_get_contents($testFile) === 'DIAG_PASSED') {
-                unlink($testFile);
-                $results['storage_io'] = true;
+            if (file_exists($testFile)) {
+                if (file_get_contents($testFile) === 'DIAG_PASSED') {
+                    unlink($testFile);
+                    $results['storage_io'] = true;
+                }
             }
         } catch (\Exception $e) {}
 
-        // 4. Pusher Config
-        $broadcastDriver = config('broadcasting.default');
-        if ($broadcastDriver === 'pusher') {
+        // 4. Broadcasting check based on driver
+        $driver = $results['broadcasting_driver'];
+        if ($driver === 'pusher') {
             $results['pusher'] = !empty(config('broadcasting.connections.pusher.key')) && 
                                 !empty(config('broadcasting.connections.pusher.secret')) && 
                                 !empty(config('broadcasting.connections.pusher.app_id'));
-        } else if ($broadcastDriver === 'reverb') {
+        } else if ($driver === 'reverb') {
             $results['pusher'] = !empty(config('broadcasting.connections.reverb.key'));
+        } else if ($driver === 'log' || $driver === 'null') {
+            // Log/Null drivers are effectively always 'configured' correctly
+            $results['pusher'] = true;
         }
 
         $this->logActivity(request(), 'system.diagnostics_run', "Performed manual system diagnostics", [
             'DB Latency' => $results['db_latency'] . 'ms',
             'Storage IO' => $results['storage_io'] ? 'PASSED' : 'FAILED',
             'Cache IO' => $results['cache_io'] ? 'PASSED' : 'FAILED',
-            'Broadcasting' => $results['pusher'] ? 'CONFIGURED' : 'UNCONFIGURED'
+            'Broadcasting' => $results['pusher'] ? 'CONFIGURED (' . strtoupper($driver) . ')' : 'UNCONFIGURED'
         ]);
 
         return response()->json($results);

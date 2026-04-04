@@ -325,6 +325,9 @@ export default function SystemHealthPage() {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Broadcasting</p>
                   <p className={`text-sm font-bold ${diagnostics.pusher ? 'text-emerald-500' : 'text-rose-500'}`}>
                     {diagnostics.pusher ? 'VERIFIED' : 'FAILED'}
+                    <span className="text-[9px] block font-normal text-slate-400 uppercase mt-0.5">
+                      Driver: {diagnostics.broadcasting_driver}
+                    </span>
                   </p>
                 </div>
              </div>

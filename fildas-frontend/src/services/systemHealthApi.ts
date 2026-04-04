@@ -40,6 +40,7 @@ export interface SystemDiagnostics {
   cache_io: boolean;
   storage_io: boolean;
   pusher: boolean;
+  broadcasting_driver: string;
   timestamp: string;
 }
 
