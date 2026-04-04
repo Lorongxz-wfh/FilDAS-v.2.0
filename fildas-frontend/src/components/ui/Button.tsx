@@ -17,21 +17,21 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const base =
-  "cursor-pointer inline-flex items-center justify-center font-medium rounded-sm transition-all duration-100 disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap active:scale-95 active:brightness-90";
+  "cursor-pointer inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-150 disabled:opacity-40 disabled:pointer-events-none whitespace-nowrap active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-brand-500/40";
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-sky-600 text-white hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-400 shadow-sm",
+    "bg-brand-600 text-white hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-400 shadow-sm border border-brand-700/20 dark:border-white/10",
   secondary:
-    "bg-slate-700 text-white hover:bg-slate-800 dark:bg-surface-400 dark:hover:bg-surface-300 shadow-sm",
+    "bg-neutral-800 text-white hover:bg-neutral-900 dark:bg-surface-400 dark:hover:bg-surface-300 shadow-sm",
   outline:
-    "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-surface-400 dark:bg-surface-600 dark:text-slate-200 dark:hover:bg-surface-500 shadow-sm",
+    "border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50 hover:border-neutral-400 dark:border-surface-300 dark:bg-surface-500 dark:text-surface-100 dark:hover:bg-surface-400 shadow-sm",
   ghost:
-    "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-surface-500",
+    "text-neutral-600 hover:bg-neutral-100/80 dark:text-neutral-400 dark:hover:bg-surface-400/50",
   danger:
-    "bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-800/80 dark:hover:bg-rose-700",
+    "bg-red-600 text-white hover:bg-red-700 dark:bg-red-500/20 dark:text-red-400 dark:border dark:border-red-500/30 dark:hover:bg-red-500/30",
   success:
-    "bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-800/80 dark:hover:bg-emerald-700",
+    "bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border dark:border-emerald-500/30 dark:hover:bg-emerald-500/30",
 };
 
 const sizes: Record<Size, string> = {

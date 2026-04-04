@@ -83,35 +83,35 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
   };
 
   const navCls = [
-    "group relative flex w-full items-center cursor-pointer overflow-hidden transition-all duration-200",
+    "group relative flex w-full items-center cursor-pointer overflow-hidden transition-all duration-150",
     // Desktop Styles
     !mobileOpen ? [
-      "rounded-md text-sm font-medium",
-      collapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5",
+      "rounded-lg text-[13.5px] font-medium leading-none",
+      collapsed ? "justify-center px-0 py-3" : "gap-3 px-3 py-2.5",
       isActuallyActive
-        ? "text-slate-900 dark:text-slate-100 shadow-xs"
-        : "text-slate-500 hover:bg-slate-50/80 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-surface-400/50 dark:hover:text-slate-200",
+        ? "text-brand-700 dark:text-brand-50"
+        : "text-neutral-500 hover:bg-neutral-100/80 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-surface-400 dark:hover:text-surface-50",
     ].join(" ") : "",
     // Mobile Styles
     mobileOpen ? [
-      "rounded-xl text-[12px] font-bold duration-200 active:scale-[0.98] gap-3 px-3 py-1.5 h-9.5",
+      "rounded-xl text-[12px] font-bold duration-150 active:scale-[0.98] gap-3 px-3 py-1.5 h-10",
       isActuallyActive
         ? "text-brand-600 dark:text-brand-400"
-        : "text-slate-500 hover:bg-slate-100/50 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-200 shadow-none",
+        : "text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-white/5 dark:hover:text-surface-50 shadow-none",
     ].join(" ") : ""
   ].join(" ");
 
   const iconCls = [
-    "shrink-0 transition-all duration-300 z-10",
-    isActuallyActive ? "scale-105" : "scale-100 opacity-80",
-    // Desktop Icon
+    "shrink-0 transition-opacity duration-200 z-10",
+    isActuallyActive ? "opacity-100" : "opacity-70 group-hover:opacity-100",
+    // Desktop Icon colors
     !mobileOpen ? [
-      isActuallyActive ? "text-brand-500 dark:text-brand-400" : "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300"
+      isActuallyActive ? "text-brand-600 dark:text-brand-400" : "text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300"
     ].join(" ") : "",
-    // Mobile Icon
+    // Mobile Icon colors
     mobileOpen ? [
       "h-4 w-4",
-      isActuallyActive ? "text-brand-500" : "text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200"
+      isActuallyActive ? "text-brand-500" : "text-neutral-400 group-hover:text-neutral-700 dark:group-hover:text-surface-50"
     ].join(" ") : ""
   ].join(" ");
 
@@ -126,13 +126,13 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
           <>
             <motion.div
               layoutId="active-bg"
-              className="absolute inset-0 bg-slate-100/80 dark:bg-surface-400/80 rounded-md"
-              transition={{ type: "spring", bounce: 0.2, duration: 0.3 }}
+              className="absolute inset-0 bg-brand-50/60 dark:bg-brand-500/10 rounded-lg border border-brand-100/50 dark:border-brand-500/20"
+              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
             />
             <motion.div
               layoutId="active-pill"
-              className="absolute left-0 top-2 bottom-2 w-1 bg-brand-500 rounded-r-full"
-              transition={{ type: "spring", bounce: 0.2, duration: 0.3 }}
+              className="absolute left-0 top-2.5 bottom-2.5 w-1 bg-brand-500 dark:bg-brand-400 rounded-r-full shadow-[0_0_8px_rgba(99,102,241,0.4)]"
+              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
             />
           </>
         )}
@@ -150,8 +150,8 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
         
         {(!collapsed || mobileOpen) && (
           <span className={[
-            "z-10 transition-transform duration-300",
-            isActuallyActive ? "translate-x-0.5" : "translate-x-0",
+            "z-10 transition-all duration-200",
+            isActuallyActive ? "translate-x-0 font-semibold" : "translate-x-0 font-medium",
             mobileOpen ? "truncate tracking-tight select-none flex-1" : "truncate flex-1"
           ].join(" ")}>
             {label}
@@ -203,15 +203,18 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
                         {isActive && (
                           <motion.div
                             layoutId="sub-active-bg"
-                            className="absolute inset-0 bg-slate-50 dark:bg-surface-400/40 rounded-md"
+                            className="absolute inset-0 bg-neutral-100/50 dark:bg-surface-400/30 rounded-md"
                             transition={{ type: "spring", bounce: 0, duration: 0.2 }}
                           />
                         )}
                         <child.icon size={14} className={[
                           "shrink-0 transition-colors z-10",
-                          isActive ? "text-brand-500" : "text-slate-400 dark:text-slate-500 group-hover:text-slate-600"
+                          isActive ? "text-brand-600 dark:text-brand-400" : "text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600"
                         ].join(" ")} />
-                        <span className="truncate z-10">{child.label}</span>
+                        <span className={[
+                          "truncate z-10",
+                          isActive ? "font-semibold text-neutral-900 dark:text-surface-50" : "font-medium text-neutral-500 dark:text-neutral-400"
+                        ].join(" ")}>{child.label}</span>
                       </>
                     )}
                   </NavLink>

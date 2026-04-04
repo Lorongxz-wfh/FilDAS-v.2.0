@@ -23,7 +23,7 @@ interface TabsProps {
  */
 export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className = "", id }) => {
   return (
-    <div className={`shrink-0 flex items-center border-b border-slate-200 dark:border-surface-400 overflow-x-auto hide-scrollbar ${className}`}>
+    <div className={`shrink-0 flex items-center border-b border-neutral-200 dark:border-surface-400 overflow-x-auto hide-scrollbar ${className}`}>
       {tabs.map((t) => {
         const isActive = activeTab === t.key;
         return (
@@ -32,27 +32,27 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className
             type="button"
             onClick={() => onChange(t.key)}
             className={[
-              "relative group flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold transition-colors whitespace-nowrap",
+              "relative group flex items-center gap-1.5 px-4 py-3 text-[13px] font-bold transition-all whitespace-nowrap",
               isActive 
-                ? "text-slate-900 dark:text-slate-50" 
-                : "text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
+                ? "text-neutral-900 dark:text-surface-50" 
+                : "text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-surface-50"
             ].join(" ")}
           >
             {t.icon}
-            <span>{t.label}</span>
+            <span className="relative z-10">{t.label}</span>
             {t.badge}
             
             {isActive && (
               <motion.div
                 layoutId={`tab-indicator-${id}`}
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-700 dark:bg-slate-200 z-10"
-                transition={{ type: "spring", bounce: 0, duration: 0.18 }}
+                className="absolute bottom-0 left-1 right-1 h-0.5 bg-brand-500 dark:bg-brand-400 z-10 rounded-t-full shadow-[0_-1px_4px_rgba(99,102,241,0.3)]"
+                transition={{ type: "spring", bounce: 0, duration: 0.25 }}
               />
             )}
             
             {/* Hover Indicator (Subtle) */}
             {!isActive && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-200 dark:bg-surface-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute bottom-0 left-1 right-1 h-0.5 bg-neutral-200 dark:bg-surface-300 opacity-0 group-hover:opacity-100 transition-opacity rounded-t-full" />
             )}
           </button>
         );

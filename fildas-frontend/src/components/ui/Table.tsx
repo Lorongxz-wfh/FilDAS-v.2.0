@@ -78,8 +78,8 @@ const SortIcon = ({
       viewBox="0 0 6 4"
       className={
         active && dir === "asc"
-          ? "text-slate-700 dark:text-slate-200"
-          : "text-slate-300 dark:text-slate-600"
+          ? "text-neutral-700 dark:text-surface-100"
+          : "text-neutral-300 dark:text-surface-300"
       }
     >
       <path d="M3 0L6 4H0L3 0Z" fill="currentColor" />
@@ -90,8 +90,8 @@ const SortIcon = ({
       viewBox="0 0 6 4"
       className={
         active && dir === "desc"
-          ? "text-slate-700 dark:text-slate-200"
-          : "text-slate-300 dark:text-slate-600"
+          ? "text-neutral-700 dark:text-surface-100"
+          : "text-neutral-300 dark:text-surface-300"
       }
     >
       <path d="M3 4L0 0H6L3 4Z" fill="currentColor" />
@@ -148,7 +148,7 @@ export default function Table<T>({
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
         {/* Sticky header — hidden if mobileRender is active on small screen */}
         <div
-          className={`sticky top-0 z-20 shrink-0 grid gap-3 px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 ${mobileRender ? "hidden sm:grid" : "grid"}`}
+          className={`sticky top-0 z-20 shrink-0 grid gap-3 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 border-b border-neutral-200 dark:border-surface-400 bg-neutral-50 dark:bg-surface-500 ${mobileRender ? "hidden sm:grid" : "grid"}`}
           style={{ gridTemplateColumns: colTemplate }}
         >
           {columns.map((c) => {
@@ -168,8 +168,8 @@ export default function Table<T>({
                     alignHeaderClass(c.align),
                     c.headerClassName ?? "",
                     isActive
-                      ? "text-slate-700 dark:text-slate-200"
-                      : "hover:text-slate-700 dark:hover:text-slate-200",
+                      ? "text-neutral-900 dark:text-surface-50"
+                      : "hover:text-neutral-900 dark:hover:text-surface-50",
                   ].join(" ")}
                 >
                   {c.header}
@@ -194,7 +194,7 @@ export default function Table<T>({
         </div>
 
         {initialLoading ? (
-          <div className="divide-y divide-slate-200 dark:divide-surface-400">
+          <div className="divide-y divide-neutral-200 dark:divide-surface-400">
             {Array.from({ length: 15 }).map((_, r) => (
               <div
                 key={r}
@@ -286,7 +286,7 @@ export default function Table<T>({
             />
           )
         ) : (
-          <div className="divide-y divide-slate-200 dark:divide-surface-400">
+          <div className="divide-y divide-neutral-200/60 dark:divide-surface-400/50">
             {rows.map((row, idx) => {
               const clickable = !!onRowClick;
               const key = rowKey(row, idx);
@@ -306,8 +306,8 @@ export default function Table<T>({
                         }
                       } : undefined}
                       className={[
-                        "block sm:hidden transition-colors border-b border-slate-100 dark:border-surface-400/50 bg-white dark:bg-surface-500",
-                        clickable ? "cursor-pointer active:bg-slate-50 dark:active:bg-surface-400/60" : ""
+                        "block sm:hidden transition-colors border-b border-neutral-100 dark:border-surface-400/50 bg-white dark:bg-surface-500",
+                        clickable ? "cursor-pointer active:bg-neutral-50 dark:active:bg-surface-400/60" : ""
                       ].join(" ")}
                     >
                       {mobileRender(row)}
@@ -323,9 +323,9 @@ export default function Table<T>({
                         }
                       } : undefined}
                       className={[
-                        "hidden sm:grid gap-3 items-center px-4 py-2 rounded-none text-sm transition-colors group",
+                        "hidden sm:grid gap-3 items-center px-4 py-2.5 rounded-none text-sm transition-colors group",
                         clickable
-                          ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-surface-400/60"
+                          ? "cursor-pointer hover:bg-neutral-50/80 dark:hover:bg-surface-400/40"
                           : "",
                       ].join(" ")}
                       style={{ gridTemplateColumns: colTemplate }}
@@ -357,9 +357,9 @@ export default function Table<T>({
                     }
                   } : undefined}
                   className={[
-                    "grid gap-3 items-center px-4 py-2 rounded-none text-sm transition-colors group",
+                    "grid gap-3 items-center px-4 py-2.5 rounded-none text-sm transition-colors group",
                     clickable
-                      ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-surface-400/60"
+                      ? "cursor-pointer hover:bg-neutral-50/80 dark:hover:bg-surface-400/40"
                       : "",
                   ].join(" ")}
                   style={{ gridTemplateColumns: colTemplate }}
@@ -382,10 +382,10 @@ export default function Table<T>({
             {onLoadMore && (
               <div ref={sentinelRef} className="py-3 flex justify-center">
                 {loading && !initialLoading && (
-                  <div className="h-5 w-5 rounded-full border-2 border-slate-200 dark:border-surface-400 border-t-sky-600 animate-spin" />
+                  <div className="h-5 w-5 rounded-full border-2 border-neutral-200 dark:border-surface-400 border-t-brand-600 animate-spin" />
                 )}
                 {!loading && !hasMore && rows.length > 0 && (
-                  <span className="text-xs text-slate-400 dark:text-slate-500">
+                  <span className="text-xs text-neutral-400 dark:text-neutral-500">
                     All caught up
                   </span>
                 )}
@@ -412,7 +412,7 @@ export default function Table<T>({
   return (
     <div
       className={[
-        "flex flex-col min-h-0 overflow-hidden rounded-md border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500",
+        "flex flex-col min-h-0 overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-surface-400 dark:bg-surface-500",
         className ?? "",
       ].join(" ")}
     >
