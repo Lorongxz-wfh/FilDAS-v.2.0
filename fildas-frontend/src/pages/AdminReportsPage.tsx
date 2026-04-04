@@ -26,8 +26,9 @@ import type {
 } from "../services/documents";
 import Skeleton from "../components/ui/loader/Skeleton";
 import SelectDropdown from "../components/ui/SelectDropdown";
+import { Tabs, TabContent } from "../components/ui/Tabs";
 
-import { filterSelectCls, tabCls } from "../utils/formStyles";
+import { filterSelectCls } from "../utils/formStyles";
 import {
   FileText,
   CheckCircle2,
@@ -46,10 +47,10 @@ import {
   UserX,
 } from "lucide-react";
 
-type Tab = "overview" | "offices" | "users" | "activity";
+type TabKey = "overview" | "offices" | "users" | "activity";
 type Bucket = "daily" | "weekly" | "monthly" | "yearly" | "total";
 
-const TABS: { key: Tab; label: string }[] = [
+const TABS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "offices", label: "By Office" },
   { key: "users", label: "Users" },
@@ -86,7 +87,7 @@ const OfficeTable: React.FC<{ rows: ComplianceOfficeDatum[] }> = ({ rows }) => {
               const total = row.in_review + row.approved + row.returned;
               const approvalRate = total ? Math.round((row.approved / total) * 100) : 0;
               return (
-                <tr key={row.office_id} className="hover:bg-slate-50 dark:hover:bg-surface-400 transition">
+                <tr key={row.office_id} className="hover:bg-slate-50 dark:hover:bg-surface-400 transition cursor-default">
                   <td className="py-2.5 pr-6 font-medium text-slate-900 dark:text-slate-100">
                     <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mr-1.5">
                       {row.office_code}
@@ -118,7 +119,7 @@ const OfficeTable: React.FC<{ rows: ComplianceOfficeDatum[] }> = ({ rows }) => {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 const AdminReportsPage: React.FC = () => {
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<TabKey>("overview");
   const [bucket, setBucket] = useState<Bucket>("monthly");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -206,27 +207,24 @@ const AdminReportsPage: React.FC = () => {
       )}
 
       {/* Tab nav */}
-      <div className="shrink-0 flex items-center border-b border-slate-200 dark:border-surface-400">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className={tabCls(tab === t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
-        <div className="ml-auto flex items-center pr-3 -mb-px">
+      <div className="shrink-0 flex items-center justify-between border-b border-slate-200 dark:border-surface-400">
+        <Tabs 
+          tabs={TABS} 
+          activeTab={tab} 
+          onChange={(key) => setTab(key as TabKey)} 
+          id="admin-reports" 
+          className="border-none"
+        />
+        <div className="flex items-center pr-3">
           <button
             type="button"
             onClick={() => setFiltersOpen((v) => !v)}
-            className="flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-500 transition-colors"
+            className="flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-500 transition-colors cursor-pointer"
           >
             <SlidersHorizontal size={12} />
             Filters
             {activeFilterCount > 0 && (
-              <span className="ml-0.5 rounded-full bg-brand-400 px-1.5 py-0.5 text-[10px] font-semibold text-white leading-none">
+              <span className="ml-1 rounded-full bg-brand-400 px-1.5 py-0.5 text-[10px] font-semibold text-white leading-none">
                 {activeFilterCount}
               </span>
             )}
@@ -240,11 +238,9 @@ const AdminReportsPage: React.FC = () => {
         <div className="flex-1 min-w-0 overflow-y-auto">
           <div className="flex flex-col gap-5 p-4 sm:p-5">
 
-            {/* ── Overview tab ──────────────────────────────────────────────── */}
-            {tab === "overview" && (
-              <>
+            <TabContent activeKey={tab} currentKey="overview">
                 {/* Row 1 — System stat cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
                   <ReportStatCard
                     label="Documents created"
                     value={loading ? <Skeleton className="h-8 w-12" /> : kpis.total_created}
@@ -290,7 +286,7 @@ const AdminReportsPage: React.FC = () => {
                 </div>
 
                 {/* Row 2 — Quality KPI strip */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                   <ReportStatCard
                     label="First-pass yield"
                     value={loading ? <Skeleton className="h-8 w-12" /> : `${kpis.first_pass_yield_pct}%`}
@@ -315,7 +311,7 @@ const AdminReportsPage: React.FC = () => {
                 </div>
 
                 {/* Row 3 — Volume trend + Phase donut */}
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 mb-5">
                   <div className="lg:col-span-2">
                     <ReportChartCard
                       title={`Document volume · ${bucket}`}
@@ -341,7 +337,7 @@ const AdminReportsPage: React.FC = () => {
                 </div>
 
                 {/* Row 4 — Activity Distribution + Stage Delays */}
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 mb-5">
                   <ReportChartCard
                     title="Activity Distribution"
                     subtitle="System actions by category in selected period."
@@ -374,13 +370,10 @@ const AdminReportsPage: React.FC = () => {
                     loading={loading} 
                   />
                 </ReportChartCard>
-              </>
-            )}
+            </TabContent>
 
-            {/* ── By Office tab ─────────────────────────────────────────────── */}
-            {tab === "offices" && (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <TabContent activeKey={tab} currentKey="offices">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
                   <ReportStatCard
                     label="Total offices"
                     value={loading ? <Skeleton className="h-8 w-12" /> : (adminStats?.offices.total ?? 0)}
@@ -408,14 +401,11 @@ const AdminReportsPage: React.FC = () => {
                     <OfficeTable rows={officeData} />
                   )}
                 </ReportChartCard>
-              </>
-            )}
+            </TabContent>
 
-            {/* ── Users tab ─────────────────────────────────────────────── */}
-            {tab === "users" && (
-              <>
+            <TabContent activeKey={tab} currentKey="users">
                 {/* KPI row */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                   <ReportStatCard
                     label="Total users"
                     value={loading ? <Skeleton className="h-8 w-12" /> : (adminStats?.users.total ?? 0)}
@@ -527,121 +517,119 @@ const AdminReportsPage: React.FC = () => {
                     </div>
                   </ReportChartCard>
                 </div>
-              </>
-            )}
+            </TabContent>
 
-            {/* ── Activity tab (DETAILED) ─────────────────────────────────── */}
-            {tab === "activity" && (
-              <div className="flex flex-col gap-6">
-                {/* Categorical Breakdown + Top Actors Row */}
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-                  <div className="lg:col-span-1">
-                    <ReportChartCard
-                      title="Top System Actors"
-                      subtitle="Users with most actions recorded."
-                      loading={loading}
-                    >
-                      <div className="flex flex-col gap-0 max-h-[400px] overflow-y-auto pr-1">
-                        <div className="flex items-center gap-2 px-1 pb-1.5 border-b border-slate-100 dark:border-surface-400">
-                          <span className="flex-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">User</span>
-                          <span className="w-12 shrink-0 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Actions</span>
-                        </div>
-                        <div className="divide-y divide-slate-50 dark:divide-surface-500 mt-1">
-                          {activityReport?.top_actors.length === 0 ? (
-                            <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-6">No activity found</p>
-                          ) : (
-                            activityReport?.top_actors.map((u) => (
-                              <div key={u.user_id} className="flex items-center gap-2 px-1 py-1.5 hover:bg-slate-50 dark:hover:bg-surface-600/50 transition-colors">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">{u.full_name}</p>
-                                  <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{u.office}</p>
+            <TabContent activeKey={tab} currentKey="activity">
+                <div className="flex flex-col gap-6">
+                  {/* Categorical Breakdown + Top Actors Row */}
+                  <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                    <div className="lg:col-span-1">
+                      <ReportChartCard
+                        title="Top System Actors"
+                        subtitle="Users with most actions recorded."
+                        loading={loading}
+                      >
+                        <div className="flex flex-col gap-0 max-h-[400px] overflow-y-auto pr-1">
+                          <div className="flex items-center gap-2 px-1 pb-1.5 border-b border-slate-100 dark:border-surface-400">
+                            <span className="flex-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">User</span>
+                            <span className="w-12 shrink-0 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Actions</span>
+                          </div>
+                          <div className="divide-y divide-slate-50 dark:divide-surface-500 mt-1">
+                            {activityReport?.top_actors.length === 0 ? (
+                              <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-6">No activity found</p>
+                            ) : (
+                              activityReport?.top_actors.map((u) => (
+                                <div key={u.user_id} className="flex items-center gap-2 px-1 py-1.5 hover:bg-slate-50 dark:hover:bg-surface-600/50 transition-colors">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">{u.full_name}</p>
+                                    <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{u.office}</p>
+                                  </div>
+                                  <span className="w-12 shrink-0 text-right text-xs font-bold tabular-nums text-slate-600 dark:text-slate-300">{u.count}</span>
                                 </div>
-                                <span className="w-12 shrink-0 text-right text-xs font-bold tabular-nums text-slate-600 dark:text-slate-300">{u.count}</span>
-                              </div>
-                            ))
-                          )}
+                              ))
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </ReportChartCard>
+                      </ReportChartCard>
+                    </div>
+
+                    <div className="lg:col-span-2">
+                      <ReportChartCard
+                        title="Activity distribution"
+                        subtitle="Percentage of system actions by operational category."
+                        loading={loading}
+                      >
+                        <ActivityDistributionChart 
+                          data={activityReport?.distribution ?? []} 
+                          height={350} 
+                          loading={loading} 
+                        />
+                      </ReportChartCard>
+                    </div>
                   </div>
 
-                  <div className="lg:col-span-2">
-                    <ReportChartCard
-                      title="Activity distribution"
-                      subtitle="Percentage of system actions by operational category."
-                      loading={loading}
-                    >
-                      <ActivityDistributionChart 
-                        data={activityReport?.distribution ?? []} 
-                        height={350} 
-                        loading={loading} 
-                      />
-                    </ReportChartCard>
+                  {/* Full-width Stacked Trend */}
+                  <ReportChartCard
+                    title="System activity trend"
+                    subtitle="Detailed daily breakdown of platform interactions."
+                    loading={loading}
+                  >
+                    <DailyActivityStackedBarChart 
+                      data={activityReport?.daily_trend ?? []} 
+                      height={300} 
+                      loading={loading} 
+                    />
+                  </ReportChartCard>
+
+                  {/* Analysis Insights Summary */}
+                  <div className="space-y-4 pt-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="rounded-xl bg-indigo-50/30 dark:bg-indigo-950/20 p-4 border border-indigo-100 dark:border-indigo-900/30 hover:shadow-sm transition-shadow">
+                        <div className="flex items-center gap-2 mb-2 text-indigo-700 dark:text-indigo-300 font-bold text-xs uppercase tracking-tight">
+                          <Activity size={15} /> Workflows
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                          Includes document creation, metadata updates, task completions, and routing. High volume indicates active document processing.
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-amber-50/30 dark:bg-amber-950/20 p-4 border border-amber-100 dark:border-amber-900/30 hover:shadow-sm transition-shadow">
+                        <div className="flex items-center gap-2 mb-2 text-amber-700 dark:text-amber-300 font-bold text-xs uppercase tracking-tight">
+                          <Clock size={15} /> Access
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                          Tracks login events, failed attempts, and password changes. Critical for auditing security patterns and peak usage.
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-emerald-50/30 dark:bg-emerald-950/20 p-4 border border-emerald-100 dark:border-emerald-900/30 hover:shadow-sm transition-shadow">
+                        <div className="flex items-center gap-2 mb-2 text-emerald-700 dark:text-emerald-300 font-bold text-xs uppercase tracking-tight">
+                          <CheckCircle2 size={15} /> System
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                          Administrative actions like user management, office hierarchy tweaks, announcements, and global system updates.
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-slate-50/30 dark:bg-surface-400/10 p-4 border border-slate-100 dark:border-surface-400/30 hover:shadow-sm transition-shadow">
+                        <div className="flex items-center gap-2 mb-2 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-tight">
+                          <History size={15} /> Others
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                          Miscellaneous events including profile photo removals, notification dismissals, and automated background cleanup.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-blue-900/10 p-4 flex gap-3 items-start shadow-sm mt-4">
+                      <AlertCircle size={16} className="text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-xs font-bold text-blue-900 dark:text-blue-200 mb-0.5">Audit Note</p>
+                        <p className="text-[11px] text-blue-800 dark:text-blue-300/80 leading-relaxed">
+                          System activity reporting synchronizes with the Admin Dashboard only for the 'Last 14 Days' view. For historical auditing, use the date range filters on this page to isolate specific periods of interest.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                {/* Full-width Stacked Trend */}
-                <ReportChartCard
-                  title="System activity trend"
-                  subtitle="Detailed daily breakdown of platform interactions."
-                  loading={loading}
-                >
-                  <DailyActivityStackedBarChart 
-                    data={activityReport?.daily_trend ?? []} 
-                    height={300} 
-                    loading={loading} 
-                  />
-                </ReportChartCard>
-
-                {/* Analysis Insights Summary */}
-                <div className="space-y-4 pt-1">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="rounded-xl bg-indigo-50/30 dark:bg-indigo-950/20 p-4 border border-indigo-100 dark:border-indigo-900/30 hover:shadow-sm transition-shadow">
-                      <div className="flex items-center gap-2 mb-2 text-indigo-700 dark:text-indigo-300 font-bold text-xs uppercase tracking-tight">
-                        <Activity size={15} /> Workflows
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                        Includes document creation, metadata updates, task completions, and routing. High volume indicates active document processing.
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-amber-50/30 dark:bg-amber-950/20 p-4 border border-amber-100 dark:border-amber-900/30 hover:shadow-sm transition-shadow">
-                      <div className="flex items-center gap-2 mb-2 text-amber-700 dark:text-amber-300 font-bold text-xs uppercase tracking-tight">
-                        <Clock size={15} /> Access
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                        Tracks login events, failed attempts, and password changes. Critical for auditing security patterns and peak usage.
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-emerald-50/30 dark:bg-emerald-950/20 p-4 border border-emerald-100 dark:border-emerald-900/30 hover:shadow-sm transition-shadow">
-                      <div className="flex items-center gap-2 mb-2 text-emerald-700 dark:text-emerald-300 font-bold text-xs uppercase tracking-tight">
-                        <CheckCircle2 size={15} /> System
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                        Administrative actions like user management, office hierarchy tweaks, announcements, and global system updates.
-                      </p>
-                    </div>
-                    <div className="rounded-xl bg-slate-50/30 dark:bg-surface-400/10 p-4 border border-slate-100 dark:border-surface-400/30 hover:shadow-sm transition-shadow">
-                      <div className="flex items-center gap-2 mb-2 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase tracking-tight">
-                        <History size={15} /> Others
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                        Miscellaneous events including profile photo removals, notification dismissals, and automated background cleanup.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-blue-900/10 p-4 flex gap-3 items-start shadow-sm mt-4">
-                    <AlertCircle size={16} className="text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-blue-900 dark:text-blue-200 mb-0.5">Audit Note</p>
-                      <p className="text-[11px] text-blue-800 dark:text-blue-300/80 leading-relaxed">
-                        System activity reporting synchronizes with the Admin Dashboard only for the 'Last 14 Days' view. For historical auditing, use the date range filters on this page to isolate specific periods of interest.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            </TabContent>
           </div>
         </div>
 
@@ -662,7 +650,7 @@ const AdminReportsPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="text-[11px] font-medium text-brand-500 dark:text-brand-400 hover:underline"
+                    className="text-[11px] font-medium text-brand-500 dark:text-brand-400 hover:underline cursor-pointer"
                   >
                     Clear all
                   </button>
@@ -670,7 +658,7 @@ const AdminReportsPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setFiltersOpen(false)}
-                  className="text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200 transition-colors"
+                  className="text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200 transition-colors cursor-pointer"
                 >
                   <X size={14} />
                 </button>

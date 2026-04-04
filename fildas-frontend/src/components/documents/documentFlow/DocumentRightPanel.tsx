@@ -12,6 +12,7 @@ import type {
 import DocumentInfoPanel from "./DocumentInfoPanel";
 import DocumentCommentsPanel from "./DocumentCommentsPanel";
 import DocumentActivityPanel from "./DocumentActivityPanel";
+import { Tabs, TabContent } from "../../ui/Tabs";
 
 type Props = {
   document: Document | null;
@@ -75,57 +76,40 @@ const DocumentRightPanel: React.FC<Props> = ({
 }) => {
   const isDataReady = !!document && !!version;
 
-  const tabs: {
-    id: Props["activeSideTab"];
-    label: string;
-    icon: React.ElementType;
-    badge?: number;
-  }[] = [
-    { id: "details", label: "Details", icon: FileText },
-    { id: "comments", label: "Comments", icon: MessageSquare, badge: newMessageCount },
-    { id: "participants", label: "Participants", icon: Users },
-    { id: "logs", label: "Activity", icon: ActivityIcon },
-  ];
+  const TABS = React.useMemo(() => [
+    { key: "details", label: "Details", icon: <FileText className="h-3 w-3 shrink-0 opacity-70" /> },
+    { 
+      key: "comments", 
+      label: "Comments", 
+      icon: <MessageSquare className="h-3 w-3 shrink-0 opacity-70" />, 
+      badge: newMessageCount > 0 ? (
+        <span className="ml-0.5 inline-flex items-center justify-center rounded bg-sky-100 dark:bg-sky-950/40 px-1 py-0.5 text-[8px] font-bold text-sky-700 dark:text-sky-400">
+          {newMessageCount}
+        </span>
+      ) : null 
+    },
+    { key: "participants", label: "Participants", icon: <Users className="h-3 w-3 shrink-0 opacity-70" /> },
+    { key: "logs", label: "Activity", icon: <ActivityIcon className="h-3 w-3 shrink-0 opacity-70" /> },
+  ], [newMessageCount]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── Unified Tab Header ── */}
-      <div className="flex items-center px-1.5 border-b border-slate-200 dark:border-surface-400 bg-slate-50/30 dark:bg-surface-600/20 shrink-0">
-        <div className="flex items-center overflow-x-auto no-scrollbar">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const active = activeSideTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => {
-                  setActiveSideTab(tab.id);
-                  if (tab.id === "comments") clearNewMessageCount();
-                }}
-                className={`flex items-center gap-1 px-2.5 py-2 text-[11px] font-bold border-b-1 transition-colors whitespace-nowrap ${
-                  active
-                    ? "border-sky-600 text-slate-900 dark:text-slate-50"
-                    : "border-transparent text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
-                }`}
-              >
-                <Icon className="h-3 w-3 shrink-0 opacity-70" />
-                <span>{tab.label}</span>
-                {typeof tab.badge === "number" && tab.badge > 0 && (
-                  <span className="ml-0.5 inline-flex items-center justify-center rounded bg-sky-100 dark:bg-sky-950/40 px-1 py-0.5 text-[8px] font-bold text-sky-700 dark:text-sky-400">
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <Tabs 
+        tabs={TABS} 
+        activeTab={activeSideTab} 
+        onChange={(key) => {
+          setActiveSideTab(key as any);
+          if (key === "comments") clearNewMessageCount();
+        }} 
+        id="document-flow-right" 
+        className="px-1.5 border-b border-slate-200 dark:border-surface-400 bg-slate-50/30 dark:bg-surface-600/20"
+      />
 
       {/* ── Tab Content ── */}
-      <div className="flex-1 min-h-0 flex flex-col p-2.5">
+      <div className="flex-1 min-h-0 flex flex-col p-2.5 overflow-y-auto hide-scrollbar">
         {!isDataReady ? (
-          <div className="space-y-1.5 overflow-y-auto">
+          <div className="space-y-1.5">
             {[148, 100, 130, 90, 120, 110].map((w, i) => (
               <div
                 key={i}
@@ -141,7 +125,7 @@ const DocumentRightPanel: React.FC<Props> = ({
           </div>
         ) : (
           <>
-            {(activeSideTab === "details" || activeSideTab === "participants") && (
+            <TabContent activeKey={activeSideTab} currentKey="details">
               <DocumentInfoPanel
                 document={document}
                 version={version}
@@ -151,11 +135,25 @@ const DocumentRightPanel: React.FC<Props> = ({
                 isEditable={isEditable}
                 onTitleSaved={onTitleSaved}
                 onChanged={onChanged}
-                activeTab={activeSideTab as "details" | "participants"}
+                activeTab="details"
               />
-            )}
+            </TabContent>
 
-            {activeSideTab === "comments" && (
+            <TabContent activeKey={activeSideTab} currentKey="participants">
+              <DocumentInfoPanel
+                document={document}
+                version={version}
+                offices={offices}
+                routeSteps={routeSteps}
+                tasks={tasks}
+                isEditable={isEditable}
+                onTitleSaved={onTitleSaved}
+                onChanged={onChanged}
+                activeTab="participants"
+              />
+            </TabContent>
+
+            <TabContent activeKey={activeSideTab} currentKey="comments">
               <DocumentCommentsPanel
                 isLoading={isLoadingMessages}
                 messages={messages}
@@ -168,14 +166,14 @@ const DocumentRightPanel: React.FC<Props> = ({
                 optimisticMessages={optimisticMessages}
                 setOptimisticMessages={setOptimisticMessages}
               />
-            )}
+            </TabContent>
 
-            {activeSideTab === "logs" && (
+            <TabContent activeKey={activeSideTab} currentKey="logs">
               <DocumentActivityPanel
                 loading={isLoadingActivityLogs}
                 logs={activityLogs}
               />
-            )}
+            </TabContent>
           </>
         )}
       </div>

@@ -5,7 +5,8 @@ import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
 import { BellOff, Trash2, Search, X } from "lucide-react";
 import { PageActions, RefreshAction } from "../components/ui/PageActions";
-import { tabCls } from "../utils/formStyles";
+import { Tabs, TabContent } from "../components/ui/Tabs";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   listNotifications,
   markAllNotificationsRead,
@@ -62,7 +63,7 @@ const NotifCard: React.FC<{
       {/* Content — clickable */}
       <button
         type="button"
-        className="flex-1 min-w-0 text-left"
+        className="flex-1 min-w-0 text-left cursor-pointer outline-none"
         onClick={() => onOpen(n)}
       >
         <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
@@ -92,7 +93,7 @@ const NotifCard: React.FC<{
           onDelete(n.id);
         }}
         title="Delete notification"
-        className="shrink-0 mt-0.5 rounded-md p-1.5 text-slate-300 dark:text-slate-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 transition"
+        className="shrink-0 mt-0.5 rounded-md p-1.5 text-slate-300 dark:text-slate-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 transition cursor-pointer"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
@@ -237,11 +238,19 @@ const InboxPage: React.FC = () => {
   };
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
-  const tabs: { key: FilterTab; label: string }[] = [
+  const TABS = React.useMemo(() => [
     { key: "all", label: "All" },
-    { key: "unread", label: "Unread" },
+    { 
+      key: "unread", 
+      label: "Unread", 
+      badge: unreadCount > 0 ? (
+        <span className="ml-1.5 inline-flex items-center justify-center rounded bg-sky-100 dark:bg-sky-950/40 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-400">
+          {unreadCount}
+        </span>
+      ) : null 
+    },
     { key: "read", label: "Read" },
-  ];
+  ], [unreadCount]);
 
   return (
     <PageFrame
@@ -301,23 +310,15 @@ const InboxPage: React.FC = () => {
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
       {/* Filter bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 mb-3">
         <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className={tabCls(tab === t.key)}
-            >
-              {t.label}
-              {t.key === "unread" && unreadCount > 0 && (
-                <span className="ml-1.5 inline-flex items-center justify-center rounded bg-sky-100 dark:bg-sky-950/40 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-400">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-          ))}
+          <Tabs 
+            tabs={TABS} 
+            activeTab={tab} 
+            onChange={(key) => setTab(key as FilterTab)} 
+            id="inbox" 
+            className="border-none"
+          />
         </div>
 
         {/* Search */}
@@ -334,7 +335,7 @@ const InboxPage: React.FC = () => {
               type="button"
               onClick={() => setSearch("")}
               title="Clear"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -342,48 +343,58 @@ const InboxPage: React.FC = () => {
         </div>
       </div>
 
-      {/* List */}
-      <div className="flex-1 min-h-0 overflow-y-auto rounded-sm border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 p-3">
-        {loading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-16 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 animate-pulse"
-              />
-            ))}
-          </div>
-        ) : error ? (
-          <div className="rounded-md border border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-700 dark:text-rose-400">
-            {error}
-          </div>
-        ) : filtered.length === 0 ? (
-          <EmptyState filtered={tab !== "all" || !!search} />
-        ) : (
-          <div className="space-y-2">
-            {filtered.map((n) => (
-              <NotifCard
-                key={n.id}
-                n={n}
-                onOpen={handleOpen}
-                onDelete={handleDelete}
-              />
-            ))}
-            {hasMore && (
-              <div className="pt-2 flex justify-center">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={loadingMore}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  {loadingMore ? "Loading…" : "Load more"}
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
+      <div className="flex-1 min-h-0 min-w-0 flex flex-col">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab + search}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15 }}
+              className="flex-1 min-h-0 overflow-y-auto rounded-sm border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 p-3"
+            >
+              {loading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-16 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : error ? (
+                <div className="rounded-md border border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-700 dark:text-rose-400">
+                  {error}
+                </div>
+              ) : filtered.length === 0 ? (
+                <EmptyState filtered={tab !== "all" || !!search} />
+              ) : (
+                <div className="space-y-2">
+                  {filtered.map((n) => (
+                    <NotifCard
+                      key={n.id}
+                      n={n}
+                      onOpen={handleOpen}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                  {hasMore && (
+                    <div className="pt-2 flex justify-center">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={loadingMore}
+                        onClick={() => setPage((p) => p + 1)}
+                      >
+                        {loadingMore ? "Loading…" : "Load more"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
       </div>
     </PageFrame>
   );

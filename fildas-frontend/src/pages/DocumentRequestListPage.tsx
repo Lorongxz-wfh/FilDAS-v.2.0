@@ -17,7 +17,7 @@ import {
   Users,
   FileStack,
 } from "lucide-react";
-import { tabCls } from "../utils/formStyles";
+import { Tabs } from "../components/ui/Tabs";
 import { PageActions, CreateAction, RefreshAction } from "../components/ui/PageActions";
 import { formatDate } from "../utils/formatters";
 import MiddleTruncate from "../components/ui/MiddleTruncate";
@@ -26,6 +26,7 @@ import Alert from "../components/ui/Alert";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
 import SelectDropdown from "../components/ui/SelectDropdown";
 import { useSmartRefresh } from "../hooks/useSmartRefresh";
+import { motion, AnimatePresence } from "framer-motion";
 
 
 type ViewTab = "batches" | "all";
@@ -375,6 +376,11 @@ export default function DocumentRequestListPage() {
 
   const gridCols = "minmax(120px, 1fr) 100px 100px 110px 100px 140px 140px";
 
+  const REQ_TABS = [
+    { key: "batches", label: "Request Batches", icon: <LayoutList className="h-3.5 w-3.5" /> },
+    { key: "all", label: "All Requests", icon: <TableProperties className="h-3.5 w-3.5" /> },
+  ];
+
   return (
     <PageFrame
       title="Requests"
@@ -397,28 +403,21 @@ export default function DocumentRequestListPage() {
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
       <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0 overflow-x-auto hide-scrollbar">
-        <button
-          type="button"
-          onClick={() => {
-            setTab("batches");
-            setRecipientStatus("");
-          }}
-          className={tabCls(tab === "batches")}
-        >
-          <LayoutList className="h-3.5 w-3.5" />
-          Request Batches
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setTab("all");
-            setStatus("");
-          }}
-          className={tabCls(tab === "all")}
-        >
-          <TableProperties className="h-3.5 w-3.5" />
-          All Requests
-        </button>
+        <Tabs 
+          tabs={REQ_TABS} 
+          activeTab={tab} 
+          onChange={(key) => {
+            if (key === "batches") {
+              setTab("batches");
+              setRecipientStatus("");
+            } else {
+              setTab("all");
+              setStatus("");
+            }
+          }} 
+          id="requests" 
+          className="border-none"
+        />
       </div>
 
       <SearchFilterBar
@@ -557,100 +556,111 @@ export default function DocumentRequestListPage() {
         )}
       </SearchFilterBar>
 
-      {error && !loading && <Alert variant="danger" className="mt-4">{error}</Alert>}
+      {error && !loading && <Alert variant="danger" className="mt-4 mx-4">{error}</Alert>}
 
-      <div className="flex-1 min-h-0 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
-        {tab === "batches" && (
-          <Table<any>
-            bare
-            className="h-full"
-            columns={batchColumns}
-            rows={rows}
-            rowKey={(r: any, idx) => r.id || `batch-${idx}`}
-            onRowClick={handleBatchRowClick}
-            loading={loading}
-            initialLoading={initialLoading}
-            emptyMessage={q || status ? "No requests match your filters." : "No requests found."}
-            hasMore={hasMore}
-            onLoadMore={() => setPage((p) => p + 1)}
-            mobileRender={(r) => (
-              <div className="px-4 py-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300">
-                    {r.mode || r.batch_mode || "REQUEST"}
-                  </span>
-                  <span className="text-[10px] text-slate-400 tabular-nums">
-                    {formatDate(r.due_at || r.created_at)}
-                  </span>
-                </div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-0.5">
-                  {r.title || r.item_title || r.batch_title}
-                </p>
-                <div className="flex items-center justify-between gap-2 overflow-hidden">
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                    {r.office_code || r.office_name || "—"}
-                  </span>
-                  <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 shrink-0">
-                    {r.status || r.item_status || "Open"}
-                  </span>
-                </div>
-              </div>
+      <div className="flex-1 min-h-0 min-w-0 flex flex-col">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab + qDebounced + status + recipientStatus}
+            initial={{ opacity: 0, scale: 0.99 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.99 }}
+            transition={{ duration: 0.15 }}
+            className="flex-1 min-h-0 mx-4 mb-4 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden"
+          >
+            {tab === "batches" && (
+              <Table<any>
+                bare
+                className="h-full"
+                columns={batchColumns}
+                rows={rows}
+                rowKey={(r: any, idx) => r.id || `batch-${idx}`}
+                onRowClick={handleBatchRowClick}
+                loading={loading}
+                initialLoading={initialLoading}
+                emptyMessage={q || status ? "No requests match your filters." : "No requests found."}
+                hasMore={hasMore}
+                onLoadMore={() => setPage((p) => p + 1)}
+                mobileRender={(r) => (
+                  <div className="px-4 py-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300">
+                        {r.mode || r.batch_mode || "REQUEST"}
+                      </span>
+                      <span className="text-[10px] text-slate-400 tabular-nums">
+                        {formatDate(r.due_at || r.created_at)}
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-0.5">
+                      {r.title || r.item_title || r.batch_title}
+                    </p>
+                    <div className="flex items-center justify-between gap-2 overflow-hidden">
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        {r.office_code || r.office_name || "—"}
+                      </span>
+                      <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 shrink-0">
+                        {r.status || r.item_status || "Open"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                gridTemplateColumns={batchGrid}
+                sortBy={sortBy}
+                sortDir={sortDir as any}
+                onSortChange={(key, dir) => {
+                  setSortBy(key);
+                  setSortDir(dir);
+                }}
+              />
             )}
-            gridTemplateColumns={batchGrid}
-            sortBy={sortBy}
-            sortDir={sortDir as any}
-            onSortChange={(key, dir) => {
-              setSortBy(key);
-              setSortDir(dir);
-            }}
-          />
-        )}
 
-        {tab === "all" && (
-          <Table<any>
-            bare
-            className="h-full"
-            columns={allColumns}
-            rows={rows}
-            rowKey={(r: any, idx) => `${r.row_type}-${r.row_id}-${idx}`}
-            onRowClick={handleRecipientRowClick}
-            loading={loading}
-            initialLoading={initialLoading}
-            emptyMessage={q || status || recipientStatus ? "No matches found." : "No requests found."}
-            hasMore={hasMore}
-            onLoadMore={() => setPage((p) => p + 1)}
-            mobileRender={(r) => (
-              <div className="px-4 py-3 bg-white dark:bg-surface-500 border-b border-slate-100 dark:border-surface-400">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400">
-                    {r.batch_mode || "REQUEST"}
-                  </span>
-                  <span className="text-[10px] text-slate-400 tabular-nums">
-                    {formatDate(r.due_at || r.created_at)}
-                  </span>
-                </div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-0.5">
-                  {r.item_title ?? r.batch_title}
-                </p>
-                <div className="flex items-center justify-between gap-2 overflow-hidden">
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                    {r.office_code || r.office_name || "—"}
-                  </span>
-                  <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 shrink-0">
-                    {r.item_status || "Pending"}
-                  </span>
-                </div>
-              </div>
+            {tab === "all" && (
+              <Table<any>
+                bare
+                className="h-full"
+                columns={allColumns}
+                rows={rows}
+                rowKey={(r: any, idx) => `${r.row_type}-${r.row_id}-${idx}`}
+                onRowClick={handleRecipientRowClick}
+                loading={loading}
+                initialLoading={initialLoading}
+                emptyMessage={q || status || recipientStatus ? "No matches found." : "No requests found."}
+                hasMore={hasMore}
+                onLoadMore={() => setPage((p) => p + 1)}
+                mobileRender={(r) => (
+                  <div className="px-4 py-3 bg-white dark:bg-surface-500 border-b border-slate-100 dark:border-surface-400">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400">
+                        {r.batch_mode || "REQUEST"}
+                      </span>
+                      <span className="text-[10px] text-slate-400 tabular-nums">
+                        {formatDate(r.due_at || r.created_at)}
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-0.5">
+                      {r.item_title ?? r.batch_title}
+                    </p>
+                    <div className="flex items-center justify-between gap-2 overflow-hidden">
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        {r.office_code || r.office_name || "—"}
+                      </span>
+                      <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 shrink-0">
+                        {r.item_status || "Pending"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                gridTemplateColumns={gridCols}
+                sortBy={sortBy}
+                sortDir={sortDir as any}
+                onSortChange={(key, dir) => {
+                  setSortBy(key);
+                  setSortDir(dir);
+                }}
+              />
             )}
-            gridTemplateColumns={gridCols}
-            sortBy={sortBy}
-            sortDir={sortDir as any}
-            onSortChange={(key, dir) => {
-              setSortBy(key);
-              setSortDir(dir);
-            }}
-          />
-        )}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       <CreateDocumentRequestModal

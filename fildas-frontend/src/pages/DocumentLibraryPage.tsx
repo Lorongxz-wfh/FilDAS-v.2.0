@@ -18,8 +18,9 @@ import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
 import { LayoutGrid, List, Share2, ClipboardList, Archive } from "lucide-react";
 import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import { formatDate } from "../utils/formatters";
-import { tabCls } from "../utils/formStyles";
+import { Tabs } from "../components/ui/Tabs";
 import { useSmartRefresh } from "../hooks/useSmartRefresh";
+import { motion, AnimatePresence } from "framer-motion";
 
 import {
   type LibTab,
@@ -271,6 +272,15 @@ export default function DocumentLibraryPage() {
     }
   };
 
+  const TABS = useMemo(() => {
+    const base: LibTab[] = isAuditor(role) ? ["all"] : ["all", "created", "requested", "shared"];
+    return base.map(t => ({
+      key: t,
+      label: TAB_LABELS[t],
+      icon: <span className="shrink-0">{TAB_ICONS[t]}</span>
+    }));
+  }, [role]);
+
   return (
     <PageFrame
       title="Document Library"
@@ -280,7 +290,7 @@ export default function DocumentLibraryPage() {
           <button
             type="button"
             onClick={() => navigate("/archive")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-400 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-300 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-400 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-300 transition-colors cursor-pointer"
           >
             <Archive className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Archive library</span>
@@ -299,12 +309,13 @@ export default function DocumentLibraryPage() {
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
       <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0 overflow-x-auto hide-scrollbar">
-        {(isAuditor(role) ? (["all"] as LibTab[]) : (["all", "created", "requested", "shared"] as LibTab[])).map((t) => (
-          <button key={t} type="button" onClick={() => setTab(t)} className={tabCls(tab === t)}>
-            {TAB_ICONS[t]}
-            {TAB_LABELS[t]}
-          </button>
-        ))}
+        <Tabs 
+          tabs={TABS} 
+          activeTab={tab} 
+          onChange={(key) => setTab(key as LibTab)} 
+          id="library" 
+          className="border-none"
+        />
       </div>
 
       <SearchFilterBar
@@ -378,59 +389,70 @@ export default function DocumentLibraryPage() {
         <DateRangeInput from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
       </SearchFilterBar>
 
-      {error && <Alert variant="danger" className="mb-4">{error}</Alert>}
+      {error && <Alert variant="danger" className="mb-4 mx-4">{error}</Alert>}
 
-      <div className="flex-1 min-h-0 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
-        <Table<any>
-          bare
-          className="h-full"
-          columns={tab === "created" ? baseDocColumns : tab === "shared" ? sharedColumns : tab === "requested" ? requestedColumns : allColumns}
-          rows={rows}
-          rowKey={(r: any, idx) => {
-            if (tab === "all") return r._key || `item-${idx}-${r.id || r.docId || r.reqId}`;
-            if (tab === "requested") return `req-${r.request_id || r.batch_id || "raw"}-${r.id || r.recipient_id || r.row_id || idx}`;
-            return `doc-${r.id || idx}`;
-          }}
-          loading={loading}
-          initialLoading={initialLoading}
-          onRowClick={handleRowClick}
-          hasMore={hasMore}
-          onLoadMore={() => loadData(true)}
-          gridTemplateColumns={tab === "created" ? "120px minmax(200px, 1fr) 110px 100px 100px 70px 120px" : tab === "shared" ? "120px minmax(200px, 1fr) 110px 90px 100px 70px 110px" : tab === "requested" ? "minmax(250px, 1fr) 130px 110px" : "110px minmax(200px, 1fr) 100px 100px 100px 110px 110px"}
-          sortBy={sortBy}
-          sortDir={sortDir}
-          onSortChange={(key, dir) => { setSortBy(key as any); setSortDir(dir); }}
-          mobileRender={(r) => {
-            const isAllTab = tab === "all";
-            const isReqTab = tab === "requested";
-            const title = isAllTab ? r.title : (isReqTab ? (r.item_title ?? r.batch_title) : r.title);
-            const code = isAllTab ? r.code : (!isReqTab ? r.code : null);
-            const office = isAllTab ? (typeof r.office === "object" ? r.office?.code : r.office) : (isReqTab ? r.office_code : (r.office?.code || r.ownerOffice?.code));
-            const date = isAllTab ? (r.dateDistributed || r.date) : (isReqTab ? r.created_at : (r.effective_date || r.created_at));
-            const type = isAllTab ? (r.doctype || r.mode) : (isReqTab ? (r.batch_mode || "REQUEST") : r.doctype);
-            const version = !isReqTab ? r.version_number : null;
-            return (
-              <div className="px-4 py-3">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300">{type}</span>
-                    {version && <span className="text-[10px] font-medium text-slate-400">v{version}</span>}
+      <div className="flex-1 min-h-0 min-w-0 flex flex-col">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab + qDebounced + typeFilter + dateFrom + dateTo + sourceFilter + officeFilter + batchFilter}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="flex-1 min-h-0 mx-4 mb-4 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden"
+          >
+            <Table<any>
+              bare
+              className="h-full"
+              columns={tab === "created" ? baseDocColumns : tab === "shared" ? sharedColumns : tab === "requested" ? requestedColumns : allColumns}
+              rows={rows}
+              rowKey={(r: any, idx) => {
+                if (tab === "all") return r._key || `item-${idx}-${r.id || r.docId || r.reqId}`;
+                if (tab === "requested") return `req-${r.request_id || r.batch_id || "raw"}-${r.id || r.recipient_id || r.row_id || idx}`;
+                return `doc-${r.id || idx}`;
+              }}
+              loading={loading}
+              initialLoading={initialLoading}
+              onRowClick={handleRowClick}
+              hasMore={hasMore}
+              onLoadMore={() => loadData(true)}
+              gridTemplateColumns={tab === "created" ? "120px minmax(200px, 1fr) 110px 100px 100px 70px 120px" : tab === "shared" ? "120px minmax(200px, 1fr) 110px 90px 100px 70px 110px" : tab === "requested" ? "minmax(250px, 1fr) 130px 110px" : "110px minmax(200px, 1fr) 100px 100px 100px 110px 110px"}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              onSortChange={(key, dir) => { setSortBy(key as any); setSortDir(dir); }}
+              mobileRender={(r) => {
+                const isAllTab = tab === "all";
+                const isReqTab = tab === "requested";
+                const title = isAllTab ? r.title : (isReqTab ? (r.item_title ?? r.batch_title) : r.title);
+                const code = isAllTab ? r.code : (!isReqTab ? r.code : null);
+                const office = isAllTab ? (typeof r.office === "object" ? r.office?.code : r.office) : (isReqTab ? r.office_code : (r.office?.code || r.ownerOffice?.code));
+                const date = isAllTab ? (r.dateDistributed || r.date) : (isReqTab ? r.created_at : (r.effective_date || r.created_at));
+                const type = isAllTab ? (r.doctype || r.mode) : (isReqTab ? (r.batch_mode || "REQUEST") : r.doctype);
+                const version = !isReqTab ? r.version_number : null;
+                return (
+                  <div className="px-4 py-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300">{type}</span>
+                        {version && <span className="text-[10px] font-medium text-slate-400">v{version}</span>}
+                      </div>
+                      <span className="text-[10px] text-slate-400 tabular-nums">{formatDate(date)}</span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-0.5">{title}</p>
+                    <div className="flex items-center justify-between gap-2 overflow-hidden">
+                      <div className="flex items-center gap-2 truncate">
+                        {code && <span className="text-[10px] font-mono text-slate-400 shrink-0">{code}</span>}
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{office || "—"}</span>
+                      </div>
+                      {isAllTab && r.source && <span className="text-[9px] font-bold uppercase text-brand-600 dark:text-brand-400 shrink-0">{r.source}</span>}
+                    </div>
                   </div>
-                  <span className="text-[10px] text-slate-400 tabular-nums">{formatDate(date)}</span>
-                </div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-0.5">{title}</p>
-                <div className="flex items-center justify-between gap-2 overflow-hidden">
-                  <div className="flex items-center gap-2 truncate">
-                    {code && <span className="text-[10px] font-mono text-slate-400 shrink-0">{code}</span>}
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{office || "—"}</span>
-                  </div>
-                  {isAllTab && r.source && <span className="text-[9px] font-bold uppercase text-brand-600 dark:text-brand-400 shrink-0">{r.source}</span>}
-                </div>
-              </div>
-            );
-          }}
-          emptyMessage={tab === "requested" ? "No accepted requests found." : "No documents found in this section."}
-        />
+                );
+              }}
+              emptyMessage={tab === "requested" ? "No accepted requests found." : "No documents found in this section."}
+            />
+          </motion.div>
+        </AnimatePresence>
       </div>
     </PageFrame>
   );

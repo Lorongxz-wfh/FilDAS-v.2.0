@@ -9,7 +9,7 @@ import { useReportsData } from "../hooks/useReportsData";
 import { useReportFilters } from "../hooks/useReportFilters";
 import { getOffices } from "../services/reportsApi";
 import { SlidersHorizontal, BarChart3 } from "lucide-react";
-import { tabCls } from "../utils/formStyles";
+import { Tabs, TabContent } from "../components/ui/Tabs";
 import { PageActions, RefreshAction } from "../components/ui/PageActions";
 
 // Tabs
@@ -141,16 +141,13 @@ const ReportsPage: React.FC = () => {
     >
       {/* Tab nav */}
       <div className="shrink-0 flex items-center border-b border-slate-200 dark:border-surface-400 overflow-x-auto hide-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setActiveTab(t.key)}
-            className={tabCls(activeTab === t.key) + " whitespace-nowrap"}
-          >
-            {t.label}
-          </button>
-        ))}
+        <Tabs 
+          tabs={TABS} 
+          activeTab={activeTab} 
+          onChange={(key) => setActiveTab(key as Tab)} 
+          id="reports" 
+          className="border-none"
+        />
         <div className="ml-auto flex items-center pr-3 -mb-px">
           <Button
             type="button"
@@ -174,7 +171,7 @@ const ReportsPage: React.FC = () => {
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div ref={tabContentRef} className="flex-1 min-w-0 overflow-y-auto">
           <div className="flex flex-col gap-5 p-4 sm:p-5">
-            {activeTab === "overview" && (
+            <TabContent activeKey={activeTab} currentKey="overview">
               <OverviewTab
                 loading={loading}
                 activityLoading={activityLoading}
@@ -185,38 +182,42 @@ const ReportsPage: React.FC = () => {
                 ongoingCount={ongoingCount}
                 activityReport={activityReport}
               />
-            )}
+            </TabContent>
 
-            {activeTab === "workflow" && (qaMode || isOfficeHead) && (
-              <WorkflowTab
-                loading={loading}
-                bucket={bucket}
-                stats={stats}
-                ongoingCount={ongoingCount}
-              />
-            )}
+            <TabContent activeKey={activeTab} currentKey="workflow">
+              {(qaMode || isOfficeHead) && (
+                <WorkflowTab
+                  loading={loading}
+                  bucket={bucket}
+                  stats={stats}
+                  ongoingCount={ongoingCount}
+                />
+              )}
+            </TabContent>
 
-            {activeTab === "requests" && (
+            <TabContent activeKey={activeTab} currentKey="requests">
               <RequestsTab
                 requestsLoading={requestsLoading}
                 requestsReport={requestsReport}
                 bucket={bucket}
               />
-            )}
+            </TabContent>
 
-            {activeTab === "activity" && (
+            <TabContent activeKey={activeTab} currentKey="activity">
               <ActivityTab
                 activityLoading={activityLoading}
                 activityReport={activityReport}
               />
-            )}
+            </TabContent>
 
-            {activeTab === "users" && (role === "ADMIN" || role === "SYSADMIN") && (
-              <UsersTab
-                adminUserLoading={adminUserLoading}
-                adminUserStats={adminUserStats}
-              />
-            )}
+            <TabContent activeKey={activeTab} currentKey="users">
+              {(role === "ADMIN" || role === "SYSADMIN") && (
+                <UsersTab
+                  adminUserLoading={adminUserLoading}
+                  adminUserStats={adminUserStats}
+                />
+              )}
+            </TabContent>
           </div>
         </div>
 

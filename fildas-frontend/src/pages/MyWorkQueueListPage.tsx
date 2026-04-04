@@ -12,16 +12,17 @@ import SearchFilterBar from "../components/ui/SearchFilterBar";
 import { formatDate } from "../utils/formatters";
 import SelectDropdown from "../components/ui/SelectDropdown";
 import DateRangeInput from "../components/ui/DateRangeInput";
-import { tabCls } from "../utils/formStyles";
+import { Tabs } from "../components/ui/Tabs";
 import { PageActions, CreateAction, RefreshAction } from "../components/ui/PageActions";
 import { StatusBadge } from "../components/ui/Badge";
+import { motion, AnimatePresence } from "framer-motion";
 
 type WFTab = "all" | "active" | "distributed";
 
-const TABS: { value: WFTab; label: string }[] = [
-  { value: "all",         label: "All" },
-  { value: "active",      label: "Active" },
-  { value: "distributed", label: "Distributed" },
+const TABS: { key: WFTab; label: string }[] = [
+  { key: "all",         label: "All" },
+  { key: "active",      label: "Active" },
+  { key: "distributed", label: "Distributed" },
 ];
 
 const TERMINAL_STATUSES = new Set(["distributed", "cancelled", "superseded"]);
@@ -231,11 +232,13 @@ export default function MyWorkQueueListPage() {
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
     >
       <div className="flex items-center border-b border-slate-200 dark:border-surface-400 shrink-0 overflow-x-auto hide-scrollbar">
-        {TABS.map((t) => (
-          <button key={t.value} type="button" onClick={() => { setTab(t.value); setPage(1); }} className={tabCls(tab === t.value)}>
-            {t.label}
-          </button>
-        ))}
+        <Tabs 
+          tabs={TABS} 
+          activeTab={tab} 
+          onChange={(key) => { setTab(key as WFTab); setPage(1); }} 
+          id="workflows" 
+          className="border-none"
+        />
       </div>
 
       <SearchFilterBar
@@ -275,22 +278,33 @@ export default function MyWorkQueueListPage() {
 
       {error && <Alert variant="danger" className="mb-4">{error}</Alert>}
 
-      <div className="flex-1 min-h-0 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
-        <Table<Document>
-          bare
-          columns={columns}
-          rows={displayRows}
-          rowKey={(doc) => doc.id}
-          initialLoading={initialLoading}
-          loading={loading}
-          gridTemplateColumns={gridTemplateColumns}
-          onRowClick={(doc) => navigate(`/documents/${doc.id}`, { state: { from: "/documents/all" } })}
-          hasMore={tab !== "active" && hasMore}
-          onLoadMore={() => loadData(true)}
-          sortBy={sortBy}
-          sortDir={sortDir}
-          onSortChange={(key, dir) => { setSortBy(key as any); setSortDir(dir); }}
-        />
+      <div className="flex-1 min-h-0 min-w-0 flex flex-col">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab + qDebounced + phaseFilter + officeFilter + versionFilter + dateFrom + dateTo}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="flex-1 min-h-0 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden"
+          >
+            <Table<Document>
+              bare
+              columns={columns}
+              rows={displayRows}
+              rowKey={(doc) => doc.id}
+              initialLoading={initialLoading}
+              loading={loading}
+              gridTemplateColumns={gridTemplateColumns}
+              onRowClick={(doc) => navigate(`/documents/${doc.id}`, { state: { from: "/documents/all" } })}
+              hasMore={tab !== "active" && hasMore}
+              onLoadMore={() => loadData(true)}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              onSortChange={(key, dir) => { setSortBy(key as any); setSortDir(dir); }}
+            />
+          </motion.div>
+        </AnimatePresence>
       </div>
     </PageFrame>
   );
