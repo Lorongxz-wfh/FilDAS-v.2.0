@@ -5,7 +5,7 @@ import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
 import { BellOff, Trash2, Search, X } from "lucide-react";
 import { PageActions, RefreshAction } from "../components/ui/PageActions";
-import { Tabs, TabContent } from "../components/ui/Tabs";
+import { Tabs } from "../components/ui/Tabs";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   listNotifications,

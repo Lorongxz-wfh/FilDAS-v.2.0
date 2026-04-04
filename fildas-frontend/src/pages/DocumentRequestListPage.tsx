@@ -295,7 +295,7 @@ export default function DocumentRequestListPage() {
     ];
   }, [isQaAdmin]);
 
-  const batchGrid = "100px minmax(120px, 1fr) 240px 100px 140px";
+  const batchGrid = "110px minmax(200px, 1fr) 200px 100px 140px";
 
   const allColumns: TableColumn<any>[] = React.useMemo(() => {
     return [
@@ -562,11 +562,11 @@ export default function DocumentRequestListPage() {
         <AnimatePresence mode="wait">
           <motion.div
             key={tab + qDebounced + status + recipientStatus}
-            initial={{ opacity: 0, scale: 0.99 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.99 }}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="flex-1 min-h-0 mx-4 mb-4 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden"
+            className="flex-1 min-h-0 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden"
           >
             {tab === "batches" && (
               <Table<any>

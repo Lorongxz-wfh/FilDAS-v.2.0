@@ -187,6 +187,7 @@ class ProfileController extends Controller
         $data = $request->validate([
             'email_doc_updates' => ['required', 'boolean'],
             'email_approvals'   => ['required', 'boolean'],
+            'email_requests'    => ['required', 'boolean'],
         ]);
 
         $user->fill($data);
@@ -195,6 +196,7 @@ class ProfileController extends Controller
         return response()->json([
             'email_doc_updates' => (bool) $user->email_doc_updates,
             'email_approvals'   => (bool) $user->email_approvals,
+            'email_requests'    => (bool) $user->email_requests,
         ]);
     }
 
@@ -223,6 +225,7 @@ class ProfileController extends Controller
             ] : null,
             'email_doc_updates'   => (bool) ($user->email_doc_updates ?? true),
             'email_approvals'     => (bool) ($user->email_approvals ?? true),
+            'email_requests'      => (bool) ($user->email_requests ?? true),
         ];
     }
 }

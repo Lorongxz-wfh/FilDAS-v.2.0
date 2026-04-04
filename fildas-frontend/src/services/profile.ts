@@ -55,7 +55,8 @@ export async function removeSignature() {
 export async function updateNotificationPreferences(payload: {
   email_doc_updates: boolean;
   email_approvals: boolean;
+  email_requests: boolean;
 }) {
   const { data } = await api.patch("/profile/notification-preferences", payload);
-  return data as { email_doc_updates: boolean; email_approvals: boolean };
+  return data as { email_doc_updates: boolean; email_approvals: boolean; email_requests: boolean };
 }

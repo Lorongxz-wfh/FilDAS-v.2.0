@@ -36,6 +36,7 @@ class User extends Authenticatable
         'role_id',
         'email_doc_updates',
         'email_approvals',
+        'email_requests',
     ];
 
     /**
@@ -80,6 +81,7 @@ class User extends Authenticatable
             'password'           => 'hashed',
             'email_doc_updates'  => 'boolean',
             'email_approvals'    => 'boolean',
+            'email_requests'     => 'boolean',
         ];
     }
 

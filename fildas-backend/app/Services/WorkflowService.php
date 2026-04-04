@@ -914,9 +914,8 @@ class WorkflowService
             ]);
 
             // Email notification — only if user has enabled the relevant preference
-            $shouldEmail = $isReject
-                ? (bool) ($u->email_doc_updates ?? true)
-                : (bool) ($u->email_approvals ?? true);
+            // Rejections and assignments both require action
+            $shouldEmail = (bool) ($u->email_approvals ?? true);
 
             if ($shouldEmail && $u->email) {
                 try {

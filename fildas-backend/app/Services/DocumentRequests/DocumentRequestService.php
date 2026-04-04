@@ -299,7 +299,7 @@ class DocumentRequestService
                 'read_at' => null,
             ]);
 
-            if ($u->email && (bool) ($u->email_doc_updates ?? true)) {
+            if ($u->email && (bool) ($u->email_requests ?? true)) {
                 try {
                     Mail::to($u->email)->queue(new WorkflowNotificationMail(
                         recipientName:   trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) ?: $u->email,
@@ -352,7 +352,11 @@ class DocumentRequestService
                 'read_at' => null,
             ]);
 
-            if ($u->email && (bool) ($u->email_doc_updates ?? true)) {
+            $shouldEmail = $isReject 
+                ? (bool) ($u->email_requests ?? true) 
+                : (bool) ($u->email_doc_updates ?? true);
+
+            if ($u->email && $shouldEmail) {
                 try {
                     Mail::to($u->email)->queue(new WorkflowNotificationMail(
                         recipientName:   trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) ?: $u->email,
@@ -398,7 +402,7 @@ class DocumentRequestService
                 'read_at' => null,
             ]);
 
-            if ($u->email && (bool) ($u->email_doc_updates ?? true)) {
+            if ($u->email && (bool) ($u->email_requests ?? true)) {
                 try {
                     Mail::to($u->email)->queue(new WorkflowNotificationMail(
                         recipientName:   trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) ?: $u->email,

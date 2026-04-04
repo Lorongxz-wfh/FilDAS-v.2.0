@@ -144,55 +144,55 @@ export default function Table<T>({
 
   const inner = (
     <>
-      {/* Sticky header — hidden if mobileRender is active on small screen */}
-      <div
-        className={`shrink-0 grid gap-3 px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 ${mobileRender ? "hidden sm:grid" : "grid"}`}
-        style={{ gridTemplateColumns: colTemplate }}
-      >
-        {columns.map((c) => {
-          const isSortable = !!c.sortKey && !!onSortChange;
-          const isActive = isSortable && sortBy === c.sortKey;
-          const nextDir: SortDir =
-            isActive && sortDir === "desc" ? "asc" : "desc";
+      {/* Scrollable body */}
+      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
+        {/* Sticky header — hidden if mobileRender is active on small screen */}
+        <div
+          className={`sticky top-0 z-20 shrink-0 grid gap-3 px-4 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 ${mobileRender ? "hidden sm:grid" : "grid"}`}
+          style={{ gridTemplateColumns: colTemplate }}
+        >
+          {columns.map((c) => {
+            const isSortable = !!c.sortKey && !!onSortChange;
+            const isActive = isSortable && sortBy === c.sortKey;
+            const nextDir: SortDir =
+              isActive && sortDir === "desc" ? "asc" : "desc";
 
-          if (isSortable) {
+            if (isSortable) {
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => onSortChange!(c.sortKey!, nextDir)}
+                  className={[
+                    "flex items-center gap-1 transition-colors select-none",
+                    alignHeaderClass(c.align),
+                    c.headerClassName ?? "",
+                    isActive
+                      ? "text-slate-700 dark:text-slate-200"
+                      : "hover:text-slate-700 dark:hover:text-slate-200",
+                  ].join(" ")}
+                >
+                  {c.header}
+                  <SortIcon active={isActive} dir={isActive ? sortDir : "desc"} />
+                </button>
+              );
+            }
+
             return (
-              <button
+              <div
                 key={c.key}
-                type="button"
-                onClick={() => onSortChange!(c.sortKey!, nextDir)}
                 className={[
-                  "flex items-center gap-1 transition-colors select-none",
+                  "flex items-center",
                   alignHeaderClass(c.align),
                   c.headerClassName ?? "",
-                  isActive
-                    ? "text-slate-700 dark:text-slate-200"
-                    : "hover:text-slate-700 dark:hover:text-slate-200",
                 ].join(" ")}
               >
                 {c.header}
-                <SortIcon active={isActive} dir={isActive ? sortDir : "desc"} />
-              </button>
+              </div>
             );
-          }
+          })}
+        </div>
 
-          return (
-            <div
-              key={c.key}
-              className={[
-                "flex items-center",
-                alignHeaderClass(c.align),
-                c.headerClassName ?? "",
-              ].join(" ")}
-            >
-              {c.header}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Scrollable body */}
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
         {initialLoading ? (
           <div className="divide-y divide-slate-200 dark:divide-surface-400">
             {Array.from({ length: 15 }).map((_, r) => (

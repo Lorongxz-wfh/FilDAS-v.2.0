@@ -338,6 +338,7 @@ const SettingsPage: React.FC = () => {
 
   const [emailDocUpdates, setEmailDocUpdates] = useState(false);
   const [emailApprovals, setEmailApprovals] = useState(false);
+  const [emailRequests, setEmailRequests] = useState(false);
   const [soundNotif, setSoundNotif] = useState(false);
   const [adminDebugMode, setAdminDebugMode] = useState(() =>
     isAdminUser ? localStorage.getItem(`pref_debug_mode_${currentUser?.id}`) === "1" : false,
@@ -348,8 +349,10 @@ const SettingsPage: React.FC = () => {
     if (!user?.id) return;
     const dbDocUpdates = (user as any).email_doc_updates;
     const dbApprovals = (user as any).email_approvals;
+    const dbRequests = (user as any).email_requests;
     setEmailDocUpdates(dbDocUpdates !== undefined ? Boolean(dbDocUpdates) : localStorage.getItem(prefKey("email_doc_updates")) !== "false");
     setEmailApprovals(dbApprovals !== undefined ? Boolean(dbApprovals) : localStorage.getItem(prefKey("email_approvals")) !== "false");
+    setEmailRequests(dbRequests !== undefined ? Boolean(dbRequests) : localStorage.getItem(prefKey("email_requests")) !== "false");
     setSoundNotif(localStorage.getItem(prefKey("sound_notif")) !== "false");
   }, [user?.id]);
 
@@ -357,14 +360,51 @@ const SettingsPage: React.FC = () => {
     setEmailDocUpdates(v);
     localStorage.setItem(prefKey("email_doc_updates"), String(v));
     try {
-      await updateNotificationPreferences({ email_doc_updates: v, email_approvals: emailApprovals });
+      const updated = await updateNotificationPreferences({ 
+        email_doc_updates: v, 
+        email_approvals: emailApprovals,
+        email_requests: emailRequests
+      });
+      const stored = localStorage.getItem("auth_user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        localStorage.setItem("auth_user", JSON.stringify({ ...parsed, ...updated }));
+        window.dispatchEvent(new Event("auth_user_updated"));
+      }
     } catch { /* silent — localStorage is the fallback */ }
   };
   const handleEmailApprovals = async (v: boolean) => {
     setEmailApprovals(v);
     localStorage.setItem(prefKey("email_approvals"), String(v));
     try {
-      await updateNotificationPreferences({ email_doc_updates: emailDocUpdates, email_approvals: v });
+      const updated = await updateNotificationPreferences({ 
+        email_doc_updates: emailDocUpdates, 
+        email_approvals: v,
+        email_requests: emailRequests
+      });
+      const stored = localStorage.getItem("auth_user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        localStorage.setItem("auth_user", JSON.stringify({ ...parsed, ...updated }));
+        window.dispatchEvent(new Event("auth_user_updated"));
+      }
+    } catch { /* silent */ }
+  };
+  const handleEmailRequests = async (v: boolean) => {
+    setEmailRequests(v);
+    localStorage.setItem(prefKey("email_requests"), String(v));
+    try {
+      const updated = await updateNotificationPreferences({ 
+        email_doc_updates: emailDocUpdates, 
+        email_approvals: emailApprovals,
+        email_requests: v 
+      });
+      const stored = localStorage.getItem("auth_user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        localStorage.setItem("auth_user", JSON.stringify({ ...parsed, ...updated }));
+        window.dispatchEvent(new Event("auth_user_updated"));
+      }
     } catch { /* silent */ }
   };
   const handleSoundNotif = (v: boolean) => {
@@ -685,14 +725,20 @@ const SettingsPage: React.FC = () => {
               <Toggle
                 checked={emailDocUpdates}
                 onChange={handleEmailDocUpdates}
-                label="Document updates"
-                description="Get notified when a document is assigned to you or changes status."
+                label="Document milestones"
+                description="Get notified when a document is distributed to the library or cancelled."
               />
               <Toggle
                 checked={emailApprovals}
                 onChange={handleEmailApprovals}
-                label="Approvals & reviews"
-                description="Receive an email when action is required from you."
+                label="Action required"
+                description="Receive an email for new tasks, rejections, or returns requiring your attention."
+              />
+              <Toggle
+                checked={emailRequests}
+                onChange={handleEmailRequests}
+                label="Evidence requests"
+                description="Get notified about new document requests and submission reviews."
               />
             </div>
           </SectionCard>
