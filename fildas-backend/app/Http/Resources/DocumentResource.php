@@ -44,6 +44,13 @@ class DocumentResource extends JsonResource
                     'code' => $doc->ownerOffice->code,
                 ];
             }),
+            'ownerOffice' => $this->whenLoaded('ownerOffice', function () use ($doc) {
+                return [
+                    'id' => $doc->ownerOffice->id,
+                    'name' => $doc->ownerOffice->name,
+                    'code' => $doc->ownerOffice->code,
+                ];
+            }),
 
             // NEW: routing office (QA-selected) for Office Review/Approval steps
             'review_office_id' => $doc->review_office_id,

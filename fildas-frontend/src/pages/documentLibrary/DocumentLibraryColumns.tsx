@@ -332,7 +332,9 @@ export function buildAllColumns(): TableColumn<LibraryItem>[] {
       skeletonShape: "text",
       render: (item: any) => {
         const off = item.office;
-        const display = typeof off === "object" && off !== null ? off.code || off.name : off;
+        const display = typeof off === "object" && off !== null 
+          ? (off.code || off.name || "—") 
+          : (off || "—");
         return (
           <NormalText secondary>
             {display}

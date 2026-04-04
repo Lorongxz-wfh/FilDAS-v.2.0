@@ -8,17 +8,15 @@ export interface SystemHealthStatus {
       formatted: string;
       driver: string;
     };
-    cache: boolean;
+    cache: {
+      active: boolean;
+      driver: string;
+    };
     storage: {
       driver: string;
       connected: boolean;
       bucket: string | null;
-      node: {
-        total: number;
-        free: number;
-        used: number;
-        percentage: number;
-      };
+      error?: string | null;
     };
     mail: boolean;
   };

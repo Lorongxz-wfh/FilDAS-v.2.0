@@ -54,7 +54,7 @@ export function docToLibraryItem(
     title: doc.title,
     subtitle: doc.code ?? undefined,
     doctype: doc.doctype,
-    office: (doc as any).ownerOffice?.name ?? undefined,
+    office: (doc as any).ownerOffice?.name ?? (doc as any).office?.name ?? (doc as any).ownerOffice?.code ?? undefined,
     code: doc.code ?? undefined,
     status: doc.status || "Distributed",
     version: doc.version_number,

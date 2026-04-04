@@ -48,28 +48,21 @@ class SystemHealthController extends Controller
         if ($storageDriver === 's3') {
             $storageBucket = config('filesystems.disks.s3.bucket');
             try {
-                // Lightweight connectivity check - try to check if bucket exists or just reach endpoint
-                $storageConnected = Storage::disk('s3')->exists('connectivity_test_anchor');
+                // Better connectivity check: just try to list (even if empty) to verify API access
+                Storage::disk('s3')->allFiles();
+                $storageConnected = true;
             } catch (\Exception $e) {
+                // Return errors only for admins for security
+                $storageErrorKind = $e->getMessage();
+                \Log::error("SystemHealth: S3/R2 connectivity failed: " . $storageErrorKind);
                 $storageConnected = false;
             }
         }
 
-        // 4. Node/System Disk Usage (Local)
+        // 4. Node/System Disk Usage (Removed - confusing for cloud setups)
         $totalSpace = 0;
-        $freeSpace = 0;
-        $usedSpace = 0;
         $diskPercentage = 0;
         
-        try {
-            $diskPath = base_path();
-            if (function_exists('disk_total_space') && @disk_total_space($diskPath) !== false) {
-                $totalSpace = disk_total_space($diskPath);
-                $freeSpace = disk_free_space($diskPath);
-                $usedSpace = max(0, $totalSpace - $freeSpace);
-                $diskPercentage = $totalSpace > 0 ? round(($usedSpace / $totalSpace) * 100, 2) : 0;
-            }
-        } catch (\Exception $e) {}
 
         // Active Sessions (last 15 mins)
         $activeSessions = 0;
@@ -90,18 +83,15 @@ class SystemHealthController extends Controller
             'status' => [
                 'database' => $dbStatus,
                 'database_info' => $dbInfo,
-                'cache' => $cacheStatus,
+                'cache' => [
+                    'active' => $cacheStatus,
+                    'driver' => config('cache.default') ?? 'file'
+                ],
                 'storage' => [
                     'driver' => $storageDriver,
                     'connected' => $storageConnected,
                     'bucket' => $storageBucket,
-                    // Keeping local stats for "Node System Health"
-                    'node' => [
-                        'total' => $totalSpace,
-                        'free' => $freeSpace,
-                        'used' => $usedSpace,
-                        'percentage' => $diskPercentage,
-                    ]
+                    'error' => $storageErrorKind ?? null,
                 ],
                 'mail' => !empty(config('mail.mailers.smtp.host')),
             ],
