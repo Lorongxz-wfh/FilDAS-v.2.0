@@ -8,7 +8,7 @@ import type { NavItem } from "./navConfig";
 interface SidebarNavItemProps {
   to: string;
   label: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
   collapsed: boolean;
   mobileOpen: boolean;
   onMobileClose?: () => void;
@@ -145,9 +145,11 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
           />
         )}
         
-        <div className={!mobileOpen ? "flex items-center justify-center w-10 shrink-0 relative z-10" : "relative z-10"}>
-          <Icon className={iconCls} size={mobileOpen ? 18 : 20} />
-        </div>
+        {Icon && (
+          <div className={!mobileOpen ? "flex items-center justify-center w-10 shrink-0 relative z-10" : "relative z-10"}>
+            <Icon className={iconCls} size={mobileOpen ? 18 : 20} />
+          </div>
+        )}
         
         {(!collapsed || mobileOpen) && (
           <motion.span 
@@ -228,10 +230,17 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
                               transition={{ type: "spring", bounce: 0, duration: 0.2 }}
                             />
                           )}
-                        <child.icon size={14} className={[
-                          "shrink-0 transition-colors z-10",
-                          isActive ? "text-brand-600 dark:text-brand-400" : "text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600"
-                        ].join(" ")} />
+                      {(() => {
+                        const ChildIcon = child.icon;
+                        return ChildIcon ? (
+                          <ChildIcon size={14} className={[
+                            "shrink-0 transition-colors z-10",
+                            isActive ? "text-brand-600 dark:text-brand-400" : "text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600"
+                          ].join(" ")} />
+                        ) : (
+                          <div className="w-1.5 h-1.5 rounded-full border border-slate-300 dark:border-surface-300 z-10 mx-1" />
+                        );
+                      })()}
                         <span className={[
                           "truncate z-10",
                           isActive ? "font-semibold text-neutral-900 dark:text-surface-50" : "font-medium text-neutral-500 dark:text-neutral-400"

@@ -20,7 +20,7 @@ import type { LucideIcon } from "lucide-react";
 export type NavItem = {
   to: string;
   label: string;
-  icon: LucideIcon;
+  icon?: LucideIcon;
   roles?: string[];
   children?: NavItem[];
 };
@@ -107,7 +107,6 @@ export const navGroups: NavGroup[] = [
           {
             to: "/documents/all",
             label: "Workflows",
-            icon: FileText,
             roles: [
               "OFFICE_STAFF",
               "OFFICE_HEAD",
@@ -124,7 +123,6 @@ export const navGroups: NavGroup[] = [
           {
             to: "/document-requests",
             label: "Requests",
-            icon: Inbox,
             roles: [
               "OFFICE_STAFF",
               "OFFICE_HEAD",

@@ -385,7 +385,7 @@ export default function Table<T>({
                   <div className="h-5 w-5 rounded-full border-2 border-neutral-200 dark:border-surface-400 border-t-brand-600 animate-spin" />
                 )}
                 {!loading && !hasMore && rows.length > 0 && (
-                  <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                  <span className="text-xs text-neutral-400 dark:text-neutral-400/60 font-medium">
                     All caught up
                   </span>
                 )}

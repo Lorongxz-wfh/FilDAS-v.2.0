@@ -27,6 +27,7 @@ const NotificationBell: React.FC = () => {
   const [notifError, setNotifError] = React.useState<string | null>(null);
   const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
   const [annLoading, setAnnLoading] = React.useState(false);
+  const [isMarkingRead, setIsMarkingRead] = React.useState(false);
 
   // seenAt: timestamp (ms) of last time dropdown was opened
   const [seenAt, setSeenAt] = React.useState<number>(() =>
@@ -58,8 +59,8 @@ const NotificationBell: React.FC = () => {
   }
 
   async function loadDropdown(currentSeenAt: number) {
-    setNotifLoading(notifItems.length === 0);
-    setAnnLoading(announcements.length === 0);
+    setNotifLoading(true);
+    setAnnLoading(true);
     setNotifError(null);
     try {
       const [{ data }, ann] = await Promise.all([
@@ -209,16 +210,16 @@ const NotificationBell: React.FC = () => {
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute right-4 top-14 w-80 rounded-xl border border-slate-200 bg-white shadow-xl dark:border-surface-400 dark:bg-surface-500 animate-pop-in-top"
+          className="absolute right-4 top-14 w-96 rounded-xl border border-slate-200 bg-white shadow-xl dark:border-surface-400 dark:bg-surface-500 animate-pop-in-top overflow-hidden"
         >
-          {/* ── Announcements section — always rendered, hides content when empty ── */}
+          {/* ── Announcements section ── */}
           <div className="border-b border-slate-200 dark:border-surface-400">
-            <div className="flex items-center justify-between px-3 py-2">
-              <div className="flex items-center gap-1.5">
-                <Megaphone className="h-3 w-3 text-slate-400 dark:text-slate-500" />
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+            <div className="flex items-center justify-between px-3 py-2 bg-slate-50/50 dark:bg-surface-600/20">
+              <div className="flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-brand-500 dark:text-brand-400 fill-brand-500/10" />
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 uppercase tracking-tight">
                   Announcements
-                </span>
+                </h3>
               </div>
               <div className="flex items-center gap-2">
                 {annLoading && <InlineSpinner className="h-3 w-3 border-2" />}
@@ -236,7 +237,7 @@ const NotificationBell: React.FC = () => {
             </div>
 
             <div className="px-3 pb-2.5">
-              {annLoading ? (
+              {announcements.length === 0 && annLoading ? (
                 <SkeletonList rows={1} rowClassName="h-12 rounded-md" />
               ) : announcements.length === 0 ? (
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 py-1">
@@ -256,16 +257,16 @@ const NotificationBell: React.FC = () => {
                           ? "bg-amber-400"
                           : "bg-sky-500";
                     return (
-                      <div className="flex items-stretch rounded-md border border-slate-200 bg-slate-50 dark:border-surface-300 dark:bg-surface-600">
+                      <div className="flex items-stretch rounded-md border border-slate-200 bg-white dark:border-surface-300 dark:bg-surface-600">
                         <div
                           className={`w-1 shrink-0 rounded-l-sm ${typeCls}`}
                         />
                         <div className="flex-1 min-w-0 px-2.5 py-2">
-                          <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-100">
+                          <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
                             {latest.title}
                           </p>
                           <p 
-                            className="mt-0.5 line-clamp-2 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed"
+                            className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed"
                             dangerouslySetInnerHTML={{ __html: latest.body }}
                           />
                         </div>
@@ -284,11 +285,23 @@ const NotificationBell: React.FC = () => {
           </div>
 
           {/* ── Notifications section ── */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-t border-slate-200 dark:border-surface-400">
-            <div className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-t border-slate-200 dark:border-surface-400 bg-slate-50/50 dark:bg-surface-600/20">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 uppercase tracking-tight">
               Inbox
+            </h3>
+            <div className="flex items-center gap-2">
+              {notifLoading && <InlineSpinner className="h-3 w-3 border-2" />}
+              <button
+                type="button"
+                className="text-[11px] font-medium text-brand-500 hover:text-brand-400 dark:text-brand-400 transition-colors"
+                onClick={() => {
+                  closeDropdown();
+                  navigate("/inbox");
+                }}
+              >
+                View all →
+              </button>
             </div>
-            {notifLoading && <InlineSpinner className="h-3 w-3 border-2" />}
           </div>
 
           <div className="max-h-56 overflow-auto px-3 py-2 text-xs text-slate-600 dark:text-slate-400">
@@ -371,7 +384,7 @@ const NotificationBell: React.FC = () => {
                         <div className="min-w-0">
                           <div
                             className={[
-                              "truncate text-xs font-semibold",
+                              "truncate text-sm font-semibold",
                               isUnseen || isSeenNotRead
                                 ? "text-slate-900 dark:text-slate-100"
                                 : "text-slate-600 dark:text-slate-300",
@@ -381,7 +394,7 @@ const NotificationBell: React.FC = () => {
                           </div>
                           {n.body && (
                             <div 
-                              className="mt-0.5 line-clamp-2 text-[11px] text-slate-500 dark:text-slate-400"
+                              className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400"
                               dangerouslySetInnerHTML={{ __html: n.body }}
                             />
                           )}
@@ -421,29 +434,25 @@ const NotificationBell: React.FC = () => {
           <div className="flex items-center justify-between gap-2 border-t border-slate-200 px-3 py-2 dark:border-surface-400">
             <button
               type="button"
-              className="text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+              className="flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+              disabled={isMarkingRead}
               onClick={async () => {
                 try {
+                  setIsMarkingRead(true);
                   await markAllNotificationsRead();
                   await loadDropdown(seenAt);
                   startPolling("burst");
                 } catch {
                   /* ignore */
+                } finally {
+                  setIsMarkingRead(false);
                 }
               }}
             >
+              {isMarkingRead && <InlineSpinner className="h-3 w-3 border-2" />}
               Mark all as read
             </button>
-            <button
-              type="button"
-              className="text-xs font-medium text-sky-700 hover:text-sky-900 dark:text-sky-400 dark:hover:text-sky-300"
-              onClick={() => {
-                closeDropdown();
-                navigate("/inbox");
-              }}
-            >
-              View all notifications
-            </button>
+            <div />
           </div>
         </div>
       )}

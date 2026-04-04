@@ -37,6 +37,7 @@ export type LibraryItem = {
   date: string; // fallback date
   dateDistributed?: string;
   dateShared?: string;
+  effectiveDate?: string;
   docId?: number;
   reqId?: number;
   recipId?: number;
@@ -58,8 +59,9 @@ export function docToLibraryItem(
     status: doc.status || "Distributed",
     version: doc.version_number,
     date: doc.created_at,
-    dateDistributed: doc.effective_date || doc.distributed_at || doc.created_at,
+    dateDistributed: doc.distributed_at || doc.created_at,
     dateShared: source === "shared" ? doc.created_at : undefined,
+    effectiveDate: doc.effective_date ?? undefined,
     docId: doc.id,
   };
 }

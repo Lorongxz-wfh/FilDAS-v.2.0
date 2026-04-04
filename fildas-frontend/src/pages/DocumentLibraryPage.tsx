@@ -416,7 +416,15 @@ export default function DocumentLibraryPage() {
               onRowClick={handleRowClick}
               hasMore={hasMore}
               onLoadMore={() => loadData(true)}
-              gridTemplateColumns={tab === "created" ? "120px minmax(200px, 1fr) 110px 100px 100px 70px 120px" : tab === "shared" ? "120px minmax(200px, 1fr) 110px 90px 100px 70px 110px" : tab === "requested" ? "minmax(250px, 1fr) 130px 110px" : "110px minmax(200px, 1fr) 100px 100px 100px 110px 110px"}
+              gridTemplateColumns={
+                tab === "created" 
+                  ? "110px 110px minmax(200px, 1fr) 100px 100px 100px 60px 110px" 
+                  : tab === "shared" 
+                    ? "110px 110px minmax(200px, 1fr) 100px 90px 100px 60px 110px" 
+                    : tab === "requested" 
+                      ? "minmax(250px, 1fr) 130px 110px" 
+                      : "100px 100px minmax(200px, 1fr) 90px 90px 100px 100px 110px"
+              }
               sortBy={sortBy}
               sortDir={sortDir}
               onSortChange={(key, dir) => { setSortBy(key as any); setSortDir(dir); }}

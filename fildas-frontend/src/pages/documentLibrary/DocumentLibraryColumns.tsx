@@ -33,11 +33,23 @@ export function buildCreatedColumns(): TableColumn<Document>[] {
       key: "date_distributed",
       header: "Distributed",
       skeletonShape: "narrow",
-      sortKey: "distributed_at", // Better to use distributed_at if available
+      sortKey: "distributed_at",
       align: "left",
       render: (doc) => (
         <NormalText secondary>
-          {formatDate(doc.effective_date || doc.distributed_at || doc.created_at)}
+          {formatDate(doc.distributed_at || doc.created_at)}
+        </NormalText>
+      ),
+    },
+    {
+      key: "effective_date",
+      header: "Effective Date",
+      skeletonShape: "narrow",
+      sortKey: "effective_date",
+      align: "left",
+      render: (doc) => (
+        <NormalText secondary>
+          {formatDate(doc.effective_date) || "—"}
         </NormalText>
       ),
     },
@@ -116,7 +128,19 @@ export function buildSharedColumns(): TableColumn<Document>[] {
       align: "left",
       render: (doc) => (
         <NormalText secondary>
-          {formatDate(doc.effective_date)}
+          {formatDate(doc.distributed_at || doc.created_at)}
+        </NormalText>
+      ),
+    },
+    {
+      key: "effective_date",
+      header: "Effective Date",
+      skeletonShape: "narrow",
+      sortKey: "effective_date",
+      align: "left",
+      render: (doc) => (
+        <NormalText secondary>
+          {formatDate(doc.effective_date) || "—"}
         </NormalText>
       ),
     },
@@ -254,6 +278,18 @@ export function buildAllColumns(): TableColumn<LibraryItem>[] {
       render: (item) => (
         <NormalText secondary>
           {formatDate(item.dateDistributed || item.date)}
+        </NormalText>
+      ),
+    },
+    {
+      key: "effective_date",
+      header: "Effective Date",
+      skeletonShape: "narrow",
+      sortKey: "effective_date",
+      align: "left",
+      render: (item: any) => (
+        <NormalText secondary>
+          {formatDate(item.effectiveDate || item.effective_date) || "—"}
         </NormalText>
       ),
     },

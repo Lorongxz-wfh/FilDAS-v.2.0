@@ -156,7 +156,7 @@ export default function MyWorkQueueListPage() {
         sortKey: isDistributed ? "distributed_at" : "updated_at",
         align: "left",
         render: (doc) => (
-          <span className="text-xs font-semibold text-slate-500 tabular-nums">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 tabular-nums">
             {formatDate(isDistributed ? doc.distributed_at : doc.updated_at)}
           </span>
         ),
@@ -165,7 +165,7 @@ export default function MyWorkQueueListPage() {
         key: "title",
         header: "Name",
         sortKey: "title",
-        render: (doc) => <p className="text-sm font-semibold truncate group-hover:text-brand-500">{doc.title}</p>,
+        render: (doc) => <p className="text-sm font-semibold truncate text-slate-800 dark:text-slate-100 group-hover:text-brand-500 transition-colors">{doc.title}</p>,
       },
       {
         key: "code",
@@ -193,14 +193,14 @@ export default function MyWorkQueueListPage() {
         key: "version",
         header: "Ver.",
         align: "center",
-        render: (doc) => <span className="text-[11px] font-medium text-slate-400">v{doc.version_number}</span>,
+        render: (doc) => <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">v{doc.version_number}</span>,
       },
       {
         key: "created",
         header: "Date Created",
         sortKey: "created_at",
         align: "right",
-        render: (doc) => <span className="text-[11px] font-medium text-slate-400 tabular-nums">{formatDate(doc.created_at)}</span>,
+        render: (doc) => <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 tabular-nums">{formatDate(doc.created_at)}</span>,
       }
     );
     return cols;

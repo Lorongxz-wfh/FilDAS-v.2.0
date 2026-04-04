@@ -73,17 +73,17 @@ const AnnouncementsBanner: React.FC<Props> = ({ announcements, loading }) => {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 border-b border-slate-100 dark:border-surface-400 px-4 py-2 sm:py-2.5">
         <div className="flex items-center gap-2">
-          <Megaphone className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
-          <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 leading-tight uppercase tracking-widest">
+          <Megaphone className="h-4 w-4 text-brand-500 dark:text-brand-400 fill-brand-500/10" />
+          <h3 className="text-[11px] font-semibold text-slate-800 dark:text-slate-100 uppercase tracking-tight">
             Announcements
-          </p>
+          </h3>
         </div>
         <div className="flex items-center gap-3">
           {regular.length > 0 && (
             <button
               type="button"
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 uppercase tracking-tighter"
+              className="flex items-center gap-1 text-[10px] font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 uppercase tracking-tight transition-colors"
             >
               {isCollapsed ? "Expand" : "Collapse"}
               {isCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
@@ -92,7 +92,7 @@ const AnnouncementsBanner: React.FC<Props> = ({ announcements, loading }) => {
           <button
             type="button"
             onClick={() => navigate("/announcements")}
-            className="shrink-0 text-[10px] font-bold text-brand-500 hover:text-brand-400 dark:text-brand-400 transition-colors uppercase"
+            className="shrink-0 text-[10px] font-semibold text-brand-500 hover:text-brand-400 dark:text-brand-400 transition-colors uppercase tracking-tight"
           >
             Manage →
           </button>
