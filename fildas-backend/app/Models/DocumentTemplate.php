@@ -22,6 +22,8 @@ class DocumentTemplate extends Model
         'office_id',
     ];
 
+    protected $appends = ['thumbnail_url'];
+
     protected $casts = [
         'file_size' => 'integer',
         'office_id' => 'integer',
@@ -70,5 +72,19 @@ class DocumentTemplate extends Model
         }
 
         return $bytes . ' B';
+    }
+
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        if (!$this->thumbnail_path) {
+            return null;
+        }
+
+        // Return a signed URL to the proxy route
+        return \Illuminate\Support\Facades\URL::temporarySignedRoute(
+            'templates.thumbnail',
+            now()->addMinutes(60),
+            ['template' => $this->id]
+        );
     }
 }

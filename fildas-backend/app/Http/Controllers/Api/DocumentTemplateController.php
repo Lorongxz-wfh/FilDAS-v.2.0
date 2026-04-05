@@ -28,12 +28,16 @@ class DocumentTemplateController extends Controller
             ? $request->query('sort_by') : 'created_at';
         $sortDir = $request->query('sort_dir') === 'asc' ? 'asc' : 'desc';
 
-        $query = DocumentTemplate::with(['uploader:id,first_name,last_name', 'office:id,name,code', 'tags'])
-            ->where(function ($q) use ($user) {
-                // Global templates (Admin/QA uploads) — everyone sees these
-                $q->whereNull('office_id');
+        $role = $this->roleNameOf($user);
+        $isAdmin = in_array($role, ['admin', 'sysadmin']);
 
-                // Office-scoped templates — only own office
+        $query = DocumentTemplate::with(['uploader:id,first_name,last_name', 'office:id,name,code', 'tags'])
+            ->where(function ($q) use ($user, $isAdmin) {
+                if ($isAdmin) {
+                    return; // Admin sees all
+                }
+
+                $q->whereNull('office_id');
                 if ($user->office_id) {
                     $q->orWhere('office_id', $user->office_id);
                 }
@@ -226,6 +230,31 @@ class DocumentTemplateController extends Controller
         ]);
     }
 
+    // ── GET /api/templates/{template}/thumbnail ───────────────
+    public function thumbnail(Request $request, DocumentTemplate $template)
+    {
+        // Must be signed or have a valid auth session (this route is signed)
+        if (!$template->thumbnail_path) {
+            return response()->json(['message' => 'No thumbnail available.'], 404);
+        }
+
+        $disk = config('filesystems.default');
+
+        if (!Storage::disk($disk)->exists($template->thumbnail_path)) {
+            return response()->json(['message' => 'Thumbnail file not found.'], 404);
+        }
+
+        $stream = Storage::disk($disk)->readStream($template->thumbnail_path);
+
+        return response()->stream(function () use ($stream) {
+            fpassthru($stream);
+            if (is_resource($stream)) fclose($stream);
+        }, 200, [
+            'Content-Type'  => 'image/png', // Thumbnails are generated as PNG by ThumbnailService
+            'Cache-Control' => 'private, max-age=86400, must-revalidate',
+        ]);
+    }
+
     // ── Private helpers ──────────────────────────────────────
 
     private function format(DocumentTemplate $t, $user): array
@@ -253,7 +282,7 @@ class DocumentTemplateController extends Controller
                 'name' => trim("{$t->uploader->first_name} {$t->uploader->last_name}"),
             ] : null,
             'can_delete'      => $canDelete,
-            'thumbnail_url'   => $t->thumbnail_path ? \Illuminate\Support\Facades\Storage::url($t->thumbnail_path) : null,
+            'thumbnail_url'   => $t->thumbnail_url, // Using virtual attribute
             'tags'            => $t->tags->pluck('name')->values()->all(),
             'created_at'      => $t->created_at?->toISOString(),
         ];

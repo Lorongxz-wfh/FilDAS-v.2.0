@@ -65,6 +65,10 @@ Route::get('/document-request-submission-files/{file}/preview', [DocumentRequest
     ->name('document-request-submission-files.preview')
     ->middleware('signed');
 
+Route::get('/templates/{template}/thumbnail', [DocumentTemplateController::class, 'thumbnail'])
+    ->name('templates.thumbnail')
+    ->middleware('signed');
+
 Route::get('/document-request-submission-files/{file}/download', [DocumentRequestFileController::class, 'submissionFileDownloadSigned'])
     ->name('document-request-submission-files.download')
     ->middleware('signed');
