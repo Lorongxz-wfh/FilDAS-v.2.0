@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Sun, Moon, Menu, PanelLeftClose, UserSearch } from "lucide-react";
+import { Sun, Moon, Menu, PanelLeftClose, Ghost, Terminal } from "lucide-react";
 import { useAdminDebugMode } from "../../hooks/useAdminDebugMode";
 
 interface SidebarBrandProps {
@@ -37,11 +37,24 @@ const SidebarBrand: React.FC<SidebarBrandProps> = ({
             <span className="text-[17px] font-bold tracking-tight text-neutral-900 dark:text-surface-50 truncate">
               FilDAS
             </span>
-            {debugMode && (
-              <div className="flex items-center justify-center h-5 w-5 rounded-full bg-brand-500/10 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 animate-pulse shrink-0">
-                <UserSearch className="h-3 w-3" strokeWidth={2.5} />
-              </div>
-            )}
+            <div className="flex items-center gap-1">
+              {import.meta.env.DEV && (
+                <div 
+                  className="flex items-center justify-center h-4.5 w-4.5 rounded bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0" 
+                  title="Environment: DEV"
+                >
+                  <Terminal className="h-2.5 w-2.5" strokeWidth={3} />
+                </div>
+              )}
+              {debugMode && (
+                <div 
+                  className="flex items-center justify-center h-5 w-5 rounded-full bg-brand-500/10 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 animate-pulse shrink-0" 
+                  title="Admin: Debug Mode"
+                >
+                  <Ghost className="h-3 w-3" strokeWidth={2.5} />
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

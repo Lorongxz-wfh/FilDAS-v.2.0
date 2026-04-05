@@ -115,7 +115,7 @@ export default function DocumentRequestViewPage() {
     setPreviewLoading(true);
     setPreviewError(null);
     try {
-      const { url } = await getDocumentRequestSubmissionFilePreviewLink(requestId, acceptedSubmission.id);
+      const { url } = await getDocumentRequestSubmissionFilePreviewLink(acceptedSubmission.id);
       setPreviewUrl(url);
     } catch (e: any) {
       setPreviewError(e?.message ?? "Failed to load preview.");
@@ -169,9 +169,7 @@ export default function DocumentRequestViewPage() {
     setPosting(true);
     setPostErr(null);
     try {
-      const msg = await postDocumentRequestMessage(requestId, {
-        message: text,
-        type: "comment",
+      const msg = await postDocumentRequestMessage(requestId, text, {
         recipient_id: isItemView ? undefined : recipientId!,
         item_id: isItemView ? itemId! : undefined,
       });
