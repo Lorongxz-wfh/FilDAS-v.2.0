@@ -34,9 +34,14 @@ class DocumentRequestController extends Controller
     // ── GET /api/document-requests (QA/Admin) ──────────────────────────────
     public function index(Request $request)
     {
-        $user = $request->user();
-        $role = $this->roleName($request);
-        $isQa = $this->isQaOrAdmin($role);
+        $user     = $request->user();
+        $role     = $this->roleName($request);
+        $isQa     = $this->isQaOrAdmin($role);
+        $officeId = (int) ($user?->office_id ?? 0);
+
+        if (!$isQa && $officeId <= 0) {
+            return response()->json(['message' => 'Your account has no office assigned.'], 422);
+        }
 
         $data = $request->validate([
             'status'    => 'nullable|in:open,closed,cancelled',
@@ -66,117 +71,97 @@ class DocumentRequestController extends Controller
                 ->orderBy($actualSort, $sortDir)
                 ->select([
                     'r.id', 'r.title', 'r.description', 'r.status', 'r.mode', 'r.due_at', 'r.created_at', 'r.created_by_user_id',
-                    // Creator office info
-                    DB::raw("COALESCE(o_cre.code, 'N/A') as creator_office_code"),
-                    DB::raw("COALESCE(o_cre.name, 'Admin Unit') as creator_office_name"),
-                    // Recipient office codes via subquery
-                    DB::raw("(SELECT GROUP_CONCAT(DISTINCT o_sub.code SEPARATOR ', ')
-                              FROM document_request_recipients rr_sub
-                              JOIN offices o_sub ON o_sub.id = rr_sub.office_id
-                              WHERE rr_sub.request_id = r.id) as recipient_offices_code"),
-                    // Recipient office names via subquery
-                    DB::raw("(SELECT GROUP_CONCAT(DISTINCT o_sub.name SEPARATOR ', ')
-                              FROM document_request_recipients rr_sub
-                              JOIN offices o_sub ON o_sub.id = rr_sub.office_id
-                              WHERE rr_sub.request_id = r.id) as recipient_offices_name")
+                    'u_cre.name as creator_user_name',
+                    'o_cre.name as creator_office_name',
+                    'o_cre.code as creator_office_code',
+                    DB::raw("CASE WHEN r.created_by_user_id = " . (int)$user->id . " THEN 'YOU' ELSE COALESCE(o_cre.code, 'System') END as creator_label"),
                 ]);
+
+            if (!$isQa) {
+                $q->where(function ($query) use ($user, $officeId) {
+                    $query->where('r.created_by_user_id', (int)$user->id)
+                          ->orWhereExists(function ($sub) use ($officeId) {
+                              $sub->select(DB::raw(1))
+                                  ->from('document_request_recipients as rr_access')
+                                  ->whereColumn('rr_access.request_id', 'r.id')
+                                  ->where('rr_access.office_id', $officeId);
+                          });
+                });
+            }
+
+            if (!empty($data['status'])) $q->where('r.status', $data['status']);
+            if (!empty($data['mode']))   $q->where('r.mode', $data['mode']);
+            if (!empty($data['office_id'])) {
+                $q->whereExists(function ($sub) use ($data) {
+                    $sub->select(DB::raw(1))
+                        ->from('document_request_recipients as rr_filter')
+                        ->whereColumn('rr_filter.request_id', 'r.id')
+                        ->where('rr_filter.office_id', (int)$data['office_id']);
+                });
+            }
+
+            if (!empty($data['direction']) && $data['direction'] !== 'all') {
+                if ($data['direction'] === 'outgoing') {
+                    $q->where('r.created_by_user_id', (int)$user->id);
+                } else {
+                    $q->where('r.created_by_user_id', '!=', (int)$user->id);
+                }
+            }
 
             if (!empty($data['q'])) {
                 $term = trim($data['q']);
                 $q->where(function ($qq) use ($term) {
                     $qq->where('r.title', 'like', "%{$term}%")
-                       ->orWhere('r.description', 'like', "%{$term}%");
-                });
-            }
-
-            if (!empty($data['status'])) {
-                $q->where('r.status', $data['status']);
-            }
-
-            if (!empty($data['mode'])) {
-                $q->where('r.mode', $data['mode']);
-            }
-
-            // General Visibility (Non-QA must see their own OR where they are recipient)
-            if (!$isQa) {
-                $q->where(function ($query) use ($user) {
-                    $query->where('r.created_by_user_id', $user->id)
-                          ->orWhereExists(function ($sub) use ($user) {
-                              $sub->select(DB::raw(1))
-                                  ->from('document_request_recipients as rr_access')
-                                  ->whereColumn('rr_access.request_id', 'r.id')
-                                  ->where('rr_access.office_id', (int) ($user->office_id ?? 0));
-                          });
-                });
-            }
-
-            // Directional filtering (if selected)
-            if (!empty($data['direction']) && $data['direction'] !== 'all') {
-                if ($data['direction'] === 'outgoing') {
-                    $q->where('r.created_by_user_id', $user->id);
-                } elseif ($data['direction'] === 'incoming') {
-                    // Strictly NOT the creator AND must have access (either as QA or as recipient)
-                    $q->where('r.created_by_user_id', '!=', $user->id);
-                }
-            }
-
-            // Explicit office filter (mostly for QA)
-            if (!empty($data['office_id'])) {
-                $q->whereExists(function ($sub) use ($data) {
-                    $sub->select(DB::raw(1))
-                        ->from('document_request_recipients as rr_f')
-                        ->whereColumn('rr_f.request_id', 'r.id')
-                        ->where('rr_f.office_id', (int) $data['office_id']);
+                        ->orWhere('r.description', 'like', "%{$term}%");
                 });
             }
 
             $paginated = $q->paginate($perPage);
 
             $items = collect($paginated->items())->map(function ($row) use ($user) {
-                // Safeguard against missing mode or ID
-                $progress = null;
                 try {
-                    $progress = $this->progress->buildProgress((int)$row->id, $row->mode ?? 'multi_office');
-                } catch (\Throwable $err) {
-                    // Fallback to zeros if progress calculation fails for one row
-                    \Log::warning("BuildProgress Error on req #{$row->id}: " . $err->getMessage());
-                    $progress = ['total' => 0, 'submitted' => 0, 'accepted' => 0];
+                    $requestId = (int) $row->id;
+                    $mode = $row->mode ?? 'multi_office';
+                    
+                    try {
+                        $progress = $this->progress->buildProgress($requestId, $mode);
+                    } catch (\Throwable $pe) {
+                        $progress = ['total' => 0, 'submitted' => 0, 'accepted' => 0];
+                    }
+
+                    $recipients = DB::table('document_request_recipients as rr')
+                        ->join('offices as o', 'o.id', '=', 'rr.office_id')
+                        ->where('rr.request_id', $requestId)
+                        ->select(['o.code', 'o.name'])
+                        ->get();
+
+                    return [
+                        'id'                     => (int) $row->id,
+                        'title'                  => $row->title,
+                        'description'            => $row->description,
+                        'status'                 => $row->status,
+                        'mode'                   => $mode,
+                        'due_at'                 => $row->due_at,
+                        'created_at'             => $row->created_at,
+                        'created_by_user_id'     => (int) $row->created_by_user_id,
+                        'creator_user_name'      => $row->creator_user_name,
+                        'creator_office_name'    => $row->creator_office_name,
+                        'creator_office_code'    => $row->creator_office_code,
+                        'creator_label'          => $row->creator_label,
+                        'direction'              => ((int)$row->created_by_user_id === (int)$user->id) ? 'outgoing' : 'incoming',
+                        'progress'               => $progress,
+                        'recipient_offices_code' => $recipients->pluck('code')->unique()->implode(', '),
+                        'recipient_offices_name' => $recipients->pluck('name')->unique()->implode(', '),
+                    ];
+                } catch (\Throwable $e) {
+                    return null;
                 }
+            })->filter()->values();
 
-                $isOutgoing = ((int)($row->created_by_user_id ?? 0) === (int)$user->id);
-                
-                $offCode = $isOutgoing ? ($row->recipient_offices_code ?? '—') : ($row->creator_office_code ?? '—');
-                $offName = $isOutgoing ? ($row->recipient_offices_name ?? '—') : ($row->creator_office_name ?? '—');
+            $response = $paginated->toArray();
+            $response['data'] = $items->all();
 
-                return [
-                    'id'          => (int) $row->id,
-                    'title'       => $row->title,
-                    'description' => $row->description,
-                    'status'      => $row->status,
-                    'mode'        => $row->mode,
-                    'created_at'  => $row->created_at,
-                    'due_at'      => $row->due_at,
-                    'progress'    => $progress,
-                    'office_code' => $offCode,
-                    'office_name' => $offName,
-                    'direction'   => $isOutgoing ? 'outgoing' : 'incoming',
-                    'is_outgoing' => $isOutgoing,
-                    'created_by_user_id' => (int) $row->created_by_user_id,
-                ];
-            });
-
-            // Convert to array explicitly to avoid Collection JSON wrap issues in array_merge
-            return response()->json(array_merge(
-                $paginated->toArray(),
-                [
-                    'data' => $items->all(),
-                    'debug' => [
-                        'role' => $role,
-                        'is_qa' => $isQa,
-                        'user_id' => $user->id
-                    ]
-                ]
-            ));
+            return response()->json($response);
 
         } catch (\Throwable $e) {
             \Log::error("DocumentRequestController@index fatal: " . $e->getMessage(), [
