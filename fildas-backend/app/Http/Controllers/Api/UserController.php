@@ -357,27 +357,18 @@ class UserController extends Controller
             'photo' => ['required', 'image', 'max:2048'],
         ]);
 
-        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
-
-        // Delete old photo if exists
-        if ($user->profile_photo_path) {
-            Storage::disk($disk)->delete($user->profile_photo_path);
-        }
-
         try {
-            $path = $request->file('photo')->store('profile-photos', [
-                'disk' => $disk,
-                'visibility' => 'public'
-            ]);
-            $user->profile_photo_path = $path;
+            $file = $request->file('photo');
+            $data = base64_encode(file_get_contents($file->getRealPath()));
+            $mime = $file->getClientMimeType();
+            $user->profile_photo_path = 'data:' . $mime . ';base64,' . $data;
             $user->save();
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('User Photo Upload Failed', [
+            \Illuminate\Support\Facades\Log::error('User Photo DB Upload Failed', [
                 'error' => $e->getMessage(),
-                'user_id' => $user->id,
-                'disk' => $disk
+                'user_id' => $user->id
             ]);
-            return response()->json(['message' => 'Failed to upload photo.'], 500);
+            return response()->json(['message' => 'Failed to process photo.'], 500);
         }
 
         $user->load(['role', 'office']);

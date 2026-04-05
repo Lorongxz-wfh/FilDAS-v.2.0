@@ -57,6 +57,11 @@ class User extends Authenticatable
     {
         if (!$this->profile_photo_path) return null;
         
+        // If it's a Data URI (stored in DB), return it directly
+        if (Str::startsWith($this->profile_photo_path, 'data:')) {
+            return $this->profile_photo_path;
+        }
+
         $diskName = config('filesystems.default') === 's3' ? 's3' : 'public';
         $url = Storage::disk($diskName)->url($this->profile_photo_path);
         
@@ -77,6 +82,11 @@ class User extends Authenticatable
     {
         if (!$this->signature_path) return null;
         
+        // If it's a Data URI (stored in DB), return it directly
+        if (Str::startsWith($this->signature_path, 'data:')) {
+            return $this->signature_path;
+        }
+
         $diskName = config('filesystems.default') === 's3' ? 's3' : 'public';
         $url = Storage::disk($diskName)->url($this->signature_path);
         

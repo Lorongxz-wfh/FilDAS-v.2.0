@@ -109,29 +109,21 @@ class ProfileController extends Controller
             'photo' => ['required', 'image', 'max:2048'],
         ]);
 
-        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
-
-        if ($user->profile_photo_path) {
-            Storage::disk($disk)->delete($user->profile_photo_path);
-        }
-
         try {
-            $path = $request->file('photo')->store('profile-photos', [
-                'disk' => $disk,
-                'visibility' => 'public'
-            ]);
-            $user->profile_photo_path = $path;
+            $file = $request->file('photo');
+            $data = base64_encode(file_get_contents($file->getRealPath()));
+            $mime = $file->getClientMimeType();
+            $user->profile_photo_path = 'data:' . $mime . ';base64,' . $data;
             $user->save();
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Profile Photo Upload Failed', [
+            \Illuminate\Support\Facades\Log::error('Profile Photo DB Upload Failed', [
                 'error' => $e->getMessage(),
-                'user_id' => $user->id,
-                'disk' => $disk
+                'user_id' => $user->id
             ]);
-            return response()->json(['message' => 'Failed to upload photo.'], 500);
+            return response()->json(['message' => 'Failed to process photo.'], 500);
         }
 
-        $this->logActivity('profile.photo_updated', 'Updated profile photo', $user->id, $user->office_id);
+        $this->logActivity('profile.photo_updated', 'Updated profile photo (Database)', $user->id, $user->office_id);
 
         return response()->json(['user' => $this->userPayload($user)]);
     }
@@ -146,29 +138,21 @@ class ProfileController extends Controller
             'signature' => ['required', 'image', 'max:1024'],
         ]);
 
-        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
-
-        if ($user->signature_path) {
-            Storage::disk($disk)->delete($user->signature_path);
-        }
-
         try {
-            $path = $request->file('signature')->store('signatures', [
-                'disk' => $disk,
-                'visibility' => 'public'
-            ]);
-            $user->signature_path = $path;
+            $file = $request->file('signature');
+            $data = base64_encode(file_get_contents($file->getRealPath()));
+            $mime = $file->getClientMimeType();
+            $user->signature_path = 'data:' . $mime . ';base64,' . $data;
             $user->save();
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Signature Upload Failed', [
+            \Illuminate\Support\Facades\Log::error('Signature DB Upload Failed', [
                 'error' => $e->getMessage(),
-                'user_id' => $user->id,
-                'disk' => $disk
+                'user_id' => $user->id
             ]);
-            return response()->json(['message' => 'Failed to upload signature.'], 500);
+            return response()->json(['message' => 'Failed to process signature.'], 500);
         }
 
-        $this->logActivity('profile.signature_updated', 'Updated signature', $user->id, $user->office_id);
+        $this->logActivity('profile.signature_updated', 'Updated signature (Database)', $user->id, $user->office_id);
 
         return response()->json(['user' => $this->userPayload($user)]);
     }
@@ -180,8 +164,6 @@ class ProfileController extends Controller
         $user = $request->user();
 
         if ($user->signature_path) {
-            $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
-            Storage::disk($disk)->delete($user->signature_path);
             $user->signature_path = null;
             $user->save();
 
@@ -198,8 +180,6 @@ class ProfileController extends Controller
         $user = $request->user();
 
         if ($user->profile_photo_path) {
-            $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
-            Storage::disk($disk)->delete($user->profile_photo_path);
             $user->profile_photo_path = null;
             $user->save();
 
