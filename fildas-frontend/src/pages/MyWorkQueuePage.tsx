@@ -128,6 +128,10 @@ const MyWorkQueuePage: React.FC = () => {
     isOfficeHead(userRole) ||
     (isAdmin && adminDebugMode);
 
+  const canCreateRequest =
+    userRole !== "AUDITOR" &&
+    (userRole !== "ADMIN" || adminDebugMode || import.meta.env.DEV);
+
   // Combined + filtered Workflow lists
   const allItems = React.useMemo(() => {
     const seen = new Set<string>();
@@ -262,7 +266,7 @@ const MyWorkQueuePage: React.FC = () => {
                   Active Requests
                 </p>
               </div>
-              {canCreateDoc && (
+              {canCreateRequest && (
                 <CreateAction
                   label="Request"
                   onClick={() => {

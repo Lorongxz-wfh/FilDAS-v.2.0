@@ -2,6 +2,8 @@ import React, { Suspense } from "react";
 
 import { Routes, Route, Navigate } from "react-router-dom";
 
+
+
 class ChunkErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { error: boolean }
@@ -171,7 +173,7 @@ export default function App() {
             </Route>
 
             <Route
-              element={<RequireRole allow={["QA", "SYSADMIN", "ADMIN", "OFFICE_STAFF", "OFFICE_HEAD"]} />}
+              element={<RequireRole allow={nonAuditorRoles.filter(r => r !== 'ADMIN' || import.meta.env.DEV)} />}
             >
               <Route
                 path="/document-requests/create"

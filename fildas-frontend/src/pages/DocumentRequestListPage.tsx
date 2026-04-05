@@ -120,7 +120,9 @@ export default function DocumentRequestListPage() {
   const isQaAdmin =
     ["qa", "sysadmin"].includes(role) || (role === "admin" && adminDebugMode);
   
-  const canCreate = isQaAdmin || ["office_staff", "office_head", "vpaa", "vpad", "vpf", "vpr", "president"].includes(role);
+  const canCreate =
+    role !== "auditor" &&
+    (role !== "admin" || adminDebugMode || import.meta.env.DEV);
 
   const [tab, setTab] = React.useState<ViewTab>("batches");
   const [q, setQ] = React.useState("");
