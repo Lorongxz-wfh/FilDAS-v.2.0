@@ -717,8 +717,8 @@ export default function DocumentRequestPage() {
           </div>
 
           {/* Comments + Activity - Mobile Accordion Style */}
-          <div className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden dark:border-surface-400 dark:bg-surface-500 flex-1 lg:min-h-0 lg:h-125">
-            <div className="shrink-0 flex items-center justify-between bg-slate-50/50 dark:bg-surface-600/50 pr-2">
+          <div className="flex flex-col rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex-1 lg:min-h-0 lg:h-125">
+            <div className="shrink-0 flex items-center justify-between border-b border-slate-200 dark:border-surface-400 bg-slate-50/50 dark:bg-surface-600/50 pr-2">
               <TabBar
                 tabs={[
                   {

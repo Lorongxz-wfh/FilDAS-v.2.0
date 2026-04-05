@@ -170,7 +170,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                 size="xs"
                 disabled={isChangingStatus || removingSignature || !canAct}
                 onClick={onRemoveSignature}
-                className="bg-red-600 hover:bg-red-700 border-red-600 text-white shadow-sm"
+                className="bg-red-600 hover:bg-red-700 border-red-600 text-white"
               >
                 {removingSignature ? "Removing…" : "Remove signature"}
               </Button>

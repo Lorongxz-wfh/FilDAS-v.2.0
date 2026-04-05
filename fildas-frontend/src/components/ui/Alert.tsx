@@ -78,7 +78,7 @@ export default function Alert({
 
   // Box style (default)
   return (
-    <div className={["rounded-xl border px-4 py-3 text-sm", boxStyles[variant], className].join(" ")}>
+    <div className={["rounded-md border px-4 py-3 text-sm", boxStyles[variant], className].join(" ")}>
       <div className="flex flex-col sm:flex-row sm:items-start gap-3">
         <div className="flex flex-1 items-start gap-3 min-w-0">
           {icon && <span className="shrink-0 mt-0.5">{icon}</span>}

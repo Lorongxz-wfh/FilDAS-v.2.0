@@ -74,8 +74,8 @@ class DocumentRequestController extends Controller
                     'u_cre.name as creator_user_name',
                     'o_cre.name as creator_office_name',
                     'o_cre.code as creator_office_code',
-                    DB::raw("CASE WHEN r.created_by_user_id = " . (int)$user->id . " THEN 'YOU' ELSE COALESCE(o_cre.code, 'System') END as creator_label"),
-                ]);
+                ])
+                ->addSelect(DB::raw("CASE WHEN r.created_by_user_id = " . (int)$user->id . " THEN 'YOU' ELSE COALESCE(o_cre.code, 'System') END as creator_label"));
 
             if (!$isQa) {
                 $q->where(function ($query) use ($user, $officeId) {
@@ -163,14 +163,15 @@ class DocumentRequestController extends Controller
 
             return response()->json($response);
 
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             \Log::error("DocumentRequestController@index fatal: " . $e->getMessage(), [
-                'trace'   => substr($e->getTraceAsString(), 0, 500),
+                'file'    => $e->getFile(),
+                'line'    => $e->getLine(),
                 'user_id' => $user?->id
             ]);
             return response()->json([
-                'message' => 'Failed to load requests. Please try again.',
-                'error'   => $e->getMessage()
+                'message' => 'Failed to load requests matching the filter.',
+                'error'   => (config('app.debug')) ? $e->getMessage() : 'Internal Server Error'
             ], 500);
         }
     }
