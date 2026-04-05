@@ -502,7 +502,11 @@ export default function DocumentRequestListPage() {
           onChange={(key) => {
             if (key === "batches") {
               setTab("batches");
+              setQ("");
+              setStatus("");
               setRecipientStatus("");
+              setDirection("all");
+              setOfficeFilter("");
             } else {
               setTab("all");
               setStatus("");
@@ -568,7 +572,7 @@ export default function DocumentRequestListPage() {
                 </div>
               )}
 
-              {isQaAdmin && tab === "batches" && (
+              {tab === "batches" && isQaAdmin && (
                 <div className="flex flex-col gap-1.5 col-span-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Batch Progress</label>
                   <SelectDropdown
@@ -643,7 +647,7 @@ export default function DocumentRequestListPage() {
           />
         )}
 
-        {isQaAdmin && tab === "batches" && (
+        {tab === "batches" && isQaAdmin && (
           <SelectDropdown
             value={status}
             onChange={(val) => {

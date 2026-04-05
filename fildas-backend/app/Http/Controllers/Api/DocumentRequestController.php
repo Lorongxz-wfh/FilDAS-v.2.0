@@ -73,7 +73,7 @@ class DocumentRequestController extends Controller
                 ->orderBy($actualSort, $sortDir)
                 ->select([
                     'r.id', 'r.title', 'r.description', 'r.status', 'r.mode', 'r.due_at', 'r.created_at', 'r.created_by_user_id',
-                    'u_cre.name as creator_user_name',
+                    DB::raw("CONCAT(u_cre.first_name, ' ', u_cre.last_name) as creator_user_name"),
                     'o_cre.name as creator_office_name',
                     'o_cre.code as creator_office_code',
                 ]);
@@ -157,8 +157,10 @@ class DocumentRequestController extends Controller
                         'creator_label'          => $isMine ? 'YOU' : ($row->creator_office_code ?: 'System'),
                         'direction'              => $isMine ? 'outgoing' : 'incoming',
                         'progress'               => $prog,
-                        'recipient_offices_code' => collect($recipients)->pluck('code')->unique()->implode(', '),
+                        'recipient_offices_code' => collect($recipients)->pluck('code')->unique()->implode(','),
                         'recipient_offices_name' => collect($recipients)->pluck('name')->unique()->implode(', '),
+                        'office_code'            => $isMine ? collect($recipients)->pluck('code')->unique()->implode(',') : $row->creator_office_code,
+                        'office_name'            => $isMine ? collect($recipients)->pluck('name')->unique()->implode(', ') : $row->creator_office_name,
                     ];
                 } catch (\Throwable $e) {
                     \Log::warning("Skipping bad request row ID: " . ($row->id ?? 'unknown') . " - " . $e->getMessage());
