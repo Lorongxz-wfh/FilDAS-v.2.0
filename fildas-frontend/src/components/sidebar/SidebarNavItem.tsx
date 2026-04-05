@@ -226,7 +226,7 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
                           {isActive && (
                             <motion.div
                               layoutId="sub-active-bg"
-                              className="absolute inset-0 bg-neutral-100/50 dark:bg-surface-400/30 rounded-md"
+                              className="absolute inset-0 bg-slate-50/80 dark:bg-white/10 rounded-md border-l-2 border-slate-400 dark:border-slate-500"
                               transition={{ type: "spring", bounce: 0, duration: 0.2 }}
                             />
                           )}
@@ -238,12 +238,17 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
                             isActive ? "text-brand-600 dark:text-brand-400" : "text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600"
                           ].join(" ")} />
                         ) : (
-                          <div className="w-1.5 h-1.5 rounded-full border border-slate-300 dark:border-surface-300 z-10 mx-1" />
+                          <div className={[
+                            "w-1.5 h-1.5 rounded-full z-10 mx-1 transition-all",
+                            isActive 
+                              ? "bg-brand-500 dark:bg-brand-400 scale-110" 
+                              : "border border-slate-300 dark:border-surface-300"
+                          ].join(" ")} />
                         );
                       })()}
                         <span className={[
                           "truncate z-10",
-                          isActive ? "font-semibold text-neutral-900 dark:text-surface-50" : "font-medium text-neutral-500 dark:text-neutral-400"
+                          isActive ? "font-semibold text-slate-700 dark:text-slate-100" : "font-medium text-neutral-500 dark:text-neutral-400"
                         ].join(" ")}>{child.label}</span>
                       </>
                       )}
