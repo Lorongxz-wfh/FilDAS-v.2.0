@@ -395,7 +395,7 @@ export default function DocumentRequestListPage() {
     if (adminDebugMode) {
       cols.push({
         key: "actions",
-        header: "",
+        header: "Action",
         align: "right",
         render: (row) => (
           <button
@@ -403,7 +403,7 @@ export default function DocumentRequestListPage() {
               e.stopPropagation();
               setDeletingId(row.request_id || row.id);
             }}
-            className="p-1.5 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+            className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
             title="Delete Request"
           >
             <Trash2 className="h-4 w-4" />

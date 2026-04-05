@@ -230,7 +230,7 @@ export default function MyWorkQueueListPage() {
     if (adminDebugMode) {
       cols.push({
         key: "actions",
-        header: "",
+        header: "Action",
         align: "right",
         render: (doc) => (
           <button
@@ -238,7 +238,8 @@ export default function MyWorkQueueListPage() {
               e.stopPropagation();
               setDeletingId(doc.id);
             }}
-            className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+            className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+            title="Delete Document"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>

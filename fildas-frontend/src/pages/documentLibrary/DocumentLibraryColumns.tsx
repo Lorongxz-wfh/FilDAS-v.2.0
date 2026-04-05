@@ -121,7 +121,7 @@ export function buildCreatedColumns(onDelete?: (id: number) => void): TableColum
   if (onDelete) {
     cols.push({
       key: "actions",
-      header: "",
+      header: "Action",
       align: "right",
       render: (doc) => (
         <button
@@ -129,7 +129,8 @@ export function buildCreatedColumns(onDelete?: (id: number) => void): TableColum
             e.stopPropagation();
             onDelete(doc.id);
           }}
-          className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+          title="Delete Document"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -233,7 +234,7 @@ export function buildSharedColumns(onDelete?: (id: number) => void): TableColumn
   if (onDelete) {
     cols.push({
       key: "actions",
-      header: "",
+      header: "Action",
       align: "right",
       render: (doc) => (
         <button
@@ -241,7 +242,8 @@ export function buildSharedColumns(onDelete?: (id: number) => void): TableColumn
             e.stopPropagation();
             onDelete(doc.id);
           }}
-          className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+          title="Delete Document"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -310,7 +312,7 @@ export function buildRequestedColumns(isQaAdmin: boolean, onDelete?: (id: number
   if (onDelete) {
     cols.push({
       key: "actions",
-      header: "",
+      header: "Action",
       align: "right",
       render: (r) => (
         <button
@@ -318,7 +320,8 @@ export function buildRequestedColumns(isQaAdmin: boolean, onDelete?: (id: number
             e.stopPropagation();
             onDelete(r.request_id || r.id);
           }}
-          className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+          title="Delete Request"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -427,7 +430,7 @@ export function buildAllColumns(onDelete?: (id: number) => void): TableColumn<Li
   if (onDelete) {
     cols.push({
       key: "actions",
-      header: "",
+      header: "Action",
       align: "right",
       render: (item) => (
         <button
@@ -435,7 +438,8 @@ export function buildAllColumns(onDelete?: (id: number) => void): TableColumn<Li
             e.stopPropagation();
             onDelete(item.docId || item.reqId || 0);
           }}
-          className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+          title="Delete Record"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -531,7 +535,7 @@ export function buildArchiveColumns(onDelete?: (id: number) => void): TableColum
   if (onDelete) {
     cols.push({
       key: "actions",
-      header: "",
+      header: "Action",
       align: "right",
       render: (doc) => (
         <button
@@ -539,7 +543,8 @@ export function buildArchiveColumns(onDelete?: (id: number) => void): TableColum
             e.stopPropagation();
             onDelete(doc.id);
           }}
-          className="p-1 rounded-md text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+          title="Delete Archived Document"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
