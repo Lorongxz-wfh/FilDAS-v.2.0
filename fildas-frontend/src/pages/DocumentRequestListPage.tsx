@@ -119,7 +119,7 @@ export default function DocumentRequestListPage() {
   const isQaAdmin =
     ["qa", "sysadmin"].includes(role) || (role === "admin" && adminDebugMode);
   
-  const canCreate = isQaAdmin || ["office_staff", "office_head"].includes(role);
+  const canCreate = isQaAdmin || ["office_staff", "office_head", "vpaa", "vpad", "vpf", "vpr", "president"].includes(role);
 
   const [tab, setTab] = React.useState<ViewTab>("batches");
   const [q, setQ] = React.useState("");
@@ -133,6 +133,7 @@ export default function DocumentRequestListPage() {
   const [createOpen, setCreateOpen] = React.useState(
     () => (location.state as any)?.openModal === true,
   );
+  const [direction, setDirection] = React.useState<"all" | "incoming" | "outgoing">("all");
   const [sortBy, setSortBy] = React.useState<string>("created_at");
   const [sortDir, setSortDir] = React.useState<"asc" | "desc">("desc");
 
@@ -140,6 +141,7 @@ export default function DocumentRequestListPage() {
     let count = 0;
     if (status) count++;
     if (recipientStatus) count++;
+    if (direction !== "all") count++;
     return count;
   }, [status, recipientStatus]);
 
@@ -172,14 +174,29 @@ export default function DocumentRequestListPage() {
           ...baseParams,
           request_status: isQaAdmin ? status || undefined : undefined,
           status: recipientStatus || undefined,
+          direction: direction !== "all" ? direction : undefined,
         });
-      } else if (isQaAdmin || canCreate) {
+      } else if (isQaAdmin) {
         data = await listDocumentRequests({
           ...baseParams,
           status: status || undefined,
+          direction: direction !== "all" ? direction : undefined,
+        });
+      } else if (direction === "outgoing") {
+        data = await listDocumentRequests({
+          ...baseParams,
+          status: status || undefined,
+          direction: "outgoing",
+        });
+      } else if (direction === "incoming") {
+        data = await listDocumentRequestInbox({
+          ...baseParams,
+          direction: "incoming",
         });
       } else {
-        data = await listDocumentRequestInbox(baseParams);
+        // "Both" for non-QA: For now we default to Outgoing if they can create, 
+        // but we've already handled specific filters.
+        data = canCreate ? await listDocumentRequests(baseParams) : await listDocumentRequestInbox(baseParams);
       }
 
       const incoming = Array.isArray(data?.data) ? data.data : [];
@@ -236,6 +253,20 @@ export default function DocumentRequestListPage() {
 
   const batchColumns: TableColumn<any>[] = React.useMemo(() => {
     return [
+      {
+        key: "direction",
+        header: "Direction",
+        skeletonShape: "narrow",
+        render: (row) => (
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+            row.direction === 'outgoing' 
+              ? "bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400" 
+              : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+          }`}>
+            {row.direction || 'outgoing'}
+          </span>
+        ),
+      },
       {
         key: "mode",
         header: "Batch Type",
@@ -297,10 +328,24 @@ export default function DocumentRequestListPage() {
     ];
   }, [isQaAdmin]);
 
-  const batchGrid = "110px minmax(200px, 1fr) 200px 100px 140px";
+  const batchGrid = "100px 110px minmax(200px, 1fr) 200px 100px 140px";
 
   const allColumns: TableColumn<any>[] = React.useMemo(() => {
     return [
+      {
+        key: "direction",
+        header: "Direction",
+        skeletonShape: "narrow",
+        render: (r) => (
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+            r.direction === 'outgoing' 
+              ? "bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400" 
+              : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+          }`}>
+            {r.direction || 'outgoing'}
+          </span>
+        ),
+      },
       {
         key: "title",
         header: "Document Requested",
@@ -376,7 +421,7 @@ export default function DocumentRequestListPage() {
     ];
   }, []);
 
-  const gridCols = "minmax(120px, 1fr) 100px 100px 110px 100px 140px 140px";
+  const gridCols = "100px minmax(120px, 1fr) 100px 100px 110px 100px 140px 140px";
 
   const REQ_TABS = [
     { key: "batches", label: "Request Batches", icon: <LayoutList className="h-3.5 w-3.5" /> },
@@ -434,6 +479,7 @@ export default function DocumentRequestListPage() {
           setQ("");
           setStatus("");
           setRecipientStatus("");
+          setDirection("all");
           setPage(1);
         }}
         mobileFilters={
@@ -454,6 +500,26 @@ export default function DocumentRequestListPage() {
                       { value: "open", label: "Open" },
                       { value: "closed", label: "Closed" },
                       { value: "cancelled", label: "Cancelled" },
+                    ]}
+                  />
+                </div>
+              )}
+
+              {/* Direction Filter for non-QA users or QA too */}
+              {tab === "batches" && (
+                <div className="flex flex-col gap-1.5 col-span-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Direction</label>
+                  <SelectDropdown
+                    value={direction}
+                    onChange={(val) => {
+                      setDirection(val as any);
+                      setPage(1);
+                    }}
+                    className="w-full"
+                    options={[
+                      { value: "all", label: "Incoming & Outgoing" },
+                      { value: "incoming", label: "Incoming Requests" },
+                      { value: "outgoing", label: "My Outgoing Requests" },
                     ]}
                   />
                 </div>
@@ -517,6 +583,22 @@ export default function DocumentRequestListPage() {
               { value: "open", label: "Open" },
               { value: "closed", label: "Closed" },
               { value: "cancelled", label: "Cancelled" },
+            ]}
+          />
+        )}
+
+        {tab === "batches" && (
+          <SelectDropdown
+            value={direction}
+            onChange={(val) => {
+              setDirection(val as any);
+              setPage(1);
+            }}
+            className="w-40"
+            options={[
+              { value: "all", label: "All directions" },
+              { value: "incoming", label: "Incoming" },
+              { value: "outgoing", label: "Outgoing" },
             ]}
           />
         )}
@@ -586,9 +668,18 @@ export default function DocumentRequestListPage() {
                 mobileRender={(r) => (
                   <div className="px-4 py-3">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300">
-                        {r.mode || r.batch_mode || "REQUEST"}
-                      </span>
+                      <div className="flex gap-1">
+                        <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-slate-100 text-slate-600 dark:bg-surface-400 dark:text-slate-300">
+                          {r.mode || r.batch_mode || "REQUEST"}
+                        </span>
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                          r.direction === 'outgoing' 
+                            ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400" 
+                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        }`}>
+                          {r.direction || 'outgoing'}
+                        </span>
+                      </div>
                       <span className="text-[10px] text-slate-400 tabular-nums">
                         {formatDate(r.due_at || r.created_at)}
                       </span>
@@ -632,9 +723,18 @@ export default function DocumentRequestListPage() {
                 mobileRender={(r) => (
                   <div className="px-4 py-3 bg-white dark:bg-surface-500 border-b border-slate-100 dark:border-surface-400">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400">
-                        {r.batch_mode || "REQUEST"}
-                      </span>
+                      <div className="flex gap-1">
+                        <span className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400">
+                          {r.batch_mode || "REQUEST"}
+                        </span>
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                          r.direction === 'outgoing' 
+                            ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400" 
+                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        }`}>
+                          {r.direction || 'outgoing'}
+                        </span>
+                      </div>
                       <span className="text-[10px] text-slate-400 tabular-nums">
                         {formatDate(r.due_at || r.created_at)}
                       </span>

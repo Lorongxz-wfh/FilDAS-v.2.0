@@ -11,10 +11,11 @@ class DocumentRequestRepository
      */
     public function getIndividualRequests(array $filters, int $perPage, int $page, bool $isQa, int $officeId, int $userId): array
     {
-        $offset  = ($page - 1) * $perPage;
-        $term    = !empty($filters['q']) ? trim($filters['q']) : null;
-        $reqSt   = $filters['request_status'] ?? null;
-        $status  = $filters['status'] ?? null;
+        $offset    = ($page - 1) * $perPage;
+        $term      = !empty($filters['q']) ? trim($filters['q']) : null;
+        $direction = $filters['direction'] ?? null;
+        $reqSt     = $filters['request_status'] ?? null;
+        $status    = $filters['status'] ?? null;
 
         // ── Sub-query A: multi_office recipients ──────────────────────────
         $q1 = DB::table('document_request_recipients as rr')
@@ -36,6 +37,9 @@ class DocumentRequestRepository
                 DB::raw('NULL as item_title'),
                 'rr.id as recipient_id',
                 DB::raw('NULL as item_id'),
+                'r.created_by_user_id',
+                'rr.office_id',
+                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN 'outgoing' ELSE 'incoming' END as direction")
             ]);
 
         if (!$isQa) {
@@ -43,6 +47,12 @@ class DocumentRequestRepository
                 $qq->where('rr.office_id', $officeId)
                    ->orWhere('r.created_by_user_id', $userId);
             });
+        }
+
+        if ($direction === 'incoming') {
+            $q1->where('rr.office_id', $officeId)->where('r.created_by_user_id', '!=', $userId);
+        } elseif ($direction === 'outgoing') {
+            $q1->where('r.created_by_user_id', $userId);
         }
         if ($term)  $q1->where(function ($qq) use ($term) {
             $qq->where('r.title', 'like', "%{$term}%")
@@ -72,6 +82,9 @@ class DocumentRequestRepository
                 'dri.title as item_title',
                 'rr.id as recipient_id',
                 'dri.id as item_id',
+                'r.created_by_user_id',
+                'rr.office_id',
+                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN 'outgoing' ELSE 'incoming' END as direction")
             ]);
 
         if (!$isQa) {
@@ -79,6 +92,12 @@ class DocumentRequestRepository
                 $qq->where('rr.office_id', $officeId)
                    ->orWhere('r.created_by_user_id', $userId);
             });
+        }
+
+        if ($direction === 'incoming') {
+            $q2->where('rr.office_id', $officeId)->where('r.created_by_user_id', '!=', $userId);
+        } elseif ($direction === 'outgoing') {
+            $q2->where('r.created_by_user_id', $userId);
         }
         if ($term)  $q2->where(function ($qq) use ($term) {
             $qq->where('r.title', 'like', "%{$term}%")

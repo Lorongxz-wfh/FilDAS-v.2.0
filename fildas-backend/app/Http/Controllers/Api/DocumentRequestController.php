@@ -65,9 +65,13 @@ class DocumentRequestController extends Controller
         $paginated = $q->paginate($perPage);
 
         // Attach progress to each row
-        $items = collect($paginated->items())->map(function ($row) {
+        $items = collect($paginated->items())->map(function ($row) use ($user) {
             $progress = $this->progress->buildProgress($row->id, $row->mode);
-            return array_merge((array) $row, ['progress' => $progress]);
+            $direction = ((int)($row->created_by_user_id ?? 0) === $user->id) ? 'outgoing' : 'incoming';
+            return array_merge((array) $row, [
+                'progress' => $progress,
+                'direction' => $direction
+            ]);
         });
 
         return response()->json(array_merge(
@@ -223,9 +227,13 @@ class DocumentRequestController extends Controller
         $paginated = $q->paginate($perPage);
 
         // Attach progress per row
-        $rows = collect($paginated->items())->map(function ($row) {
+        $rows = collect($paginated->items())->map(function ($row) use ($user) {
             $progress = $this->progress->buildProgress($row->id, $row->mode);
-            return array_merge((array) $row, ['progress' => $progress]);
+            $direction = ((int)($row->created_by_user_id ?? 0) === $user->id) ? 'outgoing' : 'incoming';
+            return array_merge((array) $row, [
+                'progress' => $progress,
+                'direction' => $direction
+            ]);
         });
 
         return response()->json(array_merge(
@@ -432,7 +440,7 @@ class DocumentRequestController extends Controller
     public function store(Request $request)
     {
         $role = $this->roleName($request);
-        if (!$this->isQaOrAdmin($role) && !in_array($role, ['office_staff', 'office_head'], true)) {
+        if (!$this->isQaOrAdmin($role) && !in_array($role, ['office_staff', 'office_head', 'vpaa', 'vpad', 'vpf', 'vpr', 'president'], true)) {
             abort(403, 'Forbidden.');
         }
 
