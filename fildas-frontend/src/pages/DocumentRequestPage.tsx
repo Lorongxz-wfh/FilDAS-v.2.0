@@ -26,7 +26,13 @@ import {
   updateDocumentRequestRecipient,
   type DocumentRequestMessageRow,
 } from "../services/documentRequests";
-import { MessageSquare, Activity, Megaphone } from "lucide-react";
+import Button from "../components/ui/Button";
+import {
+  MessageSquare,
+  Activity,
+  Megaphone,
+  FileIcon,
+} from "lucide-react";
 import { PageActions, RefreshAction } from "../components/ui/PageActions";
 import { useRealtimeUpdates } from "../hooks/useRealtimeUpdates";
 import { roleLower, TabBar } from "../components/documentRequests/shared";
@@ -682,6 +688,22 @@ export default function DocumentRequestPage() {
       fullHeight
       right={
         <PageActions>
+          {latestSubmission?.status?.toLowerCase() === "accepted" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const type = isItemView ? "items" : "recipients";
+                const targetId = isItemView ? itemId : recipientId;
+                navigate(`/documents/view/request/${requestId}/${type}/${targetId}`);
+              }}
+              responsive
+            >
+              <FileIcon className="h-3.5 w-3.5" />
+              <span>View in Library</span>
+            </Button>
+          )}
           <RefreshAction
             onRefresh={handleRefresh}
             loading={refreshing || loading}

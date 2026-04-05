@@ -306,18 +306,18 @@ export default function DocumentLibraryPage() {
       navigate(`/documents/${row.id}/view`, { state: { from: "/documents", breadcrumbs: libCrumbs } });
     } else if (tab === "requested") {
       if (row.row_type === "item") {
-        navigate(`/document-requests/${row.request_id}/items/${row.item_id}`);
+        navigate(`/documents/view/request/${row.request_id}/items/${row.item_id}`);
       } else {
-        navigate(`/document-requests/${row.request_id}/recipients/${row.recipient_id}`);
+        navigate(`/documents/view/request/${row.request_id}/recipients/${row.recipient_id}`);
       }
     } else {
       const item = row as LibraryItem;
       if (item.docId) {
         navigate(`/documents/${item.docId}/view`, { state: { from: "/documents", breadcrumbs: libCrumbs } });
       } else if (item.itemId) {
-        navigate(`/document-requests/${item.reqId}/items/${item.itemId}`);
+        navigate(`/documents/view/request/${item.reqId}/items/${item.itemId}`);
       } else if (item.reqId && item.recipId) {
-        navigate(`/document-requests/${item.reqId}/recipients/${item.recipId}`);
+        navigate(`/documents/view/request/${item.reqId}/recipients/${item.recipId}`);
       }
     }
   };

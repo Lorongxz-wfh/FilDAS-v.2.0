@@ -84,6 +84,9 @@ const DocumentRequestBatchPage = React.lazy(
 const DocumentRequestPage = React.lazy(
   () => import("./pages/DocumentRequestPage"),
 );
+const DocumentRequestViewPage = React.lazy(
+  () => import("./pages/DocumentRequestViewPage"),
+);
 const TemplatesPage = React.lazy(() => import("./pages/TemplatesPage"));
 const MyWorkQueueListPage = React.lazy(
   () => import("./pages/MyWorkQueueListPage"),
@@ -168,6 +171,14 @@ export default function App() {
               <Route
                 path="/document-requests/:id/items/:itemId"
                 element={<DocumentRequestPage />}
+              />
+              <Route
+                path="/documents/view/request/:id/recipients/:recipientId"
+                element={<DocumentRequestViewPage />}
+              />
+              <Route
+                path="/documents/view/request/:id/items/:itemId"
+                element={<DocumentRequestViewPage />}
               />
               <Route path="/templates" element={<TemplatesPage />} />
             </Route>

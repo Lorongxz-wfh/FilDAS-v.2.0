@@ -19,7 +19,7 @@ import {
 } from "../services/documents";
 import { listActivityLogs } from "../services/activityApi";
 import type { ActivityLogItem } from "../services/types";
-import { getUserRole, isQA, isSysAdmin, isAdmin } from "../lib/roleFilters";
+import { getUserRole, isQA, isSysAdmin, isAdmin, isAuditor } from "../lib/roleFilters";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import ShareDocumentModal from "../components/documents/ShareDocumentModal";
 import Modal from "../components/ui/Modal";
@@ -28,16 +28,19 @@ import {
   Download,
   ExternalLink,
   Share2,
-  Send,
   Maximize2,
   X,
   RefreshCw,
   FileText,
   ChevronDown,
   History,
+  Send,
+  MessageSquare,
+  Activity,
 } from "lucide-react";
 import CommentBubble from "../components/documents/documentFlow/CommentBubble";
 import WorkflowFlowTimeline from "../components/documents/documentFlow/WorkflowFlowTimeline";
+import DocumentActivityPanel from "../components/documents/documentFlow/DocumentActivityPanel";
 import { formatDate, formatDateTime } from "../utils/formatters";
 
 // ── Type badge ────────────────────────────────────────────────────────────────
@@ -79,8 +82,12 @@ export default function DocumentViewPage() {
   if (!me) return <Navigate to="/login" replace />;
 
   const docId = Number(params.id);
+  const versionIdParam = new URLSearchParams(location.search).get("version");
+  const versionId = versionIdParam ? Number(versionIdParam) : null;
+
   const parentCrumbs: { label: string; to?: string }[] =
     (location.state as any)?.breadcrumbs ?? [{ label: "Library", to: "/documents" }];
+  
   if (!Number.isFinite(docId) || docId <= 0) return <Navigate to="/documents" replace />;
 
   const role = getUserRole();
@@ -103,48 +110,47 @@ export default function DocumentViewPage() {
   const [posting, setPosting] = React.useState(false);
   const [postErr, setPostErr] = React.useState<string | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
-  const prevMsgCountRef = React.useRef(0);
-  const isFirstMsgRef = React.useRef(true);
-  const [newMsgCount, setNewMsgCount] = React.useState(0);
 
   const [infoCollapsed, setInfoCollapsed] = React.useState(false);
   const [shareOpen, setShareOpen] = React.useState(false);
   const [fullscreen, setFullscreen] = React.useState(false);
   const [flowOpen, setFlowOpen] = React.useState(false);
-  const [showScrollToBottom, setShowScrollToBottom] = React.useState(false);
   const [timeline, setTimeline] = React.useState<ActivityLogItem[]>([]);
   const [timelineLoading, setTimelineLoading] = React.useState(false);
 
+  const [sideTab, setSideTab] = React.useState<"comments" | "activity">("comments");
+
   // ── Load ────────────────────────────────────────────────────────────────────
-  React.useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [docData, versions] = await Promise.all([
-          getDocument(docId),
-          getDocumentVersions(docId),
-        ]);
-        if (!alive) return;
-        setDoc(docData);
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [docData, versions] = await Promise.all([
+        getDocument(docId),
+        getDocumentVersions(docId),
+      ]);
+      setDoc(docData);
+      
+      if (versionId) {
+        const v = versions.find(x => x.id === versionId);
+        setVersion(v ?? versions[0] ?? null);
+      } else {
         const distributed = versions.filter((v) => v.status.toLowerCase() === "distributed");
         setVersion(distributed[0] ?? versions[0] ?? null);
-      } catch (e: any) {
-        if (!alive) return;
-        setError(e?.message ?? "Failed to load document.");
-      } finally {
-        if (!alive) return;
-        setLoading(false);
       }
-    };
-    load();
-    return () => { alive = false; };
-  }, [docId]);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load document.");
+    } finally {
+      setLoading(false);
+    }
+  }, [docId, versionId]);
+
+  React.useEffect(() => { load(); }, [load]);
 
   // ── Preview link ────────────────────────────────────────────────────────────
-  React.useEffect(() => {
-    if (!version?.preview_path) { setPreviewUrl(null); return; }
+  const reloadPreview = React.useCallback(() => {
+    if (!version?.id) return;
+    setPreviewUrl(null);
     setPreviewLoading(true);
     setPreviewError(null);
     getDocumentPreviewLink(version.id)
@@ -152,6 +158,8 @@ export default function DocumentViewPage() {
       .catch((e: any) => setPreviewError(e?.message ?? "Failed to load preview."))
       .finally(() => setPreviewLoading(false));
   }, [version?.id]);
+
+  React.useEffect(() => { reloadPreview(); }, [reloadPreview]);
 
   // ── Messages ────────────────────────────────────────────────────────────────
   const loadMessages = React.useCallback(async () => {
@@ -164,36 +172,33 @@ export default function DocumentViewPage() {
     finally { setMessagesLoading(false); }
   }, [version?.id]);
 
-  React.useEffect(() => { loadMessages(); }, [loadMessages]);
-
-  React.useEffect(() => {
-    const interval = window.setInterval(() => {
-      if (!version?.id) return;
-      loadMessages().then(() => {
-        if (isFirstMsgRef.current) { isFirstMsgRef.current = false; prevMsgCountRef.current = messages.length; return; }
-        const n = messages.length - prevMsgCountRef.current;
-        if (n > 0) setNewMsgCount((p) => p + n);
-        prevMsgCountRef.current = messages.length;
-      });
-    }, 10_000);
-    return () => window.clearInterval(interval);
-  }, [version?.id, loadMessages, messages.length]);
+  React.useEffect(() => { 
+    if (sideTab === "comments") loadMessages(); 
+  }, [loadMessages, sideTab]);
 
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   // ── Activity timeline ────────────────────────────────────────────────────────
-  React.useEffect(() => {
+  const loadActivity = React.useCallback(async () => {
     if (!docId) return;
-    let alive = true;
     setTimelineLoading(true);
-    listActivityLogs({ scope: "document", document_id: docId, per_page: 50, category: "workflow" })
-      .then((p) => { if (alive) setTimeline(p.data); })
-      .catch(() => { })
-      .finally(() => { if (alive) setTimelineLoading(false); });
-    return () => { alive = false; };
+    try {
+      const p = await listActivityLogs({ 
+        scope: "document", 
+        document_id: docId, 
+        per_page: 50, 
+        category: "workflow" 
+      });
+      setTimeline(p.data);
+    } catch { /* silent */ }
+    finally { setTimelineLoading(false); }
   }, [docId]);
+
+  React.useEffect(() => {
+    if (sideTab === "activity") loadActivity();
+  }, [loadActivity, sideTab]);
 
 
   // ── Permissions ─────────────────────────────────────────────────────────────
@@ -230,18 +235,6 @@ export default function DocumentViewPage() {
     } catch (e: any) {
       setPostErr(e?.response?.data?.message ?? e?.message ?? "Failed to post.");
     } finally { setPosting(false); }
-  };
-
-  // ── Reload preview ──────────────────────────────────────────────────────────
-  const reloadPreview = () => {
-    if (!version?.id) return;
-    setPreviewUrl(null);
-    setPreviewLoading(true);
-    setPreviewError(null);
-    getDocumentPreviewLink(version.id)
-      .then((r) => setPreviewUrl(r.url))
-      .catch((e: any) => setPreviewError(e?.message ?? "Failed to load preview."))
-      .finally(() => setPreviewLoading(false));
   };
 
   // ── Download ─────────────────────────────────────────────────────────────────
@@ -321,250 +314,45 @@ export default function DocumentViewPage() {
       contentClassName="!p-0 lg:overflow-hidden lg:h-full"
     >
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:h-full min-h-0 p-4 sm:p-5">
-
-        {/* ── LEFT — info + comments ── */}
-        <section className="lg:col-span-4 flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden">
-
-          {/* Document info card — collapsible */}
-          <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden shrink-0">
-
-            {/* Card header — click to toggle */}
-            <button
-              type="button"
-              onClick={() => setInfoCollapsed((c) => !c)}
-              className="w-full px-4 py-3 border-b border-slate-100 dark:border-surface-400 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-surface-400/40 transition-colors text-left"
-            >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-100 dark:bg-surface-400">
-                <FileText className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight truncate">
-                  {doc.title}
-                </p>
-                {doc.code && (
-                  <p className="mt-0.5 font-mono text-[10px] text-slate-400 dark:text-slate-500 tracking-wide">
-                    {doc.code}
-                  </p>
-                )}
-              </div>
-              <div className="shrink-0 flex items-center gap-2">
-                {version && (
-                  <span className="rounded-full bg-slate-100 dark:bg-surface-400 px-2 py-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-300">
-                    v{version.version_number}
-                  </span>
-                )}
-                <TypeBadge type={doc.doctype} />
-                <ChevronDown
-                  className={`h-3.5 w-3.5 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${infoCollapsed ? "-rotate-90" : ""}`}
-                />
-              </div>
-            </button>
-
-            {/* Collapsible body */}
-            {!infoCollapsed && (
-              <>
-                {/* Status strip */}
-                <div className="px-4 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 border-b border-emerald-100 dark:border-emerald-900/30 flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                    {version?.status ?? "Distributed"}
-                  </span>
-                  {version?.original_filename && (
-                    <span className="ml-auto text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-36" title={version.original_filename}>
-                      {version.original_filename}
-                    </span>
-                  )}
-                </div>
-
-                {/* Metadata grid */}
-                <div className="px-4 py-3 grid grid-cols-2 gap-x-4 gap-y-3">
-                  <Field label="Office" value={ownerOffice ? ownerOffice.name : "—"} />
-                  <Field
-                    label="Office Code"
-                    value={ownerOffice ? <span className="font-mono">{ownerOffice.code}</span> : "—"}
-                  />
-                  <Field label="Effective Date" value={formatDate(version?.effective_date)} />
-                  <Field label="Distributed" value={formatDate((version as any)?.distributed_at)} />
-                  <Field label="Created" value={formatDate(doc.created_at)} />
-                  <Field
-                    label="Doc Code"
-                    value={doc.code ? <span className="font-mono text-[10px]">{doc.code}</span> : "—"}
-                  />
-                  {Array.isArray(doc.tags) && doc.tags.length > 0 && (
-                    <div className="col-span-2 flex flex-col gap-0.5">
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Tags</span>
-                      <div className="flex flex-wrap gap-1 mt-0.5">
-                        {doc.tags.map((t) => (
-                          <span
-                            key={t}
-                            className="rounded-full border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-2 py-0.5 text-[10px] text-slate-500 dark:text-slate-400"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Comments card */}
-          <div className="flex flex-col rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden lg:flex-1 lg:min-h-0">
-
-            {/* Header */}
-            <div className="shrink-0 px-4 py-3 border-b border-slate-100 dark:border-surface-400 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Send className="h-3.5 w-3.5 text-slate-400" />
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-300">
-                  Comments
-                </span>
-                {messages.length > 0 && (
-                  <span className="rounded-full bg-slate-100 dark:bg-surface-600 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                    {messages.length}
-                  </span>
-                )}
-              </div>
-              {newMsgCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-                    setNewMsgCount(0);
-                  }}
-                  className="text-[11px] font-semibold text-sky-600 dark:text-sky-400 animate-pulse"
-                >
-                  {newMsgCount} new ↓
-                </button>
-              )}
-            </div>
-
-            {/* Message list */}
-            <div className="lg:flex-1 relative lg:min-h-0">
-              <div
-                onScroll={(e) => {
-                  const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-                  const isScrolledUp = scrollTop + clientHeight < scrollHeight - 150;
-                  setShowScrollToBottom(isScrolledUp);
-                }}
-                className="lg:absolute lg:inset-0 lg:overflow-y-auto px-3 py-3 space-y-2.5 scroll-smooth"
-              >
-                {messagesLoading && messages.length === 0 ? (
-                  <div className="flex h-full items-center justify-center">
-                    <div className="h-5 w-5 rounded-full border-2 border-brand-400 border-t-transparent animate-spin" />
-                  </div>
-                ) : messages.length === 0 ? (
-                  <div className="flex h-full flex-col items-center justify-center gap-2 py-10">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-surface-400">
-                      <Send className="h-4 w-4 text-slate-400" />
-                    </div>
-                    <p className="text-xs text-slate-400 dark:text-slate-500">No comments yet</p>
-                  </div>
-                ) : (
-                  messages.map((m) => (
-                    <CommentBubble
-                      key={m.id}
-                      senderName={m.sender?.full_name ?? "Unknown"}
-                      roleName={m.sender?.role?.name ?? null}
-                      when={formatDateTime(m.created_at)}
-                      message={m.message}
-                      type={m.type}
-                      isMine={m.sender_user_id === myId}
-                      avatarLetter={(m.sender?.full_name ?? "?").charAt(0).toUpperCase()}
-                    />
-                  ))
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Jump to bottom button */}
-              {showScrollToBottom && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-                    setNewMsgCount(0);
-                  }}
-                  className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 shadow-xl border border-slate-200 transition-all duration-200 hover:bg-white hover:text-sky-600 hover:scale-110 active:scale-95 dark:bg-surface-400 dark:border-surface-300 dark:text-sky-400 dark:hover:bg-surface-300 animate-in fade-in slide-in-from-bottom-4"
-                >
-                  <ChevronDown className="h-5 w-5" />
-                </button>
-              )}
-            </div>
-
-            {/* Composer */}
-            <div className="shrink-0 border-t border-slate-100 dark:border-surface-400 px-3 py-2.5">
-              {postErr && (
-                <p className="mb-1.5 text-[11px] text-rose-600 dark:text-rose-400">{postErr}</p>
-              )}
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); postComment(); }
-                  }}
-                  placeholder="Write a comment…"
-                  disabled={posting}
-                  className="flex-1 rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-3 py-2 text-xs outline-none transition focus:border-brand-400 disabled:opacity-50 dark:text-slate-200 dark:placeholder-slate-500"
-                />
-                <button
-                  type="button"
-                  onClick={postComment}
-                  disabled={!commentText.trim() || posting}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-500 text-white transition hover:bg-brand-600 disabled:opacity-40"
-                >
-                  {posting ? (
-                    <div className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  ) : (
-                    <Send size={13} />
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── RIGHT — preview ── */}
-        <aside className="lg:col-span-8 flex flex-col lg:min-h-0">
-          <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 flex flex-col h-[600px] lg:h-full overflow-hidden">
-
+        
+        {/* ── LEFT — Preview ── */}
+        <aside className="lg:col-span-8 flex flex-col lg:min-h-0 lg:order-1 order-2">
+          <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 flex flex-col h-[600px] lg:h-full overflow-hidden shadow-sm">
+            
             {/* Preview toolbar */}
-            <div className="shrink-0 px-4 py-2.5 border-b border-slate-100 dark:border-surface-400 flex items-center justify-between gap-3">
+            <div className="shrink-0 px-4 py-2.5 border-b border-slate-100 dark:border-surface-400 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-surface-600/50">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">Preview</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                  Document Preview
+                </span>
                 {version?.original_filename && (
                   <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-48" title={version.original_filename}>
                     — {version.original_filename}
                   </span>
                 )}
               </div>
-              {version?.preview_path && (
-                <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={reloadPreview}
+                  tooltip="Reload preview"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                </Button>
+                {previewUrl && (
                   <Button
                     type="button"
                     variant="outline"
                     size="xs"
-                    onClick={reloadPreview}
-                    tooltip="Reload preview"
+                    onClick={() => setFullscreen(true)}
+                    tooltip="Fullscreen"
                   >
-                    <RefreshCw className="h-3 w-3" />
+                    <Maximize2 className="h-3 w-3" />
                   </Button>
-                  {previewUrl && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      onClick={() => setFullscreen(true)}
-                      tooltip="Fullscreen"
-                    >
-                      <Maximize2 className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Preview body */}
@@ -591,11 +379,7 @@ export default function DocumentViewPage() {
                   </Button>
                 </div>
               ) : previewUrl ? (
-                <iframe
-                  title="Document preview"
-                  src={previewUrl}
-                  className="h-full w-full border-0"
-                />
+                <iframe title="Document preview" src={previewUrl} className="h-full w-full border-0" />
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-2">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-surface-400">
@@ -607,41 +391,166 @@ export default function DocumentViewPage() {
             </div>
           </div>
         </aside>
+
+        {/* ── RIGHT — Sidebar ── */}
+        <section className="lg:col-span-4 flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden lg:order-2 order-1">
+          
+          {/* Metadata Card */}
+          <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden shrink-0 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setInfoCollapsed((c) => !c)}
+              className="w-full px-4 py-3 border-b border-slate-100 dark:border-surface-400 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-surface-400/40 transition-colors text-left"
+            >
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-100 dark:bg-surface-400 font-bold text-[10px] text-slate-500">
+                DOC
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight truncate">
+                  {doc.title}
+                </p>
+                <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                  <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 tracking-wide">
+                    {doc.code}
+                  </span>
+                  <span className="text-[10px] text-slate-300 dark:text-slate-600">•</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    V{version?.version_number ?? 0}
+                  </span>
+                </div>
+              </div>
+              <ChevronDown className={`h-3.5 w-3.5 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${infoCollapsed ? "-rotate-90" : ""}`} />
+            </button>
+
+            {!infoCollapsed && (
+              <>
+                <div className="px-4 py-1.5 border-b border-slate-100 dark:border-surface-400 flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/20">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                    {version?.status ?? "Distributed"}
+                  </span>
+                </div>
+                <div className="px-4 py-3 grid grid-cols-1 gap-y-3">
+                  <div className="grid grid-cols-2 gap-x-4">
+                    <Field label="Custodian" value={ownerOffice?.name} />
+                    <Field label="Effective" value={formatDate(version?.effective_date)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4">
+                    <Field label="Category" value={<TypeBadge type={doc.doctype} />} />
+                    {isAuditor(role) && doc.distributed_at && (
+                      <Field label="Distributed" value={formatDate(doc.distributed_at)} />
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Interaction Tabs */}
+          <div className="flex flex-col rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden lg:flex-1 lg:min-h-0 shadow-sm">
+            <div className="shrink-0 flex border-b border-slate-100 dark:border-surface-400">
+              <button
+                onClick={() => setSideTab("comments")}
+                className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                  sideTab === "comments"
+                    ? "text-brand-600 bg-brand-50/50 dark:text-brand-400 dark:bg-brand-950/10 border-b-2 border-brand-500"
+                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                }`}
+              >
+                <div className="flex items-center justify-center gap-1.5">
+                  <MessageSquare className="h-3 w-3" />
+                  <span>Comments</span>
+                </div>
+              </button>
+              <button
+                onClick={() => setSideTab("activity")}
+                className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                  sideTab === "activity"
+                    ? "text-brand-600 bg-brand-50/50 dark:text-brand-400 dark:bg-brand-950/10 border-b-2 border-brand-500"
+                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                }`}
+              >
+                <div className="flex items-center justify-center gap-1.5">
+                  <Activity className="h-3 w-3" />
+                  <span>Activity</span>
+                </div>
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 flex flex-col">
+              {sideTab === "comments" ? (
+                <div className="flex flex-col h-full">
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    {messagesLoading && messages.length === 0 ? (
+                      <div className="flex h-full items-center justify-center">
+                        <div className="h-5 w-5 rounded-full border-2 border-brand-400 border-t-transparent animate-spin" />
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div className="flex h-full flex-col items-center justify-center gap-2 opacity-40">
+                        <MessageSquare className="h-6 w-6" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">No comments</span>
+                      </div>
+                    ) : (
+                      messages.map((m) => (
+                        <CommentBubble
+                          key={m.id}
+                          senderName={m.sender?.full_name ?? "Unknown"}
+                          roleName={m.sender?.role?.name ?? null}
+                          when={formatDateTime(m.created_at)}
+                          message={m.message}
+                          type={m.type}
+                          isMine={m.sender_user_id === myId}
+                          avatarLetter={(m.sender?.full_name ?? "?").charAt(0).toUpperCase()}
+                        />
+                      ))
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+                  
+                  <div className="shrink-0 p-3 border-t border-slate-100 dark:border-surface-400 bg-slate-50/50 dark:bg-surface-600/30">
+                    {postErr && <p className="mb-1 text-[10px] text-rose-500">{postErr}</p>}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") postComment(); }}
+                        placeholder="Add a comment…"
+                        className="flex-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs outline-none focus:border-brand-500"
+                      />
+                      <button
+                        onClick={postComment}
+                        disabled={!commentText.trim() || posting}
+                        className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-40"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <DocumentActivityPanel logs={timeline} loading={timelineLoading} />
+              )}
+            </div>
+          </div>
+        </section>
       </div>
 
-      {/* Fullscreen preview */}
       {fullscreen && previewUrl && (
         <div className="fixed inset-0 z-[100] flex flex-col bg-black/95">
           <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-white/10">
             <span className="text-xs text-white/60 truncate">{version?.original_filename ?? "Preview"}</span>
-            <button
-              type="button"
-              onClick={() => setFullscreen(false)}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/10 transition"
-            >
-              <X className="h-4 w-4" />
+            <button onClick={() => setFullscreen(false)} className="text-white/60 hover:text-white">
+              <X className="h-5 w-5" />
             </button>
           </div>
-          <iframe
-            title="Document preview fullscreen"
-            src={previewUrl}
-            className="flex-1 w-full border-0"
-          />
+          <iframe title="Document preview fullscreen" src={previewUrl} className="flex-1 w-full border-0" />
         </div>
       )}
 
-      {/* Flow History Modal */}
-      <Modal
-        open={flowOpen}
-        onClose={() => setFlowOpen(false)}
-        title="Document Flow History"
-      >
+      <Modal open={flowOpen} onClose={() => setFlowOpen(false)} title="Document Flow History">
         <div className="max-h-[70vh] overflow-y-auto px-1 py-1">
-          <WorkflowFlowTimeline
-            isLoading={timelineLoading}
-            logs={timeline}
-            versionNumber={version?.version_number}
-          />
+          <WorkflowFlowTimeline logs={timeline} versionNumber={version?.version_number} isLoading={timelineLoading} />
         </div>
       </Modal>
 
