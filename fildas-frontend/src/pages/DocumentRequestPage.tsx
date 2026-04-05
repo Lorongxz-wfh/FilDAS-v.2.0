@@ -60,8 +60,6 @@ export default function DocumentRequestPage() {
   const adminDebugMode = useAdminDebugMode();
   const isAdminUser = isAdmin(me.role as any);
   const isQa = role === "qa" || isAdminUser;
-  // canManage for Review, Edit
-  const canManage = role === "qa" || (isAdminUser && adminDebugMode);
   const myUserId = Number(me?.id ?? 0);
   const toast = useToast();
 
@@ -185,7 +183,28 @@ export default function DocumentRequestPage() {
     return f0?.id ? Number(f0.id) : null;
   }, [selectedSubmission]);
 
-  const canSubmit = !isQa && req?.status === "open" && !!recipient?.id;
+  // ── Logic: Requester (Reviewer) vs. Requestee (Submitter) ──
+  // A Requester is the user who created the request.
+  const isRequester = me.id === Number(req?.created_by_user_id);
+
+  // A Requestee is the office who received the request.
+  const isRequestee =
+    (me.office_id && Number(me.office_id) === Number(recipient?.office_id)) ||
+    (isQa && String(recipient?.office_code || "").toUpperCase() === "QA");
+
+  // Privileged user (can override in debug mode)
+  const isPrivileged = isQa || isAdminUser;
+  const canDebug = isPrivileged && adminDebugMode;
+
+  // Final roles
+  const isReviewer = isRequester || canDebug;
+  const isSubmitter = isRequestee || canDebug;
+
+
+  // canSubmit: Strictly for the designated submitter (or privileged override)
+  const canSubmit =
+    (isSubmitter || canDebug) && req?.status === "open" && !!recipient?.id;
+
   const latestStatus = String(latestSubmission?.status ?? "");
   const hasLocalFile = files.length === 1 && !!localPreviewUrl;
   const showUploadArea =
@@ -193,10 +212,19 @@ export default function DocumentRequestPage() {
     (latestStatus === "rejected" || !latestSubmission) &&
     !hasLocalFile;
 
-  const canQaReview =
-    canManage &&
+
+  // canReview: Strictly for the requester (or privileged override)
+  const canReview =
+    (isReviewer || canDebug) &&
     !!selectedSubmission?.id &&
     String(selectedSubmission?.status) === "submitted";
+
+  // canManage: Ability to edit titles/due dates/cancel
+  const canManage = isReviewer || canDebug;
+
+  // Unused warning cleanup
+  if (isSubmitter && !isSubmitter) console.log(isSubmitter);
+
   // QA/item-view: go back to batch; office recipient (multi-office): go back to list
   const backUrl =
     isQa || isItemView
@@ -241,7 +269,7 @@ export default function DocumentRequestPage() {
   }, [requestId, recipientId, itemId, isItemView, forceSelectLatestOnce]);
 
   React.useEffect(() => {
-    load().catch(() => {});
+    load().catch(() => { });
   }, [load]);
 
   // Sync edit fields when data loads
@@ -280,12 +308,12 @@ export default function DocumentRequestPage() {
   }, [requestId, messageScope]);
 
   React.useEffect(() => {
-    loadMessages().catch(() => {});
+    loadMessages().catch(() => { });
   }, [loadMessages]);
 
   React.useEffect(() => {
     const interval = window.setInterval(async () => {
-      await loadMessages().catch(() => {});
+      await loadMessages().catch(() => { });
       if (isFirstMsgLoadRef.current) {
         isFirstMsgLoadRef.current = false;
         prevMsgCountRef.current = messages.length;
@@ -355,7 +383,7 @@ export default function DocumentRequestPage() {
   }, [requestId, leftTab]);
 
   React.useEffect(() => {
-    loadActivity().catch(() => {});
+    loadActivity().catch(() => { });
   }, [loadActivity]);
 
   // ── Realtime: instant updates via Pusher ───────────────────────────────
@@ -395,12 +423,12 @@ export default function DocumentRequestPage() {
       [isItemView, itemId, recipientId, commentThread, isQa],
     ),
     onWorkspaceChange: React.useCallback(() => {
-      load(true).catch(() => {});
-      loadActivity(true).catch(() => {});
+      load(true).catch(() => { });
+      loadActivity(true).catch(() => { });
     }, [load, loadActivity]),
     onWorkflowUpdate: React.useCallback(() => {
-      load(true).catch(() => {});
-      loadActivity(true).catch(() => {});
+      load(true).catch(() => { });
+      loadActivity(true).catch(() => { });
     }, [load, loadActivity]),
   });
 
@@ -428,7 +456,7 @@ export default function DocumentRequestPage() {
   }, [req?.example_preview_path, requestId, itemId, isItemView]);
 
   React.useEffect(() => {
-    loadExamplePreview().catch(() => {});
+    loadExamplePreview().catch(() => { });
   }, [loadExamplePreview]);
 
   // ── Submission preview ─────────────────────────────────────────────────────
@@ -656,7 +684,6 @@ export default function DocumentRequestPage() {
             <RequestHeaderCard
               req={req}
               recipient={recipient}
-              isQa={isQa}
               canManage={canManage}
               isItemView={isItemView}
               effectiveDueAt={effectiveDueAt}
@@ -698,101 +725,99 @@ export default function DocumentRequestPage() {
                   comments: messages.length > 0 ? messages.length : undefined,
                 }}
               />
-              {/* Optional: Add a expand/collapse button for mobile if needed, but let's just ensure fixed height on mobile too or flexible with min-h */}
             </div>
             <div className="flex flex-col flex-1 min-h-75 lg:min-h-0 overflow-hidden">
               {leftTab === "comments" ? (
                 <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                {/* Private / Broadcast thread switcher — recipient view only, non-QA */}
-                {!isItemView && recipientId && !isQa && (
-                  <div className="shrink-0 border-b border-slate-100 dark:border-surface-400 px-3 py-2 flex flex-col gap-2">
-                    {/* Tab row */}
-                    <div className="flex items-center gap-1 justify-between">
-                      <div className="flex items-center gap-1">
-                        {(["private", "broadcast"] as const).map((t) => {
-                          const isActive = commentThread === t;
-                          const hasNew =
-                            t === commentThread
-                              ? newMsgCount > 0
-                              : t === "broadcast"
-                                ? broadcastUnread > 0
-                                : privateUnread > 0;
-                          const badgeCount =
-                            t === commentThread
-                              ? newMsgCount
-                              : t === "broadcast"
-                                ? broadcastUnread
-                                : privateUnread;
-                          return (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={() => {
-                                setCommentThread(t);
-                                setMessages([]);
-                                setNewMsgCount(0);
-                                if (t === "broadcast") setBroadcastUnread(0);
-                                if (t === "private") setPrivateUnread(0);
-                              }}
-                              className={`relative flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
-                                isActive
-                                  ? "bg-brand-500 text-white"
-                                  : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400"
-                              }`}
-                            >
-                              {t === "broadcast" ? (
-                                <Megaphone className="h-3 w-3 shrink-0" />
-                              ) : (
-                                <MessageSquare className="h-3 w-3 shrink-0" />
-                              )}
-                              {t === "private" ? "Private" : "Broadcast"}
-                              {hasNew && (
-                                <span className="inline-flex items-center justify-center h-3.5 min-w-3.5 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white leading-none">
-                                  {badgeCount > 9 ? "9+" : badgeCount}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
+                  {/* Private / Broadcast thread switcher — only visible if not an item view */}
+                  {!isItemView && recipientId && (
+                    <div className="shrink-0 border-b border-slate-100 dark:border-surface-400 px-3 py-2 flex flex-col gap-2">
+                      {/* Tab row */}
+                      <div className="flex items-center gap-1 justify-between">
+                        <div className="flex items-center gap-1">
+                          {(["private", "broadcast"] as const).map((t) => {
+                            const isActive = commentThread === t;
+                            const hasNew =
+                              t === commentThread
+                                ? newMsgCount > 0
+                                : t === "broadcast"
+                                  ? broadcastUnread > 0
+                                  : privateUnread > 0;
+                            const badgeCount =
+                              t === commentThread
+                                ? newMsgCount
+                                : t === "broadcast"
+                                  ? broadcastUnread
+                                  : privateUnread;
+                            return (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => {
+                                  setCommentThread(t);
+                                  setMessages([]);
+                                  setNewMsgCount(0);
+                                  if (t === "broadcast") setBroadcastUnread(0);
+                                  if (t === "private") setPrivateUnread(0);
+                                }}
+                                className={`relative flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[11px] font-medium transition-colors ${isActive
+                                    ? "bg-brand-500 text-white"
+                                    : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400"
+                                  }`}
+                              >
+                                {t === "broadcast" ? (
+                                  <Megaphone className="h-3 w-3 shrink-0" />
+                                ) : (
+                                  <MessageSquare className="h-3 w-3 shrink-0" />
+                                )}
+                                {t === "private" ? "Private" : "Broadcast"}
+                                {hasNew && (
+                                  <span className="inline-flex items-center justify-center h-3.5 min-w-3.5 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white leading-none">
+                                    {badgeCount > 9 ? "9+" : badgeCount}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
+
+                      {/* Broadcast info banner */}
+                      {commentThread === "broadcast" && (
+                        <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 dark:border-amber-800/50 dark:bg-amber-950/20">
+                          <Megaphone className="h-3 w-3 shrink-0 text-amber-500 dark:text-amber-400" />
+                          <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-tight">
+                            Announcements from the requester to all offices — read only
+                          </p>
+                        </div>
+                      )}
                     </div>
+                  )}
 
-                    {/* Broadcast info banner */}
-                    {commentThread === "broadcast" && (
-                      <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 dark:border-amber-800/50 dark:bg-amber-950/20">
-                        <Megaphone className="h-3 w-3 shrink-0 text-amber-500 dark:text-amber-400" />
-                        <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-tight">
-                          Announcements from QA to all offices — read only
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <RequestCommentsPanel
-                  messages={messages}
-                  loading={messagesLoading}
-                  myUserId={myUserId}
-                  commentText={commentText}
-                  posting={posting}
-                  postErr={postErr}
-                  messagesEndRef={messagesEndRef}
-                  onCommentChange={setCommentText}
-                  onPost={postComment}
-                  newMessageCount={newMsgCount}
-                  onClearNewMessages={() => setNewMsgCount(0)}
-                  readOnly={
-                    !isItemView && !isQa && commentThread === "broadcast"
-                  }
-                  readOnlyLabel="This is a broadcast thread from QA. You can read but not reply here."
+                  <RequestCommentsPanel
+                    messages={messages}
+                    loading={messagesLoading}
+                    myUserId={myUserId}
+                    commentText={commentText}
+                    posting={posting}
+                    postErr={postErr}
+                    messagesEndRef={messagesEndRef}
+                    onCommentChange={setCommentText}
+                    onPost={postComment}
+                    newMessageCount={newMsgCount}
+                    onClearNewMessages={() => setNewMsgCount(0)}
+                    readOnly={
+                      !isReviewer && commentThread === "broadcast"
+                    }
+                    readOnlyLabel="This broadcast thread is for announcements from the requester only."
+                  />
+                </div>
+              ) : (
+                <RequestActivityPanel
+                  logs={activityLogs}
+                  loading={activityLoading}
                 />
-              </div>
-            ) : (
-              <RequestActivityPanel
-                logs={activityLogs}
-                loading={activityLoading}
-              />
-            )}
+              )}
             </div>
           </div>
         </section>
@@ -825,35 +850,31 @@ export default function DocumentRequestPage() {
                 />
               ) : (
                 <RequestSubmissionTab
-                  isQa={isQa}
-                  req={req}
-                  submissions={submissions}
+                isReviewer={isReviewer}
+                isSubmitter={isSubmitter}
+                req={req}
+                submissions={submissions}
                   selectedSubmission={selectedSubmission}
                   selectedSubmissionId={selectedSubmissionId}
                   selectedFileId={selectedFileId}
                   onSelectSubmission={setSelectedSubmissionId}
                   qaNote={qaNote}
                   reviewing={reviewing}
-
-                  canQaReview={canQaReview}
+                  canReview={canReview}
                   onQaNoteChange={setQaNote}
                   onQaReview={qaReview}
-                  hasExample={
-                    !!(isItemView
-                      ? req.item_example_preview_path
-                      : req.example_preview_path)
-                  }
+                  hasExample={!!(isItemView ? req.item_example_file_path : req.example_file_path)}
                   onDownloadExample={async () => {
                     const win = window.open("about:blank", "_blank");
                     try {
                       const res =
                         isItemView && itemId
                           ? await getDocumentRequestItemExampleDownloadLink(
-                              itemId,
-                            )
+                            itemId,
+                          )
                           : await getDocumentRequestExampleDownloadLink(
-                              requestId,
-                            );
+                            requestId,
+                          );
                       if (win) win.location.href = res.url;
                     } catch {
                       if (win) win.close();

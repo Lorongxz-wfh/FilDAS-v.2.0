@@ -193,7 +193,12 @@ class ActivityLogController extends Controller
                     ->where('office_id', $userOfficeId)
                     ->exists();
 
-                if (!$isRecipient) {
+                $isCreator = \Illuminate\Support\Facades\DB::table('document_requests')
+                    ->where('id', $reqId)
+                    ->where('created_by_user_id', $user->id)
+                    ->exists();
+
+                if (!$isRecipient && !$isCreator) {
                     return response()->json(['message' => 'Forbidden.'], 403);
                 }
             }

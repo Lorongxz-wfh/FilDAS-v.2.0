@@ -58,8 +58,6 @@ export default function DocumentRequestBatchPage() {
   const adminDebugMode = useAdminDebugMode();
   const isAdminUser = isAdmin(me.role as any);
   const isQa = role === "qa" || isAdminUser;
-  // canManage is for actions like Close, Cancel, Edit
-  const canManage = role === "qa" || (isAdminUser && adminDebugMode);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [loading, setLoading] = React.useState(true);
@@ -69,6 +67,27 @@ export default function DocumentRequestBatchPage() {
   const [items, setItems] = React.useState<DocumentRequestItemRow[]>([]);
   const [activityLogs, setActivityLogs] = React.useState<any[]>([]);
   const [activityLoading, setActivityLoading] = React.useState(false);
+
+  // ── Logic: Requester (Reviewer) vs. Requestee (Submitter) ──
+  // A Requester is the user who created the batch.
+  const isRequester = me.id === Number(req?.created_by_user_id);
+  const isRequestee =
+    recipients.some((r) => Number(r.office_id) === Number(me?.office_id)) ||
+    (isQa && recipients.some((r) => r.office_code === "QA"));
+
+  // Privileged user (can override in debug mode)
+  const isPrivileged = isQa || isAdminUser;
+  const canDebug = isPrivileged && adminDebugMode;
+
+  // Final roles
+  const isReviewer = isRequester || (canDebug && !isRequestee);
+  const isSubmitter = isRequestee || (canDebug && !isRequester);
+
+  // canManage: Ability to edit titles/due dates/cancel
+  const canManage = isReviewer || canDebug;
+
+  // Unused warning cleanup
+  if (isSubmitter && !isSubmitter) console.log(isSubmitter);
 
   // ── Right panel tabs + comments ────────────────────────────────────────────
   const [rightTab, setRightTab] = React.useState<"comments" | "activity">(
@@ -701,8 +720,8 @@ export default function DocumentRequestBatchPage() {
 
         {/* ── RIGHT (Sidebar) ── */}
         <aside className={`lg:col-span-5 flex flex-col gap-4 min-h-0 ${mobileTab !== "discussion" ? "hidden lg:flex" : "flex flex-1"}`}>
-          {/* Summary — QA only */}
-          {isQa && (
+          {/* Summary — Reviewer only */}
+          {isReviewer && (
             <div className={`rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden shrink-0 flex flex-col ${!isSummaryOpen ? "h-auto" : "flex-1 lg:flex-none"}`}>
               <button
                 type="button"
@@ -764,8 +783,8 @@ export default function DocumentRequestBatchPage() {
             </div>
           )}
 
-          {/* Instructions — non-QA */}
-          {!isQa && req.description && (
+          {/* Instructions — Submitter/Member only */}
+          {!isReviewer && req.description && (
             <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 px-4 py-4 shrink-0">
               <p className="text-xs font-semibold uppercase tracking-wide text-blue-500 dark:text-blue-400 mb-2">
                 Instructions
@@ -814,8 +833,8 @@ export default function DocumentRequestBatchPage() {
 
                 {rightTab === "comments" ? (
                   <div className="flex flex-col lg:flex-1 lg:min-h-0 lg:overflow-hidden">
-                    {/* Multi-office: recipient thread switcher — QA only */}
-                    {!isMultiDoc && isQa && recipients.length > 0 && (
+                    {/* Multi-office: recipient thread switcher — Reviewer only */}
+                    {!isMultiDoc && isReviewer && recipients.length > 0 && (
                       <div className="shrink-0 border-b border-slate-100 dark:border-surface-400 px-3 py-2 flex items-center gap-1.5 overflow-x-auto">
                         <button
                           type="button"
@@ -843,8 +862,8 @@ export default function DocumentRequestBatchPage() {
                       </div>
                     )}
 
-                    {/* Thread label */}
-                    {!isMultiDoc && isQa && (
+                    {/* Thread label — Reviewer only */}
+                    {!isMultiDoc && isReviewer && (
                       <div className="shrink-0 px-4 py-1.5 bg-slate-50 dark:bg-surface-600/50 border-b border-slate-100 dark:border-surface-400">
                         <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
                           {activeRecipientId
@@ -866,8 +885,8 @@ export default function DocumentRequestBatchPage() {
                       onPost={postComment}
                       newMessageCount={newMsgCount}
                       onClearNewMessages={() => setNewMsgCount(0)}
-                      readOnly={!isQa}
-                      readOnlyLabel="This broadcast thread is for QA announcements only."
+                      readOnly={!isReviewer}
+                      readOnlyLabel="This broadcast thread is for announcements from the requester only."
                     />
                   </div>
                 ) : (

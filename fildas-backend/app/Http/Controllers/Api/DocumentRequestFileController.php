@@ -22,6 +22,9 @@ class DocumentRequestFileController extends Controller
         // QA/SYSADMIN can view everything
         if (in_array($role, ['qa', 'sysadmin', 'admin'], true)) return true;
 
+        // Creator can always view their own request
+        if ((int)($requestRow->created_by_user_id ?? 0) === $user->id) return true;
+
         $officeId = (int) ($user->office_id ?? 0);
         if ($officeId <= 0) return false;
 
@@ -36,6 +39,16 @@ class DocumentRequestFileController extends Controller
     {
         $role = $this->roleNameOf($user);
         if (in_array($role, ['qa', 'sysadmin', 'admin'], true)) return true;
+
+        // Walk: file -> submission -> recipient -> request (check creator)
+        $parentRequestCreatorId = DB::table('document_request_submission_files as f')
+            ->join('document_request_submissions as s', 's.id', '=', 'f.submission_id')
+            ->join('document_request_recipients as r', 'r.id', '=', 's.recipient_id')
+            ->join('document_requests as dr', 'dr.id', '=', 'r.request_id')
+            ->where('f.id', (int) $fileRow->id)
+            ->value('dr.created_by_user_id');
+
+        if ((int)$parentRequestCreatorId === $user->id) return true;
 
         $officeId = (int) ($user->office_id ?? 0);
         if ($officeId <= 0) return false;

@@ -5,7 +5,6 @@ import Button from "../ui/Button";
 type Props = {
   req: any;
   recipient: any;
-  isQa?: boolean;
   isItemView?: boolean;
   effectiveDueAt?: string | null;
   editOpen?: boolean;
@@ -27,7 +26,6 @@ type Props = {
 export default function RequestHeaderCard({
   req,
   recipient,
-  isQa = false,
   isItemView = false,
   effectiveDueAt,
   editOpen = false,
@@ -114,8 +112,8 @@ export default function RequestHeaderCard({
         )}
       </div>
 
-      {/* Override bar — QA only */}
-      {isQa && (
+      {/* Override bar — Manager/Reviewer only */}
+      {canManage && (
         <div className="flex items-center gap-3 px-5 py-2.5 border-t border-slate-100 dark:border-surface-400">
           <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0">
             {isItemView ? "Item due" : "Office due"}

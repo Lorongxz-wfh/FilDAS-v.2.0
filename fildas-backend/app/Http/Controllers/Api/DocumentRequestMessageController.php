@@ -18,7 +18,14 @@ class DocumentRequestMessageController extends Controller
         $role = $this->roleName($request);
         if ($this->isQaOrAdmin($role)) return true;
 
-        $officeId = (int) ($request->user()?->office_id ?? 0);
+        $user = $request->user();
+        if (!$user) return false;
+
+        // Is the user the creator?
+        $req = DB::table('document_requests')->where('id', $requestId)->first();
+        if ($req && (int)$req->created_by_user_id === $user->id) return true;
+
+        $officeId = (int) ($user->office_id ?? 0);
         if ($officeId <= 0) return false;
 
         return DB::table('document_request_recipients')
@@ -155,11 +162,18 @@ class DocumentRequestMessageController extends Controller
         $itemId      = isset($data['item_id'])      ? (int) $data['item_id']      : null;
         $thread      = $data['thread'] ?? null;
 
-        // Office users are always scoped to their own recipient — ignore any passed value
-        if (!$isQa) {
-            // Block offices from posting to the broadcast/batch thread
+        // Scoping logic: Requester vs Recipient
+        // If the user isn't the creator and isn't QA/Admin, they are a Recipient.
+        // Recipients cannot broadcast.
+        $isCreator = DB::table('document_requests')
+            ->where('id', $requestId)
+            ->where('created_by_user_id', $request->user()->id)
+            ->exists();
+
+        if (!$isQa && !$isCreator) {
+            // Block recipients from posting to the broadcast/batch thread
             if ($thread === 'batch') {
-                return response()->json(['message' => 'Forbidden. Offices cannot post to the broadcast thread.'], 403);
+                return response()->json(['message' => 'Forbidden. Only the requester can post to the broadcast thread.'], 403);
             }
             $recipientId = $this->myRecipientId($request, $requestId);
             // item_id is preserved if provided (e.g. for multi_doc item comments)

@@ -16,6 +16,7 @@ use App\Repositories\DocumentRequestRepository;
 use App\Traits\RoleNameTrait;
 use App\Traits\LogsActivityTrait;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 
@@ -341,6 +342,8 @@ class DocumentRequestController extends Controller
         $row = DB::table('document_requests')->where('id', $requestId)->first();
         if (!$row) return response()->json(['message' => 'Not found'], 404);
 
+        $isCreator = (int)($row->created_by_user_id ?? 0) === $user->id;
+
         if (!$isQa) {
             if ($officeId <= 0) return response()->json(['message' => 'Forbidden.'], 403);
             
@@ -349,8 +352,6 @@ class DocumentRequestController extends Controller
                 ->where('office_id', $officeId)
                 ->exists();
             
-            $isCreator = (int)($row->created_by_user_id ?? 0) === $user->id;
-
             if (!$isRecipient && !$isCreator) {
                 return response()->json(['message' => 'Forbidden.'], 403);
             }
@@ -362,11 +363,14 @@ class DocumentRequestController extends Controller
             ->where('rr.request_id', $requestId)
             ->select(['rr.*', 'o.name as office_name', 'o.code as office_code']);
 
-        if (!$isQa) $recipientQ->where('rr.office_id', $officeId);
+        if (!$isQa && !$isCreator) {
+            $recipientQ->where('rr.office_id', $officeId);
+        }
 
-        // Multi-office: QA sees all recipients with their progress
-        if ($isQa && $row->mode === 'multi_office') {
+        // Multi-office: QA or Creator sees all recipients with their progress
+        if (($isQa || $isCreator) && $row->mode === 'multi_office') {
             $recipients = $recipientQ->get();
+
 
             $recipientsPayload = $recipients->map(function ($r) {
                 $latest = DB::table('document_request_submissions')
@@ -563,11 +567,11 @@ class DocumentRequestController extends Controller
     // ── POST /api/document-requests/{request}/recipients/{recipient}/submit
     public function submit(Request $request, int $requestId, int $recipientId)
     {
-        $user     = $request->user();
-        $officeId = (int) ($user?->office_id ?? 0);
-        if ($officeId <= 0) {
-            return response()->json(['message' => 'Your account has no office assigned.'], 422);
-        }
+        $user       = $request->user();
+        $role       = $this->roleName($request);
+        $myOfficeId = (int) ($user?->office_id ?? 0);
+        $isQa       = $this->isQaOrAdmin($role);
+        $isAdmin    = $role === 'admin';
 
         $data = $request->validate([
             'note'     => 'nullable|string|max:2000',
@@ -581,15 +585,29 @@ class DocumentRequestController extends Controller
         if (($req->status ?? '') !== 'open') {
             return response()->json(['message' => 'Request is not open.'], 422);
         }
-
         $recipient = DB::table('document_request_recipients')
             ->where('id', $recipientId)
             ->where('request_id', $requestId)
             ->first();
 
         if (!$recipient) return response()->json(['message' => 'Recipient not found'], 404);
-        if ((int) ($recipient->office_id ?? 0) !== $officeId) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+
+        // Authorization:
+        // 1. User belongs to recipient office
+        // 2. User is QA/Admin and recipient is the QA office
+        // 3. User is Admin (all-access for rescue/dev)
+        $recipientOfficeId = (int) ($recipient->office_id ?? 0);
+        $isRecipientMember = ($myOfficeId > 0 && $myOfficeId === $recipientOfficeId);
+
+        $qaOfficeId = Cache::remember('office_id:QA', 3600, function () {
+            return DB::table('offices')->where('code', 'QA')->value('id');
+        });
+        $isQaFulfillingQaRequest = ($isQa && $recipientOfficeId === (int)$qaOfficeId);
+
+        $canSubmit = $isRecipientMember || $isQaFulfillingQaRequest || $isAdmin;
+
+        if (!$canSubmit) {
+            return response()->json(['message' => 'Forbidden. Only the requested office can submit files.'], 403);
         }
 
         if ($req->mode === 'multi_doc' && empty($data['item_id'])) {
@@ -613,7 +631,28 @@ class DocumentRequestController extends Controller
     // ── POST /api/document-request-submissions/{submission}/review ─────────
     public function review(Request $request, int $submissionId)
     {
-        $this->assertQaOrSysadmin($request);
+        $user = $request->user();
+        $role = $this->roleName($request);
+        $isQa = $this->isQaOrAdmin($role);
+        $isAdmin = $role === 'admin';
+
+        $submission = DB::table('document_request_submissions')->where('id', $submissionId)->first();
+        if (!$submission) return response()->json(['message' => 'Submission not found'], 404);
+
+        $requestId = DB::table('document_request_recipients')->where('id', $submission->recipient_id)->value('request_id');
+        $docRequest = DB::table('document_requests')->where('id', $requestId)->first();
+        if (!$docRequest) return response()->json(['message' => 'Request not found'], 404);
+
+
+        // Authorization:
+        // 1. User is the specific requester (creator)
+        // 2. User is QA and the request belongs to QA
+        // 3. Admin (all-access)
+        $isCreator = ($user->id === (int)$docRequest->created_by_user_id);
+
+        if (!$isCreator && !$isQa && !$isAdmin) {
+            return response()->json(['message' => 'Forbidden. Only the requester can review submissions.'], 403);
+        }
 
         $data = $request->validate([
             'decision' => 'required|in:accepted,rejected',
@@ -878,16 +917,25 @@ class DocumentRequestController extends Controller
     // PATCH /api/document-request-items/{id}
     public function updateItem(Request $request, int $itemId)
     {
-        $this->assertQaOrSysadmin($request);
+        $user = $request->user();
+        $role = $this->roleName($request);
+        $isQa = $this->isQaOrAdmin($role);
+
+        $item = DB::table('document_request_items')->where('id', $itemId)->first();
+        if (!$item) return response()->json(['message' => 'Item not found.'], 404);
+
+        if (!$isQa) {
+            $req = DB::table('document_requests')->where('id', $item->request_id)->first();
+            if (!$req || (int)$req->created_by_user_id !== $user->id) {
+                return response()->json(['message' => 'Forbidden.'], 403);
+            }
+        }
 
         $data = $request->validate([
             'title'       => 'sometimes|string|max:180',
             'description' => 'sometimes|nullable|string',
             'due_at'      => 'sometimes|nullable|date',
         ]);
-
-        $item = DB::table('document_request_items')->where('id', $itemId)->first();
-        if (!$item) return response()->json(['message' => 'Item not found.'], 404);
 
         $payload = [];
         $changes = [];
@@ -922,7 +970,16 @@ class DocumentRequestController extends Controller
     // PATCH /api/document-requests/{id}/recipients/{recipientId}
     public function updateRecipient(Request $request, int $requestId, int $recipientId)
     {
-        $this->assertQaOrSysadmin($request);
+        $user = $request->user();
+        $role = $this->roleName($request);
+        $isQa = $this->isQaOrAdmin($role);
+
+        if (!$isQa) {
+            $req = DB::table('document_requests')->where('id', $requestId)->first();
+            if (!$req || (int)$req->created_by_user_id !== (int)$user->id) {
+                return response()->json(['message' => 'Forbidden.'], 403);
+            }
+        }
 
         $data = $request->validate([
             'due_at' => 'sometimes|nullable|date',
@@ -961,7 +1018,16 @@ class DocumentRequestController extends Controller
     // PATCH /api/document-requests/{id}/status
     public function updateStatus(Request $request, int $requestId)
     {
-        $this->assertQaOrSysadmin($request);
+        $user = $request->user();
+        $role = $this->roleName($request);
+        $isQa = $this->isQaOrAdmin($role);
+
+        $req = DB::table('document_requests')->where('id', $requestId)->first();
+        if (!$req) return response()->json(['message' => 'Not found.'], 404);
+
+        if (!$isQa && (int)$req->created_by_user_id !== (int)$user->id) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
 
         $data = $request->validate([
             'status' => 'required|in:closed,cancelled',

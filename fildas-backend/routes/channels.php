@@ -12,8 +12,8 @@ Broadcast::channel('request.{requestId}', function ($user, $requestId) {
     if (!$user) return false;
 
     // 1. Roles that always have access (QA, Admin, Sysadmin)
-    $roleName = $user->role?->name;
-    if (in_array($roleName, ['QA', 'ADMIN', 'SYSADMIN'])) {
+    $roleName = strtolower($user->role_name ?? $user->role?->name ?? '');
+    if (in_array($roleName, ['qa', 'admin', 'sysadmin'])) {
         return true;
     }
 
