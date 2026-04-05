@@ -311,6 +311,29 @@ export default function DocumentRequestPage() {
     loadMessages().catch(() => { });
   }, [loadMessages]);
 
+  const loadActivity = React.useCallback(async (silent = false) => {
+    // Only fetch if activity tab is selected OR if it's a silent background poll
+    if (!silent && leftTab !== "activity") return;
+    if (!silent) setActivityLoading(true);
+    try {
+      const { default: api } = await import("../services/api");
+      const res = await api.get("/activity", {
+        params: { scope: "request", request_id: requestId, per_page: 50 },
+      });
+      setActivityLogs(res.data?.data ?? []);
+    } catch {
+      setActivityLogs([]);
+    } finally {
+      if (!silent) setActivityLoading(false);
+    }
+  }, [requestId, leftTab]);
+
+  React.useEffect(() => {
+    if (leftTab === "activity") {
+      loadActivity().catch(() => { });
+    }
+  }, [loadActivity, leftTab]);
+
   React.useEffect(() => {
     let tick = 0;
     const interval = window.setInterval(async () => {
@@ -375,26 +398,6 @@ export default function DocumentRequestPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ── Activity ───────────────────────────────────────────────────────────────
-  const loadActivity = React.useCallback(async (silent = false) => {
-    if (leftTab !== "activity") return;
-    if (!silent) setActivityLoading(true);
-    try {
-      const { default: api } = await import("../services/api");
-      const res = await api.get("/activity", {
-        params: { scope: "request", request_id: requestId, per_page: 50 },
-      });
-      setActivityLogs(res.data?.data ?? []);
-    } catch {
-      setActivityLogs([]);
-    } finally {
-      if (!silent) setActivityLoading(false);
-    }
-  }, [requestId, leftTab]);
-
-  React.useEffect(() => {
-    loadActivity().catch(() => { });
-  }, [loadActivity]);
 
   // ── Realtime: instant updates via Pusher ───────────────────────────────
   useRealtimeUpdates({
