@@ -8,6 +8,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 
 class User extends Authenticatable
@@ -55,15 +56,34 @@ class User extends Authenticatable
     public function getProfilePhotoUrlAttribute(): ?string
     {
         if (!$this->profile_photo_path) return null;
-        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
-        return Storage::disk($disk)->url($this->profile_photo_path);
+        $url = Storage::url($this->profile_photo_path);
+        
+        // If relative path, make it absolute using APP_URL
+        if ($url && !Str::startsWith($url, 'http')) {
+            $appUrl = config('app.url');
+            $url = rtrim($appUrl, '/') . '/' . ltrim($url, '/');
+        }
+
+        if (config('app.env') === 'production' && $url) {
+            return str_replace('http://', 'https://', $url);
+        }
+        return $url;
     }
 
     public function getSignatureUrlAttribute(): ?string
     {
         if (!$this->signature_path) return null;
-        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
-        return Storage::disk($disk)->url($this->signature_path);
+        $url = Storage::url($this->signature_path);
+        
+        if ($url && !Str::startsWith($url, 'http')) {
+            $appUrl = config('app.url');
+            $url = rtrim($appUrl, '/') . '/' . ltrim($url, '/');
+        }
+
+        if (config('app.env') === 'production' && $url) {
+            return str_replace('http://', 'https://', $url);
+        }
+        return $url;
     }
 
     /**

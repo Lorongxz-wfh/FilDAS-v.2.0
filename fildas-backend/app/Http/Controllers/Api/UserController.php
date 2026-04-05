@@ -364,9 +364,21 @@ class UserController extends Controller
             Storage::disk($disk)->delete($user->profile_photo_path);
         }
 
-        $path = $request->file('photo')->store('profile-photos', $disk);
-        $user->profile_photo_path = $path;
-        $user->save();
+        try {
+            $path = $request->file('photo')->store('profile-photos', [
+                'disk' => $disk,
+                'visibility' => 'public'
+            ]);
+            $user->profile_photo_path = $path;
+            $user->save();
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('User Photo Upload Failed', [
+                'error' => $e->getMessage(),
+                'user_id' => $user->id,
+                'disk' => $disk
+            ]);
+            return response()->json(['message' => 'Failed to upload photo.'], 500);
+        }
 
         $user->load(['role', 'office']);
         return response()->json(['user' => $user]);

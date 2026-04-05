@@ -42,7 +42,8 @@ class ThumbnailService
                 $disk->putFileAs(
                     dirname($outputPath), 
                     new \Illuminate\Http\File($localTmpThumb), 
-                    basename($outputPath)
+                    basename($outputPath),
+                    ['visibility' => 'public']
                 );
                 @unlink($localTmpThumb);
                 return $outputPath;
@@ -143,7 +144,8 @@ class ThumbnailService
     public function delete(?string $thumbnailPath): void
     {
         if ($thumbnailPath) {
-            Storage::disk('public')->delete($thumbnailPath);
+            $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
+            Storage::disk($disk)->delete($thumbnailPath);
         }
     }
 }

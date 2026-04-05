@@ -253,7 +253,7 @@ class DocumentTemplateController extends Controller
                 'name' => trim("{$t->uploader->first_name} {$t->uploader->last_name}"),
             ] : null,
             'can_delete'      => $canDelete,
-            'thumbnail_url'   => $t->thumbnail_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($t->thumbnail_path) : null,
+            'thumbnail_url'   => $t->thumbnail_path ? \Illuminate\Support\Facades\Storage::url($t->thumbnail_path) : null,
             'tags'            => $t->tags->pluck('name')->values()->all(),
             'created_at'      => $t->created_at?->toISOString(),
         ];

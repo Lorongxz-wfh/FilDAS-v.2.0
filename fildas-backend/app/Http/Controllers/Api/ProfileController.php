@@ -91,11 +91,12 @@ class ProfileController extends Controller
         /** @var \App\Models\User $user */
         $user = $request->user();
 
-        if (!$user->signature_path || !Storage::disk('public')->exists($user->signature_path)) {
+        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
+        if (!$user->signature_path || !Storage::disk($disk)->exists($user->signature_path)) {
             return response()->json(['message' => 'No signature found.'], 404);
         }
 
-        return Storage::disk('public')->response($user->signature_path);
+        return Storage::disk($disk)->response($user->signature_path);
     }
 
     // POST /api/profile/photo
@@ -108,13 +109,27 @@ class ProfileController extends Controller
             'photo' => ['required', 'image', 'max:2048'],
         ]);
 
+        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
+
         if ($user->profile_photo_path) {
-            Storage::disk('public')->delete($user->profile_photo_path);
+            Storage::disk($disk)->delete($user->profile_photo_path);
         }
 
-        $path = $request->file('photo')->store('profile-photos', 'public');
-        $user->profile_photo_path = $path;
-        $user->save();
+        try {
+            $path = $request->file('photo')->store('profile-photos', [
+                'disk' => $disk,
+                'visibility' => 'public'
+            ]);
+            $user->profile_photo_path = $path;
+            $user->save();
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Profile Photo Upload Failed', [
+                'error' => $e->getMessage(),
+                'user_id' => $user->id,
+                'disk' => $disk
+            ]);
+            return response()->json(['message' => 'Failed to upload photo.'], 500);
+        }
 
         $this->logActivity('profile.photo_updated', 'Updated profile photo', $user->id, $user->office_id);
 
@@ -131,13 +146,27 @@ class ProfileController extends Controller
             'signature' => ['required', 'image', 'max:1024'],
         ]);
 
+        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
+
         if ($user->signature_path) {
-            Storage::disk('public')->delete($user->signature_path);
+            Storage::disk($disk)->delete($user->signature_path);
         }
 
-        $path = $request->file('signature')->store('signatures', 'public');
-        $user->signature_path = $path;
-        $user->save();
+        try {
+            $path = $request->file('signature')->store('signatures', [
+                'disk' => $disk,
+                'visibility' => 'public'
+            ]);
+            $user->signature_path = $path;
+            $user->save();
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Signature Upload Failed', [
+                'error' => $e->getMessage(),
+                'user_id' => $user->id,
+                'disk' => $disk
+            ]);
+            return response()->json(['message' => 'Failed to upload signature.'], 500);
+        }
 
         $this->logActivity('profile.signature_updated', 'Updated signature', $user->id, $user->office_id);
 
@@ -151,7 +180,8 @@ class ProfileController extends Controller
         $user = $request->user();
 
         if ($user->signature_path) {
-            Storage::disk('public')->delete($user->signature_path);
+            $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
+            Storage::disk($disk)->delete($user->signature_path);
             $user->signature_path = null;
             $user->save();
 
@@ -168,7 +198,8 @@ class ProfileController extends Controller
         $user = $request->user();
 
         if ($user->profile_photo_path) {
-            Storage::disk('public')->delete($user->profile_photo_path);
+            $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
+            Storage::disk($disk)->delete($user->profile_photo_path);
             $user->profile_photo_path = null;
             $user->save();
 
