@@ -61,10 +61,12 @@ class DocumentRequestController extends Controller
             'created_at' => 'r.created_at',
             'due_at'     => 'r.due_at'
         ];
-        $actualSort = $sortMap[$data['sort_by'] ?? 'id'] ?? 'r.id';
+        $actualSort = $sortMap[$data['sort_by'] ?? 'created_at'] ?? 'r.created_at';
         $sortDir    = $data['sort_dir'] ?? 'desc';
 
         try {
+            \Log::info("DocumentRequestController@index start", ['user_id' => $user?->id, 'filters' => $data]);
+
             $q = DB::table('document_requests as r')
                 ->leftJoin('users as u_cre', 'u_cre.id', '=', 'r.created_by_user_id')
                 ->leftJoin('offices as o_cre', 'o_cre.id', '=', 'u_cre.office_id')
@@ -173,7 +175,8 @@ class DocumentRequestController extends Controller
             \Log::error("DocumentRequestController@index fatal: " . $e->getMessage(), [
                 'file'    => $e->getFile(),
                 'line'    => $e->getLine(),
-                'user_id' => $user?->id
+                'user_id' => $user?->id,
+                'sql'     => method_exists($e, 'getSql') ? $e->getSql() : 'N/A'
             ]);
             return response()->json([
                 'message' => 'Failed to load requests matching the filter.',

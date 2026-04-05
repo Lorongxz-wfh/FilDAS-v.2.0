@@ -63,10 +63,10 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
     <>
       {/* ───── Action-Required Banners ─────────────────────────────────────────── */}
       
-      {/* 1. Approver Signing Banner (Uniform Blue) */}
+      {/* 1. Approver Signing Banner (Uniform Orange) */}
       {approverNeedsSignedUpload && !hasSignedFile && (
         <Alert
-          variant="primary"
+          variant="warning"
           icon={<Upload className="h-4 w-4" />}
           title={approverHasDownloaded ? "Step 2: Upload signed copy" : "Step 1: Download for signing"}
           action={
