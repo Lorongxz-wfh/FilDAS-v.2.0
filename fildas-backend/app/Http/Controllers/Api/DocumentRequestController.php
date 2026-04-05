@@ -49,14 +49,14 @@ class DocumentRequestController extends Controller
         $perPage = (int) ($data['per_page'] ?? 25);
 
         $q = DB::table('document_requests as r')
-            ->join('users as u_cre', 'u_cre.id', '=', 'r.created_by_user_id')
-            ->join('offices as o_cre', 'o_cre.id', '=', 'u_cre.office_id')
+            ->leftJoin('users as u_cre', 'u_cre.id', '=', 'r.created_by_user_id')
+            ->leftJoin('offices as o_cre', 'o_cre.id', '=', 'u_cre.office_id')
             ->orderByDesc('r.id')
             ->select([
                 'r.*',
-                // Creator office info
-                'o_cre.code as creator_office_code',
-                'o_cre.name as creator_office_name',
+                // Creator office info (null-safe)
+                DB::raw("COALESCE(o_cre.code, 'N/A') as creator_office_code"),
+                DB::raw("COALESCE(o_cre.name, 'System Admin / Unit') as creator_office_name"),
                 // Recipient office(s) info via subqueries to avoid GROUP BY mess
                 DB::raw("(SELECT GROUP_CONCAT(DISTINCT o.code SEPARATOR ', ') 
                           FROM document_request_recipients rr 

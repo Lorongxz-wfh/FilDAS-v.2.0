@@ -23,8 +23,8 @@ class DocumentRequestRepository
             ->join('document_requests as r', 'r.id', '=', 'rr.request_id')
             ->join('offices as o', 'o.id', '=', 'rr.office_id')
             // Join with creator's office
-            ->join('users as u_cre', 'u_cre.id', '=', 'r.created_by_user_id')
-            ->join('offices as o_cre', 'o_cre.id', '=', 'u_cre.office_id')
+            ->leftJoin('users as u_cre', 'u_cre.id', '=', 'r.created_by_user_id')
+            ->leftJoin('offices as o_cre', 'o_cre.id', '=', 'u_cre.office_id')
             ->where('r.mode', 'multi_office')
             ->select([
                 DB::raw("'recipient' as row_type"),
@@ -36,9 +36,9 @@ class DocumentRequestRepository
                 DB::raw('COALESCE(rr.due_at, r.due_at) as due_at'),
                 'rr.created_at',
                 'rr.status as item_status',
-                // Directional office logic:
-                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN o.name ELSE o_cre.name END as office_name"),
-                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN o.code ELSE o_cre.code END as office_code"),
+                // Directional office logic (null-safe creator office)
+                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN o.name ELSE COALESCE(o_cre.name, 'Admin / System') END as office_name"),
+                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN o.code ELSE COALESCE(o_cre.code, 'N/A') END as office_code"),
                 DB::raw('NULL as item_title'),
                 'rr.id as recipient_id',
                 DB::raw('NULL as item_id'),
@@ -75,8 +75,8 @@ class DocumentRequestRepository
             ->join('document_request_recipients as rr', 'rr.request_id', '=', 'r.id')
             ->join('offices as o', 'o.id', '=', 'rr.office_id')
             // Join with creator's office
-            ->join('users as u_cre', 'u_cre.id', '=', 'r.created_by_user_id')
-            ->join('offices as o_cre', 'o_cre.id', '=', 'u_cre.office_id')
+            ->leftJoin('users as u_cre', 'u_cre.id', '=', 'r.created_by_user_id')
+            ->leftJoin('offices as o_cre', 'o_cre.id', '=', 'u_cre.office_id')
             ->where('r.mode', 'multi_doc')
             ->select([
                 DB::raw("'item' as row_type"),
@@ -88,9 +88,9 @@ class DocumentRequestRepository
                 DB::raw('COALESCE(dri.due_at, r.due_at) as due_at'),
                 'dri.created_at',
                 DB::raw("COALESCE((SELECT s.status FROM document_request_submissions s WHERE s.item_id = dri.id AND s.recipient_id = rr.id ORDER BY s.attempt_no DESC LIMIT 1), rr.status) as item_status"),
-                // Directional office logic:
-                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN o.name ELSE o_cre.name END as office_name"),
-                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN o.code ELSE o_cre.code END as office_code"),
+                // Directional office logic (null-safe creator office)
+                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN o.name ELSE COALESCE(o_cre.name, 'Admin / System') END as office_name"),
+                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN o.code ELSE COALESCE(o_cre.code, 'N/A') END as office_code"),
                 'dri.title as item_title',
                 'rr.id as recipient_id',
                 'dri.id as item_id',
