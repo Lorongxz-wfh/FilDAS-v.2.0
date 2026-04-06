@@ -134,3 +134,12 @@ export async function restoreSystemSnapshot(filename: string): Promise<void> {
   const api = await getApi();
   await api.post(`/admin/system/backups/${filename}/restore`);
 }
+
+export async function uploadSystemSnapshot(file: File): Promise<void> {
+  const api = await getApi();
+  const formData = new FormData();
+  formData.append("file", file);
+  await api.post("/admin/system/backups/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+}

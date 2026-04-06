@@ -307,8 +307,7 @@ class SystemBackupController extends Controller
                     DB::statement('SET session_replication_role = \'replica\'');
                 }
 
-                // Execute the SQL. split by semicolon if needed for large files? 
-                // DB::unprepared is usually okay for moderate sizes.
+                // Execute the SQL.
                 DB::unprepared($sql);
 
                 if ($dbConnection === 'mysql') {
@@ -339,5 +338,36 @@ class SystemBackupController extends Controller
                 'message' => 'Restore failed: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function upload(Request $request)
+    {
+        $this->checkAccess($request);
+
+        $request->validate([
+            'file' => 'required|file|max:51200', // 50MB max for now
+        ]);
+
+        $file = $request->file('file');
+        $filename = $file->getClientOriginalName();
+
+        // Security: ensure it's a backup file and not a malicious script
+        $ext = strtolower($file->getClientOriginalExtension());
+        if (!in_array($ext, ['zip', 'sql', 'sqlite'])) {
+            return response()->json(['message' => 'Invalid backup file type. Use .zip, .sql, or .sqlite'], 422);
+        }
+
+        // Avoid overwriting by appending timestamp if exists
+        if (Storage::disk('local')->exists("{$this->backupDir}/{$filename}")) {
+            $nameOnly = pathinfo($filename, PATHINFO_FILENAME);
+            $filename = $nameOnly . '_' . time() . '.' . $ext;
+        }
+
+        $path = $file->storeAs($this->backupDir, $filename, 'local');
+
+        return response()->json([
+            'message' => 'Backup uploaded successfully.',
+            'filename' => $filename,
+        ]);
     }
 }

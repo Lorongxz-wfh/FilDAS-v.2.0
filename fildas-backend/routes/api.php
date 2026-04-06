@@ -171,6 +171,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class]
     // Controller enforces its own role check (qa, admin, sysadmin, office_head)
     Route::get('/admin/system/backups',           [SystemBackupController::class, 'index']);
     Route::post('/admin/system/backups',          [SystemBackupController::class, 'store']);
+    Route::post('/admin/system/backups/upload',   [SystemBackupController::class, 'upload']);
     Route::get('/admin/system/backups/{file}',    [SystemBackupController::class, 'download']);
     Route::delete('/admin/system/backups/{file}', [SystemBackupController::class, 'destroy']);
     Route::post('/admin/system/backups/{file}/restore', [SystemBackupController::class, 'restore']);

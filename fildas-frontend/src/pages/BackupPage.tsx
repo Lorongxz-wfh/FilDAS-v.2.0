@@ -17,6 +17,7 @@ import {
   Users,
   RotateCcw,
   AlertTriangle,
+  Upload,
 } from "lucide-react";
 import { PageActions, RefreshAction } from "../components/ui/PageActions";
 import {
@@ -27,6 +28,7 @@ import {
   deleteSystemBackup,
   downloadSystemSnapshot,
   restoreSystemSnapshot,
+  uploadSystemSnapshot,
   type BackupPreset,
   type BackupSummary,
   type SystemBackupFile,
@@ -136,6 +138,7 @@ export default function BackupPage() {
   const [loading, setLoading] = useState(true);
   const [backupsLoading, setBackupsLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [confirmingRestore, setConfirmingRestore] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -232,6 +235,31 @@ export default function BackupPage() {
       const msg = e?.response?.data?.message ?? e?.message ?? "Restore failed.";
       setError(msg);
       setRestoring(null);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Basic client-side check
+    const validExtensions = ['.zip', '.sql', '.sqlite'];
+    if (!validExtensions.some(ext => file.name.toLowerCase().endsWith(ext))) {
+      setError("Please upload a valid backup file (.zip, .sql, or .sqlite)");
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+    try {
+      await uploadSystemSnapshot(file);
+      fetchSystemBackups();
+      if (e.target) e.target.value = ''; // Reset input
+    } catch (e: any) {
+      const msg = e?.response?.data?.message ?? e?.message ?? "Upload failed.";
+      setError(msg);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -362,25 +390,46 @@ export default function BackupPage() {
              <div className="flex items-center gap-4">
                 <div className="hidden sm:flex flex-col items-end">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Total Usage</span>
-                  <div className="flex items-center gap-1 text-xs font-bold text-slate-700 dark:text-slate-200">
+                 <div className="flex items-center gap-1 text-xs font-bold text-slate-700 dark:text-slate-200">
                     <HardDrive className="h-3 w-3 text-brand-500" />
                     {formatSize(totalSize)}
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  disabled={creating}
-                  onClick={handleCreateSnapshot}
-                  className="flex items-center gap-2 rounded-md bg-brand-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-brand-600 disabled:opacity-50"
-                >
-                  {creating ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Database className="h-3.5 w-3.5" />
-                  )}
-                  {creating ? "Snapshooting..." : "Trigger System Snapshot"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    id="snapshot-upload"
+                    className="hidden"
+                    accept=".zip,.sql,.sqlite"
+                    onChange={handleFileUpload}
+                  />
+                  <label
+                    htmlFor="snapshot-upload"
+                    className={`flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50 cursor-pointer dark:border-surface-400 dark:bg-surface-500 dark:text-slate-300 dark:hover:bg-white/5 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                    {uploading ? "Uploading..." : "Upload Snapshot"}
+                  </label>
+
+                  <button
+                    type="button"
+                    disabled={creating || uploading}
+                    onClick={handleCreateSnapshot}
+                    className="flex items-center gap-2 rounded-md bg-brand-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-brand-600 disabled:opacity-50"
+                  >
+                    {creating ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Database className="h-3.5 w-3.5" />
+                    )}
+                    {creating ? "Snapshooting..." : "Trigger System Snapshot"}
+                  </button>
+                </div>
              </div>
           </div>
 
