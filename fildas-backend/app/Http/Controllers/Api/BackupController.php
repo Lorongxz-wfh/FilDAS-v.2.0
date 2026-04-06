@@ -154,97 +154,107 @@ class BackupController extends Controller
 
         set_time_limit(0); // Prevent timeout for large backups
 
-        $zip = new ZipArchive();
-        if ($zip->open($tempPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            abort(500, "Could not create temporary ZIP file at {$tempPath}.");
-        }
+        try {
+            $zip = new ZipArchive();
+            if ($zip->open($tempPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+                abort(500, "Could not create temporary ZIP file at {$tempPath}.");
+            }
 
-        $filesAdded = 0;
+            $filesAdded = 0;
 
-        // 1. Regular Documents
-        $query->orderBy('document_versions.created_at', 'desc')
-            ->chunk(100, function ($versions) use ($zip, &$filesAdded) {
-                foreach ($versions as $v) {
-                    $found = $this->findFileAcrossDisks($v->file_path);
-                    
-                    if (!$found) {
-                        // Resilient Fallback: maybe it's renamed to "original.ext" in the same folder?
-                        $dir = dirname($v->file_path);
-                        $ext = pathinfo($v->file_path, PATHINFO_EXTENSION);
-                        $fallback = "{$dir}/original.{$ext}";
-                        $found = $this->findFileAcrossDisks($fallback);
+            // 1. Regular Documents
+            $query->orderBy('document_versions.created_at', 'desc')
+                ->chunk(100, function ($versions) use ($zip, &$filesAdded) {
+                    foreach ($versions as $v) {
+                        $found = $this->findFileAcrossDisks($v->file_path);
+                        
+                        if (!$found) {
+                            // Resilient Fallback: maybe it's renamed to "original.ext" in the same folder?
+                            $dir = dirname($v->file_path);
+                            $ext = pathinfo($v->file_path, PATHINFO_EXTENSION);
+                            $fallback = "{$dir}/original.{$ext}";
+                            $found = $this->findFileAcrossDisks($fallback);
+                        }
+
+                        if (!$found) {
+                            \Log::warning("Backup ZIP: Document file not found in any disk", ['id' => $v->id, 'path' => $v->file_path]);
+                            continue;
+                        }
+
+                        $officeCode = $v->document?->ownerOffice?->code ?? 'Unknown';
+                        $docCode    = $v->document?->code ?? "doc-{$v->document_id}";
+                        $vNum       = $v->version_number;
+                        $ext        = pathinfo($v->original_filename ?? $v->file_path, PATHINFO_EXTENSION) ?: 'pdf';
+                        $date       = $v->created_at?->format('Y-m-d') ?? 'Unknown Date';
+
+                        $entryName = "{$officeCode}/Created Documents/{$date}/{$docCode}_v{$vNum}.{$ext}";
+                        $zip->addFile($found['abs_path'], $entryName);
+                        $filesAdded++;
                     }
+                });
 
-                    if (!$found) {
-                        \Log::warning("Backup ZIP: Document file not found in any disk", ['id' => $v->id, 'path' => $v->file_path]);
-                        continue;
+            // 2. Document Request Files
+            $reqQuery = \App\Models\DocumentRequestSubmissionFile::query()
+                ->whereNotNull('file_path')
+                ->where('file_path', '!=', '')
+                ->with([
+                    'submission.recipient.office:id,code',
+                    'submission.recipient.request:id,title',
+                    'submission.item:id,title'
+                ]);
+
+            if ($from) $reqQuery->where('document_request_submission_files.created_at', '>=', "{$from} 00:00:00");
+            if ($to)   $reqQuery->where('document_request_submission_files.created_at', '<=', "{$to} 23:59:59");
+
+            $reqQuery->orderBy('document_request_submission_files.created_at', 'desc')
+                ->chunk(100, function ($files) use ($zip, &$filesAdded) {
+                    foreach ($files as $f) {
+                        $found = $this->findFileAcrossDisks($f->file_path);
+
+                        if (!$found) {
+                            $dir = dirname($f->file_path);
+                            $ext = pathinfo($f->file_path, PATHINFO_EXTENSION);
+                            $fallback = "{$dir}/original.{$ext}";
+                            $found = $this->findFileAcrossDisks($fallback);
+                        }
+
+                        if (!$found) {
+                            \Log::warning("Backup ZIP: Request file not found in any disk", ['id' => $f->id, 'path' => $f->file_path]);
+                            continue;
+                        }
+
+                        $officeCode = $f->submission?->recipient?->office?->code ?? 'Unknown';
+                        $date       = $f->created_at?->format('Y-m-d') ?? 'Unknown Date';
+
+                        // Sanitize titles for filesystem safety
+                        $safeReqTitle  = preg_replace('/[^A-Za-z0-9_\- ]/', '', $f->submission?->recipient?->request?->title ?? "Req-{$f->submission_id}");
+                        $safeItemTitle = preg_replace('/[^A-Za-z0-9_\- ]/', '', $f->submission?->item?->title ?? "Item-{$f->id}");
+                        $safeReqTitle  = substr(trim($safeReqTitle), 0, 50);
+                        $safeItemTitle = substr(trim($safeItemTitle), 0, 50);
+                        
+                        $ext      = pathinfo($f->original_filename ?? $f->file_path, PATHINFO_EXTENSION) ?: 'pdf';
+                        $fileName = "{$safeReqTitle} - {$safeItemTitle}.{$ext}";
+
+                        $entryName = "{$officeCode}/Document Requests/{$date}/{$fileName}";
+                        $zip->addFile($found['abs_path'], $entryName);
+                        $filesAdded++;
                     }
+                });
 
-                    $officeCode = $v->document?->ownerOffice?->code ?? 'Unknown';
-                    $docCode    = $v->document?->code ?? "doc-{$v->document_id}";
-                    $vNum       = $v->version_number;
-                    $ext        = pathinfo($v->original_filename ?? $v->file_path, PATHINFO_EXTENSION) ?: 'pdf';
-                    $date       = $v->created_at?->format('Y-m-d') ?? 'Unknown Date';
+            if ($filesAdded === 0) {
+                $zip->addFromString('readme.txt', 'No document files found in the specified range across local or public storage.');
+            }
 
-                    $entryName = "{$officeCode}/Created Documents/{$date}/{$docCode}_v{$vNum}.{$ext}";
-                    $zip->addFile($found['abs_path'], $entryName);
-                    $filesAdded++;
-                }
-            });
-
-        // 2. Document Request Files
-        $reqQuery = \App\Models\DocumentRequestSubmissionFile::query()
-            ->whereNotNull('file_path')
-            ->where('file_path', '!=', '')
-            ->with([
-                'submission.recipient.office:id,code',
-                'submission.recipient.request:id,title',
-                'submission.item:id,title'
+            $zip->close();
+        } catch (\Throwable $e) {
+            \Log::error("Backup ZIP failed: 500", [
+                'message' => $e->getMessage(),
+                'line'    => $e->getLine(),
+                'file'    => basename($e->getFile()),
             ]);
-
-        if ($from) $reqQuery->where('document_request_submission_files.created_at', '>=', "{$from} 00:00:00");
-        if ($to)   $reqQuery->where('document_request_submission_files.created_at', '<=', "{$to} 23:59:59");
-
-        $reqQuery->orderBy('document_request_submission_files.created_at', 'desc')
-            ->chunk(100, function ($files) use ($zip, &$filesAdded) {
-                foreach ($files as $f) {
-                    $found = $this->findFileAcrossDisks($f->file_path);
-
-                    if (!$found) {
-                        $dir = dirname($f->file_path);
-                        $ext = pathinfo($f->file_path, PATHINFO_EXTENSION);
-                        $fallback = "{$dir}/original.{$ext}";
-                        $found = $this->findFileAcrossDisks($fallback);
-                    }
-
-                    if (!$found) {
-                        \Log::warning("Backup ZIP: Request file not found in any disk", ['id' => $f->id, 'path' => $f->file_path]);
-                        continue;
-                    }
-
-                    $officeCode = $f->submission?->recipient?->office?->code ?? 'Unknown';
-                    $date       = $f->created_at?->format('Y-m-d') ?? 'Unknown Date';
-
-                    // Sanitize titles for filesystem safety
-                    $safeReqTitle  = preg_replace('/[^A-Za-z0-9_\- ]/', '', $f->submission?->recipient?->request?->title ?? "Req-{$f->submission_id}");
-                    $safeItemTitle = preg_replace('/[^A-Za-z0-9_\- ]/', '', $f->submission?->item?->title ?? "Item-{$f->id}");
-                    $safeReqTitle  = substr(trim($safeReqTitle), 0, 50);
-                    $safeItemTitle = substr(trim($safeItemTitle), 0, 50);
-                    
-                    $ext      = pathinfo($f->original_filename ?? $f->file_path, PATHINFO_EXTENSION) ?: 'pdf';
-                    $fileName = "{$safeReqTitle} - {$safeItemTitle}.{$ext}";
-
-                    $entryName = "{$officeCode}/Document Requests/{$date}/{$fileName}";
-                    $zip->addFile($found['abs_path'], $entryName);
-                    $filesAdded++;
-                }
-            });
-
-        if ($filesAdded === 0) {
-            $zip->addFromString('readme.txt', 'No document files found in the specified range across local or public storage.');
+            abort(500, "Backup ZIP failed: " . $e->getMessage());
         }
 
-        $zip->close();
 
         return response()->streamDownload(function () use ($tempPath) {
             readfile($tempPath);
