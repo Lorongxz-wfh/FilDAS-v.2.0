@@ -40,6 +40,7 @@ import { useToast } from "../components/ui/toast/ToastContext";
 import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
 import { buildCreatedColumns, buildSharedColumns, buildRequestedColumns, buildAllColumns } from "./documentLibrary/DocumentLibraryColumns";
+import TagBadge from "../components/documents/TagBadge";
 
 const TAB_LABELS: Record<LibTab, string> = {
   all: "All Documents",
