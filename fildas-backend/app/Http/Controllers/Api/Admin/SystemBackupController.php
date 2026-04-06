@@ -169,12 +169,15 @@ class SystemBackupController extends Controller
                 if ($isMysql) fwrite($fh, "SET FOREIGN_KEY_CHECKS=1;\n");
 
                 fclose($fh);
+                \Log::info("Snapshot SQL generated: {$tempPath}");
 
                 // Compress to zip if ZipArchive is available
                 if (class_exists('ZipArchive')) {
                     $zipFilename   = "snapshot_{$timestamp}.zip";
                     $zipBackupPath = "{$this->backupDir}/{$zipFilename}";
                     $zipTempPath   = Storage::disk('local')->path($zipBackupPath);
+
+                    \Log::info("Attempting to zip snapshot", ['to' => $zipTempPath]);
 
                     $zip = new ZipArchive();
                     if ($zip->open($zipTempPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
@@ -184,10 +187,12 @@ class SystemBackupController extends Controller
 
                         $filename   = $zipFilename;
                         $backupPath = $zipBackupPath;
+                        \Log::info("Snapshot zipped successfully: {$zipFilename}");
+                    } else {
+                        \Log::error("ZipArchive failed to open path", ['path' => $zipTempPath]);
                     }
                 }
             }
-
         } catch (\Throwable $e) {
             \Log::error('Snapshot failed', [
                 'message' => $e->getMessage(),
@@ -221,11 +226,15 @@ class SystemBackupController extends Controller
         $filename = basename($filename);
         $path = "{$this->backupDir}/{$filename}";
 
-        if (!Storage::disk('local')->exists($path)) {
+        $found = $this->findFileAcrossDisks($path);
+
+        if (!$found) {
+            \Log::error("System Backup download failed: 404", ['filename' => $filename, 'expected_path' => $path]);
             abort(404, 'Backup file not found.');
         }
 
-        return response()->download(Storage::disk('local')->path($path));
+        \Log::info("System Backup download started", ['filename' => $filename, 'disk' => $found['disk']]);
+        return response()->download($found['abs_path']);
     }
 
     public function destroy(Request $request, $filename)
@@ -235,13 +244,41 @@ class SystemBackupController extends Controller
         $filename = basename($filename);
         $path = "{$this->backupDir}/{$filename}";
 
-        if (!Storage::disk('local')->exists($path)) {
+        $found = $this->findFileAcrossDisks($path);
+
+        if (!$found) {
             return response()->json(['message' => 'Backup file not found.'], 404);
         }
 
-        Storage::disk('local')->delete($path);
+        Storage::disk($found['disk'])->delete($path);
 
         return response()->json(['message' => 'Backup deleted successfully.']);
+    }
+
+    /**
+     * Resilient file lookup across potential disks.
+     */
+    private function findFileAcrossDisks(?string $path): ?array
+    {
+        if (!$path) return null;
+
+        $disks = ['local', 'public', 's3'];
+
+        foreach ($disks as $diskName) {
+            try {
+                $disk = Storage::disk($diskName);
+                if ($disk->exists($path)) {
+                    return [
+                        'disk'     => $diskName,
+                        'abs_path' => $disk->path($path),
+                    ];
+                }
+            } catch (\Throwable $e) {
+                continue;
+            }
+        }
+
+        return null;
     }
 
     public function restore(Request $request, $filename)
