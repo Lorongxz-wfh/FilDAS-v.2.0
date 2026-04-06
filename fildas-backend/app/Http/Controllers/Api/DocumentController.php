@@ -74,89 +74,70 @@ class DocumentController extends Controller
         $roleName = $this->roleNameOf($user) ?: null;
         $isAdmin  = in_array($roleName, ['admin', 'sysadmin'], true);
 
-        // Start with a base query for visible documents
-        $visibleDocs = Document::query();
+        // 1. Base Query with Visibility Guards
+        $visibleDocsQuery = Document::query();
 
-        // Admin sees all. Others see based on tasks or distributed status.
         if (!$isAdmin) {
             if ($qaOfficeId && (int) $userOfficeId !== (int) $qaOfficeId) {
-                // If NOT QA: see docs that have an open task assigned to my office
-                $visibleDocs->whereHas('latestVersion', function ($v) use ($userOfficeId) {
-                    $v->whereHas('tasks', function ($t) use ($userOfficeId) {
-                        $t->where('workflow_tasks.status', 'open')
-                          ->where('workflow_tasks.assigned_office_id', $userOfficeId);
-                    });
+                // Non-QA see: 
+                // - Docs they created (owner_office_id)
+                // - Docs where they have an open task on the latest version
+                $visibleDocsQuery->where(function($q) use ($userOfficeId) {
+                    $q->where('documents.owner_office_id', $userOfficeId)
+                      ->orWhereHas('latestVersion', function ($v) use ($userOfficeId) {
+                          $v->whereHas('tasks', function ($t) use ($userOfficeId) {
+                              $t->where('workflow_tasks.status', 'open')
+                                ->where('workflow_tasks.assigned_office_id', $userOfficeId);
+                          });
+                      });
                 });
             }
 
             if ($roleName === 'auditor') {
                 // Auditor: only docs whose latest version is Distributed
-                $visibleDocs->whereHas('latestVersion', function ($v) {
+                $visibleDocsQuery->whereHas('latestVersion', function ($v) {
                     $v->where('document_versions.status', 'Distributed');
                 });
             }
         }
 
-        // Apply date filters if provided
+        // 2. Base Date Filters (Creation Date)
         if (!empty($data['date_from'])) {
-            $visibleDocs->where('documents.created_at', '>=', $data['date_from']);
+            $visibleDocsQuery->where('documents.created_at', '>=', $data['date_from']);
         }
         if (!empty($data['date_to'])) {
-            $visibleDocs->where('documents.created_at', '<=', $data['date_to']);
+            $visibleDocsQuery->where('documents.created_at', '<=', $data['date_to']);
         }
 
-        // --- Efficient Single-Pass Stats ---
-        // Instead of multiple whereHas clones (which cause SQL alias conflicts),
-        // we capture the IDs of visible documents and then query their latest versions once.
-        $visibleDocIds = $visibleDocs->pluck('documents.id')->all();
-        $total = count($visibleDocIds);
+        // 3. Single-Pass SQL Aggregation
+        // We join the latest version once to calculate all stats at the same time.
+        // This avoids memory exhaustion and SQL alias conflicts.
+        $stats = $visibleDocsQuery
+            ->leftJoin('document_versions as lv', function ($join) {
+                $join->on('lv.document_id', '=', 'documents.id')
+                     ->whereRaw('lv.version_number = (SELECT MAX(version_number) FROM document_versions as dv2 WHERE dv2.document_id = documents.id)');
+            })
+            ->selectRaw("
+                COUNT(documents.id) as total,
+                COUNT(CASE 
+                    WHEN lv.status = 'Distributed' 
+                    AND (lv.distributed_at >= ? OR ? IS NULL) 
+                    AND (lv.distributed_at <= ? OR ? IS NULL) 
+                    THEN 1 END) as distributed,
+                COUNT(CASE WHEN lv.status IN ('Draft', 'Office Draft') THEN 1 END) as draft_count,
+                COUNT(CASE WHEN (LOWER(lv.status) LIKE '%review%' OR LOWER(lv.status) LIKE '%check%') THEN 1 END) as review_count,
+                COUNT(CASE WHEN (LOWER(lv.status) LIKE '%approval%') THEN 1 END) as approval_count,
+                COUNT(CASE WHEN (LOWER(lv.status) LIKE '%registration%' OR LOWER(lv.status) LIKE '%distribution%') THEN 1 END) as finalization_count
+            ", [
+                $data['date_from'] ?? null, $data['date_from'] ?? null,
+                $data['date_to'] ?? null, $data['date_to'] ?? null
+            ])
+            ->first();
 
-        $byPhase = [
-            'draft'        => 0,
-            'review'       => 0,
-            'approval'     => 0,
-            'finalization' => 0,
-        ];
-        $distributed = 0;
+        $total       = (int) ($stats->total ?? 0);
+        $distributed = (int) ($stats->distributed ?? 0);
 
-        if ($total > 0) {
-            // Get latest versions for all visible documents
-            $latestVersions = DocumentVersion::query()
-                ->whereIn('document_id', $visibleDocIds)
-                ->whereIn('version_number', function($sq) {
-                    $sq->selectRaw('MAX(version_number)')
-                       ->from('document_versions as dv_inner')
-                       ->whereColumn('dv_inner.document_id', 'document_versions.document_id');
-                })
-                ->select('status', 'distributed_at')
-                ->get();
-
-            foreach ($latestVersions as $lv) {
-                $status = $lv->status;
-                
-                if ($status === 'Distributed') {
-                    // Check if distributed date matches filter (special case for distributed count)
-                    $passDate = true;
-                    if (!empty($data['date_from']) && $lv->distributed_at < $data['date_from']) $passDate = false;
-                    if (!empty($data['date_to']) && $lv->distributed_at > $data['date_to']) $passDate = false;
-                    if ($passDate) $distributed++;
-                } 
-                elseif (in_array($status, ['Draft', 'Office Draft'])) {
-                    $byPhase['draft']++;
-                } 
-                elseif (stripos($status, 'Review') !== false || stripos($status, 'Check') !== false) {
-                    $byPhase['review']++;
-                } 
-                elseif (stripos($status, 'Approval') !== false) {
-                    $byPhase['approval']++;
-                } 
-                elseif (stripos($status, 'Registration') !== false || stripos($status, 'Distribution') !== false) {
-                    $byPhase['finalization']++;
-                }
-            }
-        }
-
-        // Pending Tasks count (Optimized)
+        // 4. Pending Tasks (Optimized)
         if ($isAdmin) {
             $pending = (int) WorkflowTask::where('status', 'open')->count();
         } elseif ($roleName === 'auditor') {
@@ -167,13 +148,9 @@ class DocumentController extends Controller
                 ->where('workflow_tasks.assigned_office_id', $userOfficeId)
                 ->whereExists(function ($query) {
                     $query->select(DB::raw(1))
-                        ->from('document_versions as dv_pending')
-                        ->whereColumn('dv_pending.id', 'workflow_tasks.document_version_id')
-                        ->where('dv_pending.version_number', function ($sq) {
-                            $sq->selectRaw('MAX(version_number)')
-                                ->from('document_versions as dv_max')
-                                ->whereColumn('dv_max.document_id', 'dv_pending.document_id');
-                        });
+                        ->from('document_versions as dv_p')
+                        ->whereColumn('dv_p.id', 'workflow_tasks.document_version_id')
+                        ->whereRaw('dv_p.version_number = (SELECT MAX(version_number) FROM document_versions as dv_m WHERE dv_m.document_id = dv_p.document_id)');
                 })
                 ->count();
         }
@@ -182,9 +159,16 @@ class DocumentController extends Controller
             'total' => $total,
             'pending' => $pending,
             'distributed' => $distributed,
-            'by_phase' => array_merge($byPhase, ['distributed' => $distributed]),
+            'by_phase' => [
+                'draft'        => (int) ($stats->draft_count ?? 0),
+                'review'       => (int) ($stats->review_count ?? 0),
+                'approval'     => (int) ($stats->approval_count ?? 0),
+                'finalization' => (int) ($stats->finalization_count ?? 0),
+                'distributed'  => $distributed,
+            ],
         ]);
     }
+
 
 
     public function show(Document $document)
