@@ -6,6 +6,7 @@ import MobileActionFab from "../components/layout/MobileActionFab";
 import MaintenanceBanner from "../components/layout/MaintenanceBanner";
 import { ToastProvider } from "../components/ui/toast/ToastContext";
 import { useThemeContext } from "../lib/ThemeContext";
+import { useGlobalNavStats } from "../hooks/useGlobalNavStats";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -20,6 +21,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 }) => {
   const { theme, toggle } = useThemeContext();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const stats = useGlobalNavStats();
+
+  // Update browser tab title with badge count
+  React.useEffect(() => {
+    const baseTitle = "FilDAS";
+    if (stats.total > 0) {
+      document.title = `(${stats.total}) ${baseTitle}`;
+    } else {
+      document.title = baseTitle;
+    }
+  }, [stats.total]);
 
   return (
     <ToastProvider>

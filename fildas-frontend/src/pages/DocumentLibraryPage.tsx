@@ -456,7 +456,7 @@ export default function DocumentLibraryPage() {
                     ? "50px 90px 95px minmax(200px, 1fr) 90px 80px 80px 50px 100px" 
                     : tab === "requested" 
                       ? (isAdmin || isQA(role) ? "50px minmax(250px, 1fr) 110px 110px" : "50px minmax(250px, 1fr) 110px")
-                      : "50px 90px 95px minmax(180px, 1fr) 80px 80px 80px 90px 100px") 
+                      : "50px 90px 95px minmax(180px, 1fr) 90px 80px 80px 80px 90px 100px") 
                 + (adminDebugMode ? " 50px" : "")
               }
               sortBy={sortBy}
@@ -483,7 +483,12 @@ export default function DocumentLibraryPage() {
                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-0.5">{title}</p>
                     <div className="flex items-center justify-between gap-2 overflow-hidden">
                       <div className="flex items-center gap-2 truncate">
-                        {code && <span className="text-[10px] font-mono text-slate-400 shrink-0">{code}</span>}
+                        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                          {code && <span className="text-[10px] font-mono text-slate-400 shrink-0">{code}</span>}
+                          {r.tags && r.tags.length > 0 && r.tags.map((tag: string) => (
+                            <TagBadge key={tag} name={tag} />
+                          ))}
+                        </div>
                         <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{office || "—"}</span>
                       </div>
                       {isAllTab && r.source && <span className="text-[9px] font-bold uppercase text-brand-600 dark:text-brand-400 shrink-0">{r.source}</span>}

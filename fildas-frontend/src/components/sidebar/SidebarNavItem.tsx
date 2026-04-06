@@ -14,6 +14,7 @@ interface SidebarNavItemProps {
   onMobileClose?: () => void;
   children?: NavItem[];
   userRole?: string;
+  badgeCount?: number;
 }
 
 const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
@@ -25,12 +26,23 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
   onMobileClose,
   children,
   userRole,
+  badgeCount,
 }) => {
   const { pathname } = useLocation();
   const [isExpanded, setIsExpanded] = useState(true);
 
   const hasChildren = children && children.length > 0;
-  const filteredChildren = children?.filter(child => !child.roles || child.roles.includes(userRole || "")) || [];
+  // Inject counts into children if they match the keys we care about
+  const filteredChildren = React.useMemo(() => {
+    return (children?.filter(child => !child.roles || child.roles.includes(userRole || "")) || [])
+      .map(child => {
+         // This is a bit hacky but works without changing navConfig structure
+         // In a real system, we'd add 'badgeKey' to NavItem type
+         if (child.to === "/documents/all") (child as any).badgeCount = (window as any).__NAV_STATS__?.workflows || 0;
+         if (child.to === "/document-requests") (child as any).badgeCount = (window as any).__NAV_STATS__?.requests || 0;
+         return child;
+      });
+  }, [children, userRole]);
 
   const isSharedMobile = ["/dashboard", "/work-queue", "/document-requests", "/documents"].includes(to);
 
@@ -175,6 +187,20 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
             ].join(" ")} 
           />
         )}
+        
+        {/* Badge bubble for parent or standalone items */}
+        {badgeCount !== undefined && badgeCount > 0 && (
+          <span 
+            className={[
+              "absolute z-[100] flex items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white ring-2 ring-white dark:ring-surface-500",
+              collapsed && !mobileOpen
+                ? "right-1.5 top-1.5 h-4 w-4" // Collapsed dot/small badge
+                : "right-7 top-1/2 -translate-y-1/2 px-1 min-w-[20px] h-5 shadow-sm" // Expanded label badge
+            ].join(" ")}
+          >
+            {collapsed && !mobileOpen ? (badgeCount > 9 ? "!" : badgeCount) : (badgeCount > 99 ? "99+" : badgeCount)}
+          </span>
+        )}
       </NavLink>
 
       {/* Animated Nesting Container */}
@@ -250,6 +276,13 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
                           "truncate z-10",
                           isActive ? "font-semibold text-slate-700 dark:text-slate-100" : "font-medium text-neutral-500 dark:text-neutral-400"
                         ].join(" ")}>{child.label}</span>
+
+                        {/* Child Badge */}
+                        {(child as any).badgeCount > 0 && (
+                          <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[9px] font-bold text-white shadow-sm ring-1 ring-white dark:ring-surface-400">
+                            {(child as any).badgeCount > 99 ? "99+" : (child as any).badgeCount}
+                          </span>
+                        )}
                       </>
                       )}
                     </NavLink>

@@ -6,6 +6,7 @@ import { formatDate } from "../../utils/formatters";
 import MiddleTruncate from "../../components/ui/MiddleTruncate";
 import type { LibraryItem } from "./documentLibraryTypes";
 import { StatusBadge } from "../../components/ui/Badge";
+import TagBadge from "../../components/documents/TagBadge";
 
 // ── Reusable Cells ────────────────────────────────────────────────────────────
 
@@ -23,6 +24,23 @@ function TypeText({ type }: { type: string }) {
     <span className="text-xs text-slate-500 dark:text-slate-400 capitalize">
       {type?.toLowerCase() || "—"}
     </span>
+  );
+}
+
+function DocumentCodeWithTags({ code, tags }: { code?: string; tags?: string[] }) {
+  return (
+    <div className="flex flex-col gap-1 items-start min-w-0">
+      <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate w-full">
+        {code || "—"}
+      </span>
+      {tags && tags.length > 0 && (
+        <div className="flex flex-wrap gap-1 max-w-full">
+          {tags.map((tag) => (
+            <TagBadge key={tag} name={tag} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -83,11 +101,7 @@ export function buildCreatedColumns(onDelete?: (id: number) => void): TableColum
       header: "Code",
       sortKey: "code",
       skeletonShape: "narrow",
-      render: (doc) => (
-        <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400">
-          {doc.code || "—"}
-        </span>
-      ),
+      render: (doc) => <DocumentCodeWithTags code={doc.code ?? undefined} tags={doc.tags} />,
     },
     {
       key: "type",
@@ -206,11 +220,7 @@ export function buildSharedColumns(onDelete?: (id: number) => void): TableColumn
       header: "Code",
       sortKey: "code",
       skeletonShape: "narrow",
-      render: (doc) => (
-        <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400">
-          {doc.code || "—"}
-        </span>
-      ),
+      render: (doc) => <DocumentCodeWithTags code={doc.code ?? undefined} tags={doc.tags} />,
     },
     {
       key: "type",
@@ -419,6 +429,13 @@ export function buildAllColumns(onDelete?: (id: number) => void): TableColumn<Li
       ),
     },
     {
+      key: "code",
+      header: "Code",
+      sortKey: "code",
+      skeletonShape: "narrow",
+      render: (item: any) => <DocumentCodeWithTags code={item.code ?? undefined} tags={item.tags} />,
+    },
+    {
       key: "source",
       header: "Source",
       skeletonShape: "narrow",
@@ -536,11 +553,7 @@ export function buildArchiveColumns(onDelete?: (id: number) => void): TableColum
       header: "Code",
       sortKey: "code",
       skeletonShape: "narrow",
-      render: (doc) => (
-        <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400">
-          {doc.code || "—"}
-        </span>
-      ),
+      render: (doc) => <DocumentCodeWithTags code={doc.code ?? undefined} tags={doc.tags} />,
     },
     {
       key: "type",
