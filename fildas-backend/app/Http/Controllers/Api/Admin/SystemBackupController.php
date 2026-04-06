@@ -85,11 +85,13 @@ class SystemBackupController extends Controller
                 // No CLI tools required — works on any host.
                 $filename   = "snapshot_{$timestamp}.sql";
                 $backupPath = "{$this->backupDir}/{$filename}";
-                $tempPath   = storage_path("app/{$backupPath}");
-
-                if (!is_dir(dirname($tempPath))) {
-                    mkdir(dirname($tempPath), 0755, true);
+                
+                // Ensure directory exists in the 'local' disk
+                if (!Storage::disk('local')->exists($this->backupDir)) {
+                    Storage::disk('local')->makeDirectory($this->backupDir);
                 }
+
+                $tempPath = Storage::disk('local')->path($backupPath);
 
                 $isMysql = in_array($dbConnection, ['mysql', 'mariadb'], true);
                 $isPgsql  = $dbConnection === 'pgsql';
@@ -172,7 +174,7 @@ class SystemBackupController extends Controller
                 if (class_exists('ZipArchive')) {
                     $zipFilename   = "snapshot_{$timestamp}.zip";
                     $zipBackupPath = "{$this->backupDir}/{$zipFilename}";
-                    $zipTempPath   = storage_path("app/{$zipBackupPath}");
+                    $zipTempPath   = Storage::disk('local')->path($zipBackupPath);
 
                     $zip = new ZipArchive();
                     if ($zip->open($zipTempPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
@@ -198,8 +200,8 @@ class SystemBackupController extends Controller
             ], 500);
         }
 
-        $finalSize = file_exists(storage_path("app/{$backupPath}")) 
-            ? filesize(storage_path("app/{$backupPath}")) 
+        $finalSize = Storage::disk('local')->exists($backupPath) 
+            ? Storage::disk('local')->size($backupPath) 
             : 0;
 
         return response()->json([
@@ -223,7 +225,7 @@ class SystemBackupController extends Controller
             abort(404, 'Backup file not found.');
         }
 
-        return response()->download(storage_path("app/{$path}"));
+        return response()->download(Storage::disk('local')->path($path));
     }
 
     public function destroy(Request $request, $filename)
