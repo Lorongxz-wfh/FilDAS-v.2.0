@@ -48,10 +48,17 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
 
-    protected $appends = ['full_name', 'profile_photo_url', 'signature_url'];
+    protected $appends = ['full_name', 'profile_photo_url', 'signature_url', 'two_factor_enabled'];
+
+    public function getTwoFactorEnabledAttribute(): bool
+    {
+        return !is_null($this->two_factor_confirmed_at);
+    }
 
     public function getProfilePhotoUrlAttribute(): ?string
     {

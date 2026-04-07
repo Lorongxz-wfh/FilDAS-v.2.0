@@ -16,6 +16,12 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { theme, toggle: toggleDark } = useTheme();
 
+  // 2FA Challenge States
+  const [showChallenge, setShowChallenge] = useState(false);
+  const [challengeId, setChallengeId] = useState("");
+  const [isRecovery, setIsRecovery] = useState(false);
+  const [code, setCode] = useState("");
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -23,19 +29,48 @@ const LoginPage: React.FC = () => {
     try {
       const res = await api.post("/login", { email, password });
       const data = res.data;
-      localStorage.setItem("auth_token", data.token);
-      setAuthUser(data.user);
-      // Preload the dashboard chunk while the splash is animating
-      import("./DashboardPage").catch(() => { });
-      window.dispatchEvent(new Event("show_splash"));
-      navigate("/dashboard", { replace: true });
+
+      if (data.two_factor_required) {
+        setChallengeId(data.challenge_id);
+        setShowChallenge(true);
+        setLoading(false);
+        return;
+      }
+
+      handleLoginSuccess(data);
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.message || err?.message || "Login failed";
+      const msg = err?.response?.data?.message || err?.message || "Login failed";
       setError(msg);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleChallengeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await api.post("/login/two-factor", {
+        challenge_id: challengeId,
+        [isRecovery ? "recovery_code" : "code"]: code,
+      });
+      handleLoginSuccess(res.data);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Invalid verification code.";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoginSuccess = (data: any) => {
+    localStorage.setItem("auth_token", data.token);
+    setAuthUser(data.user);
+    // Preload the dashboard chunk while the splash is animating
+    import("./DashboardPage").catch(() => {});
+    window.dispatchEvent(new Event("show_splash"));
+    navigate("/dashboard", { replace: true });
   };
 
   const features = [
@@ -140,71 +175,129 @@ const LoginPage: React.FC = () => {
           </div>
 
           <h2 className="text-[1.6rem] font-display font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            Sign In
+            {showChallenge ? "Two-Factor Verification" : "Sign In"}
           </h2>
           <p className="mt-1 text-sm text-slate-400 dark:text-slate-400">
-            Enter your credentials to access your portal.
+            {showChallenge 
+              ? (isRecovery ? "Enter a backup recovery code to access your account." : "Enter the 6-digit code from your authenticator app.") 
+              : "Enter your credentials to access your portal."}
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-            {/* Email */}
-            <FormField
-              label="Institutional Email"
-              type="text"
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onBlur={() => setEmailTouched(true)}
-              placeholder="qa@example.com"
-              required
-              isRequired
-              icon={Mail}
-              error={
-                emailTouched &&
-                  email &&
-                  !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-                  ? "Please enter a valid email address."
-                  : undefined
-              }
-              isValid={emailTouched && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)}
-            />
+          {!showChallenge ? (
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+              {/* Email */}
+              <FormField
+                label="Institutional Email"
+                type="text"
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => setEmailTouched(true)}
+                placeholder="qa@example.com"
+                required
+                isRequired
+                icon={Mail}
+                error={
+                  emailTouched &&
+                    email &&
+                    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+                    ? "Please enter a valid email address."
+                    : undefined
+                }
+                isValid={emailTouched && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)}
+              />
 
-            {/* Password */}
-            <FormField
-              label="Password"
-              isPassword
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              isRequired
-              icon={Lock}
-              hint="Use your institutional account password."
-            />
+              {/* Password */}
+              <FormField
+                label="Password"
+                isPassword
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                isRequired
+                icon={Lock}
+                hint="Use your institutional account password."
+              />
 
-            <div className="flex justify-end">
-              <Link
-                to="/forgot-password"
-                className="text-xs font-medium text-brand-400 hover:text-brand-500 dark:text-brand-300 dark:hover:text-brand-200 transition"
-              >
-                Forgot password?
-              </Link>
-            </div>
-
-            {error && (
-              <div className="rounded-md border border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/40 px-4 py-3 text-xs text-rose-700 dark:text-rose-400">
-                {error}
+              <div className="flex justify-end">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-medium text-brand-400 hover:text-brand-500 dark:text-brand-300 dark:hover:text-brand-200 transition"
+                >
+                  Forgot password?
+                </Link>
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 rounded-md bg-brand-500 hover:bg-brand-600 dark:bg-brand-600 dark:hover:bg-brand-700 text-sm font-semibold text-white shadow-sm shadow-brand-500/20 active:scale-[0.98] transition-all disabled:opacity-50"
-            >
-              {loading ? "Signing in..." : "Sign In"}
-            </button>
-          </form>
+              {error && (
+                <div className="rounded-md border border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/40 px-4 py-3 text-xs text-rose-700 dark:text-rose-400">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 rounded-md bg-brand-500 hover:bg-brand-600 dark:bg-brand-600 dark:hover:bg-brand-700 text-sm font-semibold text-white shadow-sm shadow-brand-500/20 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {loading ? "Signing in..." : "Sign In"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleChallengeSubmit} className="mt-8 space-y-6">
+               <FormField
+                  label={isRecovery ? "Recovery Code" : "Verification Code"}
+                  type="text"
+                  placeholder={isRecovery ? "XXXXX-XXXXX" : "000 000"}
+                  value={code}
+                  onChange={e => setCode(e.target.value)}
+                  required
+                  isRequired
+                  icon={isRecovery ? Lock : CheckCircle2}
+                  maxLength={isRecovery ? 21 : 6}
+               />
+
+               <div className="flex flex-col gap-3">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-2.5 rounded-md bg-brand-500 hover:bg-brand-600 dark:bg-brand-600 dark:hover:bg-brand-700 text-sm font-semibold text-white shadow-sm shadow-brand-500/20 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    {loading ? "Verifying..." : "Verify Code"}
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                        setIsRecovery(!isRecovery);
+                        setCode("");
+                        setError(null);
+                    }}
+                    className="text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 transition text-center"
+                  >
+                    {isRecovery ? "Use authenticator app" : "Can't access your app? Use a recovery code"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                        setShowChallenge(false);
+                        setCode("");
+                        setError(null);
+                    }}
+                    className="text-xs font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 transition text-center"
+                  >
+                    Back to login
+                  </button>
+               </div>
+
+               {error && (
+                <div className="rounded-md border border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/40 px-4 py-3 text-xs text-rose-700 dark:text-rose-400">
+                  {error}
+                </div>
+              )}
+            </form>
+          )}
 
           <p className="mt-8 text-center text-xs text-slate-400 dark:text-slate-500">
             New to FilDAS?{" "}

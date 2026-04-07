@@ -20,6 +20,7 @@ export interface AdminUser {
 
   created_at: string;
   updated_at: string;
+  two_factor_enabled?: boolean;
   role?: {
     id: number;
     name: string;
@@ -220,4 +221,11 @@ export async function removeAdminUserPhoto(
 ): Promise<{ user: AdminUser }> {
   const res = await api.delete(`/admin/users/${userId}/photo`);
   return res.data as { user: AdminUser };
+}
+
+export async function resetAdminUserTwoFactor(
+  userId: number,
+): Promise<{ message: string; user: AdminUser }> {
+  const res = await api.patch(`/admin/users/${userId}/reset-2fa`);
+  return res.data as { message: string; user: AdminUser };
 }

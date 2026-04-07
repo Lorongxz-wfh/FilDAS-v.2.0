@@ -18,6 +18,7 @@ import {
   type AdminRole,
   type AdminUser,
   updateAdminUser,
+  resetAdminUserTwoFactor,
 } from "../../services/admin";
 
 import { inputCls, labelCls } from "../../utils/formStyles";
@@ -25,7 +26,7 @@ import { inputCls, labelCls } from "../../utils/formStyles";
 const apiMsg = (e: any, fallback: string) =>
   e?.response?.data?.message ?? e?.message ?? fallback;
 import { getAuthUser, AUTH_USER_KEY } from "../../lib/auth";
-import { User as UserIcon } from "lucide-react";
+import { User as UserIcon, ShieldOff } from "lucide-react";
 
 type Props = {
   open: boolean;
@@ -253,6 +254,21 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
       onClose();
     } catch (e: any) {
       setError(apiMsg(e, "Failed to disable user"));
+    } finally {
+      setActing(null);
+    }
+  };
+
+  const handleReset2FA = async () => {
+    if (!user || !confirm(`Reset Two-Factor Authentication for ${user.full_name}?\n\nThis will allow them to log in with just their password.`)) return;
+    try {
+      setActing("disable" as any); // Reuse disable state for loading
+      setError(null);
+      const res = await resetAdminUserTwoFactor(user.id);
+      onSaved?.(res.user);
+      alert("Two-factor authentication has been reset.");
+    } catch (e: any) {
+      setError(apiMsg(e, "Failed to reset 2FA"));
     } finally {
       setActing(null);
     }
@@ -653,15 +669,30 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
                   </Button>
                 </>
               ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDisable}
-                  disabled={saving || acting !== null}
-                >
-                  {acting === "disable" ? "Disabling…" : "Disable"}
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDisable}
+                    disabled={saving || acting !== null}
+                  >
+                    {acting === "disable" ? "Disabling…" : "Disable"}
+                  </Button>
+                  {user.two_factor_enabled && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-amber-600 border-amber-200 hover:bg-amber-50"
+                      onClick={handleReset2FA}
+                      disabled={saving || acting !== null}
+                    >
+                      <ShieldOff className="h-3.5 w-3.5 mr-1" />
+                      Reset 2FA
+                    </Button>
+                  )}
+                </>
               )}
             </>
           )}
@@ -703,6 +734,6 @@ const UserEditModal: React.FC<Props> = ({ open, mode, user, onClose, onSaved }) 
       </div>
     </Modal>
   );
-};;;
+};
 
 export default UserEditModal;

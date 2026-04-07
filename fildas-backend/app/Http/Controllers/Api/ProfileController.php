@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Notification;
 use App\Mail\WorkflowNotificationMail;
 use App\Traits\LogsActivityTrait;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ class ProfileController extends Controller
         /** @var \App\Models\User $user */
         $user = $request->user();
 
-        $data = $request->validate([
+        $rules = [
             'first_name'  => ['required', 'string', 'max:100'],
             'middle_name' => ['nullable', 'string', 'max:100'],
             'last_name'   => ['required', 'string', 'max:100'],
@@ -30,12 +31,67 @@ class ProfileController extends Controller
                 'required', 'email', 'max:255',
                 Rule::unique('users', 'email')->ignore($user->id),
             ],
-        ]);
+        ];
+
+        $payload = $request->all();
+
+        // If email is changing, require current_password verification
+        if (isset($payload['email']) && $payload['email'] !== $user->email) {
+            $request->validate([
+                'current_password' => ['required', 'string'],
+            ]);
+
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json([
+                    'message' => 'The provided password does not match your current password.',
+                    'errors'  => ['current_password' => ['Incorrect password.']]
+                ], 422);
+            }
+        }
+
+        $data = $request->validate($rules);
 
         $user->fill($data);
         $user->save();
 
-        $this->logActivity('profile.updated', 'Updated profile information', $user->id, $user->office_id, ['changed_fields' => array_keys($data)]);
+        $this->logActivity('profile.updated', 'Updated profile information', $user->id, $user->office_id, [
+            'changed_fields' => array_keys($data),
+            'email_changed'  => isset($data['email']) && $data['email'] !== $user->getOriginal('email')
+        ]);
+
+        // Email change notification
+        if (isset($data['email']) && $data['email'] !== $user->getOriginal('email')) {
+             Notification::create([
+                'user_id' => $user->id,
+                'event'   => 'profile.email_changed',
+                'title'   => 'Email Address Updated',
+                'body'    => 'Your account email has been updated to ' . $data['email'] . '.',
+                'meta'    => ['type' => 'security']
+            ]);
+
+            try {
+                $appUrl = rtrim(env('FRONTEND_URL', config('app.url')), '/');
+                $appName = config('app.name', 'FilDAS');
+                // Notify BOTH old and new email
+                $emails = [$user->getOriginal('email'), $data['email']];
+                foreach ($emails as $target) {
+                    if (!$target) continue;
+                    Mail::to($target)->queue(new WorkflowNotificationMail(
+                        recipientName: $user->full_name,
+                        notifTitle: 'Email Address Changed',
+                        notifBody: 'The email address associated with your ' . $appName . ' account was changed. If you did not do this, contact us immediately.',
+                        documentTitle: 'Account Security',
+                        documentStatus: 'Email Updated',
+                        isReject: true,
+                        actorName: $user->full_name,
+                        documentId: null,
+                        appUrl: $appUrl,
+                        appName: $appName,
+                        cardLabel: 'Security'
+                    ));
+                }
+            } catch (\Throwable $e) {}
+        }
 
         return response()->json(['user' => $this->userPayload($user)]);
     }
@@ -60,6 +116,15 @@ class ProfileController extends Controller
 
         $this->logActivity('profile.password_changed', 'Changed account password', $user->id, $user->office_id);
 
+        // In-app notification
+        Notification::create([
+            'user_id' => $user->id,
+            'event'   => 'profile.password_changed',
+            'title'   => 'Password Changed Successfully',
+            'body'    => 'Your account password was updated. If you did not make this change, contact your admin.',
+            'meta'    => ['type' => 'security_alert']
+        ]);
+
         // Security email — always sent regardless of notification preferences
         if ($user->email) {
             try {
@@ -72,14 +137,14 @@ class ProfileController extends Controller
                     notifBody:      'Your ' . $appName . ' account password was successfully changed. If you did not make this change, contact your administrator immediately.',
                     documentTitle:  'Account Security',
                     documentStatus: 'Password Changed',
-                    isReject:       false,
+                    isReject:       true,
                     actorName:      $name,
                     documentId:     null,
-                    cardLabel:      'Account',
+                    cardLabel:      'Critical',
                     appUrl:         $appUrl,
                     appName:        $appName,
                 ));
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) {}
         }
 
         return response()->json(['message' => 'Password updated successfully.']);

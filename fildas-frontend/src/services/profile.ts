@@ -6,6 +6,7 @@ export interface ProfileUpdatePayload {
   last_name: string;
   suffix?: string;
   email: string;
+  current_password?: string;
 }
 
 export interface PasswordChangePayload {
@@ -59,4 +60,25 @@ export async function updateNotificationPreferences(payload: {
 }) {
   const { data } = await api.patch("/profile/notification-preferences", payload);
   return data as { email_doc_updates: boolean; email_approvals: boolean; email_requests: boolean };
+}
+
+// ── Two-Factor Authentication ──────────────────────────────────────────────
+export async function setupTwoFactor() {
+  const { data } = await api.get("/profile/two-factor/setup");
+  return data as { secret: string; qr_image: string; qr_url: string };
+}
+
+export async function confirmTwoFactor(payload: { secret: string; code: string }) {
+  const { data } = await api.post("/profile/two-factor/confirm", payload);
+  return data as { message: string; recovery_codes: string[] };
+}
+
+export async function disableTwoFactor(password: string) {
+  const { data } = await api.post("/profile/two-factor/disable", { password });
+  return data;
+}
+
+export async function getRecoveryCodes(password: string) {
+  const { data } = await api.post("/profile/two-factor/recovery-codes", { password });
+  return data.recovery_codes as string[];
 }

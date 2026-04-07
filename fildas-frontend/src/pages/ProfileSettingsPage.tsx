@@ -23,6 +23,7 @@ import {
   type ProfileUpdatePayload 
 } from "../services/profile";
 import { ActivityTimeline, type ActivityLogRow } from "../components/profile/ActivityTimeline";
+import { TwoFactorManager } from "../components/profile/TwoFactorManager";
 import { ProfileInfoCard } from "../components/profile/ProfileInfoCard";
 import { Tabs } from "../components/ui/Tabs";
 import Button from "../components/ui/Button";
@@ -137,6 +138,7 @@ const ProfileSettingsPage: React.FC = () => {
       window.dispatchEvent(new Event("auth_user_updated"));
       push({ type: "success", title: "Updated", message: "Profile information updated." });
       setIsEditModalOpen(false);
+      setProfileForm(p => ({ ...p, current_password: "" })); // Clear password
     } catch (err) {
       push({ type: "error", title: "Update Failed", message: normalizeError(err) });
     } finally {
@@ -177,6 +179,8 @@ const ProfileSettingsPage: React.FC = () => {
     { value: "month", label: "This Month" }
   ];
 
+  const isEmailChanged = user && profileForm.email !== (user as any).email;
+
   return (
     <PageFrame
       title="Profile & Settings"
@@ -193,7 +197,7 @@ const ProfileSettingsPage: React.FC = () => {
       }
       contentClassName="flex flex-col min-h-0 h-full overflow-hidden bg-slate-50/50 dark:bg-black/10"
     >
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 h-full max-h-full min-h-0 p-6 md:p-8 overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8 h-full max-h-full min-h-0 p-4 md:p-6 overflow-hidden">
         
         {/* Left Side: Profile Card (Detached) */}
         <aside className="md:col-span-4 lg:col-span-3 h-full min-h-0">
@@ -213,25 +217,20 @@ const ProfileSettingsPage: React.FC = () => {
 
         {/* Right Side: Shared Content Area */}
         <main className="md:col-span-8 lg:col-span-9 flex flex-col min-w-0 h-full min-h-0">
-           {/* Navigation Tabs (Above Card) */}
-           <div className="mb-4">
-             <Tabs
-                id="profile-tabs"
-                tabs={tabs}
-                activeTab={activeTab}
-                onChange={setActiveTab}
-                className="border-none bg-transparent"
-              />
-           </div>
-
            {/* Content Card with Integrated Header */}
            <div className="flex-1 flex flex-col min-h-0 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 shadow-sm overflow-hidden">
              
-             {/* Card Header (Title + Filters) */}
-             <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-surface-400">
-                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                   {activeTab === "activity" ? "Recent Activity" : "Account Settings"}
-                </h2>
+             {/* Card Header (Integrated Tabs + Filters) */}
+             <div className="px-6 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-surface-400">
+                <div className="-mb-px">
+                   <Tabs
+                      id="profile-tabs"
+                      tabs={tabs}
+                      activeTab={activeTab}
+                      onChange={setActiveTab}
+                      className="border-none bg-transparent"
+                    />
+                </div>
 
                 {activeTab === "activity" && (
                    <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -260,11 +259,11 @@ const ProfileSettingsPage: React.FC = () => {
 
              <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 custom-scrollbar">
                 {activeTab === "activity" ? (
-                  <div className="max-w-4xl mx-auto py-8 px-6">
+                  <div className="max-w-4xl mx-auto py-6 px-4">
                      <ActivityTimeline items={logs} loading={logsLoading} />
                   </div>
                 ) : (
-                  <div className="max-w-4xl mx-auto py-8 px-6 space-y-12">
+                  <div className="max-w-4xl mx-auto py-6 px-4 space-y-10">
                      <SettingsLayout user={user} push={push} />
                   </div>
                 )}
@@ -310,6 +309,26 @@ const ProfileSettingsPage: React.FC = () => {
               <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Email Address</label>
               <input type="email" className={inputCls} value={profileForm.email} onChange={e => setProfileForm(p => ({ ...p, email: e.target.value }))} required />
            </div>
+
+           {isEmailChanged && (
+             <div className="p-4 rounded-md border border-rose-100 bg-rose-50/50 space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+               <div className="flex items-center gap-2 text-rose-600">
+                 <KeyRound className="h-4 w-4" />
+                 <span className="text-xs font-bold uppercase tracking-wider">Security Verification</span>
+               </div>
+               <p className="text-[11px] text-rose-500 leading-tight">
+                 You are changing your primary email address. To authorize this sensitive action, please enter your current password.
+               </p>
+               <input 
+                 type="password" 
+                 className={`${inputCls} bg-white dark:bg-surface-500 border-rose-200 focus:border-rose-400 focus:ring-rose-400/20`}
+                 placeholder="Enter current password" 
+                 value={profileForm.current_password || ""} 
+                 onChange={e => setProfileForm(p => ({ ...p, current_password: e.target.value }))}
+                 required={isEmailChanged}
+               />
+             </div>
+           )}
         </form>
       </Modal>
     </PageFrame>
@@ -383,26 +402,33 @@ const SettingsLayout: React.FC<{ user: any; push: any }> = ({ user, push }) => {
   return (
     <div className="space-y-12">
       {/* Password section */}
-      <Section title="Security & Authentication" icon={<KeyRound className="h-4 w-4" />} description="Protect your account by using a strong password for verification.">
-         <form onSubmit={handlePasswordSubmit} className="space-y-5">
-            <div className="space-y-1.5 max-w-sm">
-               <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Current Password</label>
-               <input type="password" className={inputCls} value={pw.current_password} onChange={e => setPw(p => ({ ...p, current_password: e.target.value }))} required />
+      <Section title="Security & Authentication" icon={<KeyRound className="h-4 w-4" />} description="Protect your account by using a strong password and multi-factor verification.">
+         <div className="space-y-8">
+            <TwoFactorManager user={user} />
+            
+            <div className="pt-4 border-t border-slate-100 dark:border-surface-400">
+               <h5 className="text-[12px] font-bold uppercase tracking-wider text-slate-400 mb-4">Change Password</h5>
+               <form onSubmit={handlePasswordSubmit} className="space-y-5">
+                  <div className="space-y-1.5 max-w-sm">
+                     <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Current Password</label>
+                     <input type="password" className={inputCls} value={pw.current_password} onChange={e => setPw(p => ({ ...p, current_password: e.target.value }))} required />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <div className="space-y-1.5">
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-400">New Password</label>
+                        <input type="password" className={inputCls} value={pw.password} onChange={e => setPw(p => ({ ...p, password: e.target.value }))} required />
+                     </div>
+                     <div className="space-y-1.5">
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Confirm New Password</label>
+                        <input type="password" className={inputCls} value={pw.password_confirmation} onChange={e => setPw(p => ({ ...p, password_confirmation: e.target.value }))} required />
+                     </div>
+                  </div>
+                  <div className="flex justify-start">
+                     <Button loading={pwLoading} size="sm" className="font-bold">Update Password</Button>
+                  </div>
+               </form>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-               <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400">New Password</label>
-                  <input type="password" className={inputCls} value={pw.password} onChange={e => setPw(p => ({ ...p, password: e.target.value }))} required />
-               </div>
-               <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Confirm New Password</label>
-                  <input type="password" className={inputCls} value={pw.password_confirmation} onChange={e => setPw(p => ({ ...p, password_confirmation: e.target.value }))} required />
-               </div>
-            </div>
-            <div className="flex justify-start">
-               <Button loading={pwLoading} size="sm" className="font-bold">Update Password</Button>
-            </div>
-         </form>
+         </div>
       </Section>
 
       {/* Signature section */}

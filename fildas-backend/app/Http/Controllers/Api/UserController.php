@@ -6,12 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
 use App\Models\Office;
+use App\Models\Notification;
+use App\Mail\WorkflowNotificationMail;
 use App\Actions\Admin\CanModifyUserAction;
 use App\Traits\LogsActivityTrait;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Mail;
 
 class UserController extends Controller
 {
@@ -331,7 +334,6 @@ class UserController extends Controller
         return response()->json(['user' => $user]);
     }
 
-    // DELETE /api/admin/users/{user}  (soft delete)
     public function destroy(Request $request, User $user, CanModifyUserAction $guard)
     {
         /** @var \App\Models\User $actor */
@@ -348,6 +350,57 @@ class UserController extends Controller
         $user->delete();
 
         return response()->json(['message' => 'User deleted.']);
+    }
+
+    // PATCH /api/admin/users/{user}/reset-2fa
+    public function resetTwoFactor(Request $request, User $user)
+    {
+        /** @var \App\Models\User $actor */
+        $actor = $request->user();
+
+        $user->two_factor_secret = null;
+        $user->two_factor_recovery_codes = null;
+        $user->two_factor_confirmed_at = null;
+        $user->save();
+
+        $this->logActivity('admin.2fa_reset', "Reset 2FA for user: {$user->full_name}", $request->user()->id, $request->user()->office_id);
+
+        // Notify user
+        Notification::create([
+            'user_id' => $user->id,
+            'event'   => 'admin.2fa_reset',
+            'title'   => 'Two-Factor Authentication Reset by Admin',
+            'body'    => 'An administrator has reset your 2FA settings. You can now log in with your password and re-enable 2FA if desired.',
+            'meta'    => ['type' => 'security_alert']
+        ]);
+
+        if ($user->email) {
+            try {
+                $appUrl = rtrim(env('FRONTEND_URL', config('app.url')), '/');
+                $appName = config('app.name', 'FilDAS');
+                Mail::to($user->email)->queue(new WorkflowNotificationMail(
+                    recipientName: $user->full_name,
+                    notifTitle: '2FA Reset by Administrator',
+                    notifBody: 'An administrator has reset the two-factor authentication for your ' . $appName . ' account. If you did not request this, please contact the IT department immediately.',
+                    documentTitle: 'Account Security',
+                    documentStatus: '2FA Reset',
+                    isReject: true,
+                    actorName: 'System Administrator',
+                    documentId: null,
+                    appUrl: $appUrl,
+                    appName: $appName,
+                    cardLabel: 'Critical'
+                ));
+            } catch (\Throwable $e) {}
+        }
+ 
+        return response()->json([
+            'message' => 'Two-factor authentication has been reset.',
+            'user' => [
+                'id' => $user->id,
+                'two_factor_enabled' => false,
+            ]
+        ]);
     }
 
     // POST /api/admin/users/{user}/photo

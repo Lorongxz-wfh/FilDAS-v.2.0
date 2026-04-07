@@ -32,6 +32,7 @@ Route::post('/broadcasting/auth', function (\Illuminate\Http\Request $request) {
     return \Illuminate\Support\Facades\Broadcast::auth($request);
 })->middleware('auth:sanctum');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
+Route::post('/login/two-factor', [AuthController::class, 'loginTwoFactor'])->middleware('throttle:6,1');
 Route::post('/forgot-password', [\App\Http\Controllers\Api\PasswordResetController::class, 'forgot'])->middleware('throttle:6,1');
 Route::post('/reset-password', [\App\Http\Controllers\Api\PasswordResetController::class, 'reset'])->middleware('throttle:6,1');
 Route::get('/offices', [OfficeController::class, 'index']);
@@ -192,6 +193,12 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class]
     Route::delete('/profile/signature',                   [\App\Http\Controllers\Api\ProfileController::class, 'removeSignature']);
     Route::patch('/profile/notification-preferences',     [\App\Http\Controllers\Api\ProfileController::class, 'updateNotificationPreferences']);
 
+    // ── Two-Factor Authentication ──────────────────────────────────────────────
+    Route::get('/profile/two-factor/setup',               [\App\Http\Controllers\Api\TwoFactorController::class, 'setup']);
+    Route::post('/profile/two-factor/confirm',            [\App\Http\Controllers\Api\TwoFactorController::class, 'confirm']);
+    Route::post('/profile/two-factor/disable',            [\App\Http\Controllers\Api\TwoFactorController::class, 'disable']);
+    Route::post('/profile/two-factor/recovery-codes',     [\App\Http\Controllers\Api\TwoFactorController::class, 'getRecoveryCodes']);
+
     // ── Reports ────────────────────────────────────────────────────────────────
     Route::get('/reports/approval',     [ReportsController::class, 'approval']);
     Route::get('/reports/compliance',   [ReportsController::class, 'compliance']);
@@ -267,6 +274,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class]
         Route::patch('/users/{user}',         [UserController::class, 'update']);
         Route::patch('/users/{user}/disable', [UserController::class, 'disable']);
         Route::patch('/users/{user}/enable',  [UserController::class, 'enable']);
+        Route::patch('/users/{user}/reset-2fa', [UserController::class, 'resetTwoFactor']);
         Route::delete('/users/{user}',        [UserController::class, 'destroy']);
         Route::post('/users/{user}/photo',    [UserController::class, 'uploadPhoto']);
         Route::delete('/users/{user}/photo',  [UserController::class, 'removePhoto']);
