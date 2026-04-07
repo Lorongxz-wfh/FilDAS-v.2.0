@@ -5,7 +5,7 @@ import { listDocumentsPage, deleteDocument, type Document } from "../services/do
 import { getUserRole, isQA, isSysAdmin } from "../lib/roleFilters";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import { useToast } from "../components/ui/toast/ToastContext";
-import { Trash2 } from "lucide-react";
+import { Trash2, LayoutList, Activity, CheckCircle2 } from "lucide-react";
 import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
 import PageFrame from "../components/layout/PageFrame";
@@ -23,10 +23,10 @@ import { motion, AnimatePresence } from "framer-motion";
 
 type WFTab = "all" | "active" | "distributed";
 
-const TABS: { key: WFTab; label: string }[] = [
-  { key: "all",         label: "All" },
-  { key: "active",      label: "Active" },
-  { key: "distributed", label: "Distributed" },
+const TABS: { key: WFTab; label: string; icon: React.ReactNode }[] = [
+  { key: "all",         label: "All", icon: <LayoutList className="h-3.5 w-3.5" /> },
+  { key: "active",      label: "Active", icon: <Activity className="h-3.5 w-3.5" /> },
+  { key: "distributed", label: "Distributed", icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
 ];
 
 const TERMINAL_STATUSES = new Set(["distributed", "cancelled", "superseded"]);

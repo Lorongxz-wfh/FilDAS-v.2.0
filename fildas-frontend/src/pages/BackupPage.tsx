@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import PageFrame from "../components/layout/PageFrame";
 import Skeleton from "../components/ui/loader/Skeleton";
 import DateRangeInput from "../components/ui/DateRangeInput";
@@ -125,9 +124,8 @@ function BackupCard({
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function BackupPage() {
-  const navigate = useNavigate();
 
-  const [preset, setPreset] = useState<BackupPreset>("all");
+  const [preset, setPreset] = useState<BackupPreset>("today");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -266,7 +264,6 @@ export default function BackupPage() {
   return (
     <PageFrame
       title="Backup & Recovery"
-      onBack={() => navigate(-1)}
       contentClassName="flex flex-col overflow-hidden"
       right={
         <PageActions>
@@ -326,7 +323,7 @@ export default function BackupPage() {
         {/* ── Data Exports ── */}
         <div className="mb-8">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Data Exports</h2>
+            <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Data Exports</h2>
           </div>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <BackupCard
@@ -383,7 +380,7 @@ export default function BackupPage() {
         <div className="mb-6">
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
              <div>
-               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">System Snapshots</h2>
+                <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">System Snapshots</h2>
                <p className="mt-1 text-[10px] text-slate-500 italic">Complete database state archives for disaster recovery.</p>
              </div>
              
@@ -436,7 +433,7 @@ export default function BackupPage() {
           <div className="overflow-hidden rounded-md border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
             <table className="w-full text-left text-xs">
                <thead>
-                 <tr className="border-b border-slate-100 bg-slate-50/50 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:border-surface-400 dark:bg-white/5">
+                 <tr className="border-b border-slate-100 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:border-surface-400 dark:bg-white/5">
                    <th className="px-5 py-3">Snapshot Name</th>
                    <th className="px-5 py-3">Size</th>
                    <th className="px-5 py-3">Status</th>

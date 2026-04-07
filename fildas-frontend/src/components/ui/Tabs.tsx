@@ -34,14 +34,18 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className
             type="button"
             onClick={() => onChange(t.key)}
             className={[
-              "relative group flex items-center gap-2 py-3 text-[13px] font-bold transition-all whitespace-nowrap",
+              "relative group flex items-center gap-2 py-3 text-[11px] font-bold uppercase tracking-wider transition-all whitespace-nowrap",
               fullWidth ? "flex-1 justify-center px-1" : "px-6",
               isActive 
-                ? "text-neutral-900 dark:text-surface-50" 
-                : "text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-surface-50"
+                ? "text-slate-900 dark:text-surface-50" 
+                : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-surface-50"
             ].join(" ")}
           >
-            {t.icon}
+            {t.icon && (
+              <span className={`shrink-0 transition-colors ${isActive ? "text-brand-500 dark:text-brand-400" : "text-slate-400 group-hover:text-slate-600"}`}>
+                {t.icon}
+              </span>
+            )}
             <span className="relative z-10">{t.label}</span>
             {t.badge}
             
@@ -55,7 +59,7 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className
             
             {/* Hover Indicator (Subtle) */}
             {!isActive && (
-              <div className="absolute bottom-0 left-1 right-1 h-0.5 bg-neutral-200 dark:bg-surface-300 opacity-0 group-hover:opacity-100 transition-opacity rounded-t-full" />
+              <div className="absolute bottom-0 left-1 right-1 h-0.5 bg-slate-200 dark:bg-surface-300 opacity-0 group-hover:opacity-100 transition-opacity rounded-t-full" />
             )}
           </button>
         );

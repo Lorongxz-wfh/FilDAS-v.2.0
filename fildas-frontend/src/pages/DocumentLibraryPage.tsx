@@ -50,10 +50,10 @@ const TAB_LABELS: Record<LibTab, string> = {
 };
 
 const TAB_ICONS: Record<LibTab, React.ReactNode> = {
-  all: <LayoutGrid className="h-4 w-4" />,
-  created: <List className="h-4 w-4" />,
-  requested: <ClipboardList className="h-4 w-4" />,
-  shared: <Share2 className="h-4 w-4" />,
+  all: <LayoutGrid className="h-3.5 w-3.5" />,
+  created: <List className="h-3.5 w-3.5" />,
+  requested: <ClipboardList className="h-3.5 w-3.5" />,
+  shared: <Share2 className="h-3.5 w-3.5" />,
 };
 
 export default function DocumentLibraryPage() {

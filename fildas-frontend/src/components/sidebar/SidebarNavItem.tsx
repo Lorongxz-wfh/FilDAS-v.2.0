@@ -101,13 +101,13 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
       "rounded-lg text-[14px] font-medium h-9.5",
       collapsed ? "justify-center px-0" : "px-2.5 gap-2.5",
       isActuallyActive
-        ? "text-neutral-900 dark:text-surface-50"
-        : "text-neutral-500 hover:bg-neutral-200/50 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-surface-50",
+        ? "text-slate-900 dark:text-surface-50"
+        : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-surface-50",
     ].join(" ") : [
       "rounded-xl text-[13px] font-bold duration-150 active:scale-[0.98] h-11 gap-3 px-3",
       isActuallyActive
         ? "text-brand-600 dark:text-brand-400"
-        : "text-neutral-500 hover:bg-neutral-200/50 dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-surface-50 shadow-none",
+        : "text-slate-500 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-surface-50 shadow-none",
     ].join(" ")
   ].join(" ");
 
@@ -116,12 +116,12 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
     isActuallyActive ? "opacity-100 scale-105" : "opacity-70 group-hover:opacity-100",
     // Desktop Icon colors
     !mobileOpen ? [
-      isActuallyActive ? "text-brand-500 dark:text-brand-400" : "text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300"
+      isActuallyActive ? "text-brand-500 dark:text-brand-400" : "text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300"
     ].join(" ") : "",
     // Mobile Icon colors
     mobileOpen ? [
       "h-4 w-4",
-      isActuallyActive ? "text-brand-500" : "text-neutral-400 group-hover:text-neutral-700 dark:group-hover:text-surface-50"
+      isActuallyActive ? "text-brand-500" : "text-slate-400 group-hover:text-slate-700 dark:group-hover:text-surface-50"
     ].join(" ") : ""
   ].join(" ");
 

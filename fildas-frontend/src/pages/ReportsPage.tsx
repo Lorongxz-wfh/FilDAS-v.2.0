@@ -22,23 +22,23 @@ import UsersTab from "../components/reports/tabs/UsersTab";
 type Tab = "overview" | "workflow" | "requests" | "activity" | "users";
 
 const TABS_QA: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: "overview", label: "Overview", icon: <LayoutDashboard className="h-3.5 w-3.5 opacity-70" /> },
-  { key: "workflow", label: "Workflow", icon: <BarChart2 className="h-3.5 w-3.5 opacity-70" /> },
-  { key: "requests", label: "Requests", icon: <FileQuestion className="h-3.5 w-3.5 opacity-70" /> },
-  { key: "activity", label: "Activity", icon: <Activity className="h-3.5 w-3.5 opacity-70" /> },
+  { key: "overview", label: "Overview", icon: <LayoutDashboard className="h-3.5 w-3.5" /> },
+  { key: "workflow", label: "Workflow", icon: <BarChart2 className="h-3.5 w-3.5" /> },
+  { key: "requests", label: "Requests", icon: <FileQuestion className="h-3.5 w-3.5" /> },
+  { key: "activity", label: "Activity", icon: <Activity className="h-3.5 w-3.5" /> },
 ];
 
 const TABS_OFFICE_HEAD: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: "overview", label: "Overview", icon: <LayoutDashboard className="h-3.5 w-3.5 opacity-70" /> },
-  { key: "workflow", label: "Workflow", icon: <BarChart2 className="h-3.5 w-3.5 opacity-70" /> },
-  { key: "requests", label: "Requests", icon: <FileQuestion className="h-3.5 w-3.5 opacity-70" /> },
+  { key: "overview", label: "Overview", icon: <LayoutDashboard className="h-3.5 w-3.5" /> },
+  { key: "workflow", label: "Workflow", icon: <BarChart2 className="h-3.5 w-3.5" /> },
+  { key: "requests", label: "Requests", icon: <FileQuestion className="h-3.5 w-3.5" /> },
 ];
 
 const TABS_ADMIN: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: "overview", label: "Overview", icon: <LayoutDashboard className="h-3.5 w-3.5 opacity-70" /> },
-  { key: "users", label: "Users", icon: <Users className="h-3.5 w-3.5 opacity-70" /> },
-  { key: "requests", label: "Requests", icon: <FileQuestion className="h-3.5 w-3.5 opacity-70" /> },
-  { key: "activity", label: "Activity", icon: <Activity className="h-3.5 w-3.5 opacity-70" /> },
+  { key: "overview", label: "Overview", icon: <LayoutDashboard className="h-3.5 w-3.5" /> },
+  { key: "users", label: "Users", icon: <Users className="h-3.5 w-3.5" /> },
+  { key: "requests", label: "Requests", icon: <FileQuestion className="h-3.5 w-3.5" /> },
+  { key: "activity", label: "Activity", icon: <Activity className="h-3.5 w-3.5" /> },
 ];
 
 const ReportsPage: React.FC = () => {
