@@ -85,23 +85,24 @@ export function useGlobalNavStats() {
     return () => clearInterval(interval);
   }, [fetchStats]);
 
-  // Real-time updates
+  // Real-time updates — Memoized to prevent re-join loops
+  const handleNotify = useCallback(() => fetchStats(), [fetchStats]);
+
   useRealtimeUpdates({
-    onNotification: () => fetchStats(),
-    onWorkflowUpdate: () => fetchStats(),
-    onWorkspaceChange: () => fetchStats(),
+    onNotification: handleNotify,
+    onWorkflowUpdate: handleNotify,
+    onWorkspaceChange: handleNotify,
   });
 
   // Also listen for a custom refresh event that notification bell might trigger
   useEffect(() => {
-    const handleRefresh = () => fetchStats();
-    window.addEventListener("notifications:refresh", handleRefresh);
-    window.addEventListener("page:remote-refresh", handleRefresh);
+    window.addEventListener("notifications:refresh", handleNotify);
+    window.addEventListener("page:remote-refresh", handleNotify);
     return () => {
-      window.removeEventListener("notifications:refresh", handleRefresh);
-      window.removeEventListener("page:remote-refresh", handleRefresh);
+      window.removeEventListener("notifications:refresh", handleNotify);
+      window.removeEventListener("page:remote-refresh", handleNotify);
     };
-  }, [fetchStats]);
+  }, [handleNotify]);
 
   return stats;
 }

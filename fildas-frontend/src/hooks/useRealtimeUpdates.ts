@@ -27,38 +27,55 @@ export function useRealtimeUpdates({
   const user = getAuthUser();
   const userId = user?.id;
 
+  // ── Stable Refs ───────────────────────────────────────────────────────────
+  // We use refs to keep the active listeners stable even if the callback
+  // functions provided by components are recreated on every render.
+  // This prevents the "Leave -> Join" WebSocket thrashing loop.
+  const onNotificationRef = React.useRef(onNotification);
+  const onAnnouncementRef = React.useRef(onAnnouncement);
+  const onRequestMessageRef = React.useRef(onRequestMessage);
+  const onWorkspaceChangeRef = React.useRef(onWorkspaceChange);
+  const onWorkflowUpdateRef = React.useRef(onWorkflowUpdate);
+
+  React.useEffect(() => { onNotificationRef.current = onNotification; }, [onNotification]);
+  React.useEffect(() => { onAnnouncementRef.current = onAnnouncement; }, [onAnnouncement]);
+  React.useEffect(() => { onRequestMessageRef.current = onRequestMessage; }, [onRequestMessage]);
+  React.useEffect(() => { onWorkspaceChangeRef.current = onWorkspaceChange; }, [onWorkspaceChange]);
+  React.useEffect(() => { onWorkflowUpdateRef.current = onWorkflowUpdate; }, [onWorkflowUpdate]);
+
   // ── Private user channel — notifications ──────────────────────────────
   React.useEffect(() => {
     if (!userId) return;
 
     const channel = echo.private(`user.${userId}`);
 
-    if (onNotification) {
-      channel.listen(".notification.created", (data: any) => {
-        onNotification(data);
+    // We check the ref inside the listener so the effect itself doesn't
+    // need to re-run (and re-auth) when the function reference changes.
+    channel.listen(".notification.created", (data: any) => {
+      if (onNotificationRef.current) {
+        onNotificationRef.current(data);
         // Also fire the existing polling event so NotificationBell updates
         window.dispatchEvent(new Event("notifications:refresh"));
-      });
-    }
+      }
+    });
 
-    if (onWorkflowUpdate) {
-      // Listen for task assignments on the user channel as well
-      channel.listen(".workflow.updated", (data: any) => {
-        onWorkflowUpdate(data);
-      });
-    }
+    channel.listen(".workflow.updated", (data: any) => {
+      if (onWorkflowUpdateRef.current) {
+        onWorkflowUpdateRef.current(data);
+      }
+    });
 
     return () => {
       echo.leave(`user.${userId}`);
     };
-  }, [userId, onNotification, onWorkflowUpdate]);
+  }, [userId]); // Stable deps
 
   // ── Presence announcements channel ────────────────────────────────────
   const announcementBuffer = React.useRef<Announcement[]>([]);
   const announcementTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const processAnnouncementBuffer = React.useCallback(() => {
-    if (!onAnnouncement || announcementBuffer.current.length === 0) return;
+    if (!onAnnouncementRef.current || announcementBuffer.current.length === 0) return;
 
     const items = [...announcementBuffer.current];
     announcementBuffer.current = [];
@@ -67,12 +84,15 @@ export function useRealtimeUpdates({
     // Staggered delivery: 20ms delay between each item for a "waterfall" effect
     items.forEach((ann, index) => {
       setTimeout(() => {
-        onAnnouncement(ann);
+        if (onAnnouncementRef.current) onAnnouncementRef.current(ann);
       }, index * 20);
     });
-  }, [onAnnouncement]);
+  }, []); // Stable dep
 
   React.useEffect(() => {
+    // Note: Since we want to join the channel based on whether a callback exists,
+    // we still listen to the presence of 'onAnnouncement' to establish connection,
+    // but the inner logic remains stable.
     if (!onAnnouncement) return;
 
     const channel = echo.join("announcements");
@@ -90,47 +110,48 @@ export function useRealtimeUpdates({
       if (announcementTimeout.current) clearTimeout(announcementTimeout.current);
       echo.leave("announcements");
     };
-  }, [onAnnouncement, processAnnouncementBuffer]);
+  }, [!!onAnnouncement, processAnnouncementBuffer]);
 
   // ── Private request channel — messages ────────────────────────────────
   React.useEffect(() => {
-    if (!requestId || !onRequestMessage) return;
+    if (!requestId) return;
 
     const channel = echo.private(`request.${requestId}`);
     channel.listen(".message.posted", (data: any) => {
-      onRequestMessage(data);
+      if (onRequestMessageRef.current) onRequestMessageRef.current(data);
     });
 
     return () => {
       if (requestId) echo.leave(`request.${requestId}`);
     };
-  }, [requestId, onRequestMessage]);
+  }, [requestId]);
 
   // ── Private workspace channel — stats refresh ────────────────────────
   React.useEffect(() => {
+    // Workspace is universal, we join it if we care about change at all
     if (!onWorkspaceChange) return;
 
     const channel = echo.private("workspace");
     channel.listen(".workspace.changed", (data: any) => {
-      onWorkspaceChange(data);
+      if (onWorkspaceChangeRef.current) onWorkspaceChangeRef.current(data);
     });
 
     return () => {
       echo.leave("workspace");
     };
-  }, [onWorkspaceChange]);
+  }, [!!onWorkspaceChange]);
 
   // ── Private document channel — workflow flow ─────────────────────────
   React.useEffect(() => {
-    if (!documentVersionId || !onWorkflowUpdate) return;
+    if (!documentVersionId) return;
 
     const channel = echo.private(`document.${documentVersionId}`);
     channel.listen(".workflow.updated", (data: any) => {
-      onWorkflowUpdate(data);
+      if (onWorkflowUpdateRef.current) onWorkflowUpdateRef.current(data);
     });
 
     return () => {
       if (documentVersionId) echo.leave(`document.${documentVersionId}`);
     };
-  }, [documentVersionId, onWorkflowUpdate]);
+  }, [documentVersionId]);
 }

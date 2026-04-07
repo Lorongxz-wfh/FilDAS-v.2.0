@@ -226,11 +226,11 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
                         <div className={[
                           "absolute -left-[1px] top-0",
                           isLast ? "h-4.5" : "bottom-[-10px]", // Stop at junction for last, else continue to next gap
-                          "w-[1.5px] bg-slate-300 dark:bg-surface-300"
+                          "w-0.5 bg-slate-300 dark:bg-surface-300"
                         ].join(" ")} />
                         
                         {/* Horizontal Branch */}
-                        <div className="absolute -left-[1px] top-4.5 w-4.5 h-[1.5px] bg-slate-300 dark:bg-surface-300" />
+                        <div className="absolute -left-[1px] top-4.5 w-5 h-0.5 bg-slate-300 dark:bg-surface-300" />
                       </>
                     )}
                     <NavLink
