@@ -191,9 +191,9 @@ const MyWorkQueuePage: React.FC = () => {
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-4 py-3 sm:py-3.5">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-slate-400" />
-                <p className="text-sm font-display font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest">
+                <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 leading-tight truncate">
                   Active Documents
-                </p>
+                </h2>
               </div>
               {canCreateDoc && (
                 <CreateAction
@@ -213,7 +213,7 @@ const MyWorkQueuePage: React.FC = () => {
                 <SkeletonList variant="card" rows={3} />
               ) : sortedItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">No active document workflows found.</p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">No active document workflows found.</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-1.5">
@@ -237,7 +237,7 @@ const MyWorkQueuePage: React.FC = () => {
             <div className="shrink-0 flex justify-center p-4 border-t border-slate-50/50 dark:border-surface-400/30">
               <button 
                 onClick={() => navigate("/documents/all")}
-                className="flex items-center gap-2 px-4 py-2 rounded-md border border-slate-200 dark:border-surface-400 text-[10px] font-display font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors uppercase tracking-[0.1em]"
+                className="flex items-center gap-2 px-4 py-2 rounded-md border border-slate-200 dark:border-surface-400 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors uppercase tracking-wider"
               >
                 <FileText className="h-3.5 w-3.5" />
                 View all documents
@@ -260,9 +260,9 @@ const MyWorkQueuePage: React.FC = () => {
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-4 py-3 sm:py-3.5">
               <div className="flex items-center gap-2">
                 <ClipboardList className="h-4 w-4 text-slate-400" />
-                <p className="text-sm font-display font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest">
+                <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 leading-tight truncate">
                   Active Requests
-                </p>
+                </h2>
               </div>
               {canCreateRequest && (
                 <CreateAction
@@ -281,7 +281,7 @@ const MyWorkQueuePage: React.FC = () => {
                 <SkeletonList variant="card" rows={3} />
               ) : requestItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">No open document requests found.</p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">No open document requests found.</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-1.5">
@@ -305,7 +305,7 @@ const MyWorkQueuePage: React.FC = () => {
             <div className="shrink-0 flex justify-center p-4 border-t border-slate-50/50 dark:border-surface-400/30">
               <button 
                 onClick={() => navigate("/document-requests")}
-                className="flex items-center gap-2 px-4 py-2 rounded-md border border-slate-200 dark:border-surface-400 text-[10px] font-display font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors uppercase tracking-[0.1em]"
+                className="flex items-center gap-2 px-4 py-2 rounded-md border border-slate-200 dark:border-surface-400 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors uppercase tracking-wider"
               >
                 <ClipboardList className="h-3.5 w-3.5" />
                 View all requests
@@ -327,9 +327,9 @@ const MyWorkQueuePage: React.FC = () => {
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 dark:border-surface-400 px-4 py-3 sm:py-3.5">
               <div className="flex items-center gap-2">
                 <LayoutTemplate className="h-4 w-4 text-slate-400" />
-                <p className="text-sm font-display font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest">
+                <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 leading-tight truncate">
                   Recent Activity
-                </p>
+                </h2>
               </div>
             </div>
 
@@ -351,14 +351,14 @@ const MyWorkQueuePage: React.FC = () => {
                       onClick={() => openActivity(l)}
                       className="w-full text-left rounded-md px-3 py-2.5 transition hover:bg-slate-50 dark:hover:bg-surface-400"
                     >
-                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate capitalize font-display">
+                      <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate uppercase tracking-wider">
                         {l.label || l.event}
                       </p>
                       <div className="flex items-center justify-between mt-0.5 gap-2">
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate lowercase opacity-70">
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate lowercase font-medium opacity-70">
                           {l.event}
                         </p>
-                        <p className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500 font-medium tabular-nums font-display">
+                        <p className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500 font-bold tabular-nums">
                           {formatWhen(l.created_at)}
                         </p>
                       </div>
@@ -377,7 +377,7 @@ const MyWorkQueuePage: React.FC = () => {
             <div className="shrink-0 flex justify-center p-4 border-t border-slate-50/50 dark:border-surface-400/30">
               <button 
                 onClick={() => navigate("/my-activity")}
-                className="flex items-center gap-2 px-4 py-2 rounded-md border border-slate-200 dark:border-surface-400 text-[10px] font-display font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors uppercase tracking-[0.1em]"
+                className="flex items-center gap-2 px-4 py-2 rounded-md border border-slate-200 dark:border-surface-400 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors uppercase tracking-wider"
               >
                 <LayoutTemplate className="h-3.5 w-3.5" />
                 View all activity

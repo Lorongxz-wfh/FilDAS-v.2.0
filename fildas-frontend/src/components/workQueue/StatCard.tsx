@@ -9,7 +9,7 @@ interface StatCardProps {
 
 const StatCard: React.FC<StatCardProps> = ({ label, value, loading }) => (
   <div className="flex-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-3 sm:px-4 sm:py-3.5">
-    <p className="text-[10px] sm:text-xs font-display font-bold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400 truncate">
+    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
       {label}
     </p>
     <div className="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-display font-bold tabular-nums text-slate-900 dark:text-slate-100 leading-none">
