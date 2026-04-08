@@ -97,22 +97,32 @@ export function useDashboardData(role: UserRole): DashboardData {
 
       try {
         if (isAdmin) {
-          const [adminRes, activityRes] = await Promise.allSettled([
+          const promises: Promise<any>[] = [
             getAdminDashboardStats({ 
               date_from: dateFrom,
               date_to: dateTo
-            }), 
-            listActivityLogs({ 
+            })
+          ];
+
+          // Heavy activity fetch only on initial load or manual refresh
+          if (!silent) {
+            promises.push(listActivityLogs({ 
               scope: "all", 
-              per_page: 8,
+              per_page: 5, // Reduced from 8 to further shrink payload
               date_from: dateFrom,
               date_to: dateTo
-            }),
-          ]);
+            }));
+          }
+
+          const results = await Promise.allSettled(promises);
+          const adminRes = results[0] as PromiseSettledResult<AdminDashboardStats>;
+          const activityRes = results[1] as PromiseSettledResult<any> | undefined;
+
           if (adminRes.status === "fulfilled") setAdminStats(adminRes.value);
-          if (activityRes.status === "fulfilled")
+          if (activityRes?.status === "fulfilled")
             setRecentActivity(activityRes.value.data ?? []);
-          const firstErr = [adminRes, activityRes].find(
+
+          const firstErr = results.find(
             (r) => r.status === "rejected",
           ) as PromiseRejectedResult | undefined;
           if (firstErr && !silent)
@@ -122,17 +132,9 @@ export function useDashboardData(role: UserRole): DashboardData {
                 : "Failed to load stats",
             );
         } else if (isQA(role)) {
-          const [statsRes, queueRes, activityRes, reportRes, reqRes] =
-            await Promise.allSettled([
+          const promises = [
               getDocumentStats({ date_from: dateFrom, date_to: dateTo }),
-              getWorkQueue(), // Work queue tasks are usually absolute, not date-filtered
-              listActivityLogs({ 
-                scope: "all", 
-                per_page: 8,
-                category: "workflow",
-                date_from: dateFrom,
-                date_to: dateTo
-              }),
+              getWorkQueue(),
               getComplianceReport({ 
                 date_from: dateFrom, 
                 date_to: dateTo,
@@ -143,7 +145,25 @@ export function useDashboardData(role: UserRole): DashboardData {
                 date_from: dateFrom,
                 date_to: dateTo
               }),
-            ]);
+          ];
+
+          if (!silent) {
+            promises.push(listActivityLogs({ 
+              scope: "all", 
+              per_page: 5,
+              category: "workflow",
+              date_from: dateFrom,
+              date_to: dateTo
+            }));
+          }
+
+          const results = await Promise.allSettled(promises);
+          const statsRes = results[0] as PromiseSettledResult<DocumentStats>;
+          const queueRes = results[1] as PromiseSettledResult<any>;
+          const reportRes = results[2] as PromiseSettledResult<any>;
+          const reqRes = results[3] as PromiseSettledResult<any>;
+          const activityRes = results[4] as PromiseSettledResult<any> | undefined;
+
           if (statsRes.status === "fulfilled") setStats(statsRes.value);
           if (queueRes.status === "fulfilled") {
             const assigned = queueRes.value.assigned ?? [];
@@ -151,7 +171,7 @@ export function useDashboardData(role: UserRole): DashboardData {
             setMonitoring(queueRes.value.monitoring ?? []);
             lastPendingCountRef.current = assigned.length;
           }
-          if (activityRes.status === "fulfilled")
+          if (activityRes?.status === "fulfilled")
             setRecentActivity(activityRes.value.data ?? []);
           if (reportRes.status === "fulfilled") setReport(reportRes.value);
           if (reqRes.status === "fulfilled") {
@@ -160,7 +180,7 @@ export function useDashboardData(role: UserRole): DashboardData {
 
             // For QA dashboard "Pending actions"
             const docs = (queueRes.status === "fulfilled" ? queueRes.value.assigned : []).map(
-              (x) =>
+              (x: any) =>
                 ({
                   type: "document",
                   id: x.version.id,
@@ -188,55 +208,54 @@ export function useDashboardData(role: UserRole): DashboardData {
 
             setPendingActions([...docs, ...reqs]);
           }
-          const firstErr = [statsRes, queueRes, activityRes].find(
+          
+          const firstErr = results.slice(0, 3).find(
             (r) => r.status === "rejected",
           ) as PromiseRejectedResult | undefined;
           if (firstErr && !silent)
             setError(
               firstErr.reason instanceof Error
                 ? firstErr.reason.message
-                : "Failed to load stats",
+                : "Failed to load dashboard components",
             );
         } else if (isAuditor(role)) {
-          const [statsRes, activityRes] = await Promise.allSettled([
-            getDocumentStats({ date_from: dateFrom, date_to: dateTo }),
-            listActivityLogs({ 
-              scope: "all", 
-              per_page: 8,
-              date_from: dateFrom,
-              date_to: dateTo
-            }),
-          ]);
+          const promises: Promise<any>[] = [getDocumentStats({ date_from: dateFrom, date_to: dateTo })];
+          if (!silent) promises.push(listActivityLogs({ scope: "all", per_page: 5, date_from: dateFrom, date_to: dateTo }));
+          
+          const results = await Promise.allSettled(promises);
+          const statsRes = results[0] as PromiseSettledResult<DocumentStats>;
+          const activityRes = results[1] as PromiseSettledResult<any> | undefined;
+
           if (statsRes.status === "fulfilled") setStats(statsRes.value);
-          if (activityRes.status === "fulfilled") {
+          if (activityRes?.status === "fulfilled") {
             setRecentActivity(activityRes.value.data ?? []);
           }
-          const firstErr = [statsRes, activityRes].find(
-            (r) => r.status === "rejected",
-          ) as PromiseRejectedResult | undefined;
-          if (firstErr && !silent)
-            setError(
-              firstErr.reason instanceof Error
-                ? firstErr.reason.message
-                : "Failed to load stats",
-            );
         } else {
-          const [statsRes, queueRes, activityRes, inboxRes] =
-            await Promise.allSettled([
+          const promises = [
               getDocumentStats({ date_from: dateFrom, date_to: dateTo }),
               getWorkQueue(),
-              listActivityLogs({ 
-                scope: "office", 
-                per_page: 8,
-                date_from: dateFrom,
-                date_to: dateTo
-              }),
               listDocumentRequestInbox({ 
-                per_page: 8,
+                per_page: 5,
                 date_from: dateFrom,
                 date_to: dateTo
               }),
-            ]);
+          ];
+
+          if (!silent) {
+            promises.push(listActivityLogs({ 
+              scope: "office", 
+              per_page: 5,
+              date_from: dateFrom,
+              date_to: dateTo
+            }));
+          }
+
+          const results = await Promise.allSettled(promises);
+          const statsRes = results[0] as PromiseSettledResult<DocumentStats>;
+          const queueRes = results[1] as PromiseSettledResult<any>;
+          const inboxRes = results[2] as PromiseSettledResult<any>;
+          const activityRes = results[3] as PromiseSettledResult<any> | undefined;
+
           if (statsRes.status === "fulfilled") setStats(statsRes.value);
           if (queueRes.status === "fulfilled") {
             const assigned = queueRes.value.assigned ?? [];
@@ -244,15 +263,14 @@ export function useDashboardData(role: UserRole): DashboardData {
             setMonitoring(queueRes.value.monitoring ?? []);
             lastPendingCountRef.current = assigned.length;
           }
-          if (activityRes.status === "fulfilled")
+          if (activityRes?.status === "fulfilled")
             setRecentActivity(activityRes.value.data ?? []);
           if (inboxRes.status === "fulfilled") {
             const total = inboxRes.value?.meta?.total ?? 0;
             setPendingRequestsInboxCount(total);
 
-            // Merge: filter for actions that need attention (e.g. pending/rejected)
             const docs = (queueRes.status === "fulfilled" ? queueRes.value.assigned : []).map(
-              (x) =>
+              (x: any) =>
                 ({
                   type: "document",
                   id: x.version.id,
@@ -282,18 +300,8 @@ export function useDashboardData(role: UserRole): DashboardData {
                   } as PendingAction),
               );
 
-            // Simple merge — documents first, then requests
             setPendingActions([...docs, ...reqs]);
           }
-          const firstErr = [statsRes, queueRes, activityRes].find(
-            (r) => r.status === "rejected",
-          ) as PromiseRejectedResult | undefined;
-          if (firstErr && !silent)
-            setError(
-              firstErr.reason instanceof Error
-                ? firstErr.reason.message
-                : "Failed to load stats",
-            );
         }
       } catch (e: unknown) {
         if (!silent) {

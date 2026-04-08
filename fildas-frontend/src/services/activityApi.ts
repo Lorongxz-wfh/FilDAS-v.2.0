@@ -1,4 +1,4 @@
-import { getApi, normalizePaginated } from "./_base";
+import { getApi, normalizePaginated, dedupeFetch } from "./_base";
 import type { Paginated, ActivityLogItem } from "./types";
 
 export async function listActivityLogs(params: {
@@ -29,38 +29,42 @@ export async function listActivityLogs(params: {
   sort_by?: "created_at" | "event" | "label";
   sort_dir?: "asc" | "desc";
 }): Promise<Paginated<ActivityLogItem>> {
-  try {
-    const api = await getApi();
-    const res = await api.get("/activity", {
-      params: {
-        scope: params.scope ?? "office",
-        document_id: params.document_id,
-        document_version_id: params.document_version_id,
-        per_page: Math.min(params.per_page ?? 25, 50),
-        page: params.page ?? 1,
+  const key = `activity:${params.scope || "office"}:${params.page || 1}:${params.per_page || 25}:${params.category || "all"}`;
+  
+  return dedupeFetch(key, async () => {
+    try {
+      const api = await getApi();
+      const res = await api.get("/activity", {
+        params: {
+          scope: params.scope ?? "office",
+          document_id: params.document_id,
+          document_version_id: params.document_version_id,
+          per_page: Math.min(params.per_page ?? 25, 50),
+          page: params.page ?? 1,
 
-        q: params.q,
-        event: params.event,
-        office_id: params.office_id,
-        date_from: params.date_from,
-        date_to: params.date_to,
-        category: params.category,
+          q: params.q,
+          event: params.event,
+          office_id: params.office_id,
+          date_from: params.date_from,
+          date_to: params.date_to,
+          category: params.category,
 
-        sort_by: params.sort_by,
-        sort_dir: params.sort_dir,
-      },
-    });
+          sort_by: params.sort_by,
+          sort_dir: params.sort_dir,
+        },
+      });
 
-    return normalizePaginated<ActivityLogItem>(res.data);
-  } catch (e: any) {
-    const status = e?.response?.status;
-    const msg =
-      e?.response?.data?.message ||
-      (status
-        ? `Failed to load activity logs (${status})`
-        : "Failed to load activity logs");
-    throw new Error(msg);
-  }
+      return normalizePaginated<ActivityLogItem>(res.data);
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const msg =
+        e?.response?.data?.message ||
+        (status
+          ? `Failed to load activity logs (${status})`
+          : "Failed to load activity logs");
+      throw new Error(msg);
+    }
+  });
 }
 
 export async function exportActivityLogs(params: {
