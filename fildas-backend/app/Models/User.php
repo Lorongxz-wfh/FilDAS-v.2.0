@@ -38,6 +38,7 @@ class User extends Authenticatable
         'email_doc_updates',
         'email_approvals',
         'email_requests',
+        'theme_preference',
     ];
 
     /**

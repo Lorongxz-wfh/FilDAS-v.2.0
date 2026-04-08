@@ -197,6 +197,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class]
     Route::post('/profile/signature',                     [\App\Http\Controllers\Api\ProfileController::class, 'uploadSignature']);
     Route::delete('/profile/signature',                   [\App\Http\Controllers\Api\ProfileController::class, 'removeSignature']);
     Route::patch('/profile/notification-preferences',     [\App\Http\Controllers\Api\ProfileController::class, 'updateNotificationPreferences']);
+    Route::patch('/profile/theme-preference',             [\App\Http\Controllers\Api\ProfileController::class, 'updateThemePreference']);
 
     // ── Two-Factor Authentication ──────────────────────────────────────────────
     Route::get('/profile/two-factor/setup',               [\App\Http\Controllers\Api\TwoFactorController::class, 'setup']);

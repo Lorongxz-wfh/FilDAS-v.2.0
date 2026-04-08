@@ -299,6 +299,22 @@ class ProfileController extends Controller
         ]);
     }
 
+    // PATCH /api/profile/theme-preference
+    public function updateThemePreference(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        $data = $request->validate([
+            'theme_preference' => ['required', 'string', 'in:light,dark,system'],
+        ]);
+
+        $user->theme_preference = $data['theme_preference'];
+        $user->save();
+
+        return response()->json(['user' => $this->userPayload($user)]);
+    }
+
     private function userPayload(\App\Models\User $user): array
     {
         $user->load(['role', 'office']);
@@ -325,6 +341,7 @@ class ProfileController extends Controller
             'email_doc_updates'   => (bool) ($user->email_doc_updates ?? true),
             'email_approvals'     => (bool) ($user->email_approvals ?? true),
             'email_requests'      => (bool) ($user->email_requests ?? true),
+            'theme_preference'    => $user->theme_preference ?? 'system',
         ];
     }
 }
