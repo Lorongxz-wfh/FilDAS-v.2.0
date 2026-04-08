@@ -17,7 +17,7 @@ import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
 import { PageActions, RefreshAction } from "../components/ui/PageActions";
 import SelectDropdown from "../components/ui/SelectDropdown";
-import DateRangeInput from "../components/ui/DateRangeInput";
+import { DateRangePicker } from "../components/ui/DateRangePicker";
 import { useBulkActions } from "../hooks/useBulkActions";
 import BulkActionBar from "../components/ui/BulkActionBar";
 import BulkDownloadModal from "../components/ui/BulkDownloadModal";
@@ -326,11 +326,14 @@ export default function ArchivePage() {
 
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Date Range</label>
-              <DateRangeInput
+              <DateRangePicker
                 from={dateFrom}
                 to={dateTo}
-                onFromChange={setDateFrom}
-                onToChange={setDateTo}
+                onSelect={(r: any) => {
+                  setDateFrom(r.from);
+                  setDateTo(r.to);
+                  setPage(1);
+                }}
               />
             </div>
           </div>
@@ -368,11 +371,14 @@ export default function ArchivePage() {
           ]}
         />
 
-        <DateRangeInput
+        <DateRangePicker
           from={dateFrom}
           to={dateTo}
-          onFromChange={setDateFrom}
-          onToChange={setDateTo}
+          onSelect={(r: any) => {
+            setDateFrom(r.from);
+            setDateTo(r.to);
+            setPage(1);
+          }}
         />
       </SearchFilterBar>
 

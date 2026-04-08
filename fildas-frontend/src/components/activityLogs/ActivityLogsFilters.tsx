@@ -1,7 +1,7 @@
 // import { selectCls } from "../../utils/formStyles";
 import SelectDropdown from "../ui/SelectDropdown";
 import React from "react";
-import DateRangeInput from "../ui/DateRangeInput";
+import { DateRangePicker } from "../ui/DateRangePicker";
 import type { ActivityLogsParams, Scope, Category } from "../../hooks/useActivityLogs";
 import SearchFilterBar from "../ui/SearchFilterBar";
 
@@ -79,11 +79,10 @@ const ActivityLogsFilters: React.FC<Props> = ({
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Date Range</label>
-            <DateRangeInput
+            <DateRangePicker
               from={params.dateFrom}
               to={params.dateTo}
-              onFromChange={(val) => updateParams({ dateFrom: val })}
-              onToChange={(val) => updateParams({ dateTo: val })}
+              onSelect={(r: any) => updateParams({ dateFrom: r.from, dateTo: r.to })}
             />
           </div>
         </div>
@@ -121,11 +120,10 @@ const ActivityLogsFilters: React.FC<Props> = ({
         ]}
       />
 
-      <DateRangeInput
+      <DateRangePicker
         from={params.dateFrom}
         to={params.dateTo}
-        onFromChange={(val) => updateParams({ dateFrom: val })}
-        onToChange={(val) => updateParams({ dateTo: val })}
+        onSelect={(r: any) => updateParams({ dateFrom: r.from, dateTo: r.to })}
       />
     </SearchFilterBar>
   );

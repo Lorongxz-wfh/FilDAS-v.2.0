@@ -173,6 +173,7 @@ export async function listDocumentRequestIndividual(params?: {
   sort_dir?: "asc" | "desc";
   office_id?: number;
   batch_id?: number;
+  batch_type?: "multi_office" | "multi_doc";
   direction?: "all" | "incoming" | "outgoing";
 }) {
   const res = await api.get("/document-requests/individual", { params });

@@ -127,13 +127,13 @@ export default function DocumentRequestListPage() {
   const role = roleLower(me);
   const adminDebugMode = useAdminDebugMode();
   const { push } = useToast();
-  
+
   const isAdminUser = getUserRole() === "ADMIN" || getUserRole() === "SYSADMIN";
   const [activeTab, setActiveTab] = React.useState<"active" | "deleted">("active");
 
   const isQaAdmin =
     ["qa", "sysadmin"].includes(role) || (role === "admin" && adminDebugMode);
-  
+
   const canCreate =
     role !== "auditor" &&
     (role !== "admin" || adminDebugMode || import.meta.env.DEV);
@@ -367,11 +367,10 @@ export default function DocumentRequestListPage() {
         header: "Direction",
         skeletonShape: "narrow",
         render: (row) => (
-          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-            row.direction === 'outgoing' 
-              ? "bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400" 
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${row.direction === 'outgoing'
+              ? "bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400"
               : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
-          }`}>
+            }`}>
             {row.direction || 'outgoing'}
           </span>
         ),
@@ -403,7 +402,7 @@ export default function DocumentRequestListPage() {
         render: (r) => {
           const isOutgoing = r.direction === 'outgoing';
           const isMulti = r.mode === 'multi_office' && isOutgoing && r.office_code?.includes(',');
-          
+
           return (
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-0.5">
@@ -506,11 +505,10 @@ export default function DocumentRequestListPage() {
         header: "Direction",
         skeletonShape: "narrow",
         render: (r) => (
-          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-            r.direction === 'outgoing' 
-              ? "bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400" 
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${r.direction === 'outgoing'
+              ? "bg-sky-50 text-sky-700 dark:bg-sky-950/30 dark:text-sky-400"
               : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
-          }`}>
+            }`}>
             {r.direction || 'outgoing'}
           </span>
         ),
@@ -618,9 +616,9 @@ export default function DocumentRequestListPage() {
       ) : (
         <>
           <div className="flex items-center justify-between border-b border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 shrink-0 pr-4">
-            <Tabs 
-              tabs={REQ_TABS} 
-              activeTab={tab} 
+            <Tabs
+              tabs={REQ_TABS}
+              activeTab={tab}
               onChange={(key) => {
                 if (key === "batches") {
                   setTab("batches");
@@ -633,8 +631,8 @@ export default function DocumentRequestListPage() {
                   setTab("all");
                   setStatus("");
                 }
-              }} 
-              id="requests" 
+              }}
+              id="requests"
               className="border-none"
             />
             {activeTab === "active" && (
@@ -767,38 +765,38 @@ export default function DocumentRequestListPage() {
                     emptyMessage={q || status ? "No requests match your filters." : "No requests found."}
                     hasMore={hasMore}
                     onLoadMore={() => setPage((p) => p + 1)}
-                      gridTemplateColumns={adminDebugMode ? "50px 90px 110px minmax(200px, 1fr) 130px 170px 100px 120px 50px" : "50px 90px 110px minmax(200px, 1fr) 130px 170px 100px 120px"}
-                      selectable={isSelectMode}
-                      selectedIds={selectedIds}
-                      onToggleRow={toggleRow}
-                      onToggleAll={toggleAll}
-                    />
-                  ) : (
-                    <Table<any>
-                      bare
-                      className="h-full"
-                      columns={allColumns}
-                      rows={rows}
-                      rowKey={(r: any, idx) => r.recipient_id || r.item_id || `indiv-${idx}`}
-                      onRowClick={(r) => {
-                        if (r.row_type === "item") {
-                          navigate(`/document-requests/${r.request_id}/items/${r.item_id}`);
-                        } else {
-                          navigate(`/document-requests/${r.request_id}/recipients/${r.recipient_id}`);
-                        }
-                      }}
-                      loading={loading}
-                      initialLoading={initialLoading}
-                      emptyMessage="No individual requests found."
-                      hasMore={hasMore}
-                      onLoadMore={() => setPage((p) => p + 1)}
-                      gridTemplateColumns="50px 90px minmax(150px, 1fr) 90px 90px 110px 130px 130px"
-                      selectable={isSelectMode}
-                      selectedIds={selectedIds}
-                      onToggleRow={toggleRow}
-                      onToggleAll={toggleAll}
-                    />
-                  )}
+                    gridTemplateColumns={adminDebugMode ? "50px 90px 110px minmax(200px, 1fr) 130px 170px 100px 120px 50px" : "50px 90px 110px minmax(200px, 1fr) 130px 170px 100px 120px"}
+                    selectable={isSelectMode}
+                    selectedIds={selectedIds}
+                    onToggleRow={toggleRow}
+                    onToggleAll={toggleAll}
+                  />
+                ) : (
+                  <Table<any>
+                    bare
+                    className="h-full"
+                    columns={allColumns}
+                    rows={rows}
+                    rowKey={(r: any, idx) => r.recipient_id || r.item_id || `indiv-${idx}`}
+                    onRowClick={(r) => {
+                      if (r.row_type === "item") {
+                        navigate(`/document-requests/${r.request_id}/items/${r.item_id}`);
+                      } else {
+                        navigate(`/document-requests/${r.request_id}/recipients/${r.recipient_id}`);
+                      }
+                    }}
+                    loading={loading}
+                    initialLoading={initialLoading}
+                    emptyMessage="No individual requests found."
+                    hasMore={hasMore}
+                    onLoadMore={() => setPage((p) => p + 1)}
+                    gridTemplateColumns="50px 90px minmax(150px, 1fr) 90px 90px 110px 130px 130px"
+                    selectable={isSelectMode}
+                    selectedIds={selectedIds}
+                    onToggleRow={toggleRow}
+                    onToggleAll={toggleAll}
+                  />
+                )}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -808,7 +806,7 @@ export default function DocumentRequestListPage() {
       <CreateDocumentRequestModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        // onCreated={() => refreshRequests()}
+      // onCreated={() => refreshRequests()}
       />
 
       <Modal
@@ -825,37 +823,37 @@ export default function DocumentRequestListPage() {
         <p className="text-sm text-slate-600 dark:text-slate-400">
           Are you sure you want to delete this request batch? This action is reversible by admins in dev mode.
         </p>
-        </Modal>
+      </Modal>
 
-        <BulkActionBar 
-          selectedCount={selectionCount}
-          onClear={clearSelection}
-          actions={[
-            {
-              label: "Download",
-              icon: <Download size={14} />,
-              onClick: () => setBulkDownloadOpen(true),
-              variant: "secondary",
-              count: selectionCount 
-            },
-            {
-              label: "Delete",
-              icon: <Trash2 size={14} />,
-              onClick: handleBulkDelete,
-              variant: "danger",
-              count: getActionableCount("delete"),
-              loading: isBulkProcessing
-            }
-          ]}
-        />
+      <BulkActionBar
+        selectedCount={selectionCount}
+        onClear={clearSelection}
+        actions={[
+          {
+            label: "Download",
+            icon: <Download size={14} />,
+            onClick: () => setBulkDownloadOpen(true),
+            variant: "secondary",
+            count: selectionCount
+          },
+          {
+            label: "Delete",
+            icon: <Trash2 size={14} />,
+            onClick: handleBulkDelete,
+            variant: "danger",
+            count: getActionableCount("delete"),
+            loading: isBulkProcessing
+          }
+        ]}
+      />
 
-        <BulkDownloadModal 
-          open={bulkDownloadOpen}
-          onClose={() => setBulkDownloadOpen(false)}
-          selectedCount={selectionCount}
-          onConfirm={handleBulkDownload}
-          defaultPrefix="Request_Exports"
-        />
-      </PageFrame>
-    );
-  }
+      <BulkDownloadModal
+        open={bulkDownloadOpen}
+        onClose={() => setBulkDownloadOpen(false)}
+        selectedCount={selectionCount}
+        onConfirm={handleBulkDownload}
+        defaultPrefix="Request_Exports"
+      />
+    </PageFrame>
+  );
+}

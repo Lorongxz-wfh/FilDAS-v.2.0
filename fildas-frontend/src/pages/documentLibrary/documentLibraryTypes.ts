@@ -25,6 +25,7 @@ export const TAB_ICONS: Record<LibTab, React.ReactNode> = {
 
 export type LibraryItem = {
   _key: string;
+  id?: number;
   source: "created" | "shared" | "requested";
   title: string;
   subtitle?: string;
@@ -53,6 +54,7 @@ export function docToLibraryItem(
 ): LibraryItem {
   return {
     _key: `doc-${doc.id}`,
+    id: doc.id,
     source,
     title: doc.title,
     subtitle: doc.code ?? undefined,
@@ -75,6 +77,7 @@ export function docToLibraryItem(
 export function reqToLibraryItem(row: any): LibraryItem {
   return {
     _key: `req-${row.request_id}-${row.row_id ?? row.recipient_id}`,
+    id: row.request_id,
     source: "requested",
     title: row.item_title ?? row.batch_title,
     subtitle: row.item_title ? row.batch_title : undefined,

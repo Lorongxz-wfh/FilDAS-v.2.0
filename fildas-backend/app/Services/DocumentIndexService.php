@@ -195,7 +195,7 @@ class DocumentIndexService
             $term = trim($data['q']);
             $like = '%' . str_replace('%', '\\%', $term) . '%';
 
-            $query->where(function ($qq) use ($like) {
+            $query->where(function ($qq) use ($like, $term) {
                 $qq->where('documents.title', 'like', $like)
                     ->orWhere('documents.code', 'like', $like)
                     ->orWhereHas('latestVersion', function ($v) use ($like) {
@@ -206,7 +206,14 @@ class DocumentIndexService
                     })
                     ->orWhereHas('reviewOffice', function ($o) use ($like) {
                         $o->where('name', 'like', $like)->orWhere('code', 'like', $like);
+                    })
+                    ->orWhereHas('tags', function ($t) use ($like) {
+                        $t->where('name', 'like', $like);
                     });
+
+                if (is_numeric($term)) {
+                    $qq->orWhere('documents.id', (int)$term);
+                }
             });
         }
 

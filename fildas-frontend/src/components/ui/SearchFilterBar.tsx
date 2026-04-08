@@ -52,11 +52,10 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
         <button
           type="button"
           onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-          className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${
-            isFiltersOpen || activeFiltersCount > 0
+          className={`sm:hidden flex items-center gap-2 px-3 h-9 rounded-lg border transition-all ${isFiltersOpen || activeFiltersCount > 0
               ? "bg-brand-50 border-brand-200 text-brand-600 dark:bg-brand-500/10 dark:border-brand-500/30 dark:text-brand-400 shadow-xs"
               : "bg-white border-slate-200 text-slate-600 dark:bg-surface-500 dark:border-surface-400 dark:text-slate-400"
-          }`}
+            }`}
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
           <span className="text-xs font-semibold">Filters</span>
@@ -90,8 +89,8 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
             <button
               type="button"
               onClick={() => {
-                 onClear();
-                 setIsFiltersOpen(false);
+                onClear();
+                setIsFiltersOpen(false);
               }}
               className="w-full py-2.5 text-xs font-bold text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10 rounded-lg transition"
             >

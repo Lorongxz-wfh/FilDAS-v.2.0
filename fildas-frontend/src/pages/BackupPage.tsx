@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import PageFrame from "../components/layout/PageFrame";
 import Skeleton from "../components/ui/loader/Skeleton";
-import DateRangeInput from "../components/ui/DateRangeInput";
+import { DateRangePicker } from "../components/ui/DateRangePicker";
 import {
   FileSpreadsheet,
   ScrollText,
@@ -313,11 +313,13 @@ export default function BackupPage() {
           </div>
 
           {preset === "custom" && (
-            <DateRangeInput
+            <DateRangePicker
               from={dateFrom}
               to={dateTo}
-              onFromChange={setDateFrom}
-              onToChange={setDateTo}
+              onSelect={(r: any) => {
+                setDateFrom(r.from);
+                setDateTo(r.to);
+              }}
             />
           )}
         </div>

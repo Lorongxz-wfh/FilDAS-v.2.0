@@ -17,6 +17,7 @@ class DocumentRequestRepository
         $reqSt     = $filters['request_status'] ?? null;
         $status    = $filters['status'] ?? null;
         $fOfficeId = $filters['office_id'] ?? null;
+        $batchType = $filters['batch_type'] ?? null;
 
         // ── Sub-query A: multi_office recipients ──────────────────────────
         $q1 = DB::table('document_request_recipients as rr')
@@ -65,9 +66,13 @@ class DocumentRequestRepository
         if ($term)  $q1->where(function ($qq) use ($term) {
             $qq->where('r.title', 'like', "%{$term}%")
                ->orWhere('r.description', 'like', "%{$term}%");
+            if (is_numeric($term)) {
+                $qq->orWhere('r.id', (int)$term);
+            }
         });
         if ($reqSt) $q1->where('r.status', $reqSt);
         if ($status) $q1->where('rr.status', $status);
+        if ($batchType) $q1->where('r.mode', $batchType);
 
         // ── Sub-query B: multi_doc items ──────────────────────────────────
         $q2 = DB::table('document_request_items as dri')
@@ -122,8 +127,12 @@ class DocumentRequestRepository
         if ($term)  $q2->where(function ($qq) use ($term) {
             $qq->where('r.title', 'like', "%{$term}%")
                ->orWhere('dri.title', 'like', "%{$term}%");
+            if (is_numeric($term)) {
+                $qq->orWhere('r.id', (int)$term);
+            }
         });
         if ($reqSt) $q2->where('r.status', $reqSt);
+        if ($batchType) $q2->where('r.mode', $batchType);
 
         // ── UNION ALL + optional status outer filter ───────────────────────
         $unionSql      = "({$q1->toSql()}) UNION ALL ({$q2->toSql()})";
@@ -138,8 +147,20 @@ class DocumentRequestRepository
         }
 
         $total = DB::selectOne("SELECT COUNT(*) as agg FROM ({$outerSql}) as t", $outerBindings)->agg ?? 0;
+
+        $allowedSorts = [
+            'id' => 'request_id',
+            'title' => 'batch_title',
+            'created_at' => 'created_at',
+            'due_at' => 'due_at',
+            'office_code' => 'office_code',
+            'status' => 'item_status'
+        ];
+        $sortBy = $allowedSorts[$filters['sort_by'] ?? ''] ?? 'created_at';
+        $sortDir = ($filters['sort_dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+
         $rows  = DB::select(
-            "SELECT * FROM ({$outerSql}) as t ORDER BY created_at DESC LIMIT {$perPage} OFFSET {$offset}",
+            "SELECT * FROM ({$outerSql}) as t ORDER BY {$sortBy} {$sortDir} LIMIT {$perPage} OFFSET {$offset}",
             $outerBindings
         );
 

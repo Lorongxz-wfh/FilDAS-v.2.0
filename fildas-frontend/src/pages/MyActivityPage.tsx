@@ -6,7 +6,7 @@ import { getDocumentVersion, listActivityLogs } from "../services/documents";
 import { friendlyEvent } from "../utils/activityFormatters";
 import { formatDateTime } from "../utils/formatters";
 // import { selectCls } from "../utils/formStyles";
-import DateRangeInput from "../components/ui/DateRangeInput";
+import { DateRangePicker } from "../components/ui/DateRangePicker";
 import { PageActions, RefreshAction, ExportSplitAction } from "../components/ui/PageActions";
 import ActivityDetailModal from "../components/activityLogs/ActivityDetailModal";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
@@ -337,15 +337,12 @@ const MyActivityPage: React.FC = () => {
 
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Date Range</label>
-              <DateRangeInput
+              <DateRangePicker
                 from={dateFrom}
                 to={dateTo}
-                onFromChange={(val) => {
-                  setDateFrom(val);
-                  setPage(1);
-                }}
-                onToChange={(val) => {
-                  setDateTo(val);
+                onSelect={(r: any) => {
+                  setDateFrom(r.from);
+                  setDateTo(r.to);
                   setPage(1);
                 }}
               />
@@ -368,15 +365,12 @@ const MyActivityPage: React.FC = () => {
           ]}
         />
 
-        <DateRangeInput
+        <DateRangePicker
           from={dateFrom}
           to={dateTo}
-          onFromChange={(val) => {
-            setDateFrom(val);
-            setPage(1);
-          }}
-          onToChange={(val) => {
-            setDateTo(val);
+          onSelect={(r: any) => {
+            setDateFrom(r.from);
+            setDateTo(r.to);
             setPage(1);
           }}
         />

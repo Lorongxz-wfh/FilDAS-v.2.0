@@ -11,11 +11,10 @@ import Button from "../components/ui/Button";
 import PageFrame from "../components/layout/PageFrame";
 import Table, { type TableColumn } from "../components/ui/Table";
 import Alert from "../components/ui/Alert";
-import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
+import { DateRangePicker } from "../components/ui/DateRangePicker";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
 import { formatDate } from "../utils/formatters";
 import SelectDropdown from "../components/ui/SelectDropdown";
-import DateRangeInput from "../components/ui/DateRangeInput";
 import { Tabs } from "../components/ui/Tabs";
 import { PageActions, CreateAction, RefreshAction } from "../components/ui/PageActions";
 import { StatusBadge } from "../components/ui/Badge";
@@ -35,7 +34,7 @@ const TABS: { key: WFTab; label: string; icon: React.ReactNode }[] = [
 
 const TERMINAL_STATUSES = new Set(["distributed", "cancelled", "superseded"]);
 
-export default function MyWorkQueueListPage() {
+export default function WorkflowListPage() {
   const navigate = useNavigate();
   const role = getUserRole();
   const canSeeAll = isQA(role) || isSysAdmin(role) || role === "ADMIN";
@@ -49,7 +48,6 @@ export default function MyWorkQueueListPage() {
   const [qDebounced, setQDebounced] = useState("");
   const [phaseFilter, setPhaseFilter] = useState("");
   const [officeFilter, setOfficeFilter] = useState("");
-  const [versionFilter, setVersionFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [sortBy, setSortBy] = useState<"title" | "created_at" | "code" | "updated_at" | "distributed_at">("created_at");
@@ -161,7 +159,6 @@ export default function MyWorkQueueListPage() {
         status: statusParam,
         phase: phaseFilter || undefined,
         owner_office_id: officeFilter ? Number(officeFilter) : undefined,
-        version_number: versionFilter ? Number(versionFilter) : undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
         sort_by: sortBy,
@@ -187,7 +184,7 @@ export default function MyWorkQueueListPage() {
       setLoading(false);
       setInitialLoading(false);
     }
-  }, [qDebounced, statusParam, phaseFilter, officeFilter, versionFilter, dateFrom, dateTo, sortBy, sortDir, page]);
+  }, [qDebounced, statusParam, phaseFilter, officeFilter, dateFrom, dateTo, sortBy, sortDir, page]);
 
   const { refresh, isRefreshing } = useSmartRefresh(async () => {
     const prevFirstId = firstDocIdRef.current;
@@ -198,7 +195,7 @@ export default function MyWorkQueueListPage() {
 
   useEffect(() => {
     loadData(false);
-  }, [tab, qDebounced, phaseFilter, officeFilter, versionFilter, dateFrom, dateTo, sortBy, sortDir, loadData]);
+  }, [tab, qDebounced, phaseFilter, officeFilter, dateFrom, dateTo, sortBy, sortDir, loadData]);
 
   const displayRows = useMemo(() => {
     if (tab === "active") {
@@ -211,11 +208,8 @@ export default function MyWorkQueueListPage() {
     let count = 0;
     if (phaseFilter) count++;
     if (officeFilter) count++;
-    if (versionFilter) count++;
-    if (dateFrom) count++;
-    if (dateTo) count++;
     return count;
-  }, [phaseFilter, officeFilter, versionFilter, dateFrom, dateTo]);
+  }, [phaseFilter, officeFilter, dateFrom, dateTo]);
 
   const availableOffices = useMemo(() => {
     const map = new Map<number, string>();
@@ -332,7 +326,6 @@ export default function MyWorkQueueListPage() {
             <CreateAction
               label="Create document"
               onClick={() => {
-                markWorkQueueSession();
                 navigate("/documents/create", { state: { fromWorkQueue: true } });
               }}
             />
@@ -368,7 +361,7 @@ export default function MyWorkQueueListPage() {
         setSearch={(val) => { setQ(val); setPage(1); }}
         placeholder="Search title, code, office..."
         activeFiltersCount={activeFiltersCount}
-        onClear={() => { setQ(""); setPhaseFilter(""); setOfficeFilter(""); setVersionFilter(""); setDateFrom(""); setDateTo(""); setPage(1); }}
+        onClear={() => { setQ(""); setPhaseFilter(""); setOfficeFilter(""); setDateFrom(""); setDateTo(""); setPage(1); }}
         mobileFilters={
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-2">
@@ -383,19 +376,13 @@ export default function MyWorkQueueListPage() {
                 options={[{ value: "", label: "All Offices" }, ...availableOffices]}
               />
             </div>
-            <SelectDropdown
-              value={versionFilter}
-              onChange={(val) => { setVersionFilter((val as string) || ""); setPage(1); }}
-              options={[{ value: "", label: "All Ver." }, ...[0, 1, 2, 3, 4, 5].map((v) => ({ value: String(v), label: `v${v}` }))]}
-            />
-            <DateRangeInput from={dateFrom} to={dateTo} onFromChange={(val) => { setDateFrom(val); setPage(1); }} onToChange={(val) => { setDateTo(val); setPage(1); }} />
+            <DateRangePicker from={dateFrom} to={dateTo} onSelect={(r: any) => { setDateFrom(r.from); setDateTo(r.to); setPage(1); }} />
           </div>
         }
       >
         <SelectDropdown value={phaseFilter} onChange={(val) => { setPhaseFilter((val as string) || ""); setPage(1); }} className="w-32" options={[{ value: "", label: "All Phases" }, { value: "draft", label: "Draft" }, { value: "review", label: "Review" }, { value: "approval", label: "Approval" }, { value: "finalization", label: "Finalization" }, { value: "distributed", label: "Distributed" }]} />
         <SelectDropdown value={officeFilter} onChange={(val) => { setOfficeFilter((val as string) || ""); setPage(1); }} className="w-40" options={[{ value: "", label: "All Offices" }, ...availableOffices]} />
-        <SelectDropdown value={versionFilter} onChange={(val) => { setVersionFilter((val as string) || ""); setPage(1); }} className="w-24" options={[{ value: "", label: "All Ver." }, ...[0, 1, 2, 3, 4, 5].map((v) => ({ value: String(v), label: `v${v}` }))]} />
-        <DateRangeInput from={dateFrom} to={dateTo} onFromChange={(val) => { setDateFrom(val); setPage(1); }} onToChange={(val) => { setDateTo(val); setPage(1); }} />
+        <DateRangePicker from={dateFrom} to={dateTo} onSelect={(r: any) => { setDateFrom(r.from); setDateTo(r.to); setPage(1); }} />
       </SearchFilterBar>
 
       {error && <Alert variant="danger" className="mb-4">{error}</Alert>}
@@ -403,7 +390,7 @@ export default function MyWorkQueueListPage() {
       <div className="flex-1 min-h-0 min-w-0 flex flex-col">
         <AnimatePresence mode="wait">
           <motion.div
-            key={tab + qDebounced + phaseFilter + officeFilter + versionFilter + dateFrom + dateTo}
+            key={tab + qDebounced + phaseFilter + officeFilter + dateFrom + dateTo}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}

@@ -87,8 +87,8 @@ const DocumentRequestViewPage = React.lazy(
   () => import("./pages/DocumentRequestViewPage"),
 );
 const TemplatesPage = React.lazy(() => import("./pages/TemplatesPage"));
-const MyWorkQueueListPage = React.lazy(
-  () => import("./pages/MyWorkQueueListPage"),
+const WorkflowListPage = React.lazy(
+  () => import("./pages/WorkflowListPage"),
 );
 const AnnouncementsPage = React.lazy(() => import("./pages/AnnouncementsPage"));
 const BackupPage = React.lazy(() => import("./pages/BackupPage"));
@@ -212,7 +212,7 @@ export default function App() {
             {/* Document view (library/finished) */}
             <Route path="/documents/:id/view" element={<DocumentViewPage />} />
             <Route path="/documents/:id" element={<DocumentFlowPage />} />
-            <Route path="/documents/all" element={<MyWorkQueueListPage />} />
+            <Route path="/documents/all" element={<WorkflowListPage />} />
             <Route path="/documents" element={<DocumentLibraryPage />} />
             <Route path="/archive" element={<ArchivePage />} />
 

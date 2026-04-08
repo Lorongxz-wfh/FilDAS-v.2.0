@@ -375,34 +375,11 @@ export function buildAllColumns(onDelete?: (id: number) => void): TableColumn<Li
       key: "id",
       header: "ID",
       skeletonShape: "narrow",
+      sortKey: "id",
       render: (item) => (
         <span className="text-[10px] font-bold font-mono text-slate-400 dark:text-slate-500">
-          #{item.docId || item.reqId || (item._key?.split('-').pop()) || "?"}
+          #{item.docId || item.id || "?"}
         </span>
-      ),
-    },
-    {
-      key: "distributed",
-      header: "Distributed",
-      skeletonShape: "narrow",
-      sortKey: "distributed_at",
-      align: "left",
-      render: (item) => (
-        <NormalText secondary>
-          {formatDate(item.dateDistributed || item.date)}
-        </NormalText>
-      ),
-    },
-    {
-      key: "effective_date",
-      header: "Effective Date",
-      skeletonShape: "narrow",
-      sortKey: "effective_date",
-      align: "left",
-      render: (item: any) => (
-        <NormalText secondary>
-          {formatDate(item.effectiveDate || item.effective_date) || "—"}
-        </NormalText>
       ),
     },
     {
@@ -430,6 +407,30 @@ export function buildAllColumns(onDelete?: (id: number) => void): TableColumn<Li
             </div>
           )}
         </div>
+      ),
+    },
+    {
+      key: "distributed",
+      header: "Distributed",
+      skeletonShape: "narrow",
+      sortKey: "distributed_at",
+      align: "left",
+      render: (item) => (
+        <NormalText secondary>
+          {formatDate(item.dateDistributed || item.date)}
+        </NormalText>
+      ),
+    },
+    {
+      key: "effective_date",
+      header: "Effective",
+      skeletonShape: "narrow",
+      sortKey: "effective_date",
+      align: "left",
+      render: (item: any) => (
+        <NormalText secondary>
+          {formatDate(item.effectiveDate || item.effective_date) || "—"}
+        </NormalText>
       ),
     },
     {

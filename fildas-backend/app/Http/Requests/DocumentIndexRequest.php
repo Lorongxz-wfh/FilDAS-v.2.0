@@ -16,7 +16,7 @@ class DocumentIndexRequest extends FormRequest
         return [
             'q' => 'nullable|string',
             'status' => 'nullable|string',
-            'doctype' => 'nullable|string|in:INTERNAL,EXTERNAL,FORMS',
+            'doctype' => 'nullable|string',
             
             // date range
             'date_from' => 'nullable|date',
@@ -24,7 +24,7 @@ class DocumentIndexRequest extends FormRequest
 
             // pagination
             'page' => 'nullable|integer|min:1',
-            'perPage' => 'nullable|integer|min:1|max:100',
+            'per_page' => 'nullable|integer|min:1|max:100',
 
             // legacy / optional
             'owner_office_id' => 'nullable|integer|exists:offices,id',

@@ -11,7 +11,7 @@ import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import Table from "../components/ui/Table";
 import SelectDropdown from "../components/ui/SelectDropdown";
 import Alert from "../components/ui/Alert";
-import DateRangeInput from "../components/ui/DateRangeInput";
+import { DateRangePicker } from "../components/ui/DateRangePicker";
 import { PageActions, CreateAction, RefreshAction } from "../components/ui/PageActions";
 import SearchFilterBar from "../components/ui/SearchFilterBar";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
@@ -37,6 +37,7 @@ import {
 import { 
   listDocumentsPage,
   deleteDocument,
+  listOffices,
 } from "../services/documents";
 import { 
   listDocumentRequestIndividual,
@@ -250,6 +251,15 @@ export default function DocumentLibraryPage() {
     return () => window.clearTimeout(t);
   }, [q]);
 
+  const [offices, setOffices] = useState<any[]>([]);
+
+  useEffect(() => {
+    listOffices().then(data => {
+      const formatted = data.map(o => ({ value: String(o.id), label: o.code || o.name }));
+      setOffices(formatted);
+    });
+  }, []);
+
   const loadData = useCallback(async (isNextPage = false, silent = false) => {
     const targetPage = isNextPage ? page + 1 : 1;
     if (!isNextPage && !silent) {
@@ -295,7 +305,7 @@ export default function DocumentLibraryPage() {
           sort_by: sortBy,
           sort_dir: sortDir,
           office_id: officeFilter ? Number(officeFilter) : undefined,
-          batch_id: batchFilter ? Number(batchFilter) : undefined,
+          batch_type: (batchFilter === "multi_office" || batchFilter === "multi_doc") ? batchFilter : undefined,
         });
         const incoming = Array.isArray(res.data) ? res.data : [];
         setRows(prev => targetPage === 1 ? incoming : [...prev, ...incoming]);
@@ -326,7 +336,7 @@ export default function DocumentLibraryPage() {
             sort_by: sortBy,
             sort_dir: sortDir,
             office_id: officeFilter ? Number(officeFilter) : undefined,
-            batch_id: batchFilter ? Number(batchFilter) : undefined,
+            batch_type: (batchFilter === "multi_office" || batchFilter === "multi_doc") ? batchFilter : undefined,
           }) : Promise.resolve(null)
         ]);
 
@@ -384,31 +394,6 @@ export default function DocumentLibraryPage() {
     if (batchFilter) count++;
     return count;
   }, [typeFilter, dateFrom, dateTo, officeFilter, batchFilter]);
-
-  const availableOffices = useMemo(() => {
-    const map = new Map<number, string>();
-    rows.forEach((row: any) => {
-        const offId = row.owner_office_id || row.office_id || row.ownerOffice?.id || row.office?.id;
-        const offCode = row.office_code || row.ownerOffice?.code || row.office?.code || row.ownerOffice?.name;
-        
-        if (offId && offCode) {
-            map.set(Number(offId), String(offCode));
-        }
-    });
-    return Array.from(map.entries())
-        .sort((a, b) => a[1].localeCompare(b[1]))
-        .map(([id, label]) => ({ value: String(id), label }));
-  }, [rows]);
-
-  const availableBatches = useMemo(() => {
-    const map = new Map<number, string>();
-    rows.forEach((row: any) => {
-        if (row.request_id || row.batch_id) {
-            map.set(row.request_id || row.batch_id, row.batch_title || `Batch #${row.request_id || row.batch_id}`);
-        }
-    });
-    return Array.from(map.entries()).map(([id, label]) => ({ value: String(id), label }));
-  }, [rows]);
 
   const columns = useMemo(() => {
     const delDoc = adminDebugMode ? (id: number) => { setDeletingId(id); setDeletingType("doc"); } : undefined;
@@ -545,7 +530,7 @@ export default function DocumentLibraryPage() {
                     />
                   </div>
                 </div>
-                <DateRangeInput from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+                <DateRangePicker from={dateFrom} to={dateTo} onSelect={(r: any) => { setDateFrom(r.from); setDateTo(r.to); }} />
               </div>
             }
           >
@@ -564,7 +549,7 @@ export default function DocumentLibraryPage() {
                 onChange={(val) => { setOfficeFilter(val as string); setPage(1); }}
                 className="w-40"
                 placeholder="Office"
-                options={[{ value: "", label: "All Offices" }, ...availableOffices]}
+                options={[{ value: "", label: "All Offices" }, ...offices]}
               />
             )}
             {tab === "requested" && (
@@ -574,10 +559,10 @@ export default function DocumentLibraryPage() {
                 onChange={(val) => { setBatchFilter(val as string); setPage(1); }}
                 className="w-40"
                 placeholder="Batch"
-                options={[{ value: "", label: "All Batches" }, ...availableBatches]}
+                options={[{ value: "multi_office", label: "Multi-Office" }, { value: "multi_doc", label: "Multi-Doc" }]}
               />
             )}
-            <DateRangeInput from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+            <DateRangePicker from={dateFrom} to={dateTo} onSelect={(r: any) => { setDateFrom(r.from); setDateTo(r.to); }} />
           </SearchFilterBar>
 
           {error && <Alert variant="danger" className="mb-4 mx-4">{error}</Alert>}
@@ -609,12 +594,12 @@ export default function DocumentLibraryPage() {
                   onLoadMore={() => loadData(true)}
                   gridTemplateColumns={
                     (tab === "created" 
-                      ? "50px 90px 95px minmax(200px, 1fr) 90px 80px 80px 50px 100px" 
+                      ? "50px 90px 80px minmax(200px, 1fr) 90px 80px 80px 50px 100px" 
                       : tab === "shared" 
-                        ? "50px 90px 95px minmax(200px, 1fr) 90px 80px 80px 50px 100px" 
+                        ? "50px 90px 80px minmax(200px, 1fr) 90px 80px 80px 50px 100px" 
                         : tab === "requested" 
                           ? (isAdmin || isQA(role) ? "50px minmax(250px, 1fr) 110px 110px" : "50px minmax(250px, 1fr) 110px")
-                          : "50px 90px 95px minmax(180px, 1fr) 90px 80px 80px 80px 90px 100px") 
+                          : "50px minmax(180px, 1fr) 90px 80px 80px 80px 90px 80px 100px") 
                     + (adminDebugMode ? " 50px" : "")
                   }
                   sortBy={sortBy}
