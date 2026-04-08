@@ -19,7 +19,7 @@ type SidebarProps = {
   onLogout?: () => void;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
-  theme?: "light" | "dark";
+  theme?: "light" | "dark" | "system";
   onThemeToggle?: () => void;
   stats: NavStats;
 };

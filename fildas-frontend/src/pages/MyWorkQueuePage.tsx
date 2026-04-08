@@ -226,7 +226,7 @@ const MyWorkQueuePage: React.FC = () => {
               )}
             </div>
 
-            <div className="flex-1 px-4 pt-4 pb-1 space-y-1.5 overflow-hidden bg-slate-50/20 dark:bg-surface-500/10">
+            <div className="flex-1 px-4 pt-4 pb-3 space-y-1.5 overflow-hidden bg-slate-50/20 dark:bg-surface-500/10">
               {loading ? (
                 <SkeletonList variant="card" rows={3} />
               ) : sortedItems.length === 0 ? (
@@ -250,11 +250,11 @@ const MyWorkQueuePage: React.FC = () => {
 
             {/* Fading Edge Mask */}
             {!loading && sortedItems.length > 2 && (
-              <div className="absolute bottom-16 left-0 right-0 h-24 bg-gradient-to-t from-white dark:from-surface-500 via-white/90 dark:via-surface-500/90 to-transparent pointer-events-none z-10" />
+              <div className="absolute bottom-16 left-0 right-0 h-16 bg-gradient-to-t from-white dark:from-surface-500 via-white/80 dark:via-surface-500/80 to-transparent pointer-events-none z-10" />
             )}
 
             {/* Bottom View All Button */}
-            <div className="shrink-0 flex justify-center pt-1 pb-5 border-t border-slate-50/50 dark:border-surface-400/30">
+            <div className="shrink-0 flex justify-center py-3 border-t border-slate-50/50 dark:border-surface-400/30">
               <button
                 onClick={() => navigate("/documents/all")}
                 className="flex items-center gap-2 px-4 py-2 rounded-md border border-slate-200 dark:border-surface-400 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors uppercase tracking-wider"
@@ -320,7 +320,7 @@ const MyWorkQueuePage: React.FC = () => {
 
             {/* Fading Edge Mask */}
             {!loading && requestItems.length > 2 && (
-              <div className="absolute bottom-16 left-0 right-0 h-24 bg-gradient-to-t from-white dark:from-surface-500 via-white/90 dark:via-surface-500/90 to-transparent pointer-events-none z-10" />
+              <div className="absolute bottom-16 left-0 right-0 h-16 bg-gradient-to-t from-white dark:from-surface-500 via-white/80 dark:via-surface-500/80 to-transparent pointer-events-none z-10" />
             )}
 
             {/* Bottom View All Button */}
@@ -392,7 +392,7 @@ const MyWorkQueuePage: React.FC = () => {
 
             {/* Fading Edge Mask */}
             {!loadingActivity && recentActivity.length > 4 && (
-              <div className="absolute bottom-16 left-0 right-0 h-24 bg-gradient-to-t from-white dark:from-surface-500 via-white/90 dark:via-surface-500/90 to-transparent pointer-events-none z-10" />
+              <div className="absolute bottom-16 left-0 right-0 h-16 bg-gradient-to-t from-white dark:from-surface-500 via-white/80 dark:via-surface-500/80 to-transparent pointer-events-none z-10" />
             )}
 
             {/* Bottom View All Button */}

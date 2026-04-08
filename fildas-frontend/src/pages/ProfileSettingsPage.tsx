@@ -10,6 +10,8 @@ import {
   Volume2, 
   PenLine, 
   Wrench,
+  Monitor,
+  Layout,
 } from "lucide-react";
 import { 
   listActivityLogs 
@@ -20,6 +22,7 @@ import {
   uploadProfilePhoto, 
   uploadSignature, 
   updateNotificationPreferences,
+  updateThemePreference,
   type ProfileUpdatePayload 
 } from "../services/profile";
 import { ActivityTimeline, type ActivityLogRow } from "../components/profile/ActivityTimeline";
@@ -32,6 +35,7 @@ import SelectDropdown from "../components/ui/SelectDropdown";
 import { PageActions, RefreshAction } from "../components/ui/PageActions";
 import { inputCls } from "../utils/formStyles";
 import { useToast } from "../components/ui/toast/ToastContext";
+import { useThemeContext } from "../lib/ThemeContext";
 import { normalizeError } from "../lib/normalizeError";
 import { getUserRole, isAuditor } from "../lib/roleFilters";
 
@@ -338,6 +342,7 @@ const ProfileSettingsPage: React.FC = () => {
 // ── Internal Settings Sections ─────────────────────────────────────────────
 
 const SettingsLayout: React.FC<{ user: any; push: any }> = ({ user, push }) => {
+  const { theme: currentTheme, setTheme } = useThemeContext();
   const [pw, setPw] = useState({ current_password: "", password: "", password_confirmation: "" });
   const [pwLoading, setPwLoading] = useState(false);
   const sigInputRef = useRef<HTMLInputElement>(null);
@@ -397,10 +402,44 @@ const SettingsLayout: React.FC<{ user: any; push: any }> = ({ user, push }) => {
     } catch (err) { push({ type: "error", message: normalizeError(err) }); }
   };
 
+  const handleThemeChange = async (theme: "light" | "dark" | "system") => {
+    try {
+      setTheme(theme);
+      const updated = await updateThemePreference(theme);
+      localStorage.setItem("auth_user", JSON.stringify({ ...JSON.parse(localStorage.getItem("auth_user") || "{}"), ...updated }));
+    } catch {
+      push({ type: "error", title: "Sync Failed", message: "Failed to save theme preference to your account." });
+    }
+  };
+
   const isAdmin = ["ADMIN", "SYSADMIN"].includes(String(getUserRole()).toUpperCase());
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-12 pb-10">
+      {/* Theme section */}
+      <Section title="Appearance" icon={<Layout className="h-4 w-4" />} description="Choose how FilDAS looks to you. Select System to follow your device settings.">
+         <div className="flex p-1 bg-slate-100 dark:bg-surface-400 rounded-lg max-w-sm">
+            {[
+              { id: "light", label: "Light", icon: <Sun className="h-3.5 w-3.5" /> },
+              { id: "dark", label: "Dark", icon: <Moon className="h-3.5 w-3.5" /> },
+              { id: "system", label: "System", icon: <Monitor className="h-3.5 w-3.5" /> }
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => handleThemeChange(opt.id as any)}
+                className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-bold transition-all ${
+                  currentTheme === opt.id 
+                    ? "bg-white dark:bg-surface-600 text-brand-500 shadow-sm" 
+                    : "text-slate-500 hover:text-slate-700 dark:text-slate-100"
+                }`}
+              >
+                {opt.icon}
+                {opt.label}
+              </button>
+            ))}
+         </div>
+      </Section>
+
       {/* Password section */}
       <Section title="Security & Authentication" icon={<KeyRound className="h-4 w-4" />} description="Protect your account by using a strong password and multi-factor verification.">
          <div className="space-y-8">

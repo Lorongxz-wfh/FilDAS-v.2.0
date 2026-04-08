@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Sun, Moon, Menu, PanelLeftClose, Ghost } from "lucide-react";
+import { Sun, Moon, Monitor, Menu, PanelLeftClose, Ghost } from "lucide-react";
 import { useAdminDebugMode } from "../../hooks/useAdminDebugMode";
 import logoUrl from "../../assets/FCU Logo.png";
 
@@ -10,7 +10,7 @@ interface SidebarBrandProps {
   toggle: () => void;
   onMobileClose?: () => void;
   onThemeToggle?: () => void;
-  theme: "light" | "dark";
+  theme: "light" | "dark" | "system";
 }
 
 const SidebarBrand: React.FC<SidebarBrandProps> = ({
@@ -64,7 +64,13 @@ const SidebarBrand: React.FC<SidebarBrandProps> = ({
             onClick={onThemeToggle}
             className="flex md:hidden h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-surface-400 transition"
           >
-            {theme === "dark" ? <Sun className="h-4.5 w-4.5 text-amber-500" /> : <Moon className="h-4.5 w-4.5" />}
+            {theme === "dark" ? (
+              <Sun className="h-4.5 w-4.5 text-amber-500" />
+            ) : theme === "system" ? (
+              <Monitor className="h-4.5 w-4.5 text-brand-500" />
+            ) : (
+              <Moon className="h-4.5 w-4.5" />
+            )}
           </button>
         )}
         {mobileOpen ? (

@@ -20,6 +20,7 @@ export type AuthUser = {
   // Extra display info (optional)
   office: { id: number; name: string; code: string } | null;
   two_factor_enabled: boolean;
+  theme_preference?: "light" | "dark" | "system";
 };
 
 export const AUTH_USER_KEY = "auth_user";

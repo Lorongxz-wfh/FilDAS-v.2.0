@@ -1,29 +1,25 @@
 import React from "react";
-import { getStoredTheme, applyTheme, type Theme } from "./theme";
+import { type ThemePreference } from "./theme";
 
 interface ThemeCtx {
-  theme: Theme;
+  theme: ThemePreference;
   toggle: () => void;
+  setTheme: (theme: ThemePreference) => void;
 }
 
 const ThemeContext = React.createContext<ThemeCtx>({
-  theme: "light",
+  theme: "system",
   toggle: () => {},
+  setTheme: () => {},
 });
 
+import { useTheme } from "../hooks/useTheme";
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = React.useState<Theme>(getStoredTheme);
-
-  React.useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
-
-  const toggle = React.useCallback(() => {
-    setTheme((t) => (t === "light" ? "dark" : "light"));
-  }, []);
+  const { theme, toggle, setTheme } = useTheme();
 
   return (
-    <ThemeContext.Provider value={{ theme, toggle }}>
+    <ThemeContext.Provider value={{ theme, toggle, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

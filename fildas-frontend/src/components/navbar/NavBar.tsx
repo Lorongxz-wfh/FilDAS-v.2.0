@@ -1,10 +1,10 @@
-import { Menu, Sun, Moon } from "lucide-react";
+import { Menu, Sun, Moon, Monitor } from "lucide-react";
 import SearchBar from "./SearchBar";
 import NotificationBell from "./NotificationBell";
 
 interface NavbarProps {
   onThemeToggle?: () => void;
-  theme?: "light" | "dark";
+  theme?: "light" | "dark" | "system";
   onMobileMenuOpen?: () => void;
 }
 
@@ -41,6 +41,8 @@ const Navbar: React.FC<NavbarProps> = ({
           >
             {theme === "dark" ? (
               <Sun className="h-4.5 w-4.5 text-amber-500 animate-theme-icon" />
+            ) : theme === "system" ? (
+              <Monitor className="h-4.5 w-4.5 text-brand-500 animate-theme-icon" />
             ) : (
               <Moon className="h-4.5 w-4.5 animate-theme-icon" />
             )}

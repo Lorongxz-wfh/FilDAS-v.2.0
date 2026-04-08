@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { setAuthUser } from "../lib/auth";
 import logoUrl from "../assets/FCU Logo.png";
 import { CheckCircle2, Sun, Moon, Mail, Lock } from "lucide-react";
-import { useTheme } from "../hooks/useTheme";
+import { useThemeContext } from "../lib/ThemeContext";
 import FormField from "../components/ui/FormField";
 import api from "../services/api";
 
@@ -14,7 +14,7 @@ const LoginPage: React.FC = () => {
   const [emailTouched, setEmailTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { theme, toggle: toggleDark } = useTheme();
+  const { theme, toggle: toggleDark, setTheme } = useThemeContext();
 
   // 2FA Challenge States
   const [showChallenge, setShowChallenge] = useState(false);
@@ -67,6 +67,12 @@ const LoginPage: React.FC = () => {
   const handleLoginSuccess = (data: any) => {
     localStorage.setItem("auth_token", data.token);
     setAuthUser(data.user);
+
+    // Sync theme if user has a preference
+    if (data.user?.theme_preference) {
+      setTheme(data.user.theme_preference);
+    }
+
     // Preload the dashboard chunk while the splash is animating
     import("./DashboardPage").catch(() => {});
     window.dispatchEvent(new Event("show_splash"));

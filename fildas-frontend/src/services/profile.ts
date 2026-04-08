@@ -62,6 +62,11 @@ export async function updateNotificationPreferences(payload: {
   return data as { email_doc_updates: boolean; email_approvals: boolean; email_requests: boolean };
 }
 
+export async function updateThemePreference(theme: "light" | "dark" | "system") {
+  const { data } = await api.patch("/profile/theme-preference", { theme_preference: theme });
+  return data.user;
+}
+
 // ── Two-Factor Authentication ──────────────────────────────────────────────
 export async function setupTwoFactor() {
   const { data } = await api.get("/profile/two-factor/setup");
