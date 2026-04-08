@@ -44,71 +44,92 @@ const SidebarProfile: React.FC<SidebarProfileProps> = ({
     }
   };
 
-  const ProfileDropdownContent = () => (
-    <div className={[
-      "absolute z-50 rounded-xl border border-neutral-200 dark:border-surface-400 bg-white dark:bg-surface-500 shadow-xl py-1.5 overflow-hidden",
-      collapsed ? "left-[calc(100%+8px)] bottom-0 w-64 animate-pop-in-left" : "left-2 right-2 bottom-full mb-2 animate-pop-in-bottom"
-    ].join(" ")}>
-      <div className="px-3.5 py-2 border-b border-neutral-100 dark:border-surface-400">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-surface-100/50">Account</p>
-      </div>
-      <div className="py-1">
-        {[
-          { label: "Profile & Settings", icon: User, to: "/profile" },
-        ].map((item) => (
-          <NavLink
-            key={item.label}
-            to={item.to}
-            className="flex items-center gap-3 px-3.5 py-2.5 text-[13.5px] font-semibold text-neutral-600 dark:text-surface-100 hover:bg-neutral-50 dark:hover:bg-surface-400 transition-colors"
-          >
-            <item.icon className="h-4.5 w-4.5 text-neutral-400 dark:text-neutral-500" />
-            {item.label}
-          </NavLink>
-        ))}
-      </div>
+interface ProfileDropdownContentProps {
+  collapsed: boolean;
+  onItemClick: () => void;
+  handleLogoutClick: () => void;
+  isLoggingOut: boolean;
+}
 
-      <div className="px-3.5 py-2 border-t border-neutral-100 dark:border-surface-400 mt-1">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-surface-100/50">Support</p>
-      </div>
-
-      <div className="py-1">
-        {[
-          { label: "What's New", icon: Megaphone, to: "/whats-new" },
-          { label: "Report Issue", icon: AlertCircle, to: "/report-issue" },
-          { label: "Help & Support", icon: HelpCircle, to: "/help" },
-        ].map((item) => (
-          <NavLink
-            key={item.label}
-            to={item.to}
-            className="flex items-center gap-3 px-3.5 py-2.5 text-[13.5px] font-semibold text-neutral-600 dark:text-surface-100 hover:bg-neutral-50 dark:hover:bg-surface-400 transition-colors"
-          >
-            <item.icon className="h-4.5 w-4.5 text-neutral-400 dark:text-neutral-500" />
-            {item.label}
-          </NavLink>
-        ))}
-      </div>
-
-      <div className="border-t border-neutral-100 dark:border-surface-400 mt-1 pt-1 pb-1">
-        <button
-          onClick={handleLogoutClick}
-          disabled={isLoggingOut}
-          className="flex w-full items-center gap-3 px-3.5 py-2.5 text-[13.5px] font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors disabled:opacity-50"
-        >
-          {isLoggingOut ? (
-            <Loader2 className="h-4.5 w-4.5 animate-spin" />
-          ) : (
-            <LogOut className="h-4.5 w-4.5" />
-          )}
-          {isLoggingOut ? "Signing Out..." : "Sign Out"}
-        </button>
-      </div>
+const ProfileDropdownContent: React.FC<ProfileDropdownContentProps> = ({ 
+  collapsed, 
+  onItemClick, 
+  handleLogoutClick, 
+  isLoggingOut 
+}) => (
+  <div className={[
+    "absolute z-50 rounded-xl border border-neutral-200 dark:border-surface-400 bg-white dark:bg-surface-500 shadow-xl py-1.5 overflow-hidden",
+    collapsed ? "left-[calc(100%+8px)] bottom-0 w-64 animate-pop-in-left" : "left-2 right-2 bottom-full mb-2 animate-pop-in-bottom"
+  ].join(" ")}>
+    <div className="px-3.5 py-2 border-b border-neutral-100 dark:border-surface-400">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-surface-100/50">Account</p>
     </div>
-  );
+    <div className="py-1">
+      {[
+        { label: "Profile & Settings", icon: User, to: "/profile" },
+      ].map((item) => (
+        <NavLink
+          key={item.label}
+          to={item.to}
+          onClick={onItemClick}
+          className="flex items-center gap-3 px-3.5 py-2.5 text-[13.5px] font-semibold text-neutral-600 dark:text-surface-100 hover:bg-neutral-50 dark:hover:bg-surface-400 transition-colors"
+        >
+          <item.icon className="h-4.5 w-4.5 text-neutral-400 dark:text-neutral-500" />
+          {item.label}
+        </NavLink>
+      ))}
+    </div>
+
+    <div className="px-3.5 py-2 border-t border-neutral-100 dark:border-surface-400 mt-1">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-surface-100/50">Support</p>
+    </div>
+
+    <div className="py-1">
+      {[
+        { label: "What's New", icon: Megaphone, to: "/whats-new" },
+        { label: "Report Issue", icon: AlertCircle, to: "/report-issue" },
+        { label: "Help & Support", icon: HelpCircle, to: "/help" },
+      ].map((item) => (
+        <NavLink
+          key={item.label}
+          to={item.to}
+          onClick={onItemClick}
+          className="flex items-center gap-3 px-3.5 py-2.5 text-[13.5px] font-semibold text-neutral-600 dark:text-surface-100 hover:bg-neutral-50 dark:hover:bg-surface-400 transition-colors"
+        >
+          <item.icon className="h-4.5 w-4.5 text-neutral-400 dark:text-neutral-500" />
+          {item.label}
+        </NavLink>
+      ))}
+    </div>
+
+    <div className="border-t border-neutral-100 dark:border-surface-400 mt-1 pt-1 pb-1">
+      <button
+        onClick={handleLogoutClick}
+        disabled={isLoggingOut}
+        className="flex w-full items-center gap-3 px-3.5 py-2.5 text-[13.5px] font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors disabled:opacity-50"
+      >
+        {isLoggingOut ? (
+          <Loader2 className="h-4.5 w-4.5 animate-spin" />
+        ) : (
+          <LogOut className="h-4.5 w-4.5" />
+        )}
+        {isLoggingOut ? "Signing Out..." : "Sign Out"}
+      </button>
+    </div>
+  </div>
+);
 
   return (
     <div className="shrink-0 border-t border-neutral-200 dark:border-surface-400 bg-neutral-50/40 dark:bg-black/10" ref={profileRef}>
       <div className="relative px-2 py-3">
-        {profileOpen && <ProfileDropdownContent />}
+        {profileOpen && (
+          <ProfileDropdownContent 
+            collapsed={collapsed}
+            onItemClick={() => setProfileOpen(false)}
+            handleLogoutClick={handleLogoutClick}
+            isLoggingOut={isLoggingOut}
+          />
+        )}
         <button
           onClick={() => setProfileOpen(!profileOpen)}
           className={["flex w-full items-center gap-2.5 py-2 transition-all group rounded-lg", collapsed ? "justify-center" : "px-2 hover:bg-neutral-100 dark:hover:bg-surface-400", profileOpen ? "bg-neutral-100 dark:bg-surface-400" : ""].join(" ")}
