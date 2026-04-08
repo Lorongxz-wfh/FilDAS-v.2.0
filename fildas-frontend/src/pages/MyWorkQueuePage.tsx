@@ -226,7 +226,7 @@ const MyWorkQueuePage: React.FC = () => {
               )}
             </div>
 
-            <div className="flex-1 px-4 py-4 space-y-1.5 overflow-hidden bg-slate-50/20 dark:bg-surface-500/10">
+            <div className="flex-1 px-4 pt-4 pb-1 space-y-1.5 overflow-hidden bg-slate-50/20 dark:bg-surface-500/10">
               {loading ? (
                 <SkeletonList variant="card" rows={3} />
               ) : sortedItems.length === 0 ? (
@@ -254,7 +254,7 @@ const MyWorkQueuePage: React.FC = () => {
             )}
 
             {/* Bottom View All Button */}
-            <div className="shrink-0 flex justify-center p-4 border-t border-slate-50/50 dark:border-surface-400/30">
+            <div className="shrink-0 flex justify-center pt-1 pb-5 border-t border-slate-50/50 dark:border-surface-400/30">
               <button
                 onClick={() => navigate("/documents/all")}
                 className="flex items-center gap-2 px-4 py-2 rounded-md border border-slate-200 dark:border-surface-400 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors uppercase tracking-wider"
@@ -296,7 +296,7 @@ const MyWorkQueuePage: React.FC = () => {
               )}
             </div>
 
-            <div className="flex-1 px-4 py-4 space-y-1.5 overflow-hidden bg-slate-50/20 dark:bg-surface-500/10">
+            <div className="flex-1 px-4 pt-4 pb-1 space-y-1.5 overflow-hidden bg-slate-50/20 dark:bg-surface-500/10">
               {loading ? (
                 <SkeletonList variant="card" rows={3} />
               ) : requestItems.length === 0 ? (
@@ -324,7 +324,7 @@ const MyWorkQueuePage: React.FC = () => {
             )}
 
             {/* Bottom View All Button */}
-            <div className="shrink-0 flex justify-center p-4 border-t border-slate-50/50 dark:border-surface-400/30">
+            <div className="shrink-0 flex justify-center pt-1 pb-5 border-t border-slate-50/50 dark:border-surface-400/30">
               <button
                 onClick={() => navigate("/document-requests")}
                 className="flex items-center gap-2 px-4 py-2 rounded-md border border-slate-200 dark:border-surface-400 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors uppercase tracking-wider"
@@ -355,7 +355,7 @@ const MyWorkQueuePage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex-1 px-3 py-3 overflow-hidden">
+            <div className="flex-1 px-3 pt-3 pb-1 overflow-hidden">
               {loadingActivity ? (
                 <SkeletonList variant="activity" rows={6} />
               ) : recentActivity.length === 0 ? (
@@ -396,7 +396,7 @@ const MyWorkQueuePage: React.FC = () => {
             )}
 
             {/* Bottom View All Button */}
-            <div className="shrink-0 flex justify-center p-4 border-t border-slate-50/50 dark:border-surface-400/30">
+            <div className="shrink-0 flex justify-center pt-1 pb-5 border-t border-slate-50/50 dark:border-surface-400/30">
               <button
                 onClick={() => navigate("/my-activity")}
                 className="flex items-center gap-2 px-4 py-2 rounded-md border border-slate-200 dark:border-surface-400 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition-colors uppercase tracking-wider"
