@@ -16,7 +16,6 @@ import { PageActions, CreateAction, RefreshAction } from "../components/ui/PageA
 import SearchFilterBar from "../components/ui/SearchFilterBar";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
 import { LayoutGrid, List, Share2, ClipboardList, Archive, Library, Trash2 } from "lucide-react";
-import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 // import { formatDate } from "../utils/formatters";
 import { Tabs } from "../components/ui/Tabs";
 import { TabBar as SubTabBar } from "../components/documentRequests/shared";
@@ -375,7 +374,6 @@ export default function DocumentLibraryPage() {
     }
   }, [tab, qDebounced, typeFilter, dateFrom, dateTo, sortBy, sortDir, loadData, activeTab]);
 
-  const { refreshing: remoteRefreshing } = usePageBurstRefresh(() => loadData(false, true));
 
   const activeFiltersCount = useMemo(() => {
     let count = 0;
@@ -463,7 +461,7 @@ export default function DocumentLibraryPage() {
       title="Document Library"
       right={
         <PageActions>
-          <RefreshAction onRefresh={refresh} loading={isRefreshing || remoteRefreshing} />
+          <RefreshAction onRefresh={refresh} loading={isRefreshing} />
           <button
             type="button"
             onClick={() => navigate("/archive")}
@@ -585,13 +583,13 @@ export default function DocumentLibraryPage() {
           {error && <Alert variant="danger" className="mb-4 mx-4">{error}</Alert>}
 
           <div className="flex-1 min-h-0 min-w-0 flex flex-col">
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="popLayout">
               <motion.div
                 key={tab + qDebounced + typeFilter + dateFrom + dateTo + officeFilter + batchFilter}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.15 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.1 }}
                 className="flex-1 min-h-0 rounded-sm border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden"
               >
                 <Table<any>

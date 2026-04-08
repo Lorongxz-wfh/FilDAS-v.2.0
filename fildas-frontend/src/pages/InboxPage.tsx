@@ -405,8 +405,8 @@ const InboxPage: React.FC = () => {
             </div>
           </div>
 
-          <AnimatePresence mode="wait">
-            <motion.div key={tab + search} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="space-y-10">
+          <AnimatePresence mode="popLayout">
+            <motion.div key={tab + search} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="space-y-10">
               {loading ? (
                  <div className="space-y-4">
                    {Array.from({ length: 4 }).map((_, i) => (

@@ -92,7 +92,7 @@ export function useRealtimeUpdates({
   React.useEffect(() => {
     if (!onAnnouncement) return;
 
-    // Staggered join to prevent auth burst
+    // Staggered join (Priority 2) - Higher delay to allow stats to finish
     const timer = setTimeout(() => {
       const channel = echo.join("announcements");
       channel.listen(".announcement.created", (data: Announcement) => {
@@ -100,7 +100,7 @@ export function useRealtimeUpdates({
         if (announcementTimeout.current) return;
         announcementTimeout.current = setTimeout(processAnnouncementBuffer, 100);
       });
-    }, 800);
+    }, 2000);
 
     return () => {
       clearTimeout(timer);
@@ -127,13 +127,13 @@ export function useRealtimeUpdates({
   React.useEffect(() => {
     if (!onWorkspaceChange) return;
 
-    // Staggered join (Priority 2)
+    // Staggered join (Priority 3) - Maximum delay to clear initial waterfall
     const timer = setTimeout(() => {
       const channel = echo.private("workspace");
       channel.listen(".workspace.changed", (data: any) => {
         if (onWorkspaceChangeRef.current) onWorkspaceChangeRef.current(data);
       });
-    }, 1600);
+    }, 4000);
 
     return () => {
       clearTimeout(timer);

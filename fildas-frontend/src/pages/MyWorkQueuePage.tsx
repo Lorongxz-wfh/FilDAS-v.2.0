@@ -23,7 +23,6 @@ import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import PageFrame from "../components/layout/PageFrame";
 import { PageActions, RefreshAction, CreateAction } from "../components/ui/PageActions";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
-import { usePageBurstRefresh } from "../hooks/usePageBurstRefresh";
 import { FileText, ClipboardList, LayoutTemplate } from "lucide-react";
 import StatCard from "../components/workQueue/StatCard";
 import QueueCard from "../components/workQueue/QueueCard";
@@ -122,7 +121,6 @@ const MyWorkQueuePage: React.FC = () => {
     loadAll();
   }, [loadAll]);
 
-  const { refreshing } = usePageBurstRefresh(useCallback(async () => { await loadAll(); }, [loadAll]));
 
   // ── Handlers ───────────────────────────────────────────────────────────────
   const openByDocId = (docId: number) =>
@@ -182,7 +180,7 @@ const MyWorkQueuePage: React.FC = () => {
               const changed = await loadAll(true);
               return changed ? "New updates found." : "Work queue is up to date.";
             }}
-            loading={refreshing || loading}
+            loading={loading}
           />
         </PageActions>
       }
