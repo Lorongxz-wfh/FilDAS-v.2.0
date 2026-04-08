@@ -97,164 +97,33 @@ export function useDashboardData(role: UserRole): DashboardData {
 
       try {
         if (isAdmin) {
-          const promises: Promise<any>[] = [
-            getAdminDashboardStats({ 
-              date_from: dateFrom,
-              date_to: dateTo
-            })
-          ];
-
-          // Heavy activity fetch only on initial load or manual refresh
-          if (!silent) {
-            promises.push(listActivityLogs({ 
-              scope: "all", 
-              per_page: 5, // Reduced from 8 to further shrink payload
-              date_from: dateFrom,
-              date_to: dateTo
-            }));
-          }
-
-          const results = await Promise.allSettled(promises);
-          const adminRes = results[0] as PromiseSettledResult<AdminDashboardStats>;
-          const activityRes = results[1] as PromiseSettledResult<any> | undefined;
-
+          // Priority 1: Fast stats
+          const adminProm = getAdminDashboardStats({ date_from: dateFrom, date_to: dateTo });
+          const adminResult = await Promise.allSettled([adminProm]);
+          const adminRes = adminResult[0] as PromiseSettledResult<AdminDashboardStats>;
           if (adminRes.status === "fulfilled") setAdminStats(adminRes.value);
-          if (activityRes?.status === "fulfilled")
-            setRecentActivity(activityRes.value.data ?? []);
 
-          const firstErr = results.find(
-            (r) => r.status === "rejected",
-          ) as PromiseRejectedResult | undefined;
-          if (firstErr && !silent)
-            setError(
-              firstErr.reason instanceof Error
-                ? firstErr.reason.message
-                : "Failed to load stats",
-            );
-        } else if (isQA(role)) {
-          const promises = [
-              getDocumentStats({ date_from: dateFrom, date_to: dateTo }),
-              getWorkQueue(),
-              getComplianceReport({ 
-                date_from: dateFrom, 
-                date_to: dateTo,
-                bucket: period === "this_week" ? "daily" : period === "today" ? "daily" : "monthly"
-              }),
-              listDocumentRequests({ 
-                per_page: 1,
-                date_from: dateFrom,
-                date_to: dateTo
-              }),
-          ];
-
+          // Priority 2: Heavy logs (staggered)
           if (!silent) {
-            promises.push(listActivityLogs({ 
-              scope: "all", 
-              per_page: 5,
-              category: "workflow",
-              date_from: dateFrom,
-              date_to: dateTo
-            }));
-          }
-
-          const results = await Promise.allSettled(promises);
-          const statsRes = results[0] as PromiseSettledResult<DocumentStats>;
-          const queueRes = results[1] as PromiseSettledResult<any>;
-          const reportRes = results[2] as PromiseSettledResult<any>;
-          const reqRes = results[3] as PromiseSettledResult<any>;
-          const activityRes = results[4] as PromiseSettledResult<any> | undefined;
-
-          if (statsRes.status === "fulfilled") setStats(statsRes.value);
-          if (queueRes.status === "fulfilled") {
-            const assigned = queueRes.value.assigned ?? [];
-            setPending(assigned);
-            setMonitoring(queueRes.value.monitoring ?? []);
-            lastPendingCountRef.current = assigned.length;
-          }
-          if (activityRes?.status === "fulfilled")
-            setRecentActivity(activityRes.value.data ?? []);
-          if (reportRes.status === "fulfilled") setReport(reportRes.value);
-          if (reqRes.status === "fulfilled") {
-            const total = reqRes.value?.meta?.total ?? 0;
-            setPendingRequestsCount(total);
-
-            // For QA dashboard "Pending actions"
-            const docs = (queueRes.status === "fulfilled" ? queueRes.value.assigned : []).map(
-              (x: any) =>
-                ({
-                  type: "document",
-                  id: x.version.id,
-                  title: x.document.title,
-                  code: x.document.code || (x.document as any).reserved_code,
-                  status: x.version.status,
-                  item: x,
-                } as PendingAction),
-            );
-
-            // Global requests (if any)
-            const reqs = (reqRes.value?.data ?? [])
-              .filter((r: any) => r.status === "open")
-              .map(
-                (r: any) =>
-                  ({
-                    type: "request",
-                    id: r.id,
-                    title: r.title,
-                    code: `Request #${r.id}`,
-                    status: "Open",
-                    item: r,
-                  } as PendingAction),
-              );
-
-            setPendingActions([...docs, ...reqs]);
-          }
-          
-          const firstErr = results.slice(0, 3).find(
-            (r) => r.status === "rejected",
-          ) as PromiseRejectedResult | undefined;
-          if (firstErr && !silent)
-            setError(
-              firstErr.reason instanceof Error
-                ? firstErr.reason.message
-                : "Failed to load dashboard components",
-            );
-        } else if (isAuditor(role)) {
-          const promises: Promise<any>[] = [getDocumentStats({ date_from: dateFrom, date_to: dateTo })];
-          if (!silent) promises.push(listActivityLogs({ scope: "all", per_page: 5, date_from: dateFrom, date_to: dateTo }));
-          
-          const results = await Promise.allSettled(promises);
-          const statsRes = results[0] as PromiseSettledResult<DocumentStats>;
-          const activityRes = results[1] as PromiseSettledResult<any> | undefined;
-
-          if (statsRes.status === "fulfilled") setStats(statsRes.value);
-          if (activityRes?.status === "fulfilled") {
-            setRecentActivity(activityRes.value.data ?? []);
-          }
-        } else {
-          const promises = [
-              getDocumentStats({ date_from: dateFrom, date_to: dateTo }),
-              getWorkQueue(),
-              listDocumentRequestInbox({ 
+            setTimeout(async () => {
+              const activityRes = await listActivityLogs({ 
+                scope: "all", 
                 per_page: 5,
                 date_from: dateFrom,
                 date_to: dateTo
-              }),
-          ];
-
-          if (!silent) {
-            promises.push(listActivityLogs({ 
-              scope: "office", 
-              per_page: 5,
-              date_from: dateFrom,
-              date_to: dateTo
-            }));
+              });
+              setRecentActivity(activityRes.data ?? []);
+            }, 800);
           }
-
-          const results = await Promise.allSettled(promises);
-          const statsRes = results[0] as PromiseSettledResult<DocumentStats>;
-          const queueRes = results[1] as PromiseSettledResult<any>;
-          const inboxRes = results[2] as PromiseSettledResult<any>;
-          const activityRes = results[3] as PromiseSettledResult<any> | undefined;
+        } else if (isQA(role)) {
+          // Priority 1: Instant feedback
+          const p1 = [
+            getDocumentStats({ date_from: dateFrom, date_to: dateTo }),
+            getWorkQueue(),
+          ];
+          const r1 = await Promise.allSettled(p1);
+          const statsRes = r1[0] as PromiseSettledResult<DocumentStats>;
+          const queueRes = r1[1] as PromiseSettledResult<any>;
 
           if (statsRes.status === "fulfilled") setStats(statsRes.value);
           if (queueRes.status === "fulfilled") {
@@ -263,44 +132,137 @@ export function useDashboardData(role: UserRole): DashboardData {
             setMonitoring(queueRes.value.monitoring ?? []);
             lastPendingCountRef.current = assigned.length;
           }
-          if (activityRes?.status === "fulfilled")
-            setRecentActivity(activityRes.value.data ?? []);
-          if (inboxRes.status === "fulfilled") {
-            const total = inboxRes.value?.meta?.total ?? 0;
-            setPendingRequestsInboxCount(total);
+
+          // Priority 2: Reports & Requests (slightly delayed)
+          setTimeout(async () => {
+             const [reportRes, reqRes] = await Promise.all([
+                getComplianceReport({ 
+                  date_from: dateFrom, 
+                  date_to: dateTo,
+                  bucket: period === "this_week" ? "daily" : period === "today" ? "daily" : "monthly"
+                }),
+                listDocumentRequests({ 
+                  per_page: 1,
+                  date_from: dateFrom,
+                  date_to: dateTo
+                })
+             ]);
+             
+             setReport(reportRes);
+             setPendingRequestsCount(reqRes?.meta?.total ?? 0);
+
+             const docs = (queueRes.status === "fulfilled" ? queueRes.value.assigned : []).map(
+               (x: any) => ({
+                 type: "document",
+                 id: x.version.id,
+                 title: x.document.title,
+                 code: x.document.code || (x.document as any).reserved_code,
+                 status: x.version.status,
+                 item: x,
+               } as PendingAction)
+             );
+
+             const reqs = (reqRes?.data ?? [])
+               .filter((r: any) => r.status === "open")
+               .map((r: any) => ({
+                 type: "request",
+                 id: r.id,
+                 title: r.title,
+                 code: `Request #${r.id}`,
+                 status: "Open",
+                 item: r,
+               } as PendingAction));
+
+             setPendingActions([...docs, ...reqs]);
+          }, 400);
+
+          // Priority 3: Monster payload (heavily staggered)
+          if (!silent) {
+            setTimeout(async () => {
+              const res = await listActivityLogs({ 
+                scope: "all", 
+                per_page: 3, // Even fewer items for QA dashboard
+                category: "workflow",
+                date_from: dateFrom,
+                date_to: dateTo
+              });
+              setRecentActivity(res.data ?? []);
+            }, 1200);
+          }
+
+        } else if (isAuditor(role)) {
+          const statsRes = await getDocumentStats({ date_from: dateFrom, date_to: dateTo });
+          setStats(statsRes);
+          
+          if (!silent) {
+            setTimeout(async () => {
+              const res = await listActivityLogs({ scope: "all", per_page: 5, date_from: dateFrom, date_to: dateTo });
+              setRecentActivity(res.data ?? []);
+            }, 800);
+          }
+        } else {
+          // Priority 1: Core queue
+          const p1 = [
+            getDocumentStats({ date_from: dateFrom, date_to: dateTo }),
+            getWorkQueue(),
+          ];
+          const r1 = await Promise.allSettled(p1);
+          const statsRes = r1[0] as PromiseSettledResult<DocumentStats>;
+          const queueRes = r1[1] as PromiseSettledResult<any>;
+
+          if (statsRes.status === "fulfilled") setStats(statsRes.value);
+          if (queueRes.status === "fulfilled") {
+            const assigned = queueRes.value.assigned ?? [];
+            setPending(assigned);
+            setMonitoring(queueRes.value.monitoring ?? []);
+            lastPendingCountRef.current = assigned.length;
+          }
+
+          // Priority 2: Inbox & Actions
+          setTimeout(async () => {
+            const inboxRes = await listDocumentRequestInbox({ 
+              per_page: 5,
+              date_from: dateFrom,
+              date_to: dateTo
+            });
+            setPendingRequestsInboxCount(inboxRes?.meta?.total ?? 0);
 
             const docs = (queueRes.status === "fulfilled" ? queueRes.value.assigned : []).map(
-              (x: any) =>
-                ({
-                  type: "document",
-                  id: x.version.id,
-                  title: x.document.title,
-                  code: x.document.code || (x.document as any).reserved_code,
-                  status: x.version.status,
-                  item: x,
-                } as PendingAction),
+              (x: any) => ({
+                type: "document",
+                id: x.version.id,
+                title: x.document.title,
+                code: x.document.code || (x.document as any).reserved_code,
+                status: x.version.status,
+                item: x,
+              } as PendingAction)
             );
 
-            const reqs = (inboxRes.value?.data ?? [])
-              .filter(
-                (r: any) =>
-                  r.recipient_status === "pending" ||
-                  r.recipient_status === "rejected",
-              )
-              .map(
-                (r: any) =>
-                  ({
-                    type: "request",
-                    id: r.id,
-                    title: r.title,
-                    code: `Request #${r.id}`,
-                    status:
-                      r.recipient_status === "pending" ? "Pending" : "Rejected",
-                    item: r,
-                  } as PendingAction),
-              );
+            const reqs = (inboxRes?.data ?? [])
+              .filter((r: any) => r.recipient_status === "pending" || r.recipient_status === "rejected")
+              .map((r: any) => ({
+                type: "request",
+                id: r.id,
+                title: r.title,
+                code: `Request #${r.id}`,
+                status: r.recipient_status === "pending" ? "Pending" : "Rejected",
+                item: r,
+              } as PendingAction));
 
             setPendingActions([...docs, ...reqs]);
+          }, 400);
+
+          // Priority 3: Heavy logs
+          if (!silent) {
+            setTimeout(async () => {
+              const res = await listActivityLogs({ 
+                scope: "office", 
+                per_page: 5,
+                date_from: dateFrom,
+                date_to: dateTo
+              });
+              setRecentActivity(res.data ?? []);
+            }, 1000);
           }
         }
       } catch (e: unknown) {
