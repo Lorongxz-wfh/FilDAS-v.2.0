@@ -32,17 +32,19 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
   const [isExpanded, setIsExpanded] = useState(true);
 
   const hasChildren = children && children.length > 0;
-  // Inject counts into children if they match the keys we care about
+
+  // Use the global stats directly for child badges to prevent stale states
+  // and avoid mutating the shared navConfig objects.
   const filteredChildren = React.useMemo(() => {
-    return (children?.filter(child => !child.roles || child.roles.includes(userRole || "")) || [])
-      .map(child => {
-         // This is a bit hacky but works without changing navConfig structure
-         // In a real system, we'd add 'badgeKey' to NavItem type
-         if (child.to === "/documents/all") (child as any).badgeCount = (window as any).__NAV_STATS__?.workflowBadge || 0;
-         if (child.to === "/document-requests") (child as any).badgeCount = (window as any).__NAV_STATS__?.requestBadge || 0;
-         return child;
-      });
-  }, [children, userRole]);
+    const list = children?.filter(child => !child.roles || child.roles.includes(userRole || "")) || [];
+    return list.map(child => {
+      let childBadge = 0;
+      if (child.to === "/documents/all") childBadge = (window as any).__NAV_STATS__?.workflowBadge || 0;
+      if (child.to === "/document-requests") childBadge = (window as any).__NAV_STATS__?.requestBadge || 0;
+      
+      return { ...child, badgeCount: childBadge };
+    });
+  }, [children, userRole, badgeCount]); // dependencies include badgeCount to trigger refresh when parent stats update
 
   const isSharedMobile = ["/dashboard", "/work-queue", "/document-requests", "/documents"].includes(to);
 

@@ -33,6 +33,25 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     }
   }, [stats.total]);
 
+  const MemoizedSidebar = React.useMemo(() => (
+    <Sidebar
+      stats={stats}
+      onLogout={onLogout}
+      mobileOpen={mobileOpen}
+      onMobileClose={() => setMobileOpen(false)}
+      theme={theme}
+      onThemeToggle={toggle}
+    />
+  ), [stats, onLogout, mobileOpen, theme, toggle]);
+
+  const MemoizedNavbar = React.useMemo(() => (
+    <Navbar
+      onThemeToggle={toggle}
+      theme={theme}
+      onMobileMenuOpen={() => setMobileOpen(true)}
+    />
+  ), [theme, toggle]);
+
   return (
     <ToastProvider>
       <div
@@ -41,22 +60,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           noBodyScroll ? "h-screen overflow-hidden" : "min-h-screen",
         ].join(" ")}
       >
-        <Sidebar
-          stats={stats}
-          onLogout={onLogout}
-          mobileOpen={mobileOpen}
-          onMobileClose={() => setMobileOpen(false)}
-          theme={theme}
-          onThemeToggle={toggle}
-        />
+        {MemoizedSidebar}
 
         <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
           <MaintenanceBanner />
-          <Navbar
-            onThemeToggle={toggle}
-            theme={theme}
-            onMobileMenuOpen={() => setMobileOpen(true)}
-          />
+          {MemoizedNavbar}
           <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden bg-slate-50 dark:bg-surface-600 pb-16 md:pb-0">
             {children}
           </main>

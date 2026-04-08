@@ -40,8 +40,12 @@ export default function ProtectedLayout() {
     await logoutUser("manual");
   };
 
+  const handleTimeout = React.useCallback(() => {
+    logoutUser("inactivity");
+  }, []);
+
   const { showWarning, stayLoggedIn } = useIdleTimeout(
-    () => logoutUser("inactivity"),
+    handleTimeout,
     30 * 60 * 1000,
     5 * 60 * 1000,
   );
