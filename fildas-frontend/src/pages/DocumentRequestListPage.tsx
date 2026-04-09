@@ -1,19 +1,13 @@
 import React, { useState } from "react";
 import PageFrame from "../components/layout/PageFrame.tsx";
 import Table, { type TableColumn } from "../components/ui/Table";
-import {
-  listDocumentRequestInbox,
-  listDocumentRequests,
-  listDocumentRequestIndividual,
-  deleteDocumentRequest,
-  type DocumentRequestProgress,
-} from "../services/documentRequests";
+import { listDocumentRequestInbox, listDocumentRequests, listDocumentRequestIndividual, deleteDocumentRequest, type DocumentRequestProgress } from "../services/documentRequests";
+import { listOffices } from "../services/documents";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getAuthUser } from "../lib/auth.ts";
 import { getUserRole } from "../lib/roleFilters";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import CreateDocumentRequestModal from "../components/documentRequests/CreateDocumentRequestModal";
-import api from "../services/api";
 import axios from "../services/api";
 import {
   LayoutList,
@@ -335,12 +329,10 @@ export default function DocumentRequestListPage() {
   }, [page, tab, qDebounced, status, recipientStatus, isQaAdmin, sortBy, sortDir, direction, officeFilter, activeTab]);
 
   React.useEffect(() => {
-    if (isQaAdmin) {
-      api.get("/document-requests/active-offices").then((res) => {
-        setOffices(res.data || []);
-      });
-    }
-  }, [isQaAdmin]);
+    listOffices().then((res) => {
+      setOffices(res || []);
+    });
+  }, []);
 
   function handleBatchRowClick(row: any) {
     if (isQaAdmin || row.mode === "multi_doc") {
@@ -680,6 +672,7 @@ export default function DocumentRequestListPage() {
                         setDirection(val as any);
                         setPage(1);
                       }}
+                      searchable={true}
                       className="w-full"
                       options={[
                         { value: "all", label: "All directions" },
@@ -689,24 +682,23 @@ export default function DocumentRequestListPage() {
                     />
                   </div>
 
-                  {isQaAdmin && (
-                    <div className="flex flex-col gap-1.5 col-span-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Office</label>
-                      <SelectDropdown
-                        value={officeFilter}
-                        onChange={(val) => {
-                          setOfficeFilter(val as any);
-                          setPage(1);
-                        }}
-                        placeholder="All offices"
-                        className="w-full"
-                        options={[
-                          { value: "", label: "All offices" },
-                          ...offices.map((o) => ({ value: o.id, label: `${o.code} - ${o.name}` })),
-                        ]}
-                      />
-                    </div>
-                  )}
+                  <div className="flex flex-col gap-1.5 col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Office</label>
+                    <SelectDropdown
+                      value={officeFilter}
+                      onChange={(val) => {
+                        setOfficeFilter(val as any);
+                        setPage(1);
+                      }}
+                      searchable={true}
+                      placeholder="All offices"
+                      className="w-full"
+                      options={[
+                        { value: "", label: "All offices" },
+                        ...offices.map((o) => ({ value: o.id, label: `${o.code} - ${o.name}` })),
+                      ]}
+                    />
+                  </div>
                 </div>
               </div>
             }
@@ -717,6 +709,7 @@ export default function DocumentRequestListPage() {
                 setDirection(val as any);
                 setPage(1);
               }}
+              searchable={true}
               className="w-40"
               options={[
                 { value: "all", label: "All directions" },
@@ -725,21 +718,20 @@ export default function DocumentRequestListPage() {
               ]}
             />
 
-            {isQaAdmin && (
-              <SelectDropdown
-                value={officeFilter}
-                onChange={(val) => {
-                  setOfficeFilter(val as any);
-                  setPage(1);
-                }}
-                placeholder="All Offices"
-                className="w-48"
-                options={[
-                  { value: "", label: "All Offices" },
-                  ...offices.map((o) => ({ value: o.id, label: o.code })),
-                ]}
-              />
-            )}
+            <SelectDropdown
+              value={officeFilter}
+              onChange={(val) => {
+                setOfficeFilter(val as any);
+                setPage(1);
+              }}
+              searchable={true}
+              placeholder="All Offices"
+              className="w-48"
+              options={[
+                { value: "", label: "All Offices" },
+                ...offices.map((o) => ({ value: o.id, label: o.code })),
+              ]}
+            />
           </SearchFilterBar>
 
           {error && !loading && <Alert variant="danger" className="mt-4 mx-4">{error}</Alert>}
