@@ -176,11 +176,15 @@ class DocumentRequestController extends Controller
             if (!empty($data['date_from'])) $q->whereDate('r.created_at', '>=', $data['date_from']);
             if (!empty($data['date_to']))   $q->whereDate('r.created_at', '<=', $data['date_to']);
             if (!empty($data['office_id'])) {
-                $q->whereExists(function ($sub) use ($data) {
-                    $sub->select(DB::raw(1))
-                        ->from('document_request_recipients as rr_filter')
-                        ->whereColumn('rr_filter.request_id', 'r.id')
-                        ->where('rr_filter.office_id', (int)$data['office_id']);
+                $fOfficeId = (int) $data['office_id'];
+                $q->where(function ($qq) use ($fOfficeId) {
+                    $qq->where('u_cre.office_id', $fOfficeId)
+                       ->orWhereExists(function ($sub) use ($fOfficeId) {
+                           $sub->select(DB::raw(1))
+                               ->from('document_request_recipients as rr_filter')
+                               ->whereColumn('rr_filter.request_id', 'r.id')
+                               ->where('rr_filter.office_id', $fOfficeId);
+                       });
                 });
             }
 
@@ -447,11 +451,15 @@ class DocumentRequestController extends Controller
                 }
             }
             if (!empty($data['office_id'])) {
-                $q->whereExists(function ($sub) use ($data) {
-                    $sub->select(DB::raw(1))
-                        ->from('document_request_recipients as rr_filter')
-                        ->whereColumn('rr_filter.request_id', 'r.id')
-                        ->where('rr_filter.office_id', (int)$data['office_id']);
+                $fOfficeId = (int) $data['office_id'];
+                $q->where(function ($qq) use ($fOfficeId) {
+                    $qq->where('u_cre.office_id', $fOfficeId)
+                       ->orWhereExists(function ($sub) use ($fOfficeId) {
+                           $sub->select(DB::raw(1))
+                               ->from('document_request_recipients as rr_filter')
+                               ->whereColumn('rr_filter.request_id', 'r.id')
+                               ->where('rr_filter.office_id', $fOfficeId);
+                       });
                 });
             }
 

@@ -70,6 +70,18 @@ class DocumentRequestRepository
                 $qq->orWhere('r.id', (int)$term);
             }
         });
+        if ($fOfficeId) {
+            $q1->where(function($qq) use ($fOfficeId, $userId) {
+                // If I am the creator, filter by recipient. If I am the recipient, filter by creator office.
+                $qq->where(function($sub) use ($fOfficeId, $userId) {
+                    $sub->where('r.created_by_user_id', $userId)
+                        ->where('rr.office_id', $fOfficeId);
+                })->orWhere(function($sub) use ($fOfficeId, $userId) {
+                    $sub->where('r.created_by_user_id', '!=', $userId)
+                        ->where('u_cre.office_id', $fOfficeId);
+                });
+            });
+        }
         if ($reqSt) $q1->where('r.status', $reqSt);
         if ($status) $q1->where('rr.status', $status);
         if ($batchType) $q1->where('r.mode', $batchType);
@@ -121,7 +133,15 @@ class DocumentRequestRepository
         }
 
         if ($fOfficeId) {
-            $q2->where('rr.office_id', $fOfficeId);
+            $q2->where(function($qq) use ($fOfficeId, $userId) {
+                $qq->where(function($sub) use ($fOfficeId, $userId) {
+                    $sub->where('r.created_by_user_id', $userId)
+                        ->where('rr.office_id', $fOfficeId);
+                })->orWhere(function($sub) use ($fOfficeId, $userId) {
+                    $sub->where('r.created_by_user_id', '!=', $userId)
+                        ->where('u_cre.office_id', $fOfficeId);
+                });
+            });
         }
 
         if ($term)  $q2->where(function ($qq) use ($term) {
