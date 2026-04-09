@@ -60,8 +60,8 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
         const spaceBelow = window.innerHeight - rect.bottom;
-        // If less than 400px below (avg height of picker), open up
-        setOpenUp(spaceBelow < 420);
+        // If less than 450px below (avg height of picker), open up
+        setOpenUp(spaceBelow < 450);
       }
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -211,7 +211,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className={`absolute z-50 bg-white dark:bg-surface-600 border border-slate-200 dark:border-surface-400 rounded-xl shadow-2xl overflow-hidden flex flex-col sm:flex-row min-w-[320px] sm:min-w-[480px] ${
+            className={`absolute z-50 bg-white dark:bg-surface-600 border border-slate-200 dark:border-surface-400 rounded-xl shadow-2xl overflow-hidden flex flex-col sm:flex-row min-w-[320px] sm:min-w-[480px] max-h-[min(520px,90vh)] overflow-y-auto scrollbar-none mb-10 ${
               openUp ? "bottom-full mb-2" : "top-full mt-2"
             } ${
               align === "right" ? "right-0" : "left-0"

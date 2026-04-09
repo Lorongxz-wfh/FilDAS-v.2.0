@@ -316,8 +316,8 @@ export default function WorkflowListPage() {
   }, [showOffice, tab, adminDebugMode]);
 
   const gridTemplateColumns = showOffice
-    ? (adminDebugMode ? "50px 110px minmax(200px, 1fr) 110px 140px 100px 50px 120px 40px" : "50px 110px minmax(200px, 1fr) 110px 140px 100px 50px 120px")
-    : (adminDebugMode ? "50px 120px minmax(200px, 1fr) 120px 160px 60px 120px 40px" : "50px 120px minmax(200px, 1fr) 120px 160px 60px 120px");
+    ? (adminDebugMode ? "50px 110px minmax(200px, 1fr) 100px 140px 80px 40px 110px 40px" : "50px 110px minmax(200px, 1fr) 100px 140px 80px 40px 110px")
+    : (adminDebugMode ? "50px 120px minmax(200px, 1fr) 100px 110px 40px 110px 40px" : "50px 120px minmax(200px, 1fr) 100px 110px 40px 110px");
 
   return (
     <PageFrame
@@ -378,6 +378,7 @@ export default function WorkflowListPage() {
               <SelectDropdown
                 value={officeFilter}
                 onChange={(val) => { setOfficeFilter((val as string) || ""); setPage(1); }}
+                searchable={true}
                 options={[{ value: "", label: "All Offices" }, ...officeOptions]}
               />
             </div>
@@ -386,7 +387,7 @@ export default function WorkflowListPage() {
         }
       >
         <SelectDropdown value={phaseFilter} onChange={(val) => { setPhaseFilter((val as string) || ""); setPage(1); }} className="w-32" options={[{ value: "", label: "All Phases" }, { value: "draft", label: "Draft" }, { value: "review", label: "Review" }, { value: "approval", label: "Approval" }, { value: "finalization", label: "Finalization" }, { value: "distributed", label: "Distributed" }]} />
-        <SelectDropdown value={officeFilter} onChange={(val) => { setOfficeFilter((val as string) || ""); setPage(1); }} className="w-40" options={[{ value: "", label: "All Offices" }, ...officeOptions]} />
+        <SelectDropdown value={officeFilter} onChange={(val) => { setOfficeFilter((val as string) || ""); setPage(1); }} searchable={true} className="w-40" options={[{ value: "", label: "All Offices" }, ...officeOptions]} />
         <DateRangePicker from={dateFrom} to={dateTo} onSelect={(r: any) => { setDateFrom(r.from); setDateTo(r.to); setPage(1); }} />
       </SearchFilterBar>
 
