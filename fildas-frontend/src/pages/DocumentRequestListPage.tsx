@@ -283,7 +283,7 @@ export default function DocumentRequestListPage() {
       if (tab === "all") {
         data = await listDocumentRequestIndividual({
           ...baseParams,
-          request_status: isQaAdmin ? status || undefined : undefined,
+          request_status: status || undefined,
           status: recipientStatus || undefined,
           direction: direction !== "all" ? direction : undefined,
           office_id: officeFilter ? Number(officeFilter) : undefined,
@@ -428,7 +428,7 @@ export default function DocumentRequestListPage() {
                 {isOutgoing ? "To" : "From"}
               </span>
               <span className="text-xs font-bold text-brand-600 dark:text-brand-400 truncate max-w-35">
-                {isMulti ? "Multiple Offices" : r.office_code}
+                {isMulti ? "Multiple Offices" : (r.office_code || r.office?.code || r.creator_office_code || "—")}
               </span>
               {isMulti && (
                 <span className="text-[10px] text-slate-500 dark:text-slate-500 truncate mt-0.5 uppercase tracking-wide">
@@ -788,7 +788,7 @@ export default function DocumentRequestListPage() {
               className="w-48"
               options={[
                 { value: "", label: "All Offices" },
-                ...offices.map((o) => ({ value: o.id, label: o.code })),
+                ...offices.map((o) => ({ value: o.id, label: `${o.code} - ${o.name}` })),
               ].sort((a, b) => a.label === "All Offices" ? -1 : b.label === "All Offices" ? 1 : a.label.localeCompare(b.label))}
             />
 
