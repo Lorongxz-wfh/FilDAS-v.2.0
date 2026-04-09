@@ -254,17 +254,27 @@ export default function DocumentRequestListPage() {
     }
   };
 
-  const loadData = React.useCallback(async (pageNum: number, silent = false) => {
-    if (!silent) {
+  const hasMoreRef = React.useRef(true);
+  const firstIdRef = React.useRef<number | null>(null);
+
+  const loadData = React.useCallback(async (isNextPage = false, silent = false) => {
+    const targetPage = isNextPage ? page + 1 : 1;
+
+    if (!isNextPage && !silent) {
       setInitialLoading(true);
-      setLoading(true);
+      hasMoreRef.current = true;
+      setRows([]);
     }
+
+    if (!hasMoreRef.current && isNextPage) return;
+    if (!silent) setLoading(true);
     setError(null);
+
     try {
       const baseParams = {
         q: qDebounced.trim() || undefined,
         per_page: 10,
-        page: pageNum,
+        page: targetPage,
         sort_by: sortBy,
         sort_dir: sortDir,
       };
@@ -301,24 +311,34 @@ export default function DocumentRequestListPage() {
       }
 
       const incoming = Array.isArray(data?.data) ? data.data : [];
-      setRows((prev) => (pageNum === 1 ? incoming : [...prev, ...incoming]));
+      if (targetPage === 1) {
+        setRows(incoming);
+        firstIdRef.current = incoming[0]?.request_id || incoming[0]?.id || null;
+      } else {
+        setRows((prev) => [...prev, ...incoming]);
+      }
+
       const more =
         data?.current_page != null &&
         data?.last_page != null &&
         data.current_page < data.last_page;
+      hasMoreRef.current = more;
       setHasMore(more);
-      return { data: incoming, changed: true };
+      setPage(targetPage);
+      return { data: incoming };
     } catch (e: any) {
       setError(e?.response?.data?.message ?? e?.message ?? "Failed to load.");
     } finally {
       setLoading(false);
       setInitialLoading(false);
     }
-  }, [tab, qDebounced, status, recipientStatus, isQaAdmin, sortBy, sortDir, direction, officeFilter, canCreate]);
+  }, [tab, qDebounced, status, recipientStatus, isQaAdmin, sortBy, sortDir, direction, officeFilter, canCreate, page]);
 
   const { refresh: refreshRequests, isRefreshing } = useSmartRefresh(async () => {
-    const result = await loadData(1, true);
-    return { changed: !!result?.data?.length };
+    const prevFirstId = firstIdRef.current;
+    const result = await loadData(false, true);
+    const newFirstId = result?.data?.[0]?.request_id || result?.data?.[0]?.id || null;
+    return { changed: newFirstId !== prevFirstId };
   });
 
   React.useEffect(() => {
@@ -329,14 +349,14 @@ export default function DocumentRequestListPage() {
   }, [tab, qDebounced, status, recipientStatus, isQaAdmin, sortBy, sortDir, direction, officeFilter]);
 
   React.useEffect(() => {
-    if (activeTab === "active") {
-      loadData(page, rows.length > 0);
-    }
-  }, [page, tab, qDebounced, status, recipientStatus, isQaAdmin, sortBy, sortDir, direction, officeFilter, activeTab]);
+    loadData(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, qDebounced, status, recipientStatus, isQaAdmin, sortBy, sortDir, direction, officeFilter, activeTab]);
 
   React.useEffect(() => {
     listOffices().then((res) => {
-      setOffices(res || []);
+      const sorted = (res || []).sort((a: any, b: any) => (a.code || a.name || "").localeCompare(b.code || b.name || ""));
+      setOffices(sorted);
     });
   }, []);
 
@@ -353,6 +373,7 @@ export default function DocumentRequestListPage() {
       {
         key: "id",
         header: "ID",
+        sortKey: "id",
         skeletonShape: "narrow",
         render: (row) => (
           <span className="text-[10px] font-bold font-mono text-slate-400 dark:text-slate-500">
@@ -491,6 +512,7 @@ export default function DocumentRequestListPage() {
       {
         key: "id",
         header: "ID",
+        sortKey: "id",
         skeletonShape: "narrow",
         render: (r) => (
           <span className="text-[10px] font-bold font-mono text-slate-400 dark:text-slate-500">
@@ -702,7 +724,38 @@ export default function DocumentRequestListPage() {
                       options={[
                         { value: "", label: "All offices" },
                         ...offices.map((o) => ({ value: o.id, label: `${o.code} - ${o.name}` })),
-                      ]}
+                      ].sort((a, b) => a.label === "All offices" ? -1 : b.label === "All offices" ? 1 : a.label.localeCompare(b.label))}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Status</label>
+                    <SelectDropdown
+                      value={tab === "batches" ? status : recipientStatus}
+                      onChange={(val) => {
+                        if (tab === "batches") setStatus(val as any);
+                        else setRecipientStatus(val as any);
+                        setPage(1);
+                      }}
+                      searchable={true}
+                      placeholder="All statuses"
+                      className="w-full"
+                      options={
+                        tab === "batches"
+                          ? [
+                              { value: "", label: "All statuses" },
+                              { value: "open", label: "Open" },
+                              { value: "closed", label: "Closed" },
+                              { value: "cancelled", label: "Cancelled" },
+                            ].sort((a, b) => a.label === "All statuses" ? -1 : b.label === "All statuses" ? 1 : a.label.localeCompare(b.label))
+                          : [
+                              { value: "", label: "All statuses" },
+                              { value: "pending", label: "Pending" },
+                              { value: "submitted", label: "Submitted" },
+                              { value: "accepted", label: "Accepted" },
+                              { value: "rejected", label: "Rejected" },
+                            ].sort((a, b) => a.label === "All statuses" ? -1 : b.label === "All statuses" ? 1 : a.label.localeCompare(b.label))
+                      }
                     />
                   </div>
                 </div>
@@ -736,7 +789,35 @@ export default function DocumentRequestListPage() {
               options={[
                 { value: "", label: "All Offices" },
                 ...offices.map((o) => ({ value: o.id, label: o.code })),
-              ]}
+              ].sort((a, b) => a.label === "All Offices" ? -1 : b.label === "All Offices" ? 1 : a.label.localeCompare(b.label))}
+            />
+
+            <SelectDropdown
+              value={tab === "batches" ? status : recipientStatus}
+              onChange={(val) => {
+                if (tab === "batches") setStatus(val as any);
+                else setRecipientStatus(val as any);
+                setPage(1);
+              }}
+              searchable={true}
+              placeholder="Status"
+              className="w-40"
+              options={
+                tab === "batches"
+                  ? [
+                      { value: "", label: "All Status" },
+                      { value: "open", label: "Open" },
+                      { value: "closed", label: "Closed" },
+                      { value: "cancelled", label: "Cancelled" },
+                    ].sort((a, b) => a.label === "All Status" ? -1 : b.label === "All Status" ? 1 : a.label.localeCompare(b.label))
+                  : [
+                      { value: "", label: "All Status" },
+                      { value: "pending", label: "Pending" },
+                      { value: "submitted", label: "Submitted" },
+                      { value: "accepted", label: "Accepted" },
+                      { value: "rejected", label: "Rejected" },
+                    ].sort((a, b) => a.label === "All Status" ? -1 : b.label === "All Status" ? 1 : a.label.localeCompare(b.label))
+              }
             />
           </SearchFilterBar>
 
