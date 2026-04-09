@@ -147,8 +147,8 @@ export default function DocumentRequestListPage() {
     () => (location.state as any)?.openModal === true,
   );
   const [direction, setDirection] = React.useState<"all" | "incoming" | "outgoing">("all");
-  const [sortBy] = React.useState<string>("created_at");
-  const [sortDir] = React.useState<"asc" | "desc">("desc");
+  const [sortBy, setSortBy] = React.useState<string>("created_at");
+  const [sortDir, setSortDir] = React.useState<"asc" | "desc">("desc");
   const [deletingId, setDeletingId] = React.useState<number | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
@@ -170,6 +170,12 @@ export default function DocumentRequestListPage() {
 
   const qDebounced = useDebouncedValue(q, 400);
   const navigate = useNavigate();
+
+  const handleSort = (key: string, dir: "asc" | "desc") => {
+    setSortBy(key);
+    setSortDir(dir);
+    setPage(1);
+  };
 
   const handleDelete = async () => {
     if (!deletingId) return;
@@ -764,6 +770,9 @@ export default function DocumentRequestListPage() {
                     selectedIds={selectedIds}
                     onToggleRow={toggleRow}
                     onToggleAll={toggleAll}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSortChange={handleSort}
                   />
                 ) : (
                   <Table<any>
@@ -789,6 +798,9 @@ export default function DocumentRequestListPage() {
                     selectedIds={selectedIds}
                     onToggleRow={toggleRow}
                     onToggleAll={toggleAll}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    onSortChange={handleSort}
                   />
                 )}
               </motion.div>
