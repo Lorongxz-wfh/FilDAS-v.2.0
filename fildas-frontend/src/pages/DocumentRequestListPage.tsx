@@ -304,7 +304,9 @@ export default function DocumentRequestListPage() {
       } else if (direction === "incoming") {
         data = await listDocumentRequestInbox({
           ...baseParams,
+          status: status || undefined,
           direction: "incoming",
+          office_id: officeFilter ? Number(officeFilter) : undefined,
         });
       } else {
         data = canCreate ? await listDocumentRequests(baseParams) : await listDocumentRequestInbox(baseParams);
@@ -846,7 +848,7 @@ export default function DocumentRequestListPage() {
                     emptyMessage={q || status ? "No requests match your filters." : "No requests found."}
                     hasMore={hasMore}
                     onLoadMore={() => setPage((p) => p + 1)}
-                    gridTemplateColumns={adminDebugMode ? "50px 80px 100px minmax(180px, 1fr) 110px 130px 90px 110px 40px" : "50px 80px 100px minmax(180px, 1fr) 110px 130px 90px 110px"}
+                    gridTemplateColumns={adminDebugMode ? "50px 80px 100px minmax(150px, 1fr) 100px 110px 80px 100px 40px" : "50px 80px 100px minmax(150px, 1fr) 100px 110px 80px 100px"}
                     selectable={isSelectMode}
                     selectedIds={selectedIds}
                     onToggleRow={toggleRow}

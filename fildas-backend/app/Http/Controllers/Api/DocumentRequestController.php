@@ -389,30 +389,70 @@ class DocumentRequestController extends Controller
             return response()->json(['message' => 'Your account has no office assigned.'], 422);
         }
 
-        $data    = $request->validate([
-            'q'        => 'nullable|string|max:100',
-            'per_page' => 'nullable|integer|min:1|max:50',
+        $data = $request->validate([
+            'q'         => 'nullable|string|max:100',
+            'status'    => 'nullable|in:open,closed,cancelled',
+            'per_page'  => 'nullable|integer|min:1|max:50',
+            'office_id' => 'nullable|integer',
+            'direction' => 'nullable|in:all,incoming,outgoing',
+            'sort_by'   => 'nullable|string|in:id,title,created_at,due_at',
+            'sort_dir'  => 'nullable|in:asc,desc',
         ]);
         $perPage = (int) ($data['per_page'] ?? 25);
+        $sortMap = [
+            'id'         => 'r.id',
+            'title'      => 'r.title',
+            'created_at' => 'r.created_at',
+            'due_at'     => 'r.due_at'
+        ];
+        $actualSort = $sortMap[$data['sort_by'] ?? 'created_at'] ?? 'r.created_at';
+        $sortDir    = $data['sort_dir'] ?? 'desc';
 
         try {
             if ($isAdmin) {
                 // Admin: see all requests globally
                 $q = DB::table('document_requests as r')
-                    ->orderByDesc('r.id')
-                    ->select(['r.*']);
+                    ->leftJoin('users as u_cre', 'u_cre.id', '=', 'r.created_by_user_id')
+                    ->leftJoin('offices as o_cre', 'o_cre.id', '=', 'u_cre.office_id')
+                    ->orderBy($actualSort, $sortDir)
+                    ->select([
+                        'r.*',
+                        'o_cre.code as creator_office_code',
+                        'o_cre.name as creator_office_name',
+                    ]);
             } else {
                 $q = DB::table('document_requests as r')
                     ->join('document_request_recipients as rr', 'rr.request_id', '=', 'r.id')
+                    ->leftJoin('users as u_cre', 'u_cre.id', '=', 'r.created_by_user_id')
+                    ->leftJoin('offices as o_cre', 'o_cre.id', '=', 'u_cre.office_id')
                     ->where('rr.office_id', $officeId)
-                    ->orderByDesc('r.id')
+                    ->orderBy($actualSort, $sortDir)
                     ->select([
                         'r.*',
                         'rr.id as recipient_id',
                         'rr.status as recipient_status',
                         'rr.last_submitted_at',
                         'rr.last_reviewed_at',
+                        'o_cre.code as creator_office_code',
+                        'o_cre.name as creator_office_name',
                     ]);
+            }
+
+            if (!empty($data['status'])) $q->where('r.status', $data['status']);
+            if (!empty($data['direction']) && $data['direction'] !== 'all') {
+                if ($data['direction'] === 'outgoing') {
+                    $q->where('r.created_by_user_id', (int)$user->id);
+                } else {
+                    $q->where('r.created_by_user_id', '!=', (int)$user->id);
+                }
+            }
+            if (!empty($data['office_id'])) {
+                $q->whereExists(function ($sub) use ($data) {
+                    $sub->select(DB::raw(1))
+                        ->from('document_request_recipients as rr_filter')
+                        ->whereColumn('rr_filter.request_id', 'r.id')
+                        ->where('rr_filter.office_id', (int)$data['office_id']);
+                });
             }
 
             if (!empty($data['q'])) {
@@ -438,8 +478,10 @@ class DocumentRequestController extends Controller
                 $direction = ((int)($row->created_by_user_id ?? 0) === (int)$user->id) ? 'outgoing' : 'incoming';
                 
                 return array_merge((array) $row, [
-                    'progress' => $progress,
-                    'direction' => $direction
+                    'progress'    => $progress,
+                    'direction'   => $direction,
+                    'office_code' => $row->creator_office_code,
+                    'office_name' => $row->creator_office_name,
                 ]);
             });
 
