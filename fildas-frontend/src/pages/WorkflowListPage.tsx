@@ -315,9 +315,25 @@ export default function WorkflowListPage() {
     return cols;
   }, [showOffice, tab, adminDebugMode]);
 
-  const gridTemplateColumns = showOffice
-    ? (adminDebugMode ? "50px 110px minmax(200px, 1fr) 100px 140px 80px 40px 110px 40px" : "50px 110px minmax(200px, 1fr) 100px 140px 80px 40px 110px")
-    : (adminDebugMode ? "50px 120px minmax(200px, 1fr) 100px 110px 40px 110px 40px" : "50px 120px minmax(200px, 1fr) 100px 110px 40px 110px");
+  const gridTemplateColumns = useMemo(() => {
+    const isDistributed = tab === "distributed";
+    // Base columns: ID, Activity/Dist, Name, Code
+    let parts = ["50px", isDistributed ? "120px" : "110px", "minmax(200px, 1fr)", "100px"];
+    
+    // Status column (only if not distributed)
+    if (!isDistributed) parts.push("140px");
+    
+    // Office column (if shown)
+    if (showOffice) parts.push(isDistributed ? "110px" : "80px");
+    
+    // Version and Created
+    parts.push("40px", "110px");
+    
+    // Debug actions
+    if (adminDebugMode) parts.push("40px");
+    
+    return parts.join(" ");
+  }, [tab, showOffice, adminDebugMode]);
 
   return (
     <PageFrame
