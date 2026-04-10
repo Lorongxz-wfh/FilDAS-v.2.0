@@ -42,8 +42,8 @@ class SystemRestoreJob implements ShouldQueue
 
         $statusKey = "restore_status_{$this->actorId}";
         $data = ['status' => 'running', 'message' => "Starting restoration of {$this->filename}...", 'progress' => 10];
-        Cache::put($statusKey, $data, 1800);
-        Cache::put('system_restore_status', $data, 1800);
+        Cache::store('file')->put($statusKey, $data, 1800);
+        Cache::store('file')->put('system_restore_status', $data, 1800);
 
         $disk = Storage::disk(config('filesystems.default') === 's3' ? 's3' : 'local');
         $tempZip = tempnam(sys_get_temp_dir(), 'rest_final_');
@@ -61,8 +61,8 @@ class SystemRestoreJob implements ShouldQueue
             fclose($writeStream);
 
             $data = ['status' => 'running', 'message' => "Download complete. Extracting archive...", 'progress' => 30];
-            Cache::put($statusKey, $data, 1800);
-            Cache::put('system_restore_status', $data, 1800);
+            Cache::store('file')->put($statusKey, $data, 1800);
+            Cache::store('file')->put('system_restore_status', $data, 1800);
 
             $tempExtractDir = storage_path('app/temp/restore_f_' . time());
             if (!is_dir($tempExtractDir)) mkdir($tempExtractDir, 0755, true);
@@ -83,8 +83,8 @@ class SystemRestoreJob implements ShouldQueue
 
                 if ($sqlFileInZip) {
                     $data = ['status' => 'running', 'message' => "Wiping old data and restoring database...", 'progress' => 50];
-                    Cache::put($statusKey, $data, 1800);
-                    Cache::put('system_restore_status', $data, 1800);
+                    Cache::store('file')->put($statusKey, $data, 1800);
+                    Cache::store('file')->put('system_restore_status', $data, 1800);
                     
                     $tempSql = $tempExtractDir . '/restore.sql';
                     $zip->extractTo($tempExtractDir, [$sqlFileInZip]);
@@ -96,8 +96,8 @@ class SystemRestoreJob implements ShouldQueue
 
                 if ($docZipInZip) {
                     $data = ['status' => 'running', 'message' => "Synchronizing documents to Cloud Storage...", 'progress' => 80];
-                    Cache::put($statusKey, $data, 1800);
-                    Cache::put('system_restore_status', $data, 1800);
+                    Cache::store('file')->put($statusKey, $data, 1800);
+                    Cache::store('file')->put('system_restore_status', $data, 1800);
                     
                     $tempDocZip = $tempExtractDir . '/docs.zip';
                     $zip->extractTo($tempExtractDir, [$docZipInZip]);
@@ -115,8 +115,8 @@ class SystemRestoreJob implements ShouldQueue
             File::deleteDirectory($tempExtractDir);
 
             $data = ['status' => 'completed', 'message' => "Restoration finished successfully.", 'progress' => 100];
-            Cache::put($statusKey, $data, 1800);
-            Cache::put('system_restore_status', $data, 1800);
+            Cache::store('file')->put($statusKey, $data, 1800);
+            Cache::store('file')->put('system_restore_status', $data, 1800);
 
             $actor = User::find($this->actorId);
             $this->notifyAdminsOfCompletion($actor, $this->filename);
@@ -124,8 +124,8 @@ class SystemRestoreJob implements ShouldQueue
         } catch (\Throwable $e) {
             Log::error("Async Restore Failed", ['file' => $this->filename, 'error' => $e->getMessage()]);
             $data = ['status' => 'failed', 'message' => $e->getMessage(), 'progress' => 0];
-            Cache::put($statusKey, $data, 1800);
-            Cache::put('system_restore_status', $data, 1800);
+            Cache::store('file')->put($statusKey, $data, 1800);
+            Cache::store('file')->put('system_restore_status', $data, 1800);
             @unlink($tempZip);
         }
     }

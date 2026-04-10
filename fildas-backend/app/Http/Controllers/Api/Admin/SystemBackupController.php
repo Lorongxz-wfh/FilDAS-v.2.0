@@ -373,19 +373,28 @@ class SystemBackupController extends Controller
 
     public function status(Request $request)
     {
-        // Use a global key that doesn't depend on a logged-in User ID
-        // since the users table might be wiped mid-restore.
-        $status = Cache::get('system_restore_status');
+        // Force 'file' store to bypass the database entirely.
+        // This keeps the progress bar alive even when the 'cache' table is wiped.
+        try {
+            $status = Cache::store('file')->get('system_restore_status');
 
-        if (!$status) {
+            if (!$status) {
+                return response()->json([
+                    'status' => 'idle',
+                    'message' => 'No active restoration.',
+                    'progress' => 0
+                ]);
+            }
+            
+            return response()->json($status);
+        } catch (\Throwable $e) {
+            // Fallback for extreme transients
             return response()->json([
-                'status' => 'idle',
-                'message' => 'No active restoration.',
-                'progress' => 0
+                'status' => 'running',
+                'message' => 'Synchronizing system core...',
+                'progress' => 5
             ]);
         }
-        
-        return response()->json($status);
     }
 
     private function runSqlRestore($sqlPath)
