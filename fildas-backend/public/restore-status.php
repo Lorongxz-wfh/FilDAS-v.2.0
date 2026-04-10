@@ -6,8 +6,8 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
-$lockFile = __DIR__ . '/../storage/app/restore_active.lock';
-$statusFile = __DIR__ . '/../storage/framework/cache/system_restore_status.json';
+$lockFile = '/tmp/fildas_restore/active.lock';
+$statusFile = '/tmp/fildas_restore/status.json';
 
 // 1. Check if we are physically locked
 if (!file_exists($lockFile)) {

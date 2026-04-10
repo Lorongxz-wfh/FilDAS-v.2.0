@@ -41,10 +41,16 @@ class SystemRestoreJob implements ShouldQueue
         set_time_limit(1800);
 
         $statusKey = "restore_status_{$this->actorId}";
+        
+        // Ensure /tmp/fildas_restore/ exists for signaling
+        if (!is_dir('/tmp/fildas_restore')) {
+            @mkdir('/tmp/fildas_restore', 0777, true);
+        }
+
         $this->updateStatus(['status' => 'running', 'message' => "Starting restoration of {$this->filename}...", 'progress' => 5]);
 
-        // Physical Lock - prevents UI from vanishing during DB transients
-        Storage::disk('local')->put('restore_active.lock', json_encode(['actor' => $this->actorId, 'time' => time()]));
+        // Physical Lock - /tmp/ is more reliable for inter-process communication on Render
+        @file_put_contents('/tmp/fildas_restore/active.lock', json_encode(['actor' => $this->actorId, 'time' => time()]));
 
         $disk = Storage::disk(config('filesystems.default') === 's3' ? 's3' : 'local');
         $tempZip = tempnam(sys_get_temp_dir(), 'rest_final_');
@@ -112,10 +118,10 @@ class SystemRestoreJob implements ShouldQueue
                 $zip->close();
             }
 
-            // Final Cleanup
             @unlink($tempZip);
             File::deleteDirectory($tempExtractDir);
-            Storage::disk('local')->delete('restore_active.lock');
+            @unlink('/tmp/fildas_restore/active.lock');
+            @unlink('/tmp/fildas_restore/status.json');
 
             $data = ['status' => 'completed', 'message' => "Restoration finished successfully.", 'progress' => 100];
             Cache::store('file')->put($statusKey, $data, 1800);
@@ -125,11 +131,9 @@ class SystemRestoreJob implements ShouldQueue
             $this->notifyAdminsOfCompletion($actor, $this->filename);
 
         } catch (\Throwable $e) {
-            Log::error("Async Restore Failed", ['file' => $this->filename, 'error' => $e->getMessage()]);
-            $data = ['status' => 'failed', 'message' => $e->getMessage(), 'progress' => 0];
-            Cache::store('file')->put($statusKey, $data, 1800);
-            Cache::store('file')->put('system_restore_status', $data, 1800);
-            Storage::disk('local')->delete('restore_active.lock');
+            $this->updateStatus(['status' => 'failed', 'message' => $e->getMessage(), 'progress' => 0]);
+            @unlink('/tmp/fildas_restore/active.lock');
+            @unlink('/tmp/fildas_restore/status.json');
             @unlink($tempZip);
         }
     }
@@ -343,8 +347,7 @@ class SystemRestoreJob implements ShouldQueue
         Cache::store('file')->put($statusKey, $data, 1800);
         Cache::store('file')->put('system_restore_status', $data, 1800);
         
-        // Mirror to a plain JSON file for the framework-less LIFEBOAT script
-        $path = storage_path('framework/cache/system_restore_status.json');
-        file_put_contents($path, json_encode($data));
+        // Mirror to /tmp/ for the framework-less LIFEBOAT script (Reliable on Render)
+        @file_put_contents('/tmp/fildas_restore/status.json', json_encode($data));
     }
 }
