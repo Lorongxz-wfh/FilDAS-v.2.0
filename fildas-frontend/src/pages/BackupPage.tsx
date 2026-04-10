@@ -256,7 +256,13 @@ export default function BackupPage() {
       await createSystemSnapshot(type);
       fetchSystemBackups();
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? "Failed to create snapshot.";
+      let msg = e?.response?.data?.message ?? e?.message ?? "Failed to create snapshot.";
+      
+      // If it looks like a timeout/network error (common for large snapshots)
+      if (e?.code === 'ECONNABORTED' || e?.message?.includes('timeout') || (!e.response && e.message === 'Network Error')) {
+        msg = "The request timed out or was interrupted. The server may still be processing the snapshot in the background. Please wait a few minutes and refresh.";
+      }
+      
       setError(msg);
     } finally {
       setCreating(false);
@@ -369,11 +375,12 @@ export default function BackupPage() {
                     >
                       <div className="p-2 space-y-1">
                         <button
+                          disabled={creating}
                           onClick={() => handleCreateSnapshot("db")}
-                          className="w-full flex items-start gap-3 p-2.5 rounded-md hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-left"
+                          className="w-full flex items-start gap-3 p-2.5 rounded-md hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-left disabled:opacity-50"
                         >
                           <div className="mt-0.5 p-1.5 bg-brand-50 text-brand-600 rounded-md dark:bg-brand-950/30">
-                            <Database className="h-4 w-4" />
+                            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
                           </div>
                           <div>
                             <p className="text-[11px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-tight">Database Snapshot</p>
@@ -382,11 +389,12 @@ export default function BackupPage() {
                         </button>
 
                         <button
+                          disabled={creating}
                           onClick={() => handleCreateSnapshot("doc")}
-                          className="w-full flex items-start gap-3 p-2.5 rounded-md hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-left"
+                          className="w-full flex items-start gap-3 p-2.5 rounded-md hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-left disabled:opacity-50"
                         >
                           <div className="mt-0.5 p-1.5 bg-sky-50 text-sky-600 rounded-md dark:bg-sky-950/30">
-                            <FolderArchive className="h-4 w-4" />
+                            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderArchive className="h-4 w-4" />}
                           </div>
                           <div>
                             <p className="text-[11px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-tight">Documents Archive</p>
@@ -397,11 +405,12 @@ export default function BackupPage() {
                         <div className="h-px bg-slate-100 dark:bg-surface-400 my-1 mx-2" />
 
                         <button
+                          disabled={creating}
                           onClick={() => handleCreateSnapshot("full")}
-                          className="w-full flex items-start gap-3 p-2.5 rounded-md hover:bg-brand-500 group transition-colors text-left"
+                          className="w-full flex items-start gap-3 p-2.5 rounded-md hover:bg-brand-500 group transition-colors text-left disabled:opacity-50"
                         >
                           <div className="mt-0.5 p-1.5 bg-brand-500 text-white rounded-md group-hover:bg-white group-hover:text-brand-600 transition-colors shadow-sm">
-                            <Zap className="h-4 w-4" />
+                            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
                           </div>
                           <div>
                             <p className="text-[11px] font-bold text-slate-900 dark:text-slate-100 group-hover:text-white uppercase tracking-tight">Complete System Backup</p>

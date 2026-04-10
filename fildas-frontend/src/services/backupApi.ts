@@ -96,7 +96,9 @@ export async function getSystemBackups(): Promise<SystemBackupResponse> {
 
 export async function createSystemSnapshot(type: "db" | "doc" | "full" = "db"): Promise<SystemBackupFile> {
   const api = await getApi();
-  const res = await api.post("/admin/system/backups", { type });
+  const res = await api.post("/admin/system/backups", { type }, {
+    timeout: 600000 // 10 minutes for large instititutional snapshots
+  });
   return res.data.backup as SystemBackupFile;
 }
 
