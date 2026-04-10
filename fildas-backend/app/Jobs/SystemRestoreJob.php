@@ -41,42 +41,37 @@ class SystemRestoreJob implements ShouldQueue
         set_time_limit(1800);
 
         $statusKey = "restore_status_{$this->actorId}";
-        $data = ['status' => 'running', 'message' => "Starting restoration of {$this->filename}...", 'progress' => 5];
-        Cache::store('file')->put($statusKey, $data, 1800);
-        Cache::store('file')->put('system_restore_status', $data, 1800);
-        
+        $this->updateStatus(['status' => 'running', 'message' => "Starting restoration of {$this->filename}...", 'progress' => 5]);
+
         // Physical Lock - prevents UI from vanishing during DB transients
         Storage::disk('local')->put('restore_active.lock', json_encode(['actor' => $this->actorId, 'time' => time()]));
 
         $disk = Storage::disk(config('filesystems.default') === 's3' ? 's3' : 'local');
         $tempZip = tempnam(sys_get_temp_dir(), 'rest_final_');
-        
+
         Log::info("Async Restore Started: " . $this->filename);
 
         try {
             // 1. Download safely
             $readStream = $disk->readStream($this->path);
-            if (!$readStream) throw new \Exception("Could not open read stream for backup file.");
-            
+            if (!$readStream)
+                throw new \Exception("Could not open read stream for backup file.");
+
             $writeStream = fopen($tempZip, 'w+');
             stream_copy_to_stream($readStream, $writeStream);
             fclose($readStream);
             fclose($writeStream);
 
-            $data = ['status' => 'running', 'message' => "Archive downloaded to local storage. Extracting...", 'progress' => 25];
-            Cache::store('file')->put($statusKey, $data, 1800);
-            Cache::store('file')->put('system_restore_status', $data, 1800);
-
-            $data = ['status' => 'running', 'message' => "Archive extraction complete. Preparing schema...", 'progress' => 40];
-            Cache::store('file')->put($statusKey, $data, 1800);
-            Cache::store('file')->put('system_restore_status', $data, 1800);
+            $this->updateStatus(['status' => 'running', 'message' => "Archive downloaded to local storage. Extracting...", 'progress' => 25]);
+            $this->updateStatus(['status' => 'running', 'message' => "Archive extraction complete. Preparing schema...", 'progress' => 40]);
 
             $tempExtractDir = storage_path('app/temp/restore_f_' . time());
-            if (!is_dir($tempExtractDir)) mkdir($tempExtractDir, 0755, true);
+            if (!is_dir($tempExtractDir))
+                mkdir($tempExtractDir, 0755, true);
 
             $zip = new ZipArchive();
             if ($zip->open($tempZip) === true) {
-                
+
                 // Flexible File Detection (Case Insensitive)
                 $sqlFileInZip = null;
                 $docZipInZip = null;
@@ -84,19 +79,19 @@ class SystemRestoreJob implements ShouldQueue
                 for ($i = 0; $i < $zip->numFiles; $i++) {
                     $stat = $zip->statIndex($i);
                     $name = strtolower($stat['name']);
-                    if (str_ends_with($name, '.sql')) $sqlFileInZip = $stat['name'];
-                    if (str_ends_with($name, 'document_collection.zip')) $docZipInZip = $stat['name'];
+                    if (str_ends_with($name, '.sql'))
+                        $sqlFileInZip = $stat['name'];
+                    if (str_ends_with($name, 'document_collection.zip'))
+                        $docZipInZip = $stat['name'];
                 }
 
                 if ($sqlFileInZip) {
-                    $data = ['status' => 'running', 'message' => "Clearing environment and injecting SQL...", 'progress' => 60];
-                    Cache::store('file')->put($statusKey, $data, 1800);
-                    Cache::store('file')->put('system_restore_status', $data, 1800);
-                    
+                    $this->updateStatus(['status' => 'running', 'message' => "Clearing environment and injecting SQL...", 'progress' => 60]);
+
                     $tempSql = $tempExtractDir . '/restore.sql';
                     $zip->extractTo($tempExtractDir, [$sqlFileInZip]);
                     rename($tempExtractDir . '/' . $sqlFileInZip, $tempSql);
-                    
+
                     $this->runSqlRestore($tempSql);
                     @unlink($tempSql);
                 }
@@ -105,15 +100,15 @@ class SystemRestoreJob implements ShouldQueue
                     $data = ['status' => 'running', 'message' => "Verifying integrity and syncing documents...", 'progress' => 85];
                     Cache::store('file')->put($statusKey, $data, 1800);
                     Cache::store('file')->put('system_restore_status', $data, 1800);
-                    
+
                     $tempDocZip = $tempExtractDir . '/docs.zip';
                     $zip->extractTo($tempExtractDir, [$docZipInZip]);
                     rename($tempExtractDir . '/' . $docZipInZip, $tempDocZip);
-                    
+
                     $this->internalRestoreDocuments($tempDocZip);
                     @unlink($tempDocZip);
                 }
-                
+
                 $zip->close();
             }
 
@@ -166,30 +161,32 @@ class SystemRestoreJob implements ShouldQueue
         if ($handle) {
             while (($line = fgets($handle)) !== false) {
                 $trimmedLine = trim($line);
-                if (empty($trimmedLine) || str_starts_with($trimmedLine, '--') || str_starts_with($trimmedLine, '/*')) continue;
-                
+                if (empty($trimmedLine) || str_starts_with($trimmedLine, '--') || str_starts_with($trimmedLine, '/*'))
+                    continue;
+
                 // ── Forbidden Command Filtering (Managed Postgres Resilience) ──
                 $lowerLine = strtolower($trimmedLine);
-                $isForbidden = str_contains($lowerLine, 'session_replication_role') || 
-                               str_contains($lowerLine, 'owner to') || 
-                               str_contains($lowerLine, 'pg_catalog.set_config') ||
-                               str_contains($lowerLine, 'create extension');
+                $isForbidden = str_contains($lowerLine, 'session_replication_role') ||
+                    str_contains($lowerLine, 'owner to') ||
+                    str_contains($lowerLine, 'pg_catalog.set_config') ||
+                    str_contains($lowerLine, 'create extension');
 
                 if ($isForbidden) {
                     if (str_ends_with(trim($trimmedLine), ';')) {
                         $query = ""; // Clear buffer if the forbidden command was a single line
                     }
-                    continue; 
+                    continue;
                 }
 
                 // ── Infrastructure Protection (Do not re-create tables that keep app alive) ──
-                $isDangerous = (str_contains($lowerLine, 'drop table') || str_contains($lowerLine, 'create table')) && 
-                               (str_contains($lowerLine, 'users') || str_contains($lowerLine, 'roles') || 
-                                str_contains($lowerLine, 'personal_access_tokens') || str_contains($lowerLine, 'offices') ||
-                                str_contains($lowerLine, 'cache') || str_contains($lowerLine, 'sessions'));
+                $isDangerous = (str_contains($lowerLine, 'drop table') || str_contains($lowerLine, 'create table')) &&
+                    (str_contains($lowerLine, 'users') || str_contains($lowerLine, 'roles') ||
+                        str_contains($lowerLine, 'personal_access_tokens') || str_contains($lowerLine, 'offices') ||
+                        str_contains($lowerLine, 'cache') || str_contains($lowerLine, 'sessions'));
 
                 if ($isDangerous) {
-                    if (str_ends_with(trim($trimmedLine), ';')) $query = "";
+                    if (str_ends_with(trim($trimmedLine), ';'))
+                        $query = "";
                     continue;
                 }
 
@@ -200,7 +197,7 @@ class SystemRestoreJob implements ShouldQueue
                 }
 
                 $query .= $line;
-                
+
                 // Check for statement end with flexibility
                 if (str_ends_with(trim($trimmedLine), ';')) {
                     try {
@@ -212,12 +209,12 @@ class SystemRestoreJob implements ShouldQueue
                     } catch (\Throwable $e) {
                         $msg = $e->getMessage();
                         // Ignore standard 'already exists' or 'permission' errors that aren't fatal
-                        $isIgnorable = str_contains($msg, 'already exists') || 
-                                       str_contains($msg, 'permission denied') ||
-                                       str_contains($msg, 'must be owner');
-                                       
+                        $isIgnorable = str_contains($msg, 'already exists') ||
+                            str_contains($msg, 'permission denied') ||
+                            str_contains($msg, 'must be owner');
+
                         if (!$isIgnorable) {
-                           Log::warning("SQL Error: " . $msg, ['query' => substr($query, 0, 100)]);
+                            Log::warning("SQL Error: " . $msg, ['query' => substr($query, 0, 100)]);
                         }
                     }
                     $query = "";
@@ -239,14 +236,24 @@ class SystemRestoreJob implements ShouldQueue
 
         // ── Infrastructure Tables (DO NOT TOUCH - KEEPS SESSION ALIVE) ──
         $protectedTables = [
-            'migrations', 'jobs', 'failed_jobs', 'cache', 'cache_locks', 'sessions',
-            'personal_access_tokens', 'users', 'roles', 'offices',
-            'telescope_entries', 'telescope_entries_tags', 'telescope_monitoring'
+            'migrations',
+            'jobs',
+            'failed_jobs',
+            'cache',
+            'cache_locks',
+            'sessions',
+            'personal_access_tokens',
+            'users',
+            'roles',
+            'offices',
+            'telescope_entries',
+            'telescope_entries_tags',
+            'telescope_monitoring'
         ];
 
         if ($isMysql) {
             $tables = DB::select('SHOW TABLES');
-            $tableNames = array_map(fn($t) => array_values((array)$t)[0], $tables);
+            $tableNames = array_map(fn($t) => array_values((array) $t)[0], $tables);
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
         } elseif ($isPgsql) {
             $tables = DB::select("SELECT tablename FROM pg_tables WHERE schemaname = 'public'");
@@ -261,26 +268,35 @@ class SystemRestoreJob implements ShouldQueue
                 // Just clear the data, don't kill the structure so Auth works.
                 // Use raw statements for CASCADE support on restricted Postgres.
                 try {
-                    if ($isPgsql) DB::statement("TRUNCATE TABLE \"{$table}\" CASCADE");
-                    else DB::table($table)->truncate();
-                } catch (\Throwable $e) {}
+                    if ($isPgsql)
+                        DB::statement("TRUNCATE TABLE \"{$table}\" CASCADE");
+                    else
+                        DB::table($table)->truncate();
+                } catch (\Throwable $e) {
+                }
                 continue;
             }
 
             try {
-                if ($isMysql) DB::statement("DROP TABLE IF EXISTS `{$table}` CASCADE");
-                elseif ($isPgsql) DB::statement("DROP TABLE IF EXISTS \"{$table}\" CASCADE");
-                else DB::statement("DROP TABLE IF EXISTS `{$table}`");
-            } catch (\Throwable $e) {}
+                if ($isMysql)
+                    DB::statement("DROP TABLE IF EXISTS `{$table}` CASCADE");
+                elseif ($isPgsql)
+                    DB::statement("DROP TABLE IF EXISTS \"{$table}\" CASCADE");
+                else
+                    DB::statement("DROP TABLE IF EXISTS `{$table}`");
+            } catch (\Throwable $e) {
+            }
         }
 
-        if ($isMysql) DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        if ($isMysql)
+            DB::statement('SET FOREIGN_KEY_CHECKS=1');
     }
 
     private function internalRestoreDocuments($zipPath)
     {
         $zip = new ZipArchive();
-        if ($zip->open($zipPath) !== true) return;
+        if ($zip->open($zipPath) !== true)
+            return;
 
         $extractDir = storage_path('app/temp/restore_docs_' . time());
         mkdir($extractDir, 0755, true);
@@ -296,7 +312,8 @@ class SystemRestoreJob implements ShouldQueue
                     $stream = fopen($localSource, 'r');
                     // Ensure the target disk is used correctly
                     Storage::disk(config('filesystems.default'))->put($originalPath, $stream);
-                    if (is_resource($stream)) fclose($stream);
+                    if (is_resource($stream))
+                        fclose($stream);
                 }
             }
         }
@@ -312,11 +329,22 @@ class SystemRestoreJob implements ShouldQueue
         foreach ($admins as $admin) {
             Notification::create([
                 'user_id' => $admin->id,
-                'event'   => 'admin.system_restored',
-                'title'   => 'SUCCESS: System Identity Restored',
-                'body'    => "The restoration of {$filename} has completed successfully. All data and documents are now live.",
-                'meta'    => ['actor' => $actor ? $actor->full_name : 'System', 'file' => $filename]
+                'event' => 'admin.system_restored',
+                'title' => 'SUCCESS: System Identity Restored',
+                'body' => "The restoration of {$filename} has completed successfully. All data and documents are now live.",
+                'meta' => ['actor' => $actor ? $actor->full_name : 'System', 'file' => $filename]
             ]);
         }
+    }
+
+    private function updateStatus($data)
+    {
+        $statusKey = "restore_status_{$this->actorId}";
+        Cache::store('file')->put($statusKey, $data, 1800);
+        Cache::store('file')->put('system_restore_status', $data, 1800);
+        
+        // Mirror to a plain JSON file for the framework-less LIFEBOAT script
+        $path = storage_path('framework/cache/system_restore_status.json');
+        file_put_contents($path, json_encode($data));
     }
 }

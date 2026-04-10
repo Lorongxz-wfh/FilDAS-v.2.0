@@ -187,16 +187,21 @@ export async function restoreDocumentBackup(filename: string): Promise<void> {
  */
 export async function getRestoreStatus(): Promise<{ status: string; message: string; progress: number }> {
   try {
-    const res = await fetch(`${API_BASE}/admin/system/backups/restore-status`, {
+    // ── The Lifeboat Link ──
+    // We call the plain PHP script in the public folder to bypass Laravel entirely.
+    // This script is immune to 500 errors during DB wipes.
+    const baseUrl = API_BASE.replace('/api', ''); 
+    const res = await fetch(`${baseUrl}/restore-status.php`, {
+      cache: 'no-store',
       headers: { 'Accept': 'application/json' }
     });
+    
     if (!res.ok) {
-        // Return a safe "Processing" state during transient 500s mid-wipe
-        return { status: 'running', message: 'Synchronizing system state...', progress: 5 };
+        return { status: 'running', message: 'Engine handshaking...', progress: 5 };
     }
     return await res.json();
   } catch (err) {
-    return { status: 'running', message: 'Connecting to system core...', progress: 5 };
+    return { status: 'running', message: 'Re-attaching to system core...', progress: 5 };
   }
 }
 
