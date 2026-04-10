@@ -321,7 +321,15 @@ export default function BackupPage() {
       fetchSystemBackups();
       if (e.target) e.target.value = '';
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? e?.message ?? "Upload failed.";
+      setUploadProgress(0);
+      let msg = e?.response?.data?.message ?? e?.message ?? "Upload failed.";
+      
+      if (e?.response?.status === 413) {
+        msg = "The file is too large for your server's configuration (HTTP 413). Please increase 'upload_max_filesize' and 'post_max_size' in your php.ini.";
+      } else if (e?.message?.includes('timeout') || e?.code === 'ECONNABORTED') {
+        msg = "The upload timed out. This usually happens on slow local servers with large files.";
+      }
+
       setError(msg);
     } finally {
       setUploading(false);
