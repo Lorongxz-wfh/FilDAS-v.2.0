@@ -313,15 +313,19 @@ class SystemBackupController extends Controller
         foreach ($tableNames as $table) {
             if (in_array($table, $skipTables)) continue;
             
-            \Log::info("Wiping table for restore: {$table}");
-            
-            if ($isMysql) {
-                DB::statement("TRUNCATE TABLE `{$table}`");
-            } elseif ($isPgsql) {
-                DB::statement("TRUNCATE TABLE \"{$table}\" RESTART IDENTITY CASCADE");
-            } else {
-                DB::statement("DELETE FROM `{$table}`");
-                DB::statement("DELETE FROM sqlite_sequence WHERE name='{$table}'");
+            try {
+                \Log::info("Restoration cleanup: Wiping table {$table}");
+                
+                if ($isMysql) {
+                    DB::statement("TRUNCATE TABLE `{$table}`");
+                } elseif ($isPgsql) {
+                    DB::statement("TRUNCATE TABLE \"{$table}\" RESTART IDENTITY CASCADE");
+                } else {
+                    DB::statement("DELETE FROM `{$table}`");
+                    DB::statement("DELETE FROM sqlite_sequence WHERE name='{$table}'");
+                }
+            } catch (\Throwable $e) {
+                \Log::warning("Could not wipe table {$table}, skipped.", ['error' => $e->getMessage()]);
             }
         }
 
@@ -337,6 +341,8 @@ class SystemBackupController extends Controller
         $this->checkAccess($request);
 
         set_time_limit(900); // 15 minutes for large/full restores
+        ini_set('memory_limit', '1024M'); // Massive RAM boost for SQL processing
+        \Log::info("Starting system restoration for: {$filename}");
 
         $filename = basename($filename);
         $path = "{$this->backupDir}/{$filename}";
@@ -462,6 +468,7 @@ class SystemBackupController extends Controller
             copy($sqlPath, $dbPath);
         } else {
             $this->wipeApplicationTables();
+            \Log::info("Executing SQL restoration...", ['path' => $sqlPath]);
             $sql = file_get_contents($sqlPath);
             
             if ($dbConnection === 'mysql') {
@@ -471,6 +478,8 @@ class SystemBackupController extends Controller
             }
 
             DB::unprepared($sql);
+            
+            unset($sql); // Free memory immediately
 
             if ($dbConnection === 'mysql') {
                 DB::statement('SET FOREIGN_KEY_CHECKS=1');
