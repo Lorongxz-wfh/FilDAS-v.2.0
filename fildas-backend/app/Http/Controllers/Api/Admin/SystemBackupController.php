@@ -343,10 +343,6 @@ class SystemBackupController extends Controller
     {
         $this->checkAccess($request);
 
-        set_time_limit(1800); // 30 minutes
-        ini_set('memory_limit', '2048M'); 
-        \Log::info("Starting CRITICAL system restoration: {$filename}");
-
         $filename = basename($filename);
         $path = "{$this->backupDir}/{$filename}";
 
@@ -354,112 +350,17 @@ class SystemBackupController extends Controller
             abort(404, 'Backup file not found.');
         }
 
-        set_time_limit(900); // 15 minutes for massive restorations
+        // Dispatch background job for resilient processing
+        \App\Jobs\SystemRestoreJob::dispatch(
+            $filename, 
+            $path, 
+            $request->user()->id, 
+            $request->user()->office_id
+        );
 
-        // Fetch to local disk using STREAMS to save memory
-        $tempZip = tempnam(sys_get_temp_dir(), 'rest_');
-        $readStream = $this->disk()->readStream($path);
-        $writeStream = fopen($tempZip, 'w+');
-        stream_copy_to_stream($readStream, $writeStream);
-        fclose($readStream);
-        fclose($writeStream);
-
-        $tempExtractDir = storage_path('app/temp/restore_' . time());
-        if (!is_dir($tempExtractDir)) {
-            mkdir($tempExtractDir, 0755, true);
-        }
-
-        try {
-            $sqlFile = null;
-
-            if (str_ends_with($filename, '.zip')) {
-                $zip = new ZipArchive();
-                if ($zip->open($tempZip) === true) {
-                    
-                    // ── Check if this is a "Full" backup ──────────────────────
-                    $isFull = $zip->statName('database_snapshot.sql') !== false && 
-                             $zip->statName('document_collection.zip') !== false;
-
-                    if ($isFull) {
-                        \Log::info("Restoring FULL Institutional Backup", ['file' => $filename]);
-                        
-                        // 1. Extract and Restore Database
-                        $tempSql = $tempExtractDir . '/database_snapshot.sql';
-                        $zip->extractTo($tempExtractDir, ['database_snapshot.sql']);
-                        
-                        if (file_exists($tempSql)) {
-                            $this->runSqlRestore($tempSql);
-                            @unlink($tempSql);
-                        }
-
-                        // 2. Extract and Restore Documents
-                        $tempDocZip = $tempExtractDir . '/document_collection.zip';
-                        $zip->extractTo($tempExtractDir, ['document_collection.zip']);
-                        
-                        if (file_exists($tempDocZip)) {
-                            $this->internalRestoreDocuments($tempDocZip);
-                            @unlink($tempDocZip);
-                        }
-
-                        $zip->close();
-                        @unlink($tempZip);
-                        File::deleteDirectory($tempExtractDir);
-
-                        $this->logActivity('admin.system_restored', "Performed FULL institutional restore from: {$filename}", $request->user()->id, $request->user()->office_id, [
-                            'filename' => $filename,
-                            'type'     => 'full'
-                        ]);
-
-                        $this->notifyAdminsOfRestore($request->user(), 'Full System (DB + Documents)', $filename);
-
-                        return response()->json(['message' => 'Full institutional backup restored successfully. Database and documents synchronized.']);
-                    }
-
-                    // ── Normal ZIP fallback ───────────────────────────────────
-                    $zip->extractTo($tempExtractDir);
-                    $zip->close();
-
-                    $extractedFiles = scandir($tempExtractDir);
-                    foreach ($extractedFiles as $f) {
-                        if (str_ends_with($f, '.sql') || str_ends_with($f, '.sqlite')) {
-                            $sqlFile = $tempExtractDir . '/' . $f;
-                            break;
-                        }
-                    }
-                }
-            } else {
-                $sqlFile = $tempZip;
-            }
-
-            if (!$sqlFile || !file_exists($sqlFile)) {
-                throw new \Exception('No valid SQL or SQLite file found in backup.');
-            }
-
-            $this->runSqlRestore($sqlFile);
-
-            // Cleanup
-            @unlink($tempZip);
-            File::deleteDirectory($tempExtractDir);
-
-            $this->logActivity('admin.system_restored', "Performed database restore from: {$filename}", $request->user()->id, $request->user()->office_id, [
-                'filename' => $filename,
-                'type'     => 'db'
-            ]);
-
-            $this->notifyAdminsOfRestore($request->user(), 'Database Only', $filename);
-
-            return response()->json([
-                'message' => 'System restored successfully. You may need to refresh the page.',
-            ]);
-
-        } catch (\Throwable $e) {
-            @unlink($tempZip);
-            if (is_dir($tempExtractDir)) {
-                File::deleteDirectory($tempExtractDir);
-            }
-            \Log::error('Restore failed', ['filename' => $filename, 'message' => $e->getMessage()]);
-            return response()->json(['message' => 'Restore failed: ' . $e->getMessage()], 500);
-        }
+        return response()->json([
+            'message' => 'Restoration process has been started in the background. This will take 2-10 minutes depending on file size. You will receive an in-app notification when complete.',
+        ], 202);
     }
 
     private function runSqlRestore($sqlPath)
