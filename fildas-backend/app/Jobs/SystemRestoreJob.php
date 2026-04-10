@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Cache;
 use App\Models\User;
 use App\Models\Notification;
 use ZipArchive;
@@ -25,7 +26,6 @@ class SystemRestoreJob implements ShouldQueue
     private $path;
     private $actorId;
     private $officeId;
-    private $backupDir = 'backups';
 
     public function __construct($filename, $path, $actorId, $officeId)
     {
@@ -40,68 +40,80 @@ class SystemRestoreJob implements ShouldQueue
         ini_set('memory_limit', '2048M');
         set_time_limit(1800);
 
+        $statusKey = "restore_status_{$this->actorId}";
+        Cache::put($statusKey, ['status' => 'running', 'message' => "Starting restoration of {$this->filename}...", 'progress' => 10], 1800);
+
         $disk = Storage::disk(config('filesystems.default') === 's3' ? 's3' : 'local');
-        $tempZip = tempnam(sys_get_temp_dir(), 'rest_bg_');
+        $tempZip = tempnam(sys_get_temp_dir(), 'rest_final_');
         
-        Log::info("Async Restore Started", ['file' => $this->filename]);
+        Log::info("Async Restore Started: " . $this->filename);
 
         try {
-            // 1. Download to local disk
+            // 1. Download safely
             $readStream = $disk->readStream($this->path);
+            if (!$readStream) throw new \Exception("Could not open read stream for backup file.");
+            
             $writeStream = fopen($tempZip, 'w+');
             stream_copy_to_stream($readStream, $writeStream);
             fclose($readStream);
             fclose($writeStream);
 
-            $tempExtractDir = storage_path('app/temp/restore_bg_' . time());
-            if (!is_dir($tempExtractDir)) {
-                mkdir($tempExtractDir, 0755, true);
-            }
+            Cache::put($statusKey, ['status' => 'running', 'message' => "Download complete. Extracting archive...", 'progress' => 30], 1800);
+
+            $tempExtractDir = storage_path('app/temp/restore_f_' . time());
+            if (!is_dir($tempExtractDir)) mkdir($tempExtractDir, 0755, true);
 
             $zip = new ZipArchive();
             if ($zip->open($tempZip) === true) {
                 
-                // Full Restore Detection
-                $isFull = $zip->statName('database_snapshot.sql') !== false && 
-                         $zip->statName('document_collection.zip') !== false;
+                // Flexible File Detection (Case Insensitive)
+                $sqlFileInZip = null;
+                $docZipInZip = null;
 
-                if ($isFull) {
-                    // Extract DB
-                    $tempSql = $tempExtractDir . '/database_snapshot.sql';
-                    $zip->extractTo($tempExtractDir, ['database_snapshot.sql']);
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $stat = $zip->statIndex($i);
+                    $name = strtolower($stat['name']);
+                    if (str_ends_with($name, '.sql')) $sqlFileInZip = $stat['name'];
+                    if (str_ends_with($name, 'document_collection.zip')) $docZipInZip = $stat['name'];
+                }
+
+                if ($sqlFileInZip) {
+                    Cache::put($statusKey, ['status' => 'running', 'message' => "Wiping old data and restoring database...", 'progress' => 50], 1800);
+                    
+                    $tempSql = $tempExtractDir . '/restore.sql';
+                    $zip->extractTo($tempExtractDir, [$sqlFileInZip]);
+                    rename($tempExtractDir . '/' . $sqlFileInZip, $tempSql);
+                    
                     $this->runSqlRestore($tempSql);
                     @unlink($tempSql);
+                }
 
-                    // Extract Docs
-                    $tempDocZip = $tempExtractDir . '/document_collection.zip';
-                    $zip->extractTo($tempExtractDir, ['document_collection.zip']);
+                if ($docZipInZip) {
+                    Cache::put($statusKey, ['status' => 'running', 'message' => "Synchronizing documents to Cloud Storage...", 'progress' => 80], 1800);
+                    
+                    $tempDocZip = $tempExtractDir . '/docs.zip';
+                    $zip->extractTo($tempExtractDir, [$docZipInZip]);
+                    rename($tempExtractDir . '/' . $docZipInZip, $tempDocZip);
+                    
                     $this->internalRestoreDocuments($tempDocZip);
                     @unlink($tempDocZip);
-                } else {
-                    // Normal ZIP
-                    $zip->extractTo($tempExtractDir);
-                    $extractedFiles = scandir($tempExtractDir);
-                    foreach ($extractedFiles as $f) {
-                        if (str_ends_with($f, '.sql') || str_ends_with($f, '.sqlite')) {
-                            $this->runSqlRestore($tempExtractDir . '/' . $f);
-                            break;
-                        }
-                    }
                 }
+                
                 $zip->close();
             }
 
-            // Cleanup
+            // Final Cleanup
             @unlink($tempZip);
             File::deleteDirectory($tempExtractDir);
 
+            Cache::put($statusKey, ['status' => 'completed', 'message' => "Restoration finished successfully.", 'progress' => 100], 1800);
+
             $actor = User::find($this->actorId);
             $this->notifyAdminsOfCompletion($actor, $this->filename);
-            
-            Log::info("Async Restore Completed Successfully", ['file' => $this->filename]);
 
         } catch (\Throwable $e) {
             Log::error("Async Restore Failed", ['file' => $this->filename, 'error' => $e->getMessage()]);
+            Cache::put($statusKey, ['status' => 'failed', 'message' => $e->getMessage(), 'progress' => 0], 1800);
             @unlink($tempZip);
         }
     }
@@ -109,13 +121,15 @@ class SystemRestoreJob implements ShouldQueue
     private function runSqlRestore($sqlPath)
     {
         $dbConnection = config('database.default');
-        
-        // Wipe tables first
         $this->wipeApplicationTables();
 
-        if ($dbConnection === 'sqlite' && str_ends_with($sqlPath, '.sqlite')) {
-            copy($sqlPath, config('database.connections.sqlite.database'));
-            return;
+        if ($dbConnection === 'sqlite') {
+            // SQLite is handled differently by binary copy if it's a raw DB file, 
+            // but we usually dump SQL.
+            if (str_ends_with($sqlPath, '.sqlite')) {
+                copy($sqlPath, config('database.connections.sqlite.database'));
+                return;
+            }
         }
 
         if ($dbConnection === 'mysql') {
@@ -126,30 +140,18 @@ class SystemRestoreJob implements ShouldQueue
 
         $handle = fopen($sqlPath, "r");
         $query = "";
-        
-        Log::info("Executing SQL restoration buffer...");
-
         if ($handle) {
             while (($line = fgets($handle)) !== false) {
                 $trimmedLine = trim($line);
-                
-                // Skip comments and empty lines
-                if (empty($trimmedLine) || str_starts_with($trimmedLine, '--') || str_starts_with($trimmedLine, '/*')) {
-                    continue;
-                }
+                if (empty($trimmedLine) || str_starts_with($trimmedLine, '--') || str_starts_with($trimmedLine, '/*')) continue;
                 
                 $query .= $line;
-
-                // Only execute when we hit a semi-colon that isn't inside a comment
-                if (str_ends_with($trimmedLine, ';')) {
+                // Check for statement end with flexibility (trailing spaces)
+                if (isset($trimmedLine[strlen($trimmedLine)-1]) && $trimmedLine[strlen($trimmedLine)-1] === ';') {
                     try {
                         DB::unprepared($query);
                     } catch (\Throwable $e) {
-                        // Log the error but keep going - some 'CREATE TABLE' might fail if tables weren't dropped correctly
-                        Log::warning("SQL Statement Failed during background restore", [
-                            'error' => $e->getMessage(),
-                            'query_snippet' => substr($query, 0, 150) . '...'
-                        ]);
+                        Log::warning("SQL Error: " . $e->getMessage(), ['query_start' => substr($query, 0, 50)]);
                     }
                     $query = "";
                 }
@@ -188,13 +190,10 @@ class SystemRestoreJob implements ShouldQueue
         foreach ($tableNames as $table) {
             if (in_array($table, $skipTables)) continue;
             try {
-                Log::info("Wiping table for restore: {$table}");
-                if ($isMysql) DB::statement("DROP TABLE IF EXISTS `{$table}`");
+                if ($isMysql) DB::statement("DROP TABLE IF EXISTS `{$table}` CASCADE"); // MySQL doesn't use CASCADE but just in case
                 elseif ($isPgsql) DB::statement("DROP TABLE IF EXISTS \"{$table}\" CASCADE");
                 else DB::statement("DROP TABLE IF EXISTS `{$table}`");
-            } catch (\Throwable $e) {
-                Log::error("Failed to drop table {$table}", ['error' => $e->getMessage()]);
-            }
+            } catch (\Throwable $e) {}
         }
 
         if ($isMysql) DB::statement('SET FOREIGN_KEY_CHECKS=1');
@@ -218,6 +217,7 @@ class SystemRestoreJob implements ShouldQueue
                 $localSource = $extractDir . '/' . $entryName;
                 if (file_exists($localSource)) {
                     $stream = fopen($localSource, 'r');
+                    // Ensure the target disk is used correctly
                     Storage::disk(config('filesystems.default'))->put($originalPath, $stream);
                     if (is_resource($stream)) fclose($stream);
                 }
@@ -229,33 +229,17 @@ class SystemRestoreJob implements ShouldQueue
     private function notifyAdminsOfCompletion($actor, $filename)
     {
         $admins = User::whereHas('role', function ($q) {
-            $q->whereIn('name', ['admin', 'sysadmin']);
+            $q->whereIn('name', ['Admin', 'SysAdmin']);
         })->get();
 
         foreach ($admins as $admin) {
             Notification::create([
                 'user_id' => $admin->id,
                 'event'   => 'admin.system_restored',
-                'title'   => 'System Restore Completed',
-                'body'    => "The restoration of {$filename} has finished successfully.",
-                'meta'    => ['actor' => $actor->full_name, 'file' => $filename]
+                'title'   => 'SUCCESS: System Identity Restored',
+                'body'    => "The restoration of {$filename} has completed successfully. All data and documents are now live.",
+                'meta'    => ['actor' => $actor ? $actor->full_name : 'System', 'file' => $filename]
             ]);
-            
-            try {
-                Mail::to($admin->email)->queue(new \App\Mail\WorkflowNotificationMail(
-                    recipientName: $admin->full_name,
-                    notifTitle: 'System Restore Success',
-                    notifBody: "The background restoration task for {$filename} has completed. Please refresh your browser to see the restored state.",
-                    documentTitle: 'System Integrity',
-                    documentStatus: 'SUCCESS',
-                    isReject: false,
-                    actorName: $actor->full_name,
-                    documentId: null,
-                    appUrl: config('app.url'),
-                    appName: config('app.name', 'FilDAS'),
-                    cardLabel: 'Restore'
-                ));
-            } catch (\Throwable $e) {}
         }
     }
 }
