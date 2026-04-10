@@ -37,6 +37,12 @@ api.interceptors.response.use(
 
     // Force logout during maintenance hard-lock
     if (status === 503 && error?.response?.data?.force_logout) {
+      // If we are already on the login page, don't redirect to /maintenance. 
+      // This allows the user to see the maintenance message as an error on the form.
+      if (window.location.pathname === "/login") {
+        return Promise.reject(error);
+      }
+
       const { message, expires_at } = error.response.data;
       if (message) localStorage.setItem("maintenance_message", message);
       if (expires_at) localStorage.setItem("maintenance_expires_at", expires_at);

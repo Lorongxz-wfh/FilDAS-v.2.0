@@ -58,8 +58,13 @@ class CheckSystemStatus
 
         // Hard Lock: Block everything
         if ($mode === 'hard') {
-            // Allow only logout for everyone
-            if ($request->is('api/auth/logout')) {
+            // Allow only logout, login, and system status checks for the UI
+            $isExempt = $request->is('api/auth/logout') || 
+                        $request->is('api/login') || 
+                        $request->is('api/login/two-factor') ||
+                        $request->is('api/system/maintenance');
+
+            if ($isExempt) {
                 return $next($request);
             }
             
