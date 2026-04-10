@@ -56,14 +56,15 @@ class CheckSystemStatus
             }
         }
 
-        // Hard Lock: Block everything
-        if ($mode === 'hard') {
-            // Allow only logout, login, and system status checks for the UI
-            $isExempt = $request->is('api/auth/logout') || 
-                        $request->is('api/login') || 
-                        $request->is('api/login/two-factor') ||
-                        $request->is('api/system/maintenance');
+        // Define critical routes that must ALWAYS be accessible (Auth & UI Status)
+        $isExempt = $request->is('api/login*') || 
+                    $request->is('api/auth/logout') ||
+                    $request->is('api/forgot-password') || 
+                    $request->is('api/reset-password') ||
+                    $request->is('api/system/maintenance');
 
+        // Hard Lock: Block everything except exemptions
+        if ($mode === 'hard') {
             if ($isExempt) {
                 return $next($request);
             }
@@ -76,14 +77,11 @@ class CheckSystemStatus
             ], 503);
         }
 
-        // Soft Read-Only: Block mutations
+        // Soft Read-Only: Block mutations except for exemptions
         if ($mode === 'soft') {
             $isMutation = in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE']);
             
-            // Allow login/logout even in soft mode
-            $isAuth = $request->is('api/auth/*');
-
-            if ($isMutation && !$isAuth) {
+            if ($isMutation && !$isExempt) {
                 return response()->json([
                     'message' => $message,
                     'maintenance_mode' => 'soft'
