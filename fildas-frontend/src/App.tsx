@@ -101,6 +101,7 @@ const ReportIssuePage = React.lazy(() => import("./pages/ReportIssuePage"));
 import ProtectedLayout from "./lib/guards/ProtectedLayout";
 import RequireRole from "./lib/guards/RequireRole";
 import { getUserRole } from "./lib/roleFilters";
+import { ToastProvider } from "./components/ui/toast/ToastContext";
 
 
 // Routes /reports to the role-appropriate page
@@ -148,7 +149,7 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/maintenance" element={<MaintenancePage />} />
-          <Route path="/force-password-change" element={<ForcePasswordChangePage />} />
+          <Route path="/force-password-change" element={<ToastProvider><ForcePasswordChangePage /></ToastProvider>} />
 
 
           <Route element={<ProtectedLayout />}>
