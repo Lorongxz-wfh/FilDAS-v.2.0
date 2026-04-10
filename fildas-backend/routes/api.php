@@ -180,6 +180,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class]
 
     // ── System Snapshots ──────────────────────────────────────────────────
     // Controller enforces its own role check (qa, admin, sysadmin, office_head)
+    Route::get('/admin/system/backups/restore-status', [SystemBackupController::class, 'status']);
     Route::get('/admin/system/backups',           [SystemBackupController::class, 'index']);
     Route::post('/admin/system/backups',          [SystemBackupController::class, 'store']);
     Route::post('/admin/system/backups/upload',   [SystemBackupController::class, 'upload']);

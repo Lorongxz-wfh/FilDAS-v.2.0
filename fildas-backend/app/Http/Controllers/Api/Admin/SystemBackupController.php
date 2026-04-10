@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Cache;
 use ZipArchive;
 
 class SystemBackupController extends Controller
@@ -359,8 +360,17 @@ class SystemBackupController extends Controller
         );
 
         return response()->json([
-            'message' => 'Restoration process has been started. The server is processing the data now. Please wait 3-5 minutes then refresh the page.',
+            'message' => 'Restoration process has been started. Please monitor the progress bar.',
         ], 202);
+    }
+
+    public function status(Request $request)
+    {
+        $this->checkAccess($request);
+        $statusKey = "restore_status_{$request->user()->id}";
+        $status = Cache::get($statusKey, ['status' => 'idle', 'message' => 'No active restoration.', 'progress' => 0]);
+        
+        return response()->json($status);
     }
 
     private function runSqlRestore($sqlPath)

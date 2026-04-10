@@ -181,6 +181,15 @@ export async function restoreDocumentBackup(filename: string): Promise<void> {
   await api.post(`/admin/system/backups/${filename}/restore-documents`);
 }
 
+/**
+ * Gets the current background restoration status.
+ */
+export async function getRestoreStatus(): Promise<{ status: string; message: string; progress: number }> {
+  const api = await getApi();
+  const res = await api.get('/admin/system/backups/restore-status');
+  return res.data;
+}
+
 export async function uploadSystemSnapshot(
   file: File, 
   onProgress?: (p: number) => void

@@ -36,6 +36,7 @@ import {
   restoreDocumentBackup,
   saveToSystemBackup,
   uploadSystemSnapshot,
+  getRestoreStatus,
   type BackupPreset,
   type BackupSummary,
   type SystemBackupFile,
@@ -170,6 +171,7 @@ export default function BackupPage() {
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [restoreStatus, setRestoreStatus] = useState<{ status: string; message: string; progress: number } | null>(null);
   const [confirmingRestore, setConfirmingRestore] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -284,22 +286,50 @@ export default function BackupPage() {
     setRestoring(backup.filename);
     setConfirmingRestore(null);
     setError(null);
+    setRestoreStatus({ status: 'running', message: 'Connecting to server...', progress: 5 });
+    
     try {
       if (backup.type === 'doc') {
         await restoreDocumentBackup(backup.filename);
-        alert("Object storage files re-populated successfully.");
       } else {
         await restoreSystemSnapshot(backup.filename);
-        alert("System database restored successfully. The application will now reload.");
-        window.location.reload();
       }
     } catch (e: any) {
       const msg = e?.response?.data?.message ?? e?.message ?? "Restore failed.";
       setError(msg);
-    } finally {
       setRestoring(null);
+      setRestoreStatus(null);
     }
   };
+
+  // ── Polling for restoration status ──────────────────────────────────────────
+  useEffect(() => {
+    let interval: any;
+    if (restoring) {
+      interval = setInterval(async () => {
+        try {
+          const status = await getRestoreStatus();
+          setRestoreStatus(status);
+          
+          if (status.status === 'completed') {
+            clearInterval(interval);
+            setTimeout(() => {
+                alert("Institutional Restoration Confirmed. The application will now reload to synchronize data.");
+                window.location.reload();
+            }, 1000);
+          } else if (status.status === 'failed') {
+            clearInterval(interval);
+            setError("Restoration process failed: " + status.message);
+            setRestoring(null);
+            setRestoreStatus(null);
+          }
+        } catch (e) {
+          // Silent - connection might flicker during restore
+        }
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [restoring]);
 
   const [uploadProgress, setUploadProgress] = useState(0);
   
@@ -747,22 +777,45 @@ export default function BackupPage() {
       )}
 
       {restoring && (
-        <div className="fixed inset-0 z-[300] flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-xl text-white">
+        <div className="fixed inset-0 z-[300] flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-xl text-white p-6">
           <div className="relative mb-10">
              <div className="absolute inset-0 rounded-full bg-brand-500 blur-2xl opacity-20 animate-pulse" />
              <Loader2 className="h-16 w-16 animate-spin text-brand-500 relative" />
           </div>
-          <h2 className="text-2xl font-black tracking-tighter uppercase italic text-center px-4">
-            {systemBackups.find(b => b.filename === restoring)?.type === 'doc' 
-              ? 'Populating Volumetric Storage...' 
-              : 'Resurrecting System Core...'}
-          </h2>
-          <div className="mt-4 flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
-             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest tabular-nums">Manifest Identified: {restoring}</span>
+          
+          <div className="w-full max-w-sm">
+            <h2 className="text-2xl font-black tracking-tighter uppercase italic text-center mb-6">
+              {systemBackups.find(b => b.filename === restoring)?.type === 'doc' 
+                ? 'Populating Volumetric Storage...' 
+                : 'Resurrecting System Core...'}
+            </h2>
+
+            {restoreStatus && (
+              <div className="space-y-4">
+                 <div className="flex items-center justify-between text-[10px] uppercase font-bold tracking-widest text-slate-400">
+                    <span>{restoreStatus.message}</span>
+                    <span className="tabular-nums text-brand-500">{restoreStatus.progress}%</span>
+                 </div>
+                 
+                 <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
+                    <motion.div 
+                      className="h-full bg-brand-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${restoreStatus.progress}%` }}
+                      transition={{ duration: 0.5 }}
+                    />
+                 </div>
+              </div>
+            )}
+            
+            <div className="mt-8 flex items-center justify-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10 w-fit mx-auto">
+               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest tabular-nums truncate max-w-[200px]">Node: {restoring}</span>
+            </div>
           </div>
-          <div className="mt-12 text-[9px] uppercase font-bold tracking-[0.3em] text-slate-500 animate-pulse">
-            Institutional integrity check in progress
+
+          <div className="mt-12 text-[9px] uppercase font-bold tracking-[0.3em] text-slate-500 animate-pulse text-center">
+            System write locks enabled — Do not close this window
           </div>
         </div>
       )}
