@@ -85,7 +85,7 @@ class ActivityLogController extends Controller
     private function validateQueryParams(Request $request)
     {
         return $request->validate([
-            'scope' => 'nullable|in:office,mine,document,request,all',
+            'scope' => 'nullable|in:office,mine,document,request,connected,all',
             'document_id' => 'nullable|integer|exists:documents,id',
             'request_id' => 'nullable|integer|exists:document_requests,id',
             'document_version_id' => 'nullable|integer|exists:document_versions,id',
