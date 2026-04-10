@@ -20,6 +20,7 @@ import { formatDate } from "../../utils/formatters";
 import { ActivityTimeline } from "../profile/ActivityTimeline";
 import Button from "../ui/Button";
 import SearchFilterBar from "../ui/SearchFilterBar";
+import Skeleton from "../ui/loader/Skeleton";
 
 const parseUA = (ua: string | null) => {
   if (!ua) return { device: "Unknown Device", browser: "Unknown Browser" };
@@ -206,16 +207,31 @@ const AdminSessionsTab: React.FC = () => {
       <div className="flex-1 flex min-h-0 relative">
         <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${selectedSession ? "mr-[400px]" : "mr-0"}`}>
           <div className="flex-1 min-h-0 bg-white dark:bg-surface-500 border border-slate-200 dark:border-surface-400 rounded-sm overflow-hidden">
-            <Table<AdminSession>
-              bare
-              columns={columns}
-              rows={filteredSessions}
-              rowKey={(s) => s.id}
-              loading={loading}
-              onRowClick={handleSelectSession}
-              emptyMessage={search ? "No sessions match your search." : "No active sessions found."}
-              gridTemplateColumns="1.2fr 0.8fr 1.5fr 1fr 1fr 6rem"
-            />
+            {loading ? (
+              <div className="divide-y divide-slate-100 dark:divide-surface-400">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="p-4 grid gap-4" style={{ gridTemplateColumns: "1.2fr 0.8fr 1.5fr 1fr 1fr 6rem" }}>
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-4 w-8 justify-self-end" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Table<AdminSession>
+                bare
+                columns={columns}
+                rows={filteredSessions}
+                rowKey={(s) => s.id}
+                loading={loading}
+                onRowClick={handleSelectSession}
+                emptyMessage={search ? "No sessions match your search." : "No active sessions found."}
+                gridTemplateColumns="1.2fr 0.8fr 1.5fr 1fr 1fr 6rem"
+              />
+            )}
           </div>
         </div>
       </div>
@@ -227,21 +243,31 @@ const AdminSessionsTab: React.FC = () => {
         {selectedSession && (
           <div className="flex flex-col h-full">
             <div className="shrink-0 p-4 border-b border-slate-100 dark:border-surface-400 flex items-center justify-between bg-slate-50/50 dark:bg-surface-600/50">
-               <div className="flex items-center gap-3">
+               <div className="flex items-center gap-3 text-slate-900 dark:text-slate-100">
                   <div className="h-9 w-9 rounded-full bg-brand-500/10 dark:bg-brand-500/20 flex items-center justify-center text-brand-600 dark:text-brand-400">
                     <History size={18} />
                   </div>
                   <div className="min-w-0">
-                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">Session Tracking</h3>
+                     <h3 className="text-sm font-bold truncate">Session Tracking</h3>
                      <p className="text-[10px] text-slate-400 truncate uppercase tracking-widest font-bold">{selectedSession.user.full_name}</p>
                   </div>
                </div>
-               <button 
-                  onClick={() => setSelectedSession(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-surface-400 rounded-md"
-               >
-                  <X size={18} />
-               </button>
+               <div className="flex items-center gap-1">
+                  <button 
+                    onClick={() => handleSelectSession(selectedSession)}
+                    className={`p-1.5 text-slate-400 hover:text-brand-500 hover:bg-slate-100 dark:hover:bg-surface-400 rounded-md transition ${logsLoading ? "animate-spin" : ""}`}
+                    title="Refresh Activity"
+                    disabled={logsLoading}
+                  >
+                    <Activity size={16} />
+                  </button>
+                  <button 
+                    onClick={() => setSelectedSession(null)}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-surface-400 rounded-md transition"
+                  >
+                    <X size={18} />
+                  </button>
+               </div>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-1">
@@ -252,17 +278,33 @@ const AdminSessionsTab: React.FC = () => {
                   </p>
                </div>
                
-               <ActivityTimeline 
-                  items={sessionLogs} 
-                  loading={logsLoading} 
-               />
-               
-               {!logsLoading && sessionLogs.length === 0 && (
-                 <div className="flex flex-col items-center justify-center py-20 text-center px-10">
-                    <Activity className="h-10 w-10 text-slate-200 dark:text-surface-300 mb-4 opacity-50" />
-                    <p className="text-sm font-bold text-slate-400 uppercase tracking-tight">No Session Activity</p>
-                    <p className="text-xs text-slate-400 mt-1">This user has not performed any loggable actions during this session yet.</p>
+               {logsLoading ? (
+                 <div className="px-4 space-y-6">
+                   {[...Array(4)].map((_, i) => (
+                     <div key={i} className="flex gap-4">
+                       <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                       <div className="flex-1 space-y-2 py-1">
+                         <Skeleton className="h-3 w-1/4" />
+                         <Skeleton className="h-4 w-3/4" />
+                       </div>
+                     </div>
+                   ))}
                  </div>
+               ) : (
+                 <>
+                   <ActivityTimeline 
+                      items={sessionLogs} 
+                      loading={logsLoading} 
+                   />
+                   
+                   {sessionLogs.length === 0 && (
+                     <div className="flex flex-col items-center justify-center py-20 text-center px-10">
+                        <Activity className="h-10 w-10 text-slate-200 dark:text-surface-300 mb-4 opacity-50" />
+                        <p className="text-sm font-bold text-slate-400 uppercase tracking-tight">No Session Activity</p>
+                        <p className="text-xs text-slate-400 mt-1">This user has not performed any loggable actions during this session yet.</p>
+                     </div>
+                   )}
+                 </>
                )}
             </div>
 

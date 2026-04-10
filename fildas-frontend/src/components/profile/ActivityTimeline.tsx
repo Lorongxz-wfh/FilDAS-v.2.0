@@ -11,6 +11,7 @@ import {
   type LucideIcon
 } from "lucide-react";
 import { friendlyEvent } from "../../utils/activityFormatters";
+import Skeleton from "../ui/loader/Skeleton";
 
 export interface ActivityLogRow {
   id: number;
@@ -108,13 +109,22 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ items, loadi
 
   if (loading && items.length === 0) {
     return (
-      <div className="space-y-8 animate-pulse p-4">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="flex gap-4">
-            <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-surface-400 shrink-0" />
-            <div className="flex-1 space-y-2 py-1">
-              <div className="h-3 w-1/4 bg-slate-100 dark:bg-surface-400 rounded" />
-              <div className="h-4 w-3/4 bg-slate-100 dark:bg-surface-400 rounded" />
+      <div className="relative space-y-8 p-4">
+        {/* Main vertical line */}
+        <div className="absolute left-8 top-8 bottom-8 w-px bg-slate-100 dark:bg-surface-400" />
+        
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="relative flex items-start gap-5">
+            <div className="relative z-10 h-8 w-8 rounded-full bg-slate-50 dark:bg-surface-400 border-4 border-white dark:border-surface-500 shadow-sm shrink-0 flex items-center justify-center">
+              <div className="h-3 w-3 rounded-full bg-slate-200 dark:bg-surface-300 animate-pulse" />
+            </div>
+            <div className="flex-1 space-y-3 py-1">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-2 w-12" />
+              </div>
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
             </div>
           </div>
         ))}

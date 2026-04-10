@@ -32,6 +32,17 @@ trait LogsActivityTrait
         ?int $documentVersionId = null,
         ?int $targetOfficeId = null,
     ): void {
+        $tokenId = request()->user()?->currentAccessToken()?->id;
+
+        // Fallback: If token is not linked but exists in header (e.g. during specific request lifecycles)
+        if (!$tokenId && $token = request()->bearerToken()) {
+            $hashedToken = hash('sha256', $token);
+            $tokenRecord = \Laravel\Sanctum\PersonalAccessToken::where('token', $hashedToken)->first();
+            if ($tokenRecord) {
+                $tokenId = $tokenRecord->id;
+            }
+        }
+
         ActivityLog::create([
             'document_id'              => $documentId,
             'document_version_id'      => $documentVersionId,
@@ -41,7 +52,7 @@ trait LogsActivityTrait
             'event'                    => $event,
             'label'                    => $label,
             'meta'                     => $meta,
-            'personal_access_token_id' => request()->user()?->currentAccessToken()?->id,
+            'personal_access_token_id' => $tokenId,
         ]);
     }
 }
