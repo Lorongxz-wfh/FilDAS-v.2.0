@@ -47,8 +47,9 @@ class SystemBackupController extends Controller
             $disk->makeDirectory($this->backupDir);
         }
 
-        // Use allFiles() to be more resilient across different drivers/prefixes
-        $files = $disk->allFiles($this->backupDir);
+        // Use standard files() for performance. Recursive allFiles() blocks 
+        // single-threaded development servers (php artisan serve).
+        $files = $disk->files($this->backupDir);
         $backups = [];
         $totalSize = 0;
 
