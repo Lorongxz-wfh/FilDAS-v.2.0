@@ -131,13 +131,25 @@ export async function downloadSystemSnapshot(filename: string): Promise<void> {
   const url = `${API_BASE}/admin/system/backups/${filename}`;
 
   fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json, */*" },
   })
-    .then((res) => {
+    .then(async (res) => {
       if (!res.ok) throw new Error("Download failed");
+      
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const data = await res.json();
+        if (data.url) {
+          // Offload to cloud storage directly
+          window.location.href = data.url;
+          return null;
+        }
+      }
+      
       return res.blob();
     })
     .then((blob) => {
+      if (!blob) return; // Handled via redirect
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = filename;
@@ -148,7 +160,7 @@ export async function downloadSystemSnapshot(filename: string): Promise<void> {
     })
     .catch((err) => {
       console.error("System backup download failed:", err);
-      alert("Download failed.");
+      alert("Download failed. For large snapshots, please wait a few minutes after generation before attempting to download.");
     });
 }
 

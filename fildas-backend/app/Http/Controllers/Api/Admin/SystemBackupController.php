@@ -207,13 +207,33 @@ class SystemBackupController extends Controller
             abort(404, 'Backup file not found.');
         }
 
-        \Log::info("System Backup download started", ['filename' => $filename]);
+        $disk = $this->disk();
+
+        // ── Large File Offloading ───────────────────────────────────────────
+        // If we are on S3/R2 and the file is large, a pre-signed URL is much safer.
+        // This offloads the multi-minute download work to the Cloud Storage provider,
+        // preventing Render's 504 Gateway Timeout or PHP 500 Out-of-Memory.
+        try {
+            if ($disk->getConfig()['driver'] === 's3' || method_exists($disk, 'temporaryUrl')) {
+                $url = $disk->temporaryUrl($path, now()->addHours(1));
+                
+                // If the request expects JSON (from our axios frontend), return the URL
+                if ($request->expectsJson()) {
+                    return response()->json(['url' => $url]);
+                }
+                
+                // Otherwise, perform a direct redirect
+                return redirect($url);
+            }
+        } catch (\Throwable $e) {
+            \Log::warning("Could not generate pre-signed URL for backup download", ['error' => $e->getMessage()]);
+        }
 
         $this->logActivity('admin.backup_downloaded', "Downloaded system backup: {$filename}", $request->user()->id, $request->user()->office_id, [
             'filename' => $filename
         ]);
 
-        return $this->disk()->download($path);
+        return $disk->download($path);
     }
 
     public function destroy(Request $request, $filename)
