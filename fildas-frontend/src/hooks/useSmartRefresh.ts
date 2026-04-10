@@ -21,13 +21,16 @@ export function useSmartRefresh(
   const [isRefreshing, setIsRefreshing] = useState(false);
   const toast = useToastSafe();
 
-  // 1. Decouple logic from identity: use refs for identity-agnostic access
+  // 1. Decouple logic from ALL identities: use refs for logic-agnostic access
+  // This is the "Nuclear Option" to guarantee refresh() is a static constant.
   const fnRef = useRef(reloadFn);
+  const toastRef = useRef(toast);
   const isBusyRef = useRef(false);
 
   useEffect(() => {
     fnRef.current = reloadFn;
-  }, [reloadFn]);
+    toastRef.current = toast;
+  }, [reloadFn, toast]);
 
   const refresh = useCallback(async () => {
     // 2. Guard with Ref to prevent concurrent calls without identity shuffling
@@ -38,15 +41,16 @@ export function useSmartRefresh(
     
     try {
       const result = await fnRef.current();
+      const t = toastRef.current;
       
       if (!result) {
-        toast?.push({
+        t?.push({
           type: "success",
           message: "Page data synchronized.",
           durationMs: 2000,
         });
       } else if (result.message) {
-        toast?.push({
+        t?.push({
           type: result.changed ? "success" : "info",
           message: result.message,
           durationMs: 2500,
@@ -55,20 +59,20 @@ export function useSmartRefresh(
         const deltaMsg = result.delta != null && result.delta > 0 
           ? ` (${result.delta} new updates)` 
           : "";
-        toast?.push({
+        t?.push({
           type: "success",
           message: `Data synchronized${deltaMsg}.`,
           durationMs: 2500,
         });
       } else {
-        toast?.push({
+        t?.push({
           type: "info",
           message: "Data is up to date.",
           durationMs: 2000,
         });
       }
     } catch (err) {
-      toast?.push({
+      toastRef.current?.push({
         type: "error",
         title: "Sync Failed",
         message: normalizeError(err),
@@ -78,7 +82,8 @@ export function useSmartRefresh(
       isBusyRef.current = false;
       setTimeout(() => setIsRefreshing(false), 300);
     }
-  }, [toast]); // Identity is now stable!
+  }, []); // ABSOLUTELY STABLE: Never changes identity.
+
 
 
   return { refresh, isRefreshing };
