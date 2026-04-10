@@ -134,8 +134,6 @@ class SystemRestoreJob implements ShouldQueue
 
         if ($dbConnection === 'mysql') {
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        } elseif ($dbConnection === 'pgsql') {
-            DB::statement('SET session_replication_role = \'replica\'');
         }
 
         $handle = fopen($sqlPath, "r");
@@ -161,8 +159,6 @@ class SystemRestoreJob implements ShouldQueue
 
         if ($dbConnection === 'mysql') {
             DB::statement('SET FOREIGN_KEY_CHECKS=1');
-        } elseif ($dbConnection === 'pgsql') {
-            DB::statement('SET session_replication_role = \'origin\'');
         }
     }
 
@@ -181,7 +177,6 @@ class SystemRestoreJob implements ShouldQueue
         } elseif ($isPgsql) {
             $tables = DB::select("SELECT tablename FROM pg_tables WHERE schemaname = 'public'");
             $tableNames = array_column($tables, 'tablename');
-            DB::statement('SET session_replication_role = \'replica\'');
         } else {
             $tables = DB::select("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
             $tableNames = array_column($tables, 'name');
@@ -197,7 +192,6 @@ class SystemRestoreJob implements ShouldQueue
         }
 
         if ($isMysql) DB::statement('SET FOREIGN_KEY_CHECKS=1');
-        elseif ($isPgsql) DB::statement('SET session_replication_role = \'origin\'');
     }
 
     private function internalRestoreDocuments($zipPath)
