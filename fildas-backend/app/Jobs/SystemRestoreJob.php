@@ -126,16 +126,31 @@ class SystemRestoreJob implements ShouldQueue
 
         $handle = fopen($sqlPath, "r");
         $query = "";
+        
+        Log::info("Executing SQL restoration buffer...");
+
         if ($handle) {
             while (($line = fgets($handle)) !== false) {
                 $trimmedLine = trim($line);
-                if (empty($trimmedLine) || str_starts_with($trimmedLine, '--') || str_starts_with($trimmedLine, '/*')) continue;
+                
+                // Skip comments and empty lines
+                if (empty($trimmedLine) || str_starts_with($trimmedLine, '--') || str_starts_with($trimmedLine, '/*')) {
+                    continue;
+                }
                 
                 $query .= $line;
+
+                // Only execute when we hit a semi-colon that isn't inside a comment
                 if (str_ends_with($trimmedLine, ';')) {
                     try {
                         DB::unprepared($query);
-                    } catch (\Throwable $e) {}
+                    } catch (\Throwable $e) {
+                        // Log the error but keep going - some 'CREATE TABLE' might fail if tables weren't dropped correctly
+                        Log::warning("SQL Statement Failed during background restore", [
+                            'error' => $e->getMessage(),
+                            'query_snippet' => substr($query, 0, 150) . '...'
+                        ]);
+                    }
                     $query = "";
                 }
             }
@@ -173,10 +188,13 @@ class SystemRestoreJob implements ShouldQueue
         foreach ($tableNames as $table) {
             if (in_array($table, $skipTables)) continue;
             try {
+                Log::info("Wiping table for restore: {$table}");
                 if ($isMysql) DB::statement("DROP TABLE IF EXISTS `{$table}`");
                 elseif ($isPgsql) DB::statement("DROP TABLE IF EXISTS \"{$table}\" CASCADE");
                 else DB::statement("DROP TABLE IF EXISTS `{$table}`");
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+                Log::error("Failed to drop table {$table}", ['error' => $e->getMessage()]);
+            }
         }
 
         if ($isMysql) DB::statement('SET FOREIGN_KEY_CHECKS=1');
