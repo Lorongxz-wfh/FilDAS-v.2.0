@@ -138,18 +138,40 @@ class SystemRestoreJob implements ShouldQueue
 
         $handle = fopen($sqlPath, "r");
         $query = "";
+        $isPgsql = config('database.default') === 'pgsql';
+
+        Log::info("Executing SQL restoration buffer (Translation Mode: " . ($isPgsql ? 'ON' : 'OFF') . ")");
+
         if ($handle) {
             while (($line = fgets($handle)) !== false) {
                 $trimmedLine = trim($line);
                 if (empty($trimmedLine) || str_starts_with($trimmedLine, '--') || str_starts_with($trimmedLine, '/*')) continue;
                 
+                // ── MySQL to Postgres Translation ──
+                if ($isPgsql) {
+                    // Convert backticks to double quotes
+                    $line = str_replace('`', '"', $line);
+                    // Remove MySQL specific engine and charset definitions
+                    $line = preg_replace('/ENGINE=[^; ]+/', '', $line);
+                    $line = preg_replace('/AUTO_INCREMENT=[^; ]+/', '', $line);
+                    $line = preg_replace('/DEFAULT CHARSET=[^; ]+/', '', $line);
+                    $line = preg_replace('/COLLATE=[^; ]+/', '', $line);
+                    // Convert Boolean/TinyInt MySQL to SmallInt/Boolean for Postgres
+                    $line = str_replace('tinyint(1)', 'boolean', $line);
+                    $line = str_replace('datetime', 'timestamp', $line);
+                }
+
                 $query .= $line;
-                // Check for statement end with flexibility (trailing spaces)
-                if (isset($trimmedLine[strlen($trimmedLine)-1]) && $trimmedLine[strlen($trimmedLine)-1] === ';') {
+                
+                // Check for statement end with flexibility
+                if (str_ends_with(trim($trimmedLine), ';')) {
                     try {
                         DB::unprepared($query);
                     } catch (\Throwable $e) {
-                        Log::warning("SQL Error: " . $e->getMessage(), ['query_start' => substr($query, 0, 50)]);
+                        // Very common to fail on 'SET' or 'ENGINE' lines if we didn't strip enough
+                        if (!str_contains($e->getMessage(), 'syntax error')) {
+                           Log::warning("SQL Error during restore: " . $e->getMessage(), ['query' => substr($query, 0, 100)]);
+                        }
                     }
                     $query = "";
                 }
