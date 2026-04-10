@@ -40,7 +40,7 @@ class UserSeeder extends Seeder
                 'suffix' => null,
                 'profile_photo_path' => null,
 
-                'password' => Hash::make('Posa123'),
+                'password' => Hash::make('Posa_123'),
                 'role_id'  => $adminRole->id,
                 'office_id' => null,
             ]
@@ -55,7 +55,7 @@ class UserSeeder extends Seeder
                 'suffix' => null,
                 'profile_photo_path' => null,
 
-                'password' => Hash::make('Posa123'),
+                'password' => Hash::make('Posa_123'),
                 'role_id'  => $deptRole->id,
                 'office_id' => $officeId('CCS'),
             ]
@@ -72,7 +72,7 @@ class UserSeeder extends Seeder
                 'suffix' => null,
                 'profile_photo_path' => null,
 
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Password_123'),
                 'role_id'  => $auditorRole->id,
                 'office_id' => null,
             ]
@@ -87,7 +87,7 @@ class UserSeeder extends Seeder
                 'suffix' => null,
                 'profile_photo_path' => null,
 
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Password_123'),
                 'role_id'  => $vpRole->id,
                 'office_id' => $officeId('VPAD'),
             ]
@@ -103,7 +103,7 @@ class UserSeeder extends Seeder
                 'suffix' => null,
                 'profile_photo_path' => null,
 
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Password_123'),
                 'role_id'  => $vpRole->id,
                 'office_id' => $officeId('VPFIN'),
 
@@ -119,7 +119,7 @@ class UserSeeder extends Seeder
                 'suffix' => null,
                 'profile_photo_path' => null,
 
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Password_123'),
                 'role_id'  => $vpRole->id,
                 'office_id' => $officeId('VPREQA'),
 
@@ -136,7 +136,7 @@ class UserSeeder extends Seeder
                 'suffix' => null,
                 'profile_photo_path' => null,
 
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Password_123'),
                 'role_id'  => $qaRole->id,
                 'office_id' => $officeId('QA'),
             ]
@@ -152,7 +152,7 @@ class UserSeeder extends Seeder
                 'suffix' => null,
                 'profile_photo_path' => null,
 
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Password_123'),
                 'role_id'  => $deptRole->id,
                 'office_id' => $officeId('CCS'),
             ]
@@ -167,7 +167,7 @@ class UserSeeder extends Seeder
                 'suffix' => null,
                 'profile_photo_path' => null,
 
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Password_123'),
                 'role_id'  => $officeHeadRole->id,
                 'office_id' => $officeId('CCS'),
             ]
@@ -182,7 +182,7 @@ class UserSeeder extends Seeder
                 'suffix' => null,
                 'profile_photo_path' => null,
 
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Password_123'),
                 'role_id'  => $vpRole->id,
                 'office_id' => $officeId('VPAA'),
             ]
@@ -197,7 +197,7 @@ class UserSeeder extends Seeder
                 'suffix' => null,
                 'profile_photo_path' => null,
 
-                'password' => Hash::make('password'),
+                'password' => Hash::make('Password_123'),
                 'role_id'  => $presRole->id,
                 'office_id' => $officeId('PO'),
             ]
@@ -206,12 +206,12 @@ class UserSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'josephbanay030@gmail.com'],
             [
-                'first_name'         => 'Joseph',
-                'middle_name'        => null,
+                'first_name'         => 'Joseph Marie',
+                'middle_name'        => 'D.',
                 'last_name'          => 'Banay',
-                'suffix'             => null,
+                'suffix'             => '(Dionisio)',
                 'profile_photo_path' => null,
-                'password'           => Hash::make('password'),
+                'password'           => Hash::make('Password_123'),
                 'role_id'            => $officeHeadRole->id,
                 'office_id'          => $officeId('CBA'),
             ]
@@ -220,12 +220,12 @@ class UserSeeder extends Seeder
         User::updateOrCreate(
             ['email' => 'Ebacuadomentino@gmail.com'],
             [
-                'first_name'         => 'Mentino',
-                'middle_name'        => null,
+                'first_name'         => 'Stefan John',
+                'middle_name'        => 'M.',
                 'last_name'          => 'Ebacuado',
-                'suffix'             => null,
+                'suffix'             => '(Mentino)',
                 'profile_photo_path' => null,
-                'password'           => Hash::make('password'),
+                'password'           => Hash::make('Password_123'),
                 'role_id'            => $officeHeadRole->id,
                 'office_id'          => $officeId('CN'),
             ]
@@ -283,9 +283,25 @@ class UserSeeder extends Seeder
                 'last_name'          => 'Head',
                 'suffix'             => null,
                 'profile_photo_path' => null,
-                'password'           => Hash::make('password'),
+                'password'           => Hash::make('Password_123'),
                 'role_id'            => $officeHeadRole->id,
                 'office_id'          => $officeId('CCJE'),
+            ]
+        );
+
+        // ── New addition from user request ───────────────────────────────
+
+        User::updateOrCreate(
+            ['email' => 'reiashley14dolfo@gmail.com'],
+            [
+                'first_name'         => 'Rei Ashley',
+                'middle_name'        => null,
+                'last_name'          => 'Dolfo',
+                'suffix'             => null,
+                'profile_photo_path' => null,
+                'password'           => Hash::make('Password_123'),
+                'role_id'            => $deptRole->id,
+                'office_id'          => $officeId('QA'), // Default to QA staff
             ]
         );
 
