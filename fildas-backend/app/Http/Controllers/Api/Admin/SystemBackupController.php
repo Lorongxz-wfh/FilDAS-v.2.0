@@ -374,9 +374,18 @@ class SystemBackupController extends Controller
     public function status(Request $request)
     {
         // Force 'file' store to bypass the database entirely.
-        // This keeps the progress bar alive even when the 'cache' table is wiped.
         try {
             $status = Cache::store('file')->get('system_restore_status');
+
+            // ── The Physical Fail-Safe ──
+            // If cache is empty, check if the physical disk lock still exists.
+            if (!$status && Storage::disk('local')->exists('restore_active.lock')) {
+                return response()->json([
+                    'status' => 'running',
+                    'message' => 'Restoration engine active (Syncing schema)...',
+                    'progress' => 50
+                ]);
+            }
 
             if (!$status) {
                 return response()->json([
@@ -388,10 +397,9 @@ class SystemBackupController extends Controller
             
             return response()->json($status);
         } catch (\Throwable $e) {
-            // Fallback for extreme transients
             return response()->json([
                 'status' => 'running',
-                'message' => 'Synchronizing system core...',
+                'message' => 'Handing over to core engine...',
                 'progress' => 5
             ]);
         }

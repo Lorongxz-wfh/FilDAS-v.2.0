@@ -44,6 +44,9 @@ class SystemRestoreJob implements ShouldQueue
         $data = ['status' => 'running', 'message' => "Starting restoration of {$this->filename}...", 'progress' => 5];
         Cache::store('file')->put($statusKey, $data, 1800);
         Cache::store('file')->put('system_restore_status', $data, 1800);
+        
+        // Physical Lock - prevents UI from vanishing during DB transients
+        Storage::disk('local')->put('restore_active.lock', json_encode(['actor' => $this->actorId, 'time' => time()]));
 
         $disk = Storage::disk(config('filesystems.default') === 's3' ? 's3' : 'local');
         $tempZip = tempnam(sys_get_temp_dir(), 'rest_final_');
@@ -117,6 +120,7 @@ class SystemRestoreJob implements ShouldQueue
             // Final Cleanup
             @unlink($tempZip);
             File::deleteDirectory($tempExtractDir);
+            Storage::disk('local')->delete('restore_active.lock');
 
             $data = ['status' => 'completed', 'message' => "Restoration finished successfully.", 'progress' => 100];
             Cache::store('file')->put($statusKey, $data, 1800);
@@ -130,6 +134,7 @@ class SystemRestoreJob implements ShouldQueue
             $data = ['status' => 'failed', 'message' => $e->getMessage(), 'progress' => 0];
             Cache::store('file')->put($statusKey, $data, 1800);
             Cache::store('file')->put('system_restore_status', $data, 1800);
+            Storage::disk('local')->delete('restore_active.lock');
             @unlink($tempZip);
         }
     }
