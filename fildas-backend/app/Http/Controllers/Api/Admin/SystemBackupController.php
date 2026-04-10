@@ -345,9 +345,15 @@ class SystemBackupController extends Controller
             abort(404, 'Backup file not found.');
         }
 
-        // Fetch to local disk
+        set_time_limit(900); // 15 minutes for massive restorations
+
+        // Fetch to local disk using STREAMS to save memory
         $tempZip = tempnam(sys_get_temp_dir(), 'rest_');
-        file_put_contents($tempZip, $this->disk()->get($path));
+        $readStream = $this->disk()->readStream($path);
+        $writeStream = fopen($tempZip, 'w+');
+        stream_copy_to_stream($readStream, $writeStream);
+        fclose($readStream);
+        fclose($writeStream);
 
         $tempExtractDir = storage_path('app/temp/restore_' . time());
         if (!is_dir($tempExtractDir)) {
@@ -369,19 +375,22 @@ class SystemBackupController extends Controller
                         \Log::info("Restoring FULL Institutional Backup", ['file' => $filename]);
                         
                         // 1. Extract and Restore Database
-                        $sqlContent = $zip->getFromName('database_snapshot.sql');
-                        $tempSql = $tempExtractDir . '/db_full.sql';
-                        file_put_contents($tempSql, $sqlContent);
-                        $this->runSqlRestore($tempSql);
-                        @unlink($tempSql);
+                        $tempSql = $tempExtractDir . '/database_snapshot.sql';
+                        $zip->extractTo($tempExtractDir, ['database_snapshot.sql']);
+                        
+                        if (file_exists($tempSql)) {
+                            $this->runSqlRestore($tempSql);
+                            @unlink($tempSql);
+                        }
 
                         // 2. Extract and Restore Documents
-                        $docZipContent = $zip->getFromName('document_collection.zip');
-                        $tempDocZip = $tempExtractDir . '/docs_full.zip';
-                        file_put_contents($tempDocZip, $docZipContent);
+                        $tempDocZip = $tempExtractDir . '/document_collection.zip';
+                        $zip->extractTo($tempExtractDir, ['document_collection.zip']);
                         
-                        $this->internalRestoreDocuments($tempDocZip);
-                        @unlink($tempDocZip);
+                        if (file_exists($tempDocZip)) {
+                            $this->internalRestoreDocuments($tempDocZip);
+                            @unlink($tempDocZip);
+                        }
 
                         $zip->close();
                         @unlink($tempZip);
@@ -494,8 +503,10 @@ class SystemBackupController extends Controller
         foreach ($manifest as $entryName => $originalPath) {
             $localSource = $extractDir . '/' . $entryName;
             if (file_exists($localSource)) {
-                // Restore to default disk
-                Storage::disk()->put($originalPath, file_get_contents($localSource));
+                // Restore to default disk via STREAM to keep RAM low
+                $stream = fopen($localSource, 'r');
+                Storage::disk()->put($originalPath, $stream);
+                if (is_resource($stream)) fclose($stream);
             }
         }
 
