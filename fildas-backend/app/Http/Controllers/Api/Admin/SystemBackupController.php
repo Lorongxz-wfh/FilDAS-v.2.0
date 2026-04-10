@@ -350,8 +350,8 @@ class SystemBackupController extends Controller
             abort(404, 'Backup file not found.');
         }
 
-        // Dispatch background job for resilient processing
-        \App\Jobs\SystemRestoreJob::dispatch(
+        // Use dispatchAfterResponse to run it on the same process after the browser disconnects
+        \App\Jobs\SystemRestoreJob::dispatchAfterResponse(
             $filename, 
             $path, 
             $request->user()->id, 
@@ -359,7 +359,7 @@ class SystemBackupController extends Controller
         );
 
         return response()->json([
-            'message' => 'Restoration process has been started in the background. This will take 2-10 minutes depending on file size. You will receive an in-app notification when complete.',
+            'message' => 'Restoration process has been started. The server is processing the data now. Please wait 3-5 minutes then refresh the page.',
         ], 202);
     }
 
