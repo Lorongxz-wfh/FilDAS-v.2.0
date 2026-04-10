@@ -314,19 +314,22 @@ class SystemBackupController extends Controller
             if (in_array($table, $skipTables)) continue;
             
             try {
-                \Log::info("Restoration cleanup: Wiping table {$table}");
-                
                 if ($isMysql) {
-                    DB::statement("TRUNCATE TABLE `{$table}`");
+                    DB::statement("DROP TABLE IF EXISTS `{$table}`");
                 } elseif ($isPgsql) {
-                    DB::statement("TRUNCATE TABLE \"{$table}\" RESTART IDENTITY CASCADE");
+                    DB::statement("DROP TABLE IF EXISTS \"{$table}\" CASCADE");
                 } else {
-                    DB::statement("DELETE FROM `{$table}`");
-                    DB::statement("DELETE FROM sqlite_sequence WHERE name='{$table}'");
+                    DB::statement("DROP TABLE IF EXISTS `{$table}`");
                 }
             } catch (\Throwable $e) {
-                \Log::warning("Could not wipe table {$table}, skipped.", ['error' => $e->getMessage()]);
+                \Log::warning("Could not drop table {$table}, skipping wipe.", ['error' => $e->getMessage()]);
             }
+        }
+
+        if ($isMysql) {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        } elseif ($isPgsql) {
+            DB::statement('SET session_replication_role = \'origin\'');
         }
 
         if ($isMysql) {
@@ -340,9 +343,9 @@ class SystemBackupController extends Controller
     {
         $this->checkAccess($request);
 
-        set_time_limit(900); // 15 minutes for large/full restores
-        ini_set('memory_limit', '1024M'); // Massive RAM boost for SQL processing
-        \Log::info("Starting system restoration for: {$filename}");
+        set_time_limit(1800); // 30 minutes
+        ini_set('memory_limit', '2048M'); 
+        \Log::info("Starting CRITICAL system restoration: {$filename}");
 
         $filename = basename($filename);
         $path = "{$this->backupDir}/{$filename}";
@@ -466,10 +469,7 @@ class SystemBackupController extends Controller
         if ($dbConnection === 'sqlite' && str_ends_with($sqlPath, '.sqlite')) {
             $dbPath = config('database.connections.sqlite.database');
             copy($sqlPath, $dbPath);
-        } else {
-            $this->wipeApplicationTables();
-            \Log::info("Executing SQL restoration...", ['path' => $sqlPath]);
-            $sql = file_get_contents($sqlPath);
+            \Log::info("Streaming SQL restoration via line-splitter...", ['path' => $sqlPath]);
             
             if ($dbConnection === 'mysql') {
                 DB::statement('SET FOREIGN_KEY_CHECKS=0');
@@ -477,9 +477,29 @@ class SystemBackupController extends Controller
                 DB::statement('SET session_replication_role = \'replica\'');
             }
 
-            DB::unprepared($sql);
-            
-            unset($sql); // Free memory immediately
+            // Split and execute SQL line-by-line to avoid PDO memory/packet limits
+            $handle = fopen($sqlPath, "r");
+            $query = "";
+            if ($handle) {
+                while (($line = fgets($handle)) !== false) {
+                    $trimmedLine = trim($line);
+                    // Skip comments or empty lines
+                    if (empty($trimmedLine) || str_starts_with($trimmedLine, '--') || str_starts_with($trimmedLine, '/*')) {
+                        continue;
+                    }
+                    
+                    $query .= $line;
+                    if (str_ends_with($trimmedLine, ';')) {
+                        try {
+                            DB::unprepared($query);
+                        } catch (\Throwable $e) {
+                            \Log::error("SQL part failed - might be okay if it's a duplication", ['error' => $e->getMessage(), 'query' => substr($query, 0, 100)]);
+                        }
+                        $query = "";
+                    }
+                }
+                fclose($handle);
+            }
 
             if ($dbConnection === 'mysql') {
                 DB::statement('SET FOREIGN_KEY_CHECKS=1');
