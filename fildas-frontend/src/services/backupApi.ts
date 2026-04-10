@@ -183,11 +183,21 @@ export async function restoreDocumentBackup(filename: string): Promise<void> {
 
 /**
  * Gets the current background restoration status.
+ * Uses a clean fetch without auth headers to survive database wipes.
  */
 export async function getRestoreStatus(): Promise<{ status: string; message: string; progress: number }> {
-  const api = await getApi();
-  const res = await api.get('/admin/system/backups/restore-status');
-  return res.data;
+  try {
+    const res = await fetch(`${API_BASE}/admin/system/backups/restore-status`, {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!res.ok) {
+        // Return a safe "Processing" state during transient 500s mid-wipe
+        return { status: 'running', message: 'Synchronizing system state...', progress: 5 };
+    }
+    return await res.json();
+  } catch (err) {
+    return { status: 'running', message: 'Connecting to system core...', progress: 5 };
+  }
 }
 
 export async function uploadSystemSnapshot(

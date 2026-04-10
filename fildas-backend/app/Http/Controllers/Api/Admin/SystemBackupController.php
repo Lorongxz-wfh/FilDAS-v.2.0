@@ -373,17 +373,14 @@ class SystemBackupController extends Controller
 
     public function status(Request $request)
     {
-        // Try user-specific status first, then fallback to a global marker
-        $userId = $request->user()?->id ?? 'global';
-        $statusKey = "restore_status_{$userId}";
-        
-        $status = Cache::get($statusKey);
+        // Use a global key that doesn't depend on a logged-in User ID
+        // since the users table might be wiped mid-restore.
+        $status = Cache::get('system_restore_status');
 
-        // If no user-specific key, check if there's any active restore
         if (!$status) {
-            $status = Cache::get('system_restore_status', [
-                'status' => 'idle', 
-                'message' => 'No active restoration.', 
+            return response()->json([
+                'status' => 'idle',
+                'message' => 'No active restoration.',
                 'progress' => 0
             ]);
         }
