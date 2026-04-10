@@ -47,7 +47,8 @@ class SystemBackupController extends Controller
             $disk->makeDirectory($this->backupDir);
         }
 
-        $files = $disk->files($this->backupDir);
+        // Use allFiles() to be more resilient across different drivers/prefixes
+        $files = $disk->allFiles($this->backupDir);
         $backups = [];
         $totalSize = 0;
 
@@ -57,9 +58,9 @@ class SystemBackupController extends Controller
             $totalSize += $size;
             
             $type = 'db';
-            if (str_starts_with($filename, 'doc_snap_') || str_starts_with($filename, 'fildas-documents-')) {
+            if (str_contains($filename, 'doc_snap_') || str_contains($filename, 'fildas-documents-') || str_contains($filename, 'docs')) {
                 $type = 'doc';
-            } elseif (str_starts_with($filename, 'fildas-full-snapshot-')) {
+            } elseif (str_contains($filename, 'fildas-full-snapshot-') || str_contains($filename, 'full')) {
                 $type = 'full';
             }
 
@@ -505,25 +506,30 @@ class SystemBackupController extends Controller
         $this->checkAccess($request);
 
         $request->validate([
-            'file' => 'required|file|max:51200', // 50MB max for now
+            'file' => 'required|file|max:1024000', // 1GB max for modern institutional archives
         ]);
 
         $file = $request->file('file');
         $filename = $file->getClientOriginalName();
 
-        // Security: ensure it's a backup file and not a malicious script
+        // Security: ensure it's a backup file type
         $ext = strtolower($file->getClientOriginalExtension());
         if (!in_array($ext, ['zip', 'sql', 'sqlite'])) {
             return response()->json(['message' => 'Invalid backup file type. Use .zip, .sql, or .sqlite'], 422);
         }
 
         // Avoid overwriting by appending timestamp if exists
-        if ($this->disk()->exists("{$this->backupDir}/{$filename}")) {
+        $path = "{$this->backupDir}/{$filename}";
+        if ($this->disk()->exists($path)) {
             $nameOnly = pathinfo($filename, PATHINFO_FILENAME);
             $filename = $nameOnly . '_' . time() . '.' . $ext;
+            $path = "{$this->backupDir}/{$filename}";
         }
 
-        $this->disk()->putFileAs($this->backupDir, $file, $filename);
+        // Use put() with a resource stream to keep memory usage low
+        $stream = fopen($file->getRealPath(), 'r');
+        $this->disk()->put($path, $stream);
+        if (is_resource($stream)) fclose($stream);
 
         $this->logActivity('admin.backup_uploaded', "Uploaded external backup file: {$filename}", $request->user()->id, $request->user()->office_id, [
             'filename' => $filename
