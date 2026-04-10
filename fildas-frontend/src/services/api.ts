@@ -43,6 +43,14 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // ── Intentional Cancellation Handling ────────────────────────────────
+    // If we cancelled a request due to an upload bottleneck, we should 
+    // swallow the error so it doesn't trigger "Network Error" UI boxes.
+    if (axios.isCancel(error)) {
+      console.log("Background request paused:", error.message);
+      return new Promise(() => {}); // Never-resolving promise keeps UI clean
+    }
+
     const status = error?.response?.status;
 
     if (status === 401 || status === 419) {
