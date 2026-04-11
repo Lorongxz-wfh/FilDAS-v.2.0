@@ -24,10 +24,10 @@ export const verifySecurity = async (password: string, code?: string) => {
   return api.post("/admin/trash/verify", { password, code });
 };
 
-export const restoreTrashItem = async (type: TrashType, id: number) => {
-  return api.post(`/admin/trash/${type}/${id}/restore`);
+export const restoreTrashItem = async (type: TrashType, id: number, password?: string, code?: string) => {
+  return api.post(`/admin/trash/${type}/${id}/restore`, { password, code });
 };
 
-export const purgeTrashItem = async (type: TrashType, id: number) => {
-  return api.delete(`/admin/trash/${type}/${id}/purge`);
+export const purgeTrashItem = async (type: TrashType, id: number, password?: string, code?: string) => {
+  return api.delete(`/admin/trash/${type}/${id}/purge`, { data: { password, code } });
 };

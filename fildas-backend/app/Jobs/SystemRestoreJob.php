@@ -164,10 +164,28 @@ class SystemRestoreJob implements ShouldQueue
             throw new \Exception("Failed to read SQL backup file.");
         }
 
+        // Detect Source Driver
+        $sourceDriver = 'mysql'; // Default fallback
+        if (preg_match('/-- BackupDriver: (mysql|pgsql|sqlite|mariadb)/', $sql, $matches)) {
+            $sourceDriver = $matches[1];
+        } elseif (str_contains($sql, '`')) {
+            $sourceDriver = 'mysql';
+        } elseif (str_contains($sql, '"')) {
+            $sourceDriver = 'pgsql';
+        }
+
+        $isDestPgsql = $dbConnection === 'pgsql';
+        $needsTranslation = ($sourceDriver === 'mysql' || $sourceDriver === 'mariadb') && $isDestPgsql;
+
+        \Log::info("RESTORE: Source Driver detected as {$sourceDriver}. Destination: {$dbConnection}. Translation needed: " . ($needsTranslation ? 'YES' : 'NO'));
+
         // Robust statement splitting:
         // We look for semicolons that are at the END of a line or followed by whitespace
         // This avoids splitting inside base64 strings if they happen to contain semicolons
-        $statements = preg_split("/;(?=(?:\s*$)|(?:\s+))/m", $sql);
+        // Robust statement splitting:
+        // We split on semicolons followed by a newline (allowing for CRLF and trailing spaces).
+        // This prevents splitting inside string values (like User Agents) that contain semicolons correctly.
+        $statements = preg_split("/;[ \t]*\r?\n/", $sql);
         $total = count($statements);
         $executedCount = 0;
         $isPgsql = $dbConnection === 'pgsql';
@@ -191,8 +209,8 @@ class SystemRestoreJob implements ShouldQueue
 
                 $finalSql = $trimmed . ';';
                 
-                // Translate if needed (PostgreSQL specific cleanups)
-                if ($isPgsql) {
+                // Translate ONLY if source is MySQL and destination is PostgreSQL
+                if ($needsTranslation) {
                     $finalSql = $this->translateSql($finalSql);
                 }
 

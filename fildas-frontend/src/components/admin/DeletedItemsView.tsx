@@ -91,28 +91,36 @@ const DeletedItemsView: React.FC<DeletedItemsViewProps> = ({ type, onRestored, r
     load(true);
   }, [type, searchDebounced, refreshTrigger]);
 
-  const handleAction = async () => {
+  const handleAction = async (password?: string, code?: string) => {
     if (!securityModal) return;
     const { action, itemId } = securityModal;
     
+    const securityParams = { password, code };
+    
     try {
       if (action === "restore" && itemId) {
-        await restoreTrashItem(type, itemId);
+        await restoreTrashItem(type, itemId, password, code);
         toast.push({ type: "success", message: "Item restored successfully." });
         onRestored?.();
       } else if (action === "purge" && itemId) {
-        await purgeTrashItem(type, itemId);
+        await purgeTrashItem(type, itemId, password, code);
         toast.push({ type: "success", message: "Item permanently deleted." });
       } else if (action === "bulk-restore") {
         setIsBulkProcessing(true);
-        const res = await axios.post(`/bulk/trash/${type}/restore`, { ids: Array.from(selectedIds) });
+        const res = await axios.post(`/bulk/trash/${type}/restore`, { 
+          ids: Array.from(selectedIds),
+          ...securityParams
+        });
         toast.push({ type: "success", message: res.data.message });
         clearSelection();
         setIsSelectMode(false);
         onRestored?.();
       } else if (action === "bulk-purge") {
         setIsBulkProcessing(true);
-        const res = await axios.post(`/bulk/trash/${type}/purge`, { ids: Array.from(selectedIds) });
+        const res = await axios.post(`/bulk/trash/${type}/purge`, { 
+          ids: Array.from(selectedIds),
+          ...securityParams
+        });
         toast.push({ type: "success", message: res.data.message });
         clearSelection();
         setIsSelectMode(false);

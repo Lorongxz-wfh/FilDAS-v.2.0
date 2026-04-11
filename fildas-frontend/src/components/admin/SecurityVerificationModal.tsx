@@ -10,7 +10,7 @@ import { inputCls } from "../../utils/formStyles";
 interface SecurityVerificationModalProps {
   open: boolean;
   onClose: () => void;
-  onVerified: () => void;
+  onVerified: (password: string, code?: string) => void;
   title?: string;
   description?: string;
   actionLabel?: string;
@@ -38,7 +38,7 @@ const SecurityVerificationModal: React.FC<SecurityVerificationModalProps> = ({
     setError(null);
     try {
       await verifySecurity(password, code || undefined);
-      onVerified();
+      onVerified(password, code || undefined);
       onClose();
       // Reset state for next time
       setPassword("");

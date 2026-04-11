@@ -93,6 +93,10 @@ class TrashController extends Controller
      */
     public function restore(Request $request, $type, $id)
     {
+        // Require security verification
+        $vResponse = $this->verify($request);
+        if ($vResponse->getStatusCode() !== 200) return $vResponse;
+
         if (!isset($this->modelMap[$type])) {
             return response()->json(['message' => 'Invalid trash type.'], 400);
         }
@@ -115,6 +119,10 @@ class TrashController extends Controller
      */
     public function purge(Request $request, $type, $id)
     {
+        // Require security verification
+        $vResponse = $this->verify($request);
+        if ($vResponse->getStatusCode() !== 200) return $vResponse;
+
         if (!isset($this->modelMap[$type])) {
             return response()->json(['message' => 'Invalid trash type.'], 400);
         }

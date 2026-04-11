@@ -223,7 +223,8 @@ class SystemBackupService
 
         // Standard MySQL/Postgres dump logic (simplified from SystemBackupController)
         $fh = fopen($tempPath, 'w');
-        fwrite($fh, "-- FilDAS Database Snapshot\n-- Generated: " . now()->toDateTimeString() . "\n\n");
+        fwrite($fh, "-- FilDAS Database Snapshot\n-- Generated: " . now()->toDateTimeString() . "\n");
+        fwrite($fh, "-- BackupDriver: {$dbConnection}\n\n");
 
         $isMysql = in_array($dbConnection, ['mysql', 'mariadb'], true);
         $skipTables = ['migrations', 'jobs', 'failed_jobs', 'cache', 'cache_locks', 'telescope_entries', 'telescope_entries_tags', 'telescope_monitoring'];
