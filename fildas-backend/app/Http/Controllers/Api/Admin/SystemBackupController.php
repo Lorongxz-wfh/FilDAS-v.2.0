@@ -349,19 +349,16 @@ class SystemBackupController extends Controller
 
     public function restore(Request $request, $filename)
     {
-        $this->checkAccess($request);
-
-        $filename = basename($filename);
-        $path = "{$this->backupDir}/{$filename}";
-
-        if (!$this->disk()->exists($path)) {
-            abort(404, 'Backup file not found.');
-        }
-
         try {
-            // IMMEDIATE PRODUCTION HANDSHAKE:
-            // Set initial status to 'running' in shared database cache BEFORE dispatch.
-            // This prevents the frontend from 'losing' the window during the wipe phase.
+            $this->checkAccess($request);
+
+            $filename = basename($filename);
+            $path = "{$this->backupDir}/{$filename}";
+
+            if (!$this->disk()->exists($path)) {
+                return response()->json(['error' => 'Backup file not found.'], 404);
+            }
+
             Cache::put('system_restore_status', [
                 'status' => 'running',
                 'message' => 'Initializing Institutional Reconstruction...',
@@ -369,8 +366,7 @@ class SystemBackupController extends Controller
                 'time' => time()
             ], 1800);
 
-            // Use standard dispatch but ensure the web process doesn't hang if the jobs table is locked
-            $diskName = env('FILESYSTEM_BACKUP_DISK', config('filesystems.default'));
+            $diskName = config('filesystems.backup_disk', config('filesystems.default'));
             \App\Jobs\SystemRestoreJob::dispatch(
                 $filename, 
                 $path, 
@@ -381,16 +377,15 @@ class SystemBackupController extends Controller
             
             return response()->json([
                 'success' => true, 
-                'message' => 'Restoration process initialized. Monitoring shared signal...',
+                'message' => 'Restoration process initialized.',
                 'status' => 'running'
             ], 202);
         } catch (\Throwable $e) {
-            // Fallback: If DB queue is totally locked, we still want the UI to transition
+            \Log::error("RESTORE ENDPOINT CRASH: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
             return response()->json([
-                'success' => true, 
-                'message' => 'Signal sent. Restoration initializing...',
-                'status' => 'running'
-            ], 202);
+                'success' => false, 
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
