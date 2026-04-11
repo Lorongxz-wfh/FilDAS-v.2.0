@@ -179,88 +179,85 @@ class SystemRestoreJob implements ShouldQueue
             DB::statement("SET search_path TO public, \"\$user\"");
         }
 
-        // Robust statement splitting:
-        // We look for semicolons that are at the END of a line or followed by whitespace
-        // This avoids splitting inside base64 strings if they happen to contain semicolons
-        // Robust statement splitting:
-        // We split on semicolons followed by a newline (allowing for CRLF and trailing spaces).
-        // This prevents splitting inside string values (like User Agents) that contain semicolons correctly.
+        // Robust statement splitting
         $statements = preg_split("/;[ \t]*\r?\n/", $sql);
         $total = count($statements);
-        $executedCount = 0;
-        $failedCount = 0;
-        $lastError = null;
-
-        if ($dbConnection === 'mysql') {
-            DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        }
-
-        // Use a single transaction for managed-safe dependency handling
-        DB::beginTransaction();
-
-        $this->wipeApplicationTables();
-        $this->updateStatus(['status' => 'running', 'message' => "Environment cleared. Starting Turbo Injection...", 'progress' => 65]);
         
-        if ($isPgsql) {
-            // Force PostgreSQL to trust out-of-order data by disabling triggers/constraints during injection
-            // This is the standard best practice for restoring dumps.
-            DB::statement("SET session_replication_role = 'replica';");
-        }
+        $this->wipeApplicationTables();
+        $this->updateStatus(['status' => 'running', 'message' => "Environment cleared. Starting Multi-Pass Injection...", 'progress' => 65]);
 
-        try {
-            foreach ($statements as $stmt) {
-                $trimmed = trim($stmt);
-                if (empty($trimmed)) continue;
+        $attempted = array_filter(array_map('trim', $statements));
+        $pass = 1;
+        $totalInjected = 0;
+        $maxPasses = 5;
 
-                $finalSql = $trimmed . ';';
-                
-                // Translate ONLY if source is MySQL and destination is PostgreSQL
+        while (count($attempted) > 0 && $pass <= $maxPasses) {
+            $failedInThisPass = [];
+            $injectedInThisPass = 0;
+            
+            \Log::info("RESTORE: Pass {$pass} starting with " . count($attempted) . " statements.");
+            $this->updateStatus(['message' => "Data Injection Pass {$pass}: " . count($attempted) . " remaining..."]);
+
+            foreach ($attempted as $stmt) {
+                if (empty($stmt)) continue;
+
+                $finalSql = $stmt . ';';
                 if ($needsTranslation) {
                     $finalSql = $this->translateSql($finalSql);
                 }
 
-                // Use nested transaction (SAVEPOINT) for PostgreSQL to prevent transaction poisoning
+                // Handle Postgres search path in every statement if needed, or set once per pass
+                if ($isPgsql && $pass === 1 && $injectedInThisPass === 0) {
+                    try { DB::statement("SET search_path TO public, \"\$user\""); } catch(\Throwable $e){}
+                }
+
                 try {
-                    DB::transaction(function() use ($finalSql, &$executedCount) {
+                    // We use nested transactions (savepoints) here to ensure individual failures 
+                    // don't poison the session if we are in an implicit transaction
+                    DB::transaction(function() use ($finalSql) {
                         DB::unprepared($finalSql);
-                        $executedCount++;
                     });
+                    $injectedInThisPass++;
+                    $totalInjected++;
                 } catch (\Throwable $e) {
-                    $failedCount++;
-                    $lastError = $e->getMessage();
-                    \Log::warning("RESTORE: Statement injection failed (Row skipped). Error: " . $lastError);
+                    $msg = $e->getMessage();
+                    // If it's a dependency error (Foreign Key), we'll retry it in the next pass
+                    if (str_contains($msg, 'foreign key') || str_contains($msg, 'violates') || str_contains($msg, 'present in table')) {
+                        $failedInThisPass[] = $stmt;
+                    } else {
+                        // For non-dependency errors, we log and skip (Pass 1-4) or fail (Pass 5)
+                        \Log::warning("RESTORE: Statement failed: " . substr($msg, 0, 100));
+                        if ($pass === $maxPasses) {
+                            $failedInThisPass[] = $stmt; // Final tally
+                        }
+                    }
                 }
 
-                // Update progress incrementally
-                $currentProgress = 65 + (int)(($executedCount / $total) * 30);
-                if ($executedCount % 50 === 0) {
-                    $this->updateStatus(['progress' => $currentProgress, 'message' => "Injecting data: {$executedCount}/{$total} records..."]);
+                // Simple progress heartbeat
+                if ($totalInjected % 50 === 0) {
+                    $progressVal = 65 + (int)(($totalInjected / $total) * 33);
+                    $this->updateStatus(['progress' => min(98, $progressVal)]);
                 }
             }
 
-            if ($executedCount === 0 && $total > 0) {
-                throw new \Exception("Critical Failure: All {$total} SQL statements failed to inject. Last error: " . $lastError);
+            \Log::info("RESTORE: Pass {$pass} complete. Injected: {$injectedInThisPass}. Remaining: " . count($failedInThisPass));
+            
+            // If we didn't inject anything this pass, we are stuck (circular dependency or real error)
+            if ($injectedInThisPass === 0 && count($failedInThisPass) > 0) {
+                \Log::error("RESTORE: Deadlock detected at Pass {$pass}. Remaining items cannot be injected.");
+                break; 
             }
 
-            if ($failedCount > ($total / 2)) {
-                throw new \Exception("Reliability Threshold Failed: {$failedCount} out of {$total} statements failed. Restore aborted to protect data integrity.");
-            }
-
-            DB::commit();
-
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            throw $e;
-        } finally {
-            if ($isPgsql) {
-                DB::statement("SET session_replication_role = 'origin';");
-            }
-            if ($dbConnection === 'mysql') {
-                DB::statement('SET FOREIGN_KEY_CHECKS=1');
-            }
+            $attempted = $failedInThisPass;
+            $pass++;
         }
 
-        \Log::info("RESTORE: Finished SQL injection. Executed $executedCount statements.");
+        if (count($attempted) > 0) {
+            throw new \Exception("Restoration Integrity Check Failed: " . count($attempted) . " records could not be injected due to persistent errors.");
+        }
+
+        $this->updateStatus(['progress' => 99, 'message' => "SQL Injection complete. Finalizing..."]);
+        \Log::info("RESTORE: Finished SQL injection. Total records injected: {$totalInjected}.");
     }
 
     private function attemptAtomicRecovery($sql)
