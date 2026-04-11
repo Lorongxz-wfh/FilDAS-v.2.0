@@ -210,7 +210,8 @@ class SystemRestoreJob implements ShouldQueue
                 $isDangerous = (str_contains($lowerLine, 'drop table') || str_contains($lowerLine, 'create table')) &&
                     (str_contains($lowerLine, 'users') || str_contains($lowerLine, 'roles') ||
                         str_contains($lowerLine, 'personal_access_tokens') || str_contains($lowerLine, 'offices') ||
-                        str_contains($lowerLine, 'cache') || str_contains($lowerLine, 'sessions'));
+                        str_contains($lowerLine, 'cache') || str_contains($lowerLine, 'sessions') ||
+                        str_contains($lowerLine, 'jobs') || str_contains($lowerLine, 'failed_jobs'));
 
                 if ($isDangerous) {
                     if (str_ends_with(trim($trimmedLine), ';'))
