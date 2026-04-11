@@ -15,14 +15,16 @@ $isPhysicallyRunning = file_exists($lockFile);
 
 // 2. Resolve Credentials
 $dbUrl = getenv('DATABASE_URL');
-$host = getenv('DB_HOST') ?: 'localhost';
-$port = getenv('DB_PORT') ?: '5432';
+$driver = getenv('DB_CONNECTION') ?: 'mysql'; // Default to mysql locally
+$host = getenv('DB_HOST') ?: '127.0.0.1';
+$port = getenv('DB_PORT') ?: ($driver === 'pgsql' ? '5432' : '3306');
 $db   = getenv('DB_DATABASE') ?: 'fildas_db';
 $user = getenv('DB_USERNAME') ?: 'root';
 $pass = getenv('DB_PASSWORD') ?: '';
 
 if ($dbUrl) {
     $parts = parse_url($dbUrl);
+    $driver = ($parts['scheme'] === 'postgres' || $parts['scheme'] === 'pgsql') ? 'pgsql' : 'mysql';
     $host = $parts['host'] ?? $host;
     $port = $parts['port'] ?? $port;
     $db   = ltrim($parts['path'] ?? '', '/') ?: $db;
@@ -31,8 +33,13 @@ if ($dbUrl) {
 }
 
 try {
-    // 3. Connect via Raw PDO
-    $dsn = "pgsql:host=$host;port=$port;dbname=$db";
+    // 3. Connect via Raw PDO (Driver Aware)
+    if ($driver === 'pgsql') {
+        $dsn = "pgsql:host=$host;port=$port;dbname=$db";
+    } else {
+        $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4";
+    }
+    
     $pdo = new PDO($dsn, $user, $pass, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_TIMEOUT => 2

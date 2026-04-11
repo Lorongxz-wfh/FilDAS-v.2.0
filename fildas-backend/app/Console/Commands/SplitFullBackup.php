@@ -77,8 +77,8 @@ class SplitFullBackup extends Command
                 $dbZip->close();
                 
                 $newDbName = $baseName . "_db_only.zip";
-                $disk->put("backups/database/{$newDbName}", fopen($dbZipPath, 'r+'));
-                $this->info("Created: backups/database/{$newDbName}");
+                $disk->put("backups/{$newDbName}", fopen($dbZipPath, 'r+'));
+                $this->info("Created: backups/{$newDbName}");
                 
                 @unlink($dbZipPath);
                 @unlink($tempSqlFile);
@@ -99,8 +99,8 @@ class SplitFullBackup extends Command
                 $stZip->close();
 
                 $newStName = $baseName . "_storage_only.zip";
-                $disk->put("backups/storage/{$newStName}", fopen($docZipPath, 'r+'));
-                $this->info("Created: backups/storage/{$newStName}");
+                $disk->put("backups/{$newStName}", fopen($docZipPath, 'r+'));
+                $this->info("Created: backups/{$newStName}");
                 
                 @unlink($docZipPath);
                 @unlink($tempDocFile);

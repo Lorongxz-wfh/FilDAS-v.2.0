@@ -178,8 +178,7 @@ class SystemRestoreJob implements ShouldQueue
 
         $query = "";
         $statementCount = 0;
-        $batchBuffer = "";
-        $batchSize = 1; // High-precision mode to handle massive SQL lines without memory spikes
+        $batchSize = 100; // Turbo Mode: Inject 100 lines at once for raw speed
 
         if ($handle) {
             while (($line = fgets($handle)) !== false) {
@@ -207,14 +206,25 @@ class SystemRestoreJob implements ShouldQueue
 
                 if ($isForbidden) {
                     if (str_ends_with(trim($trimmedLine), ';')) {
-                        $query = ""; // Clear buffer if the forbidden command was a single line
+                        $query = ""; 
                     }
                     continue;
                 }
 
-                // ... (lines 208-221) ...
+                // ── Infrastructure Protection ──
+                $isDangerous = (str_contains($lowerLine, 'drop table') || str_contains($lowerLine, 'create table')) &&
+                    (str_contains($lowerLine, 'users') || str_contains($lowerLine, 'roles') ||
+                        str_contains($lowerLine, 'personal_access_tokens') || str_contains($lowerLine, 'offices') ||
+                        str_contains($lowerLine, 'cache') || str_contains($lowerLine, 'sessions') ||
+                        str_contains($lowerLine, 'jobs') || str_contains($lowerLine, 'failed_jobs'));
 
-                // ── MySQL to Postgres Translation (Still useful for mixed envs) ──
+                if ($isDangerous) {
+                    if (str_ends_with(trim($trimmedLine), ';'))
+                        $query = "";
+                    continue;
+                }
+
+                // ── MySQL to Postgres Translation ──
                 if ($isPgsql) {
                     $line = $this->translateSql($line);
                 }
@@ -228,56 +238,8 @@ class SystemRestoreJob implements ShouldQueue
                         $batchBuffer .= $execQuery . "\n";
                         $statementCount++;
 
-                        // Execute in bulk to reduce latency
                         if ($statementCount % $batchSize === 0) {
-                            try {
-                                DB::unprepared($batchBuffer);
-
-                                // Heartbeat update every 50 total statements
-                                if ($statementCount % 50 === 0) {
-                                    $this->updateStatus([
-                                        'status' => 'running',
-                                        'message' => "Injecting SQL Data (Segment " . ($statementCount / $batchSize) . ")...",
-                                        'progress' => 60
-                                    ]);
-                                }
-                            } catch (\Throwable $e) {
-                                $msg = $e->getMessage();
-                                error_log("Restoration Injection Attempt Failed: " . $msg);
-                                
-                                // ── ATOMIC FALLBACK 1: Empty String to NULL ──
-                                try {
-                                    $fallback1 = str_replace(", '')", ", NULL)", $batchBuffer);
-                                    $fallback1 = str_replace(", ''", ", NULL", $fallback1);
-                                    DB::unprepared($fallback1);
-                                    error_log("Restoration Success via Fallback 1 (NULL Translation)");
-                                } catch (\Throwable $e2) {
-                                    // ── ATOMIC FALLBACK 2: Empty String to FALSE ──
-                                    try {
-                                        $fallback2 = str_replace(", '')", ", false)", $batchBuffer);
-                                        $fallback2 = str_replace(", ''", ", false", $fallback2);
-                                        DB::unprepared($fallback2);
-                                        error_log("Restoration Success via Fallback 2 (BOOLEAN Translation)");
-                                    } catch (\Throwable $e3) {
-                                        // FINAL EVALUATION
-                                        $isIgnorable = str_contains($msg, 'already exists') ||
-                                            str_contains($msg, 'must be owner') ||
-                                            str_contains($msg, 'foreign key') ||
-                                            str_contains($msg, 'unique constraint') ||
-                                            str_contains($msg, 'invalid input syntax') ||
-                                            str_contains($msg, 'violates') ||
-                                            str_contains($msg, 'check violation') ||
-                                            str_contains($msg, 'extension');
-
-                                        if (!$isIgnorable) {
-                                            error_log("Restoration FATAL on statement: " . substr($batchBuffer, 0, 500));
-                                            throw new \Exception("Atomic Injection Failure: " . $msg);
-                                        } else {
-                                            error_log("Restoration Warning: Skipping ignorable statement after all fallbacks failed.");
-                                        }
-                                    }
-                                }
-                            }
+                            $this->executeSqlBatch($batchBuffer, $statementCount);
                             $batchBuffer = "";
                         }
                     }
@@ -285,21 +247,8 @@ class SystemRestoreJob implements ShouldQueue
                 }
             }
 
-            // Final Flush for the remaining batch
             if (!empty($batchBuffer)) {
-                try {
-                    DB::unprepared($batchBuffer);
-                } catch (\Throwable $e) {
-                    $msg = $e->getMessage();
-                    $isIgnorable = str_contains($msg, 'already exists') ||
-                                    str_contains($msg, 'must be owner') ||
-                                    str_contains($msg, 'foreign key') ||
-                                    str_contains($msg, 'unique constraint') ||
-                                    str_contains($msg, 'extension');
-                    if (!$isIgnorable) {
-                        throw new \Exception("Final Flush Failure: " . $msg);
-                    }
-                }
+                $this->executeSqlBatch($batchBuffer, $statementCount);
             }
 
             fclose($handle);
@@ -307,6 +256,65 @@ class SystemRestoreJob implements ShouldQueue
 
         if ($dbConnection === 'mysql') {
             DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        }
+    }
+
+    private function executeSqlBatch($batch, $count)
+    {
+        try {
+            DB::unprepared($batch);
+            
+            // Heartbeat update every 200 statements
+            if ($count % 200 === 0) {
+                $this->updateStatus([
+                    'status' => 'running',
+                    'message' => "Injecting SQL Data (Statement {$count})...",
+                    'progress' => 60
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // IF BATCH FAILS, fallback to single-statement precision
+            $statements = array_filter(explode(";\n", $batch));
+            foreach ($statements as $stmt) {
+                $this->executeSingleStatement(trim($stmt) . ";");
+            }
+        }
+    }
+
+    private function executeSingleStatement($sql)
+    {
+        if (empty(trim($sql)) || $sql === ';') return;
+        
+        try {
+            DB::unprepared($sql);
+        } catch (\Throwable $e) {
+            $msg = $e->getMessage();
+            
+            // ATOMIC FALLBACKS
+            try {
+                $fb = str_replace(", '')", ", NULL)", $sql);
+                $fb = str_replace(", ''", ", NULL", $fb);
+                DB::unprepared($fb);
+            } catch (\Throwable $e2) {
+                try {
+                    $fb = str_replace(", '')", ", false)", $sql);
+                    $fb = str_replace(", ''", ", false", $fb);
+                    DB::unprepared($fb);
+                } catch (\Throwable $e3) {
+                    $isIgnorable = str_contains($msg, 'already exists') ||
+                        str_contains($msg, 'must be owner') ||
+                        str_contains($msg, 'foreign key') ||
+                        str_contains($msg, 'unique constraint') ||
+                        str_contains($msg, 'invalid input syntax') ||
+                        str_contains($msg, 'violates') ||
+                        str_contains($msg, 'check violation') ||
+                        str_contains($msg, 'extension');
+
+                    if (!$isIgnorable) {
+                        throw new \Exception("Atomic Injection Failure: " . $msg);
+                    }
+                }
+            }
         }
     }
 

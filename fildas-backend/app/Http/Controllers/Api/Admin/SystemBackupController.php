@@ -358,8 +358,8 @@ class SystemBackupController extends Controller
             abort(404, 'Backup file not found.');
         }
 
-        // Use dispatchAfterResponse to run it on the same process after the browser disconnects
-        \App\Jobs\SystemRestoreJob::dispatchAfterResponse(
+        // Use standard dispatch to ensure it enters the database queue
+        \App\Jobs\SystemRestoreJob::dispatch(
             $filename, 
             $path, 
             $request->user()->id, 
