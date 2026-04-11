@@ -22,6 +22,7 @@ class SystemRestoreJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public $connection = 'database'; // CRITICAL: Force background queue. Never run inline (sync).
     public $timeout = 1800; // 30 minutes
     private $filename;
     private $path;
