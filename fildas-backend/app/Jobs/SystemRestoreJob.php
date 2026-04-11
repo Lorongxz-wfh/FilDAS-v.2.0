@@ -176,6 +176,10 @@ class SystemRestoreJob implements ShouldQueue
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
         }
 
+        if ($isPgsql) {
+            DB::unprepared("SET session_replication_role = 'replica';");
+        }
+
         try {
             foreach ($statements as $index => $statement) {
                 $trimmed = trim($statement);
@@ -208,6 +212,9 @@ class SystemRestoreJob implements ShouldQueue
         } finally {
             if ($dbConnection === 'mysql') {
                 DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            }
+            if ($isPgsql) {
+                DB::unprepared("SET session_replication_role = 'origin';");
             }
         }
 
