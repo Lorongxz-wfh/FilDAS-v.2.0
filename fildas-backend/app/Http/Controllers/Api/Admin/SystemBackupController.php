@@ -350,13 +350,20 @@ class SystemBackupController extends Controller
     public function restore(Request $request, $filename)
     {
         try {
+            \Log::info("RESTORE: Starting request for $filename");
             $this->checkAccess($request);
+            \Log::info("RESTORE: Access check passed");
 
             $filename = basename($filename);
             $path = "{$this->backupDir}/{$filename}";
+            
+            // Fix: Use the correct env/config mapping for the backup disk
+            $diskName = env('FILESYSTEM_BACKUP_DISK', config('filesystems.default', 'local'));
+            \Log::info("RESTORE: Using disk: $diskName, path: $path");
 
-            if (!$this->disk()->exists($path)) {
-                return response()->json(['error' => 'Backup file not found.'], 404);
+            if (!Storage::disk($diskName)->exists($path)) {
+                \Log::warning("RESTORE: File not found at $path on $diskName");
+                return response()->json(['error' => "Backup file not found at $path on $diskName"], 404);
             }
 
             Cache::put('system_restore_status', [
@@ -365,8 +372,8 @@ class SystemBackupController extends Controller
                 'progress' => 5,
                 'time' => time()
             ], 1800);
+            \Log::info("RESTORE: Handshake status set in cache");
 
-            $diskName = config('filesystems.backup_disk', config('filesystems.default'));
             \App\Jobs\SystemRestoreJob::dispatch(
                 $filename, 
                 $path, 
@@ -374,6 +381,7 @@ class SystemBackupController extends Controller
                 $request->user()->office_id,
                 $diskName
             );
+            \Log::info("RESTORE: Job dispatched to queue");
             
             return response()->json([
                 'success' => true, 
@@ -381,10 +389,12 @@ class SystemBackupController extends Controller
                 'status' => 'running'
             ], 202);
         } catch (\Throwable $e) {
-            \Log::error("RESTORE ENDPOINT CRASH: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
+            \Log::error("RESTORE ENDPOINT CRASH: " . $e->getMessage());
+            \Log::error($e->getTraceAsString());
             return response()->json([
                 'success' => false, 
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null
             ], 500);
         }
     }
