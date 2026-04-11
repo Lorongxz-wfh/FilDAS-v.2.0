@@ -351,6 +351,7 @@ export default function BackupPage() {
           if (status.status === 'completed') {
             localStorage.removeItem('fildas_restoring_node');
             clearInterval(interval);
+            setRestoring(null);
             setTimeout(() => {
                 setShowSuccessModal(true);
             }, 500);
@@ -883,7 +884,7 @@ export default function BackupPage() {
         </div>
       )}
       {showSuccessModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4">
+        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4">
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
