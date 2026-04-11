@@ -202,8 +202,9 @@ class SystemRestoreJob implements ShouldQueue
         $this->updateStatus(['status' => 'running', 'message' => "Environment cleared. Starting Turbo Injection...", 'progress' => 65]);
         
         if ($isPgsql) {
-            // Force PostgreSQL to wait until the final COMMIT before checking any foreign keys
-            DB::unprepared("SET CONSTRAINTS ALL DEFERRED;");
+            // Force PostgreSQL to trust out-of-order data by disabling triggers/constraints during injection
+            // This is the standard best practice for restoring dumps.
+            DB::statement("SET session_replication_role = 'replica';");
         }
 
         try {
@@ -251,6 +252,9 @@ class SystemRestoreJob implements ShouldQueue
             DB::rollBack();
             throw $e;
         } finally {
+            if ($isPgsql) {
+                DB::statement("SET session_replication_role = 'origin';");
+            }
             if ($dbConnection === 'mysql') {
                 DB::statement('SET FOREIGN_KEY_CHECKS=1');
             }
