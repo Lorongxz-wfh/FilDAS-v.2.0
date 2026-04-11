@@ -17,14 +17,30 @@ class SplitFullBackup extends Command
         $filename = $this->argument('filename');
         $disk = Storage::disk(config('filesystems.default') === 's3' ? 's3' : 'local');
 
-        if (!$disk->exists("backups/full/{$filename}")) {
-            $this->error("Full backup not found: backups/full/{$filename}");
+        // Check multiple possible paths
+        $possiblePaths = [
+            "backups/full/{$filename}",
+            "backups/{$filename}",
+            $filename
+        ];
+
+        $foundPath = null;
+        foreach ($possiblePaths as $path) {
+            if ($disk->exists($path)) {
+                $foundPath = $path;
+                break;
+            }
+        }
+
+        if (!$foundPath) {
+            $this->error("Backup file not found in: " . implode(', ', $possiblePaths));
             return;
         }
 
-        $this->info("Downloading full backup for splitting...");
+        $this->info("Found backup at: {$foundPath}");
+        $this->info("Downloading for splitting...");
         $tempPath = tempnam(sys_get_temp_dir(), 'split_');
-        file_put_contents($tempPath, $disk->get("backups/full/{$filename}"));
+        file_put_contents($tempPath, $disk->get($foundPath));
 
         $zip = new ZipArchive();
         if ($zip->open($tempPath) === true) {
