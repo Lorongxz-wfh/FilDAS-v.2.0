@@ -321,32 +321,27 @@ class SystemRestoreJob implements ShouldQueue
         }
 
         foreach ($tableNames as $table) {
-            if (in_array($table, $protectedTables)) {
-                // Just clear the data, don't kill the structure so Auth works.
-                // Use raw statements for CASCADE support on restricted Postgres.
-                try {
-                    if ($isPgsql)
-                        DB::statement("TRUNCATE TABLE \"{$table}\" CASCADE");
-                    else
-                        DB::table($table)->truncate();
-                } catch (\Throwable $e) {
-                }
-                continue;
-            }
+            // Keep migrations metadata so Laravel stays sane
+            if ($table === 'migrations') continue;
 
             try {
-                if ($isMysql)
-                    DB::statement("DROP TABLE IF EXISTS `{$table}` CASCADE");
-                elseif ($isPgsql)
-                    DB::statement("DROP TABLE IF EXISTS \"{$table}\" CASCADE");
-                else
-                    DB::statement("DROP TABLE IF EXISTS `{$table}`");
+                if ($isPgsql) {
+                    // TRUNCATE is safer than DROP because it keeps the schema created by migrate:fresh
+                    DB::statement("TRUNCATE TABLE \"{$table}\" CASCADE");
+                } elseif ($isMysql) {
+                    DB::statement("TRUNCATE TABLE `{$table}`");
+                } else {
+                    DB::table($table)->truncate();
+                }
             } catch (\Throwable $e) {
+                // Ignore failures (system tables or locked tables)
+                \Log::debug("Table bypass during sweep: {$table}");
             }
         }
 
-        if ($isMysql)
+        if ($isMysql) {
             DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        }
     }
 
     private function internalRestoreDocuments($zipPath)
