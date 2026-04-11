@@ -212,23 +212,41 @@ class SystemRestoreJob implements ShouldQueue
                 }
 
                 try {
-                    // We use nested transactions (savepoints) here to ensure individual failures 
-                    // don't poison the session if we are in an implicit transaction
-                    DB::transaction(function() use ($finalSql) {
-                        DB::unprepared($finalSql);
-                    });
+                    DB::unprepared($finalSql);
                     $injectedInThisPass++;
                     $totalInjected++;
                 } catch (\Throwable $e) {
                     $msg = $e->getMessage();
+                    
+                    // ── AUTO-HEAL: PostgreSQL Boolean/Empty String Fix ──
+                    if ($isPgsql && (str_contains($msg, 'boolean') || str_contains($msg, 'invalid input syntax'))) {
+                        try {
+                            $fixedSql = str_replace([", '')", ", ''"], [", NULL)", ", NULL"], $finalSql);
+                            DB::unprepared($fixedSql);
+                            $injectedInThisPass++;
+                            $totalInjected++;
+                            continue; // Success!
+                        } catch (\Throwable $e2) {
+                            // Fallback to 'false' if NULL doesn't work
+                            try {
+                                $fixedSql = str_replace([", '')", ", ''"], [", false)", ", false"], $finalSql);
+                                DB::unprepared($fixedSql);
+                                $injectedInThisPass++;
+                                $totalInjected++;
+                                continue; 
+                            } catch (\Throwable $e3) {
+                                // Real failure, move to retry queue
+                            }
+                        }
+                    }
+
                     // If it's a dependency error (Foreign Key), we'll retry it in the next pass
-                    if (str_contains($msg, 'foreign key') || str_contains($msg, 'violates') || str_contains($msg, 'present in table')) {
+                    if (str_contains($msg, 'foreign key') || str_contains($msg, 'violates') || str_contains($msg, 'present in table') || str_contains($msg, 'does not exist')) {
                         $failedInThisPass[] = $stmt;
                     } else {
-                        // For non-dependency errors, we log and skip (Pass 1-4) or fail (Pass 5)
                         \Log::warning("RESTORE: Statement failed: " . substr($msg, 0, 100));
                         if ($pass === $maxPasses) {
-                            $failedInThisPass[] = $stmt; // Final tally
+                            $failedInThisPass[] = $stmt;
                         }
                     }
                 }
