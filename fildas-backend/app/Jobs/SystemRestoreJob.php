@@ -40,6 +40,9 @@ class SystemRestoreJob implements ShouldQueue
         ini_set('memory_limit', '4096M');
         set_time_limit(0);
 
+        // Create a physical lock for the Lifeboat script to prevent false alarms
+        @touch(storage_path('app/restoration.lock'));
+
         $statusKey = "restore_status_{$this->actorId}";
         
         $publicSignalPath = public_path('_restore_signal.json');
@@ -135,7 +138,10 @@ class SystemRestoreJob implements ShouldQueue
             $actor = User::find($this->actorId);
             $this->notifyAdminsOfCompletion($actor, $this->filename);
 
+            @unlink(storage_path('app/restoration.lock'));
+            @unlink(public_path('_restore_signal.json'));
         } catch (\Throwable $e) {
+            @unlink(storage_path('app/restoration.lock'));
             $this->updateStatus(['status' => 'failed', 'message' => "Restoration Error: " . $e->getMessage(), 'progress' => 0]);
             Log::error("Restoration failed critically: " . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
@@ -246,20 +252,39 @@ class SystemRestoreJob implements ShouldQueue
                                 }
                             } catch (\Throwable $e) {
                                 $msg = $e->getMessage();
-                                // Always log errors to the system log for diagnostics
-                                error_log("Restoration Injection Warning: " . $msg);
+                                error_log("Restoration Injection Attempt Failed: " . $msg);
                                 
-                                $isIgnorable = str_contains($msg, 'already exists') ||
-                                    str_contains($msg, 'must be owner') ||
-                                    str_contains($msg, 'foreign key') ||
-                                    str_contains($msg, 'unique constraint') ||
-                                    str_contains($msg, 'invalid input syntax') ||
-                                    str_contains($msg, 'violates') ||
-                                    str_contains($msg, 'check violation') ||
-                                    str_contains($msg, 'extension');
+                                // ── ATOMIC FALLBACK 1: Empty String to NULL ──
+                                try {
+                                    $fallback1 = str_replace(", '')", ", NULL)", $batchBuffer);
+                                    $fallback1 = str_replace(", ''", ", NULL", $fallback1);
+                                    DB::unprepared($fallback1);
+                                    error_log("Restoration Success via Fallback 1 (NULL Translation)");
+                                } catch (\Throwable $e2) {
+                                    // ── ATOMIC FALLBACK 2: Empty String to FALSE ──
+                                    try {
+                                        $fallback2 = str_replace(", '')", ", false)", $batchBuffer);
+                                        $fallback2 = str_replace(", ''", ", false", $fallback2);
+                                        DB::unprepared($fallback2);
+                                        error_log("Restoration Success via Fallback 2 (BOOLEAN Translation)");
+                                    } catch (\Throwable $e3) {
+                                        // FINAL EVALUATION
+                                        $isIgnorable = str_contains($msg, 'already exists') ||
+                                            str_contains($msg, 'must be owner') ||
+                                            str_contains($msg, 'foreign key') ||
+                                            str_contains($msg, 'unique constraint') ||
+                                            str_contains($msg, 'invalid input syntax') ||
+                                            str_contains($msg, 'violates') ||
+                                            str_contains($msg, 'check violation') ||
+                                            str_contains($msg, 'extension');
 
-                                if (!$isIgnorable) {
-                                    throw new \Exception("Bulk Injection Failure: " . $msg . " | Near: " . substr($batchBuffer, 0, 100));
+                                        if (!$isIgnorable) {
+                                            error_log("Restoration FATAL on statement: " . substr($batchBuffer, 0, 500));
+                                            throw new \Exception("Atomic Injection Failure: " . $msg);
+                                        } else {
+                                            error_log("Restoration Warning: Skipping ignorable statement after all fallbacks failed.");
+                                        }
+                                    }
                                 }
                             }
                             $batchBuffer = "";
