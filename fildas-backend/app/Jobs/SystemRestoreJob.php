@@ -158,6 +158,7 @@ class SystemRestoreJob implements ShouldQueue
     {
         $dbConnection = config('database.default');
         $this->wipeApplicationTables();
+        $this->updateStatus(['status' => 'running', 'message' => "Environment cleared. Starting Turbo Injection...", 'progress' => 65]);
 
         if ($dbConnection === 'sqlite') {
             // SQLite is handled differently by binary copy if it's a raw DB file, 
@@ -265,12 +266,12 @@ class SystemRestoreJob implements ShouldQueue
         try {
             DB::unprepared($batch);
             
-            // Heartbeat update every 200 statements
-            if ($count % 200 === 0) {
+            // Heartbeat update every 50 statements
+            if ($count % 50 === 0) {
                 $this->updateStatus([
                     'status' => 'running',
-                    'message' => "Injecting SQL Data (Statement {$count})...",
-                    'progress' => 60
+                    'message' => "Turbo Injection Active (Statement {$count})...",
+                    'progress' => 70
                 ]);
             }
         } catch (\Throwable $e) {
