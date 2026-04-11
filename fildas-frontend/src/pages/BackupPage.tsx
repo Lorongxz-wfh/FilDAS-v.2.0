@@ -348,9 +348,8 @@ export default function BackupPage() {
           } else if (status.status === 'failed') {
             localStorage.removeItem('fildas_restoring_node');
             clearInterval(interval);
+            // We do NOT setRestoring(null) here so the Error Modal remains visible.
             setError("Restoration process failed: " + status.message);
-            setRestoring(null);
-            setRestoreStatus(null);
           } else if (status.status === 'idle' && restoreStatus && restoreStatus.progress > 0) {
             // ── The Ghost Filter ─────────────────────────────────────────────
             // This is a transient case where the cache might have dipped 
@@ -830,18 +829,39 @@ export default function BackupPage() {
             {restoreStatus && (
               <div className="space-y-4">
                  <div className="flex items-center justify-between text-[10px] uppercase font-bold tracking-widest text-slate-400">
-                    <span>{restoreStatus.message}</span>
-                    <span className="tabular-nums text-brand-500">{restoreStatus.progress}%</span>
+                    <span className={restoreStatus.status === 'failed' ? 'text-red-400' : ''}>
+                      {restoreStatus.status === 'failed' ? 'SYSTEM FAILURE' : restoreStatus.message}
+                    </span>
+                    <span className={`tabular-nums ${restoreStatus.status === 'failed' ? 'text-red-500' : 'text-brand-500'}`}>
+                      {restoreStatus.progress}%
+                    </span>
                  </div>
                  
                  <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden border border-white/5">
                     <motion.div 
-                      className="h-full bg-brand-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]"
+                      className={`h-full ${restoreStatus.status === 'failed' ? 'bg-red-600' : 'bg-brand-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]'}`}
                       initial={{ width: 0 }}
                       animate={{ width: `${restoreStatus.progress}%` }}
                       transition={{ duration: 0.5 }}
                     />
                  </div>
+
+                 {restoreStatus.status === 'failed' && (
+                    <div className="mt-4 space-y-4">
+                       <div className="p-4 bg-red-950/20 border border-red-500/30 rounded text-xs font-mono text-red-200 leading-relaxed text-center">
+                          {restoreStatus.message}
+                       </div>
+                       <button
+                         onClick={() => {
+                           setRestoring(null);
+                           setRestoreStatus(null);
+                         }}
+                         className="w-full py-3 bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold uppercase tracking-widest rounded transition border border-white/10"
+                       >
+                         DISMISS AND DIAGNOSE
+                       </button>
+                    </div>
+                 )}
               </div>
             )}
             

@@ -172,7 +172,7 @@ class SystemRestoreJob implements ShouldQueue
 
         $statementCount = 0;
         $batchBuffer = "";
-        $batchSize = 200; // Group 200 statements per round-trip for maximum throughput
+        $batchSize = 50; // Reduced for maximum stability on shared DB resources
 
         if ($handle) {
             while (($line = fgets($handle)) !== false) {
@@ -187,7 +187,10 @@ class SystemRestoreJob implements ShouldQueue
                     str_contains($lowerLine, 'pg_catalog.set_config') ||
                     str_contains($lowerLine, 'create extension') ||
                     str_contains($lowerLine, 'set search_path') ||
-                    str_contains($lowerLine, 'set row_security');
+                    str_contains($lowerLine, 'set row_security') ||
+                    str_contains($lowerLine, 'set check_function_bodies') ||
+                    str_contains($lowerLine, 'set xmloption') ||
+                    str_contains($lowerLine, 'set client_min_messages');
 
                 if ($isForbidden) {
                     if (str_ends_with(trim($trimmedLine), ';')) {
