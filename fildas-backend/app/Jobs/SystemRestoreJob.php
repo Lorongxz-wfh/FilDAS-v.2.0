@@ -157,10 +157,12 @@ class SystemRestoreJob implements ShouldQueue
         }
 
         $handle = fopen($sqlPath, "r");
-        $query = "";
         $isPgsql = config('database.default') === 'pgsql';
-
         Log::info("Executing SQL restoration buffer (Translation Mode: " . ($isPgsql ? 'ON' : 'OFF') . ")");
+
+        $statementCount = 0;
+        $batchBuffer = "";
+        $batchSize = 200; // Group 200 statements per round-trip for maximum throughput
 
         if ($handle) {
             while (($line = fgets($handle)) !== false) {
@@ -173,7 +175,9 @@ class SystemRestoreJob implements ShouldQueue
                 $isForbidden = str_contains($lowerLine, 'session_replication_role') ||
                     str_contains($lowerLine, 'owner to') ||
                     str_contains($lowerLine, 'pg_catalog.set_config') ||
-                    str_contains($lowerLine, 'create extension');
+                    str_contains($lowerLine, 'create extension') ||
+                    str_contains($lowerLine, 'set search_path') ||
+                    str_contains($lowerLine, 'set row_security');
 
                 if ($isForbidden) {
                     if (str_ends_with(trim($trimmedLine), ';')) {
@@ -204,26 +208,51 @@ class SystemRestoreJob implements ShouldQueue
 
                 // Check for statement end with flexibility
                 if (str_ends_with(trim($trimmedLine), ';')) {
-                    try {
-                        // Strip whitespace and check if we have anything to run
-                        $execQuery = trim($query);
-                        if (!empty($execQuery)) {
-                            DB::unprepared($execQuery);
-                        }
-                    } catch (\Throwable $e) {
-                        $msg = $e->getMessage();
-                        // Ignore standard 'already exists' or 'permission' errors that aren't fatal
-                        $isIgnorable = str_contains($msg, 'already exists') ||
-                            str_contains($msg, 'permission denied') ||
-                            str_contains($msg, 'must be owner');
+                    $execQuery = trim($query);
+                    if (!empty($execQuery)) {
+                        $batchBuffer .= $execQuery . "\n";
+                        $statementCount++;
 
-                        if (!$isIgnorable) {
-                            Log::warning("SQL Error: " . $msg, ['query' => substr($query, 0, 100)]);
+                        // Execute in bulk to reduce latency
+                        if ($statementCount % $batchSize === 0) {
+                            try {
+                                DB::unprepared($batchBuffer);
+
+                                // Heartbeat update every 600 total statements
+                                if ($statementCount % 600 === 0) {
+                                    $this->updateStatus([
+                                        'status' => 'running',
+                                        'message' => "Injecting SQL Data (Segment " . ($statementCount / $batchSize) . ")...",
+                                        'progress' => 60
+                                    ]);
+                                }
+                            } catch (\Throwable $e) {
+                                $msg = $e->getMessage();
+                                // Ignore standard 'already exists' or 'extension' errors that aren't fatal.
+                                $isIgnorable = str_contains($msg, 'already exists') ||
+                                    str_contains($msg, 'must be owner') ||
+                                    str_contains($msg, 'extension');
+
+                                if (!$isIgnorable) {
+                                    throw new \Exception("Bulk Injection Failure: " . $msg . " | Near: " . substr($batchBuffer, 0, 100));
+                                }
+                            }
+                            $batchBuffer = "";
                         }
                     }
                     $query = "";
                 }
             }
+
+            // Final Flush for the remaining batch
+            if (!empty($batchBuffer)) {
+                try {
+                    DB::unprepared($batchBuffer);
+                } catch (\Throwable $e) {
+                   // Ignore standard errors in final flush
+                }
+            }
+
             fclose($handle);
         }
 
