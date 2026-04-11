@@ -876,8 +876,21 @@ export default function BackupPage() {
             </div>
           </div>
 
-          <div className="mt-12 text-[9px] uppercase font-bold tracking-[0.3em] text-slate-500 animate-pulse text-center">
-            System write locks enabled — Do not close this window
+          <div className="mt-12 flex flex-col items-center gap-4">
+            <div className="text-[9px] uppercase font-bold tracking-[0.3em] text-slate-500 animate-pulse text-center">
+              System write locks enabled — Do not close this window
+            </div>
+            
+            <button
+               onClick={() => {
+                 localStorage.removeItem('fildas_restoring_node');
+                 setRestoring(null);
+                 setRestoreStatus(null);
+               }}
+               className="mt-4 px-4 py-1.5 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/80 text-[8px] font-bold uppercase tracking-[0.2em] rounded border border-white/5 transition-all"
+            >
+               Force Unlock UI
+            </button>
           </div>
         </div>
       )}

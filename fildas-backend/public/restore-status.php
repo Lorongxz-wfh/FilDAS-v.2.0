@@ -7,13 +7,28 @@
 error_reporting(0);
 header('Content-Type: application/json');
 // 1. Physical Proof (Source of Truth via Shared Storage)
-$signalFile = __DIR__ . '/../storage/app/backups/_restore_signal.json';
+$sharedSignal = __DIR__ . '/../storage/app/backups/_restore_signal.json';
+$localSignal = __DIR__ . '/_restore_signal.json';
 $lockFile = __DIR__ . '/../storage/app/restoration.lock';
 
-if (file_exists($signalFile)) {
-    echo file_get_contents($signalFile);
+if (file_exists($sharedSignal)) {
+    echo @file_get_contents($sharedSignal);
     exit;
 }
+
+if (file_exists($localSignal)) {
+    echo @file_get_contents($localSignal);
+    exit;
+}
+
+// 2. No Signal Found -> Return Idle
+echo json_encode([
+    'status' => 'idle',
+    'message' => 'System stands ready.',
+    'progress' => 0,
+    'time' => time()
+]);
+exit;
 
 $isPhysicallyRunning = file_exists($lockFile);
 

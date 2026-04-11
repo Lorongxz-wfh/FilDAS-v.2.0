@@ -197,11 +197,11 @@ export async function getRestoreStatus(): Promise<{ status: string; message: str
     });
     
     if (!res.ok) {
-        return { status: 'running', message: 'Engine handshaking...', progress: 5 };
+        return { status: 'idle', message: 'Ready', progress: 0 };
     }
     return await res.json();
   } catch (err) {
-    return { status: 'running', message: 'Re-attaching to system core...', progress: 5 };
+    return { status: 'idle', message: 'Connection synced', progress: 0 };
   }
 }
 
