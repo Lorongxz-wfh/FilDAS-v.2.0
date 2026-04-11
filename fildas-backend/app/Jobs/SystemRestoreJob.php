@@ -37,8 +37,8 @@ class SystemRestoreJob implements ShouldQueue
 
     public function handle()
     {
-        ini_set('memory_limit', '2048M');
-        set_time_limit(1800);
+        ini_set('memory_limit', '4096M');
+        set_time_limit(0);
 
         $statusKey = "restore_status_{$this->actorId}";
         
@@ -173,7 +173,7 @@ class SystemRestoreJob implements ShouldQueue
         $query = "";
         $statementCount = 0;
         $batchBuffer = "";
-        $batchSize = 10; // High-precision batching to avoid constraint spikes
+        $batchSize = 1; // High-precision mode to handle massive SQL lines without memory spikes
 
         if ($handle) {
             while (($line = fgets($handle)) !== false) {
@@ -246,7 +246,9 @@ class SystemRestoreJob implements ShouldQueue
                                 }
                             } catch (\Throwable $e) {
                                 $msg = $e->getMessage();
-                                // Ignore standard 'already exists' or 'extension' errors that aren't fatal.
+                                // Always log errors to the system log for diagnostics
+                                error_log("Restoration Injection Warning: " . $msg);
+                                
                                 $isIgnorable = str_contains($msg, 'already exists') ||
                                     str_contains($msg, 'must be owner') ||
                                     str_contains($msg, 'foreign key') ||

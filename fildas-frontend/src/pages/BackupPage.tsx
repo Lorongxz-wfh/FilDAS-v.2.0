@@ -178,24 +178,29 @@ export default function BackupPage() {
   // ── Browser Persistence (Resistant to refreshes/crashes) ────────────────────
   useEffect(() => {
     const detectRestoration = async () => {
-      // Check localStorage first for persistence
       const persistedNode = localStorage.getItem('fildas_restoring_node');
-      if (persistedNode) {
-        setRestoring(persistedNode);
-      }
 
       try {
         const data = await getRestoreStatus();
+        
         if (data.status === 'running') {
+            // Only open modal if server confirms it's actually running
             setRestoring(persistedNode || 'SYSTEM_CORE');
             setRestoreStatus(data);
-        } else if (data.status === 'idle' && persistedNode) {
-            // It was in localStorage but server says idle?
-            // Clean up stale flag.
-            localStorage.removeItem('fildas_restoring_node');
+        } else {
+            // Server is idle or failed - clean up any stale browser flag
+            if (persistedNode) {
+                localStorage.removeItem('fildas_restoring_node');
+            }
+            setRestoring(null);
+            setRestoreStatus(null);
+        }
+      } catch (e) {
+        // On error (e.g. 500 during wipe), we stay quiet unless we were ALREADY in a session
+        if (!persistedNode) {
             setRestoring(null);
         }
-      } catch (e) {}
+      }
     };
     detectRestoration();
   }, []);
