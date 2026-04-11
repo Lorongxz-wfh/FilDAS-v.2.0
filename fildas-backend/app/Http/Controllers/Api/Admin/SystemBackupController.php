@@ -343,50 +343,68 @@ class SystemBackupController extends Controller
         try {
             \Log::info("RESTORE: Starting request for $filename");
             $this->checkAccess($request);
-            \Log::info("RESTORE: Access check passed");
 
             $filename = basename($filename);
             $path = "{$this->backupDir}/{$filename}";
-            
-            // Fix: Use the correct env/config mapping for the backup disk
             $diskName = env('FILESYSTEM_BACKUP_DISK', config('filesystems.default', 'local'));
-            \Log::info("RESTORE: Using disk: $diskName, path: $path");
 
             if (!Storage::disk($diskName)->exists($path)) {
-                \Log::warning("RESTORE: File not found at $path on $diskName");
-                return response()->json(['error' => "Backup file not found at $path on $diskName"], 404);
+                return response()->json(['error' => "Backup file not found"], 404);
             }
 
+            // 1. Initial Status Flush
             Cache::put('system_restore_status', [
                 'status' => 'running',
-                'message' => 'Initializing Institutional Reconstruction...',
+                'message' => 'Initializing Silent Reconstruction...',
                 'progress' => 5,
                 'time' => time()
             ], 1800);
-            \Log::info("RESTORE: Handshake status set in cache");
+
+            // 2. Prepare the Payload for Background processing
+            $userId = $request->user()->id;
+            $officeId = $request->user()->office_id;
+
+            // 3. Return immediate response to prevent 504 Timeout
+            $response = response()->json([
+                'success' => true, 
+                'message' => 'Restoration process started in background.',
+                'status' => 'running'
+            ], 202);
+
+            // If we are on PHP-FPM (Render default), this sends the response
+            // and allows PHP to keep running.
+            if (function_exists('fastcgi_finish_request')) {
+                $response->send();
+                fastcgi_finish_request();
+            }
+
+            // 4. Heavy Lifting begins AFTER response is sent
+            set_time_limit(0); 
+            ignore_user_abort(true);
 
             \App\Jobs\SystemRestoreJob::dispatchSync(
                 $filename, 
                 $path, 
-                $request->user()->id, 
-                $request->user()->office_id,
+                $userId, 
+                $officeId,
                 $diskName
             );
-            \Log::info("RESTORE: Sync Job completed successfully");
+
+            \Log::info("RESTORE: Background Process finished successfully");
             
-            return response()->json([
-                'success' => true, 
-                'message' => 'Restoration completed successfully (Instant Path).',
-                'status' => 'completed'
-            ], 200);
+            // Note: We don't return another response here because the connection is closed.
+            // The frontend will see the final state via the /status polling.
+            return $response;
+
         } catch (\Throwable $e) {
             \Log::error("RESTORE ENDPOINT CRASH: " . $e->getMessage());
-            \Log::error($e->getTraceAsString());
-            return response()->json([
-                'success' => false, 
-                'error' => $e->getMessage(),
-                'trace' => config('app.debug') ? $e->getTraceAsString() : null
-            ], 500);
+            Cache::put('system_restore_status', [
+                'status' => 'failed',
+                'message' => 'Restoration Crash: ' . $e->getMessage(),
+                'progress' => 0,
+                'time' => time()
+            ], 1800);
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
 
