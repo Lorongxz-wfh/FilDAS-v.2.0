@@ -316,6 +316,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class]
         Route::post('/system/scheduler/cancel',   [SystemHealthController::class, 'cancel']);
         Route::get('/system/logs',                [SystemHealthController::class, 'logs']);
         Route::post('/system/diagnostics',        [SystemHealthController::class, 'diagnostics']);
+        Route::get('/system/diagnostics/inventory', [SystemHealthController::class, 'inventory']);
         Route::post('/system/test-email',         [SystemHealthController::class, 'sendTestMail']);
 
         // Trash & Security

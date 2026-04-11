@@ -427,6 +427,23 @@ class SystemHealthController extends Controller
         ]);
     }
 
+    public function inventory()
+    {
+        $tables = DB::select("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'");
+        $inventory = [];
+
+        foreach ($tables as $table) {
+            $name = $table->table_name;
+            try {
+                $inventory[$name] = DB::table($name)->count();
+            } catch (\Exception $e) {
+                $inventory[$name] = "ERROR";
+            }
+        }
+
+        return response()->json($inventory);
+    }
+
     private function notifyAllUsers(string $title, string $body)
     {
         $users = User::whereNull('deleted_at')->whereNull('disabled_at')->pluck('id');

@@ -155,77 +155,74 @@ class SystemRestoreJob implements ShouldQueue
         $this->wipeApplicationTables();
         $this->updateStatus(['status' => 'running', 'message' => "Environment cleared. Starting Turbo Injection...", 'progress' => 65]);
 
-        if ($dbConnection === 'sqlite') {
-            if (str_ends_with($sqlPath, '.sqlite')) {
-                copy($sqlPath, config('database.connections.sqlite.database'));
-                return;
-            }
+        // Increase limits for large data processing
+        ini_set('memory_limit', '512M');
+        set_time_limit(600);
+
+        $sql = file_get_contents($sqlPath);
+        if ($sql === false) {
+            throw new \Exception("Failed to read SQL backup file.");
         }
+
+        // Robust statement splitting:
+        // We look for semicolons that are at the END of a line or followed by whitespace
+        // This avoids splitting inside base64 strings if they happen to contain semicolons
+        $statements = preg_split("/;(?=(?:\s*$)|(?:\s+))/m", $sql);
+        $total = count($statements);
+        $executedCount = 0;
+        $isPgsql = $dbConnection === 'pgsql';
 
         if ($dbConnection === 'mysql') {
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
         }
 
-        // HIGH PERFORMANCE PRODUCTION INJECTION (v8.5)
-        // 1. Load entire file into memory (Safe for snapshots up to 100MB given our 4GB limit)
-        $sql = file_get_contents($sqlPath);
-        $isPgsql = $dbConnection === 'pgsql';
-
-        // 2. Bulk Translation (Bulk str_replace is 100x faster than line-by-line)
-        if ($isPgsql) {
-            $sql = $this->translateSql($sql);
-        }
-
-        // 3. Split into statements (Robust regex to handle multi-line statements)
-        // We use a lookbehind to ensure we only split at semicolons followed by newlines
-        $statements = preg_split('/;(?:\s*[\r\n]+)/', $sql, -1, PREG_SPLIT_NO_EMPTY);
-        $totalStatements = count($statements);
-        $batchSize = 25; // Professional Batching (Better for Managed DB latency)
-        $batchBuffer = "";
-        $executedCount = 0;
-
-        foreach ($statements as $index => $statement) {
-            $trimmed = trim($statement);
-            if (empty($trimmed) || str_starts_with($trimmed, '--') || str_starts_with($trimmed, '/*')) continue;
-
-            $batchBuffer .= $trimmed . ";\n";
-            $executedCount++;
-
-            if ($executedCount % $batchSize === 0 || ($index === $totalStatements - 1)) {
-                $this->executeSqlBatch($batchBuffer, $executedCount);
-                $batchBuffer = "";
-            }
-        }
-
-        if ($dbConnection === 'mysql') {
-            DB::statement('SET FOREIGN_KEY_CHECKS=1');
-        }
-    }
-
-    private function executeSqlBatch($batch, $count)
-    {
         try {
-            DB::unprepared($batch);
-            
-            // Heartbeat update every 10 statements for production visibility
-            if ($count % 10 === 0) {
-                $this->updateStatus([
-                    'status' => 'running',
-                    'message' => "Turbo Injection Active (Statement {$count})...",
-                    'progress' => 70
-                ]);
-            }
-        } catch (\Throwable $e) {
-            // IF BATCH FAILS, fallback to single-statement precision
-            // Use regex to split statements correctly regardless of newline style
-            $statements = preg_split('/;[\r\n]+/', $batch, -1, PREG_SPLIT_NO_EMPTY);
-            foreach ($statements as $stmt) {
-                // Ensure the semicolon is restored for execution
-                $cleanStmt = trim($stmt);
-                if (!empty($cleanStmt)) {
-                    $this->executeSingleStatement($cleanStmt . ";");
+            foreach ($statements as $index => $statement) {
+                $trimmed = trim($statement);
+                if (empty($trimmed)) continue;
+
+                $finalSql = $trimmed . ';';
+                
+                // Translate if needed (PostgreSQL specific cleanups)
+                if ($isPgsql) {
+                    $finalSql = $this->translateSql($finalSql);
+                }
+
+                try {
+                    DB::unprepared($finalSql);
+                    $executedCount++;
+                } catch (\Throwable $e) {
+                    \Log::warning("RESTORE: Statement injection failed. Attempting atomic recovery...");
+                    $this->attemptAtomicRecovery($finalSql);
+                }
+
+                // Heartbeat for UI visibility (throttle log spam)
+                if ($index % 25 === 0) {
+                    $this->updateStatus([
+                        'status' => 'running',
+                        'message' => "Injecting: " . ($index + 1) . " / " . $total,
+                        'progress' => 70 + (int) (($index / $total) * 20)
+                    ]);
                 }
             }
+        } finally {
+            if ($dbConnection === 'mysql') {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            }
+        }
+
+        \Log::info("RESTORE: Finished SQL injection. Executed $executedCount statements.");
+    }
+
+    private function attemptAtomicRecovery($sql)
+    {
+        // Fallback for character encoding or NULL constraints that often break in standard dumps
+        try {
+            // Replace empty string inserts with NULL for PostgreSQL strictness
+            $fb = str_replace([", '')", ", ''"], [", NULL)", ", NULL"], $sql);
+            DB::unprepared($fb);
+        } catch (\Throwable $e) {
+            \Log::error("RESTORE: Atomic recovery failed: " . $e->getMessage());
         }
     }
 
