@@ -40,25 +40,8 @@ class SystemRestoreJob implements ShouldQueue
         ini_set('memory_limit', '4096M');
         set_time_limit(0);
 
-        // Create a physical lock for the Lifeboat script to prevent false alarms
-        @touch(storage_path('app/restoration.lock'));
-
         $statusKey = "restore_status_{$this->actorId}";
-        
-        $publicSignalPath = public_path('_restore_signal.json');
-
         $this->updateStatus(['status' => 'running', 'message' => "Starting restoration of {$this->filename}...", 'progress' => 5]);
-
-        // 1. Physical Signal - Shared Disk Source of Truth
-        $sharedSignalPath = storage_path('app/backups/_restore_signal.json');
-        @file_put_contents($sharedSignalPath, json_encode([
-            'status' => 'running',
-            'message' => 'Engine initializing (Shared Disk)...',
-            'progress' => 5,
-            'time' => time()
-        ]));
-        
-        @chmod($publicSignalPath, 0666);
 
         $disk = Storage::disk(config('filesystems.default') === 's3' ? 's3' : 'local');
         $tempZip = tempnam(sys_get_temp_dir(), 'rest_final_');
@@ -76,8 +59,7 @@ class SystemRestoreJob implements ShouldQueue
             fclose($readStream);
             fclose($writeStream);
 
-            $this->updateStatus(['status' => 'running', 'message' => "Archive downloaded to local storage. Extracting...", 'progress' => 25]);
-            $this->updateStatus(['status' => 'running', 'message' => "Archive extraction complete. Preparing schema...", 'progress' => 40]);
+            $this->updateStatus(['status' => 'running', 'message' => "Archive downloaded. Extracting...", 'progress' => 25]);
 
             $tempExtractDir = storage_path('app/temp/restore_f_' . time());
             if (!is_dir($tempExtractDir))
@@ -85,8 +67,7 @@ class SystemRestoreJob implements ShouldQueue
 
             $zip = new ZipArchive();
             if ($zip->open($tempZip) === true) {
-
-                // Flexible File Detection (Case Insensitive)
+                // Flexible File Detection
                 $sqlFileInZip = null;
                 $docZipInZip = null;
 
@@ -100,7 +81,7 @@ class SystemRestoreJob implements ShouldQueue
                 }
 
                 if ($sqlFileInZip) {
-                    $this->updateStatus(['status' => 'running', 'message' => "Clearing environment and injecting SQL...", 'progress' => 60]);
+                    $this->updateStatus(['status' => 'running', 'message' => "Injecting SQL...", 'progress' => 60]);
 
                     $tempSql = $tempExtractDir . '/restore.sql';
                     $zip->extractTo($tempExtractDir, [$sqlFileInZip]);
@@ -111,9 +92,7 @@ class SystemRestoreJob implements ShouldQueue
                 }
 
                 if ($docZipInZip) {
-                    $data = ['status' => 'running', 'message' => "Verifying integrity and syncing documents...", 'progress' => 85];
-                    Cache::store('file')->put($statusKey, $data, 1800);
-                    Cache::store('file')->put('system_restore_status', $data, 1800);
+                    $this->updateStatus(['status' => 'running', 'message' => "Syncing documents...", 'progress' => 85]);
 
                     $tempDocZip = $tempExtractDir . '/docs.zip';
                     $zip->extractTo($tempExtractDir, [$docZipInZip]);
@@ -128,30 +107,16 @@ class SystemRestoreJob implements ShouldQueue
 
             @unlink($tempZip);
             File::deleteDirectory($tempExtractDir);
-            @unlink('/tmp/fildas_restore/active.lock');
-            @unlink(storage_path('app/backups/_restore_signal.json'));
-            @unlink(public_path('_restore_signal.json'));
 
             $data = ['status' => 'completed', 'message' => "Restoration finished successfully.", 'progress' => 100];
-            Cache::store('file')->put($statusKey, $data, 1800);
-            Cache::store('file')->put('system_restore_status', $data, 1800);
+            $this->updateStatus($data);
 
             $actor = User::find($this->actorId);
             $this->notifyAdminsOfCompletion($actor, $this->filename);
 
-            @unlink(storage_path('app/restoration.lock'));
-            @unlink(storage_path('app/backups/_restore_signal.json'));
-            @unlink(public_path('_restore_signal.json'));
         } catch (\Throwable $e) {
-            @unlink(storage_path('app/restoration.lock'));
             $this->updateStatus(['status' => 'failed', 'message' => "Restoration Error: " . $e->getMessage(), 'progress' => 0]);
-            Log::error("Restoration failed critically: " . $e->getMessage(), [
-                'trace' => $e->getTraceAsString(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
-            
-            // WE DO NOT UNLINK on failure - we need the UI to see the error message
+            Log::error("Restoration failed critically: " . $e->getMessage());
             @unlink($tempZip);
         }
     }
@@ -467,30 +432,16 @@ class SystemRestoreJob implements ShouldQueue
     {
         try {
             $data['time'] = time();
-            $json = json_encode($data);
             $key = 'system_restore_status';
             
-            // Unified Signal Path
-            $paths = [
-                storage_path('app/restore.json'),
-                public_path('restore.json')
-            ];
-
-            foreach ($paths as $path) {
-                @file_put_contents($path, $json);
-            }
-
-            // 2. Database Cache (Redundancy)
-            DB::table('cache')->updateOrInsert(
-                ['key' => $key],
-                ['value' => $json, 'expiration' => time() + 3600]
-            );
-
-            // 3. Laravel Cache (App logic)
-            Cache::put($key, $data, 3600);
+            // Framework-Native Cache Only
+            Cache::store('file')->put($key, $data, 1800);
+            
+            // Backup for user-specific monitoring
+            $userKey = "restore_status_{$this->actorId}";
+            Cache::store('file')->put($userKey, $data, 1800);
         } catch (\Throwable $e) {
-            $json = json_encode($data);
-            @file_put_contents(storage_path('app/restore.json'), $json);
+            Log::error("Failed to update restore status: " . $e->getMessage());
         }
     }
 }

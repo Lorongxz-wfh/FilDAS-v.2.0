@@ -384,60 +384,23 @@ class SystemBackupController extends Controller
 
     public function status(Request $request)
     {
-        // Force 'file' store to bypass the database entirely.
         try {
+            // Strictly poll the framework cache. 
+            // If the worker is running, it will write here.
             $status = Cache::store('file')->get('system_restore_status');
-
-            // ── The Physical Fail-Safe ──
-            // If cache is empty, check if the physical disk lock still exists.
-            if (!$status && Storage::disk('local')->exists('restore_active.lock')) {
-                return response()->json([
-                    'status' => 'running',
-                    'message' => 'Restoration engine active (Syncing schema)...',
-                    'progress' => 50
-                ]);
-            }
 
             if (!$status) {
                 return response()->json([
                     'status' => 'idle',
-                    'message' => 'No active restoration.',
+                    'message' => 'System stands ready.',
                     'progress' => 0
                 ]);
             }
             
             return response()->json($status);
         } catch (\Throwable $e) {
-            return response()->json([
-                'status' => 'running',
-                'message' => 'Handing over to core engine...',
-                'progress' => 5
-            ]);
+            return response()->json(['status' => 'idle', 'message' => 'Ready.', 'progress' => 0]);
         }
-    }
-
-    /**
-     * Permanent Erasure of restoration locks and signals.
-     */
-    public function unlock(Request $request)
-    {
-        $possibleSignals = [
-            storage_path('app/restore.json'),
-            storage_path('app/restoration.lock'),
-            storage_path('app/backups/_restore_signal.json'),
-            public_path('restore.json'),
-            public_path('_restore_signal.json'),
-        ];
-
-        foreach ($possibleSignals as $path) {
-            if (file_exists($path)) @unlink($path);
-        }
-
-        Cache::store('file')->forget('system_restore_status');
-        Cache::store('file')->forget("restore_status_{$request->user()->id}");
-        Cache::forget('system_restore_status');
-
-        return response()->json(['success' => true, 'message' => 'Restoration signals cleared from all paths.']);
     }
 
     private function runSqlRestore($sqlPath)

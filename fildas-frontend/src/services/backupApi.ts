@@ -182,35 +182,13 @@ export async function restoreDocumentBackup(filename: string): Promise<void> {
 }
 
 /**
- * Permanent Erasure of restoration locks and signals on the server.
- */
-export async function unlockRestoration(): Promise<void> {
-    const api = await getApi();
-    await api.post('/admin/system/restore/unlock');
-}
-
-/**
  * Gets the current background restoration status.
- * Uses a clean fetch without auth headers to survive database wipes.
+ * Uses standard authenticated API polling.
  */
 export async function getRestoreStatus(): Promise<{ status: string; message: string; progress: number }> {
-  try {
-    // ── The Lifeboat Link ──
-    // We call the plain PHP script in the public folder to bypass Laravel entirely.
-    // This script is immune to 500 errors during DB wipes.
-    const baseUrl = API_BASE.replace('/api', ''); 
-    const res = await fetch(`${baseUrl}/restore-status.php`, {
-      cache: 'no-store',
-      headers: { 'Accept': 'application/json' }
-    });
-    
-    if (!res.ok) {
-        return { status: 'idle', message: 'Ready', progress: 0 };
-    }
-    return await res.json();
-  } catch (err) {
-    return { status: 'idle', message: 'Connection synced', progress: 0 };
-  }
+    const api = await getApi();
+    const res = await api.get('/admin/system/backups/restore-status');
+    return res.data;
 }
 
 export async function uploadSystemSnapshot(

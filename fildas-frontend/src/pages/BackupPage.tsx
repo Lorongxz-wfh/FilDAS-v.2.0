@@ -37,7 +37,6 @@ import {
   saveToSystemBackup,
   uploadSystemSnapshot,
   getRestoreStatus,
-  unlockRestoration,
   type BackupPreset,
   type BackupSummary,
   type SystemBackupFile,
@@ -873,28 +872,6 @@ export default function BackupPage() {
                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest tabular-nums truncate max-w-[200px]">Node: {restoring}</span>
             </div>
-          </div>
-
-          <div className="mt-12 flex flex-col items-center gap-4">
-            <div className="text-[9px] uppercase font-bold tracking-[0.3em] text-slate-500 animate-pulse text-center">
-              System write locks enabled — Do not close this window
-            </div>
-            
-            <button
-               onClick={async () => {
-                 try {
-                   await unlockRestoration();
-                 } catch (e) {
-                   // Fallback to local clear if API is totally dead
-                 }
-                 localStorage.removeItem('fildas_restoring_node');
-                 setRestoring(null);
-                 setRestoreStatus(null);
-               }}
-               className="mt-4 px-4 py-1.5 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white/80 text-[8px] font-bold uppercase tracking-[0.2em] rounded border border-white/5 transition-all"
-            >
-               Force Unlock UI
-            </button>
           </div>
         </div>
       )}
