@@ -359,6 +359,16 @@ class SystemBackupController extends Controller
         }
 
         try {
+            // IMMEDIATE PRODUCTION HANDSHAKE:
+            // Set initial status to 'running' in shared database cache BEFORE dispatch.
+            // This prevents the frontend from 'losing' the window during the wipe phase.
+            Cache::put('system_restore_status', [
+                'status' => 'running',
+                'message' => 'Initializing Institutional Reconstruction...',
+                'progress' => 5,
+                'time' => time()
+            ], 1800);
+
             // Use standard dispatch but ensure the web process doesn't hang if the jobs table is locked
             $diskName = env('FILESYSTEM_BACKUP_DISK', config('filesystems.default'));
             \App\Jobs\SystemRestoreJob::dispatch(
