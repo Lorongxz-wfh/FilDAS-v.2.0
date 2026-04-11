@@ -170,6 +170,7 @@ class SystemRestoreJob implements ShouldQueue
         $isPgsql = config('database.default') === 'pgsql';
         Log::info("Executing SQL restoration buffer (Translation Mode: " . ($isPgsql ? 'ON' : 'OFF') . ")");
 
+        $query = "";
         $statementCount = 0;
         $batchBuffer = "";
         $batchSize = 50; // Reduced for maximum stability on shared DB resources
