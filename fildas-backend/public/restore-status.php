@@ -6,10 +6,8 @@
 
 error_reporting(0);
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-
-// 1. Physical Proof (Source of Truth)
-$signalFile = __DIR__ . '/_restore_signal.json';
+// 1. Physical Proof (Source of Truth via Shared Storage)
+$signalFile = __DIR__ . '/../storage/app/backups/_restore_signal.json';
 $lockFile = __DIR__ . '/../storage/app/restoration.lock';
 
 if (file_exists($signalFile)) {

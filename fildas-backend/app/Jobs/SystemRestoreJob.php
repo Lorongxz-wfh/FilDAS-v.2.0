@@ -49,10 +49,11 @@ class SystemRestoreJob implements ShouldQueue
 
         $this->updateStatus(['status' => 'running', 'message' => "Starting restoration of {$this->filename}...", 'progress' => 5]);
 
-        // Physical Signal - public root is 100% visible to the lifeboat script
-        @file_put_contents($publicSignalPath, json_encode([
+        // 1. Physical Signal - Shared Disk Source of Truth
+        $sharedSignalPath = storage_path('app/backups/_restore_signal.json');
+        @file_put_contents($sharedSignalPath, json_encode([
             'status' => 'running',
-            'message' => 'Engine initializing...',
+            'message' => 'Engine initializing (Shared Disk)...',
             'progress' => 5,
             'time' => time()
         ]));
@@ -128,7 +129,7 @@ class SystemRestoreJob implements ShouldQueue
             @unlink($tempZip);
             File::deleteDirectory($tempExtractDir);
             @unlink('/tmp/fildas_restore/active.lock');
-            @unlink('/tmp/fildas_restore/status.json');
+            @unlink(storage_path('app/backups/_restore_signal.json'));
             @unlink(public_path('_restore_signal.json'));
 
             $data = ['status' => 'completed', 'message' => "Restoration finished successfully.", 'progress' => 100];
@@ -139,6 +140,7 @@ class SystemRestoreJob implements ShouldQueue
             $this->notifyAdminsOfCompletion($actor, $this->filename);
 
             @unlink(storage_path('app/restoration.lock'));
+            @unlink(storage_path('app/backups/_restore_signal.json'));
             @unlink(public_path('_restore_signal.json'));
         } catch (\Throwable $e) {
             @unlink(storage_path('app/restoration.lock'));
@@ -179,8 +181,8 @@ class SystemRestoreJob implements ShouldQueue
 
         $query = "";
         $statementCount = 0;
-        $batchBuffer = ""; // Initialize the buffer
-        $batchSize = 100; // Turbo Mode: Inject 100 lines at once for raw speed
+        $batchBuffer = ""; 
+        $batchSize = 20; // Safety Batch: 20 statements prevents memory spikes on 512MB RAM
 
         if ($handle) {
             while (($line = fgets($handle)) !== false) {
@@ -464,11 +466,12 @@ class SystemRestoreJob implements ShouldQueue
     private function updateStatus($data)
     {
         try {
+            $data['time'] = time();
             $json = json_encode($data);
             $key = 'system_restore_status';
             
-            // 1. Physical Signal (Source of Truth)
-            @file_put_contents(public_path('_restore_signal.json'), $json);
+            // 1. Shared Physical Signal (Source of Truth for Distrubuted Services)
+            @file_put_contents(storage_path('app/backups/_restore_signal.json'), $json);
 
             // 2. Database Cache (Redundancy)
             DB::table('cache')->updateOrInsert(
@@ -479,9 +482,9 @@ class SystemRestoreJob implements ShouldQueue
             // 3. Laravel Cache (App logic)
             Cache::put($key, $data, 3600);
         } catch (\Throwable $e) {
-            // Still write to file even if DB fails
+            // Still write to shared disk even if DB fails
             $json = json_encode($data);
-            @file_put_contents(public_path('_restore_signal.json'), $json);
+            @file_put_contents(storage_path('app/backups/_restore_signal.json'), $json);
         }
     }
 }
