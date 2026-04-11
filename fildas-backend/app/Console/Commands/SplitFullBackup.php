@@ -32,15 +32,19 @@ class SplitFullBackup extends Command
             }
         }
 
-        if (!$foundPath) {
-            $this->error("Backup file not found in: " . implode(', ', $possiblePaths));
-            return;
-        }
-
         $this->info("Found backup at: {$foundPath}");
-        $this->info("Downloading for splitting...");
+        $this->info("Downloading for splitting (Streaming Mode)...");
+        
+        ini_set('memory_limit', '1024M'); // Request 1GB RAM for the zip operation
+        
         $tempPath = tempnam(sys_get_temp_dir(), 'split_');
-        file_put_contents($tempPath, $disk->get($foundPath));
+        
+        // Use streaming to prevent "Memory Size Exhausted" error
+        $readStream = $disk->readStream($foundPath);
+        $writeStream = fopen($tempPath, 'w+');
+        stream_copy_to_stream($readStream, $writeStream);
+        fclose($writeStream);
+        if (is_resource($readStream)) fclose($readStream);
 
         $zip = new ZipArchive();
         if ($zip->open($tempPath) === true) {
