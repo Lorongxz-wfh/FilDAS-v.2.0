@@ -167,10 +167,12 @@ class SystemRestoreJob implements ShouldQueue
             $sourceDriver = 'pgsql';
         }
 
-        $isDestPgsql = $dbConnection === 'pgsql';
-        $needsTranslation = ($sourceDriver === 'mysql' || $sourceDriver === 'mariadb') && $isDestPgsql;
-
+        // System-level check before starting
         \Log::info("RESTORE: Source Driver detected as {$sourceDriver}. Destination: {$dbConnection}. Translation needed: " . ($needsTranslation ? 'YES' : 'NO'));
+
+        if ($isPgsql) {
+            DB::statement("SET search_path TO public, \"\$user\"");
+        }
 
         // Robust statement splitting:
         // We look for semicolons that are at the END of a line or followed by whitespace
@@ -201,8 +203,8 @@ class SystemRestoreJob implements ShouldQueue
         }
 
         try {
-            foreach ($statements as $index => $statement) {
-                $trimmed = trim($statement);
+            foreach ($statements as $stmt) {
+                $trimmed = trim($stmt);
                 if (empty($trimmed)) continue;
 
                 $finalSql = $trimmed . ';';
@@ -212,23 +214,22 @@ class SystemRestoreJob implements ShouldQueue
                     $finalSql = $this->translateSql($finalSql);
                 }
 
+                // Use nested transaction (SAVEPOINT) for PostgreSQL to prevent transaction poisoning
                 try {
-                    DB::unprepared($finalSql);
-                    $executedCount++;
+                    DB::transaction(function() use ($finalSql, &$executedCount) {
+                        DB::unprepared($finalSql);
+                        $executedCount++;
+                    });
                 } catch (\Throwable $e) {
                     $failedCount++;
                     $lastError = $e->getMessage();
-                    \Log::warning("RESTORE: Statement injection failed. Attempting atomic recovery...");
-                    $this->attemptAtomicRecovery($finalSql);
+                    \Log::warning("RESTORE: Statement injection failed (Row skipped). Error: " . $lastError);
                 }
 
-                // Heartbeat for UI visibility
-                if ($index % 25 === 0) {
-                    $this->updateStatus([
-                        'status' => 'running',
-                        'message' => "Injecting: " . ($index + 1) . " / " . $total,
-                        'progress' => 70 + (int) (($index / $total) * 20)
-                    ]);
+                // Update progress incrementally
+                $currentProgress = 65 + (int)(($executedCount / $total) * 30);
+                if ($executedCount % 50 === 0) {
+                    $this->updateStatus(['progress' => $currentProgress, 'message' => "Injecting data: {$executedCount}/{$total} records..."]);
                 }
             }
 
@@ -344,11 +345,11 @@ class SystemRestoreJob implements ShouldQueue
 
             try {
                 if ($isPgsql) {
-                    DB::statement("TRUNCATE TABLE \"{$table}\" CASCADE");
-                } elseif ($isMysql) {
-                    DB::statement("TRUNCATE TABLE `{$table}`");
+                    DB::statement("TRUNCATE TABLE public.\"{$table}\" CASCADE");
                 } else {
-                    DB::table($table)->truncate();
+                    DB::statement("SET FOREIGN_KEY_CHECKS=0");
+                    DB::statement("TRUNCATE TABLE `{$table}`");
+                    DB::statement("SET FOREIGN_KEY_CHECKS=1");
                 }
             } catch (\Throwable $e) {
                 \Log::debug("Table sweep skip: {$table}");
