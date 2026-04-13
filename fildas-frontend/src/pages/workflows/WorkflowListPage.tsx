@@ -320,7 +320,7 @@ export default function WorkflowListPage() {
   const gridTemplateColumns = useMemo(() => {
     const isDistributed = tab === "distributed";
     // Base columns: ID, Activity/Dist, Name, Code
-    let parts = ["50px", isDistributed ? "120px" : "110px", "minmax(200px, 1fr)", "100px"];
+    let parts = ["50px", isDistributed ? "120px" : "110px", "minmax(160px, 1fr)", "160px"];
 
     // Status column (only if not distributed)
     if (!isDistributed) parts.push("140px");

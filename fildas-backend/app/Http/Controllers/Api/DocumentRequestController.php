@@ -380,7 +380,7 @@ class DocumentRequestController extends Controller
 
         $data = $request->validate([
             'q'              => 'nullable|string|max:100',
-            'status'         => 'nullable|in:pending,submitted,accepted,rejected',
+            'status'         => 'nullable|in:pending,submitted,accepted,rejected,open,closed,cancelled',
             'request_status' => 'nullable|in:open,closed,cancelled',
             'per_page'       => 'nullable|integer|min:1|max:50',
             'page'           => 'nullable|integer|min:1',
@@ -390,6 +390,12 @@ class DocumentRequestController extends Controller
 
         $perPage = (int) ($data['per_page'] ?? 25);
         $page    = max(1, (int) ($data['page'] ?? 1));
+
+        // Alias Logic: If 'status' is a batch status, move it to 'request_status'
+        if (isset($data['status']) && in_array($data['status'], ['open', 'closed', 'cancelled'], true)) {
+            $data['request_status'] = $data['status'];
+            $data['status'] = null; // Don't filter recipient status by batch status
+        }
 
         return response()->json($this->repository->getIndividualRequests(
             filters:  $data,

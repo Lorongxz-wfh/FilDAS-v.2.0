@@ -130,7 +130,7 @@ export default function RequestListPage() {
 
   const canCreate =
     role !== "auditor" &&
-    (role !== "admin" || adminDebugMode || import.meta.env.DEV);
+    (role !== "admin" || adminDebugMode);
 
   const [tab, setTab] = React.useState<ViewTab>("batches");
   const [q, setQ] = React.useState("");
@@ -838,7 +838,7 @@ export default function RequestListPage() {
                     emptyMessage={q || batchStatus ? "No requests match your filters." : "No requests found."}
                     hasMore={hasMore}
                     onLoadMore={() => setPage((p) => p + 1)}
-                    gridTemplateColumns={adminDebugMode ? "50px 80px 90px minmax(150px, 1fr) 140px 90px 75px 95px 40px" : "50px 80px 90px minmax(150px, 1fr) 140px 90px 75px 95px"}
+                    gridTemplateColumns={adminDebugMode ? "50px 80px 95px minmax(120px, 1fr) 160px 140px 75px 95px 40px" : "50px 80px 95px minmax(120px, 1fr) 160px 140px 75px 95px"}
                     selectable={isSelectMode}
                     selectedIds={selectedIds}
                     onToggleRow={toggleRow}

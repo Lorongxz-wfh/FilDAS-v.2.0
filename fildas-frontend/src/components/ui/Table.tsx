@@ -212,7 +212,7 @@ export default function Table<T>({
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
         {/* Sticky header — hidden if mobileRender is active on small screen */}
         <div
-          className={`sticky top-0 z-20 shrink-0 grid gap-3 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 border-b border-neutral-200 dark:border-surface-400 bg-neutral-50 dark:bg-surface-500 ${mobileRender ? "hidden sm:grid" : "grid"}`}
+          className={`sticky top-0 z-20 shrink-0 grid gap-3 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 border-b border-neutral-300/60 dark:border-surface-300/50 bg-neutral-50 dark:bg-surface-600 ${mobileRender ? "hidden sm:grid" : "grid"}`}
           style={{ gridTemplateColumns: finalTemplate }}
         >
           {selectable && (
@@ -230,6 +230,12 @@ export default function Table<T>({
             const nextDir: SortDir =
               isActive && sortDir === "desc" ? "asc" : "desc";
 
+            const headerBaseClass = [
+              "flex items-center min-w-0 font-bold uppercase tracking-wider text-[11px]",
+              alignHeaderClass(c.align),
+              c.headerClassName ?? "",
+            ].join(" ");
+
             if (isSortable) {
               return (
                 <button
@@ -237,15 +243,14 @@ export default function Table<T>({
                   type="button"
                   onClick={() => onSortChange!(c.sortKey!, nextDir)}
                   className={[
-                    "flex w-full items-center gap-1 transition-colors select-none",
-                    alignHeaderClass(c.align),
-                    c.headerClassName ?? "",
+                    headerBaseClass,
+                    "w-full gap-1 transition-colors select-none",
                     isActive
                       ? "text-neutral-900 dark:text-surface-50"
                       : "hover:text-neutral-900 dark:hover:text-surface-50",
                   ].join(" ")}
                 >
-                  {c.header}
+                  <span className="truncate">{c.header}</span>
                   <SortIcon active={isActive} dir={isActive ? sortDir : "desc"} />
                 </button>
               );
@@ -255,9 +260,8 @@ export default function Table<T>({
               <div
                 key={c.key}
                 className={[
-                  "flex w-full items-center min-w-0 overflow-hidden",
-                  alignHeaderClass(c.align),
-                  c.headerClassName ?? "",
+                  headerBaseClass,
+                  "w-full overflow-hidden",
                 ].join(" ")}
               >
                 {c.header}

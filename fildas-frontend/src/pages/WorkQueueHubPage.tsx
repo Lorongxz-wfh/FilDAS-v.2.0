@@ -163,7 +163,7 @@ const WorkQueueHubPage: React.FC = () => {
 
   const canCreateRequest =
     userRole !== "AUDITOR" &&
-    (userRole !== "ADMIN" || adminDebugMode || import.meta.env.DEV);
+    (userRole !== "ADMIN" || adminDebugMode);
 
   // Combined + filtered Workflow lists
   const allItems = React.useMemo(() => {
