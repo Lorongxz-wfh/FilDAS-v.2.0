@@ -22,7 +22,7 @@ const NotificationBell: React.FC = () => {
   const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = React.useState(false);
-  const [unseenCount, setUnseenCount] = React.useState<number>(0);
+  const [unreadCount, setUnreadCount] = React.useState<number>(0);
   const [notifItems, setNotifItems] = React.useState<NotificationItem[]>([]);
   const [notifLoading, setNotifLoading] = React.useState(false);
   const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
@@ -37,24 +37,19 @@ const NotificationBell: React.FC = () => {
   const dropdownRef = React.useRef<HTMLDivElement>(null);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
 
-  const computeUnseen = React.useCallback(
-    (items: NotificationItem[], seen: number) =>
-      items.filter((n) => !n.read_at && new Date(n.created_at).getTime() > seen).length,
-    []
-  );
 
-  async function loadDropdown(currentSeenAt: number) {
+  async function loadDropdown() {
     setNotifLoading(true);
     setAnnLoading(true);
     try {
-      const [{ data }, ann] = await Promise.all([
+      const [{ data }, ann, count] = await Promise.all([
         listNotifications({ page: 1, perPage: 15 }),
         listActiveAnnouncements(),
+        getUnreadNotificationCount(),
       ]);
       setNotifItems(data);
       setAnnouncements(ann);
-      setUnseenCount(computeUnseen(data, currentSeenAt));
-      const count = await getUnreadNotificationCount();
+      setUnreadCount(count);
       prevUnreadRef.current = count;
     } catch { 
       /* silent fail */
@@ -89,7 +84,7 @@ const NotificationBell: React.FC = () => {
   useRealtimeUpdates({
     onNotification: React.useCallback((newNotif: any) => {
       playNotificationChime();
-      setUnseenCount((prev) => prev + 1);
+      setUnreadCount((prev) => prev + 1);
       setNotifItems((prev) => [newNotif, ...prev].slice(0, 15));
     }, []),
     onAnnouncement: React.useCallback((ann: Announcement) => {
@@ -116,18 +111,15 @@ const NotificationBell: React.FC = () => {
             setSeenAt(now);
             seenAtRef.current = now;
             localStorage.setItem(SEEN_AT_KEY, String(now));
-            setUnseenCount(0);
             setIsOpen(true);
-            loadDropdown(now);
+            loadDropdown();
           }
         }}
         className={`relative rounded-md p-1.5 transition ${isOpen ? "bg-slate-100 text-brand-600 dark:bg-surface-400 dark:text-brand-400" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-surface-400 dark:hover:text-slate-200"}`}
       >
         <BellRing className={`h-4 w-4 ${isOpen ? "scale-110" : ""}`} />
-        {unseenCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold text-white">
-             {unseenCount > 99 ? "99+" : unseenCount}
-          </span>
+        {unreadCount > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 items-center justify-center rounded-full bg-rose-600 ring-2 ring-white dark:ring-surface-500" />
         )}
       </button>
 
@@ -236,7 +228,7 @@ const NotificationBell: React.FC = () => {
                   try {
                     setIsMarkingRead(true);
                     await markAllNotificationsRead();
-                    await loadDropdown(seenAt);
+                    await loadDropdown();
                   } finally {
                     setIsMarkingRead(false);
                   }
