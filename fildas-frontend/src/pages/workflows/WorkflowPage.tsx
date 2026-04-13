@@ -648,7 +648,7 @@ const refreshAndSelectBest = React.useCallback(
               }, [setSearchParams])}
               onHeaderStateChange={React.useCallback((s: any) => {
                 const sig =
-                  `${s.title}|${s.code}|${s.status}|${s.versionNumber}|${s.canAct}|${s.isTasksReady}|` +
+                  `${s.title}|${s.code}|${s.status}|${s.versionNumber}|${s.canAct}|${s.isTasksReady}|${(s.availableActions ?? []).join(",")}|` +
                   `${(s.headerActions ?? []).map((a: any) => `${a.key}:${a.disabled ? 1 : 0}:${a.variant}`).join(",")}|` +
                   `${(s.versionActions ?? []).map((a: any) => `${a.key}:${a.disabled ? 1 : 0}:${a.variant}`).join(",")}`;
                 if (sig === headerSigRef.current) return;

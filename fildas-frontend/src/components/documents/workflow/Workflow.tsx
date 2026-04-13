@@ -97,13 +97,14 @@ const Workflow: React.FC<WorkflowProps> = ({
   }, [onHeaderStateChange]);
 
   const headerSig = React.useMemo(() => {
-    return `${state.localVersion?.id}|${state.localVersion?.status}|${state.localVersion?.version_number}|${state.canAct}|${actions.workflow.isTasksReady}|${state.needsFileReplacement ? 1 : 0}|${actions.fileUpload.isUploading ? 1 : 0}|${state.localTitle}|${state.routingUsers?.length}|${state.actingAsUserId}|${state.isLoadingRoutingUsers}`;
+    return `${state.localVersion?.id}|${state.localVersion?.status}|${state.localVersion?.version_number}|${state.canAct}|${actions.workflow.isTasksReady}|${actions.workflow.availableActions.join(",")}|${state.needsFileReplacement ? 1 : 0}|${actions.fileUpload.isUploading ? 1 : 0}|${state.localTitle}|${state.routingUsers?.length}|${state.actingAsUserId}|${state.isLoadingRoutingUsers}`;
   }, [
     state.localVersion?.id,
     state.localVersion?.status,
     state.localVersion?.version_number,
     state.canAct,
     actions.workflow.isTasksReady,
+    actions.workflow.availableActions,
     state.needsFileReplacement,
     actions.fileUpload.isUploading,
     state.localTitle,

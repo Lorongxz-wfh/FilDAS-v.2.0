@@ -21,6 +21,7 @@ import {
   isOfficeHead,
 } from "../lib/roleFilters";
 import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
+import { useRealtimeUpdates } from "../hooks/useRealtimeUpdates";
 import { friendlyEvent } from "../utils/activityFormatters";
 import PageFrame from "../components/layout/PageFrame";
 import { PageActions, RefreshAction, CreateAction } from "../components/ui/PageActions";
@@ -123,6 +124,18 @@ const WorkQueueHubPage: React.FC = () => {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  // ── Real-time synchronization ─────────────────────────────────────────────
+  useRealtimeUpdates({
+    onWorkflowUpdate: () => {
+      console.debug("[WorkQueueHub] Workflow update received, refreshing...");
+      loadAll(true);
+    },
+    onWorkspaceChange: () => {
+      console.debug("[WorkQueueHub] Workspace update received, refreshing...");
+      loadAll(true);
+    },
+  });
 
 
   // ── Handlers ───────────────────────────────────────────────────────────────

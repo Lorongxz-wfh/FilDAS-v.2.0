@@ -177,8 +177,12 @@ export function useWorkflowUI({
     getDocumentPreviewLink(localVersion.id)
       .then((r) => {
         if (alive) {
-          previewUrlCacheRef.current[localVersion.preview_path!] = r.url;
-          setSignedPreviewUrl(r.url);
+          // Append cache-buster to the URL to force iframe reload
+          const buster = `pb=${nonce}`;
+          const url = r.url.includes("?") ? `${r.url}&${buster}` : `${r.url}?${buster}`;
+          
+          previewUrlCacheRef.current[localVersion.preview_path!] = url;
+          setSignedPreviewUrl(url);
           setIsPreviewLoading(false);
           setPreviewNonce(nonce);
         }
