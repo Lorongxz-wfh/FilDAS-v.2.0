@@ -23,7 +23,6 @@ const NotificationBell: React.FC = () => {
 
   const [isOpen, setIsOpen] = React.useState(false);
   const [hasUnseen, setHasUnseen] = React.useState<boolean>(false);
-  const [unreadCount, setUnreadCount] = React.useState<number>(0);
   const [notifItems, setNotifItems] = React.useState<NotificationItem[]>([]);
   const [notifLoading, setNotifLoading] = React.useState(false);
   const [announcements, setAnnouncements] = React.useState<Announcement[]>([]);
@@ -50,7 +49,6 @@ const NotificationBell: React.FC = () => {
       ]);
       setNotifItems(data);
       setAnnouncements(ann);
-      setUnreadCount(count);
       prevUnreadRef.current = count;
       
       // When dropdown is loaded (meaning it's open), we clear the unseen dot
@@ -89,7 +87,6 @@ const NotificationBell: React.FC = () => {
           listNotifications({ page: 1, perPage: 1 })
         ]);
         
-        setUnreadCount(count);
         
         // Phase 1: Seen vs Viewed
         // If there are unread items, check if the latest one is newer than our last 'seenAt'
@@ -110,7 +107,6 @@ const NotificationBell: React.FC = () => {
   useRealtimeUpdates({
     onNotification: React.useCallback((newNotif: any) => {
       playNotificationChime();
-      setUnreadCount((prev) => prev + 1);
       setHasUnseen(true); // New arrival = unseen
       setNotifItems((prev) => [newNotif, ...prev].slice(0, 15));
     }, []),
