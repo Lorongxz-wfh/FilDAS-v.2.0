@@ -103,7 +103,7 @@ const ReportsPage: React.FC = () => {
     officeId, setOfficeId,
     activeFilterCount,
     clearAllFilters
-  } = useReportFilters({ isOfficeHead });
+  } = useReportFilters({ isOfficeHead, isOfficeStaff });
 
   React.useEffect(() => {
     getOffices()

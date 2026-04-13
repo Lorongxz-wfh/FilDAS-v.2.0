@@ -42,10 +42,11 @@ class ReportsController extends Controller
         $isQA = ($roleName === 'qa') || ($qaOfficeId && $userOfficeId === $qaOfficeId);
         $isAdmin = in_array($roleName, ['admin', 'sysadmin'], true);
         $isOfficeHead = ($roleName === 'office_head');
+        $isOfficeStaff = ($roleName === 'office_staff');
         $isPresident = ($roleName === 'president');
         $isVP = in_array($roleName, ['vpaa', 'vpad', 'vpf', 'vpr'], true);
 
-        if (!$isQA && !$isAdmin && !$isOfficeHead && !$isPresident && !$isVP) {
+        if (!$isQA && !$isAdmin && !$isOfficeHead && !$isOfficeStaff && !$isPresident && !$isVP) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -65,10 +66,36 @@ class ReportsController extends Controller
         $dateField = $data['date_field'] ?? 'completed';
         $dateColumn = $dateField === 'created' ? 'created_at' : 'completed_at';
 
-        // VP Hardlock Check: VPs can only ever request data for their assigned cluster.
+        // ── Security Hardening & Scoping ───────────────────────────────────────────
+        $officeIdFilter = isset($data['office_id']) ? (int) $data['office_id'] : null;
+        $clusterOfficeIds = null;
+
+        // 1. VP Hardlock Check: VPs can only ever request data for their assigned cluster.
         if ($isVP) {
             $vpMap = ['vpaa' => 'VA', 'vpad' => 'VAd', 'vpf' => 'VF', 'vpr' => 'VR'];
             $parent = $vpMap[$roleName] ?? 'ALL';
+            
+            // If they tried to filter by a specific office, verify it belongs to their cluster
+            if ($officeIdFilter) {
+                $clusterIds = $this->clusterAnalysis->officeIdsForCluster($parent);
+                $clusterOfficeIds = in_array($officeIdFilter, $clusterIds) ? [$officeIdFilter] : [0]; 
+            } else {
+                $clusterOfficeIds = $this->clusterAnalysis->officeIdsForCluster($parent);
+            }
+        } 
+        // 2. Departmental Hardlock: Office Staff/Head can ONLY ever see their own office stats.
+        elseif (($isOfficeHead || $isOfficeStaff) && $userOfficeId) {
+            $clusterOfficeIds = [$userOfficeId];
+            $scope = 'offices'; // Force office scope
+            $parent = 'ALL';    // Ignore cluster parent filters
+        }
+        // 3. Global Filters for Admin/QA/President
+        else {
+            if ($officeIdFilter) {
+                $clusterOfficeIds = [$officeIdFilter];
+            } elseif ($parent !== 'ALL') {
+                $clusterOfficeIds = $this->clusterAnalysis->officeIdsForCluster($parent);
+            }
         }
 
         $offices = Office::query()->get(['id', 'code', 'parent_office_id']);
@@ -83,17 +110,6 @@ class ReportsController extends Controller
 
         // If parent filter is set, only include that cluster in the output (exclude others).
         $allowedClusters = ($parent !== 'ALL') ? [$parent] : $clusters;
-
-        // Office IDs for filtering — single office, cluster filter, or office_head scoped to own office
-        $officeId = isset($data['office_id']) ? (int) $data['office_id'] : null;
-        $clusterOfficeIds = null;
-        if ($officeId) {
-            $clusterOfficeIds = [$officeId];
-        } elseif ($parent !== 'ALL') {
-            $clusterOfficeIds = $this->clusterAnalysis->officeIdsForCluster($parent);
-        } elseif ($isOfficeHead && $userOfficeId) {
-            $clusterOfficeIds = [$userOfficeId];
-        }
 
         $acc = [];
         foreach ($allowedClusters as $c) {
@@ -900,8 +916,9 @@ class ReportsController extends Controller
         $isQA = ($roleName === 'qa') || ($qaOfficeId && $userOfficeId === $qaOfficeId);
         $isAdmin = in_array($roleName, ['admin', 'sysadmin'], true);
         $isOfficeHead = ($roleName === 'office_head');
+        $isOfficeStaff = ($roleName === 'office_staff');
 
-        if (!$isQA && !$isAdmin && !$isOfficeHead) {
+        if (!$isQA && !$isAdmin && !$isOfficeHead && !$isOfficeStaff) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -919,14 +936,30 @@ class ReportsController extends Controller
         $bucket     = $data['bucket'] ?? 'monthly';
 
         // Resolve office IDs for filtering — single office, cluster, or office_head scoped to own office
-        $officeId = isset($data['office_id']) ? (int) $data['office_id'] : null;
+        $officeIdFilter = isset($data['office_id']) ? (int) $data['office_id'] : null;
         $clusterOfficeIds = null;
-        if ($officeId) {
-            $clusterOfficeIds = [$officeId];
-        } elseif ($parent !== 'ALL') {
-            $clusterOfficeIds = $this->clusterAnalysis->officeIdsForCluster($parent);
-        } elseif ($isOfficeHead && $userOfficeId) {
+
+        $role = $this->roleNameOf($user);
+        $isVP = in_array($role, ['vpaa', 'vpad', 'vpf', 'vpr'], true);
+
+        if ($isVP) {
+            $vpMap = ['vpaa' => 'VA', 'vpad' => 'VAd', 'vpf' => 'VF', 'vpr' => 'VR'];
+            $parent = $vpMap[$role] ?? 'ALL';
+            if ($officeIdFilter) {
+                $clusterIds = $this->clusterAnalysis->officeIdsForCluster($parent);
+                $clusterOfficeIds = in_array($officeIdFilter, $clusterIds) ? [$officeIdFilter] : [0];
+            } else {
+                $clusterOfficeIds = $this->clusterAnalysis->officeIdsForCluster($parent);
+            }
+        } elseif (($isOfficeHead || $isOfficeStaff) && $userOfficeId) {
             $clusterOfficeIds = [$userOfficeId];
+            $parent = 'ALL';
+        } else {
+            if ($officeIdFilter) {
+                $clusterOfficeIds = [$officeIdFilter];
+            } elseif ($parent !== 'ALL') {
+                $clusterOfficeIds = $this->clusterAnalysis->officeIdsForCluster($parent);
+            }
         }
 
         // ── Return by stage ───────────────────────────────────────────────────
@@ -1074,8 +1107,9 @@ class ReportsController extends Controller
         $isQA    = ($roleName === 'qa') || ($qaOfficeId && $userOfficeId === $qaOfficeId);
         $isAdmin = in_array($roleName, ['admin', 'sysadmin'], true);
         $isOfficeHead = ($roleName === 'office_head');
+        $isOfficeStaff = ($roleName === 'office_staff');
 
-        if (!$isQA && !$isAdmin && !$isOfficeHead) {
+        if (!$isQA && !$isAdmin && !$isOfficeHead && !$isOfficeStaff) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -1091,8 +1125,8 @@ class ReportsController extends Controller
         $reqQuery = DocumentRequest::query();
         if ($dateFrom) $reqQuery->whereDate('created_at', '>=', $dateFrom);
         if ($dateTo)   $reqQuery->whereDate('created_at', '<=', $dateTo);
-        // Office heads see only requests where their office is a recipient
-        if ($isOfficeHead && $userOfficeId) {
+        // Office heads/staff see only requests where their office is a recipient
+        if (($isOfficeHead || $isOfficeStaff) && $userOfficeId) {
             $reqQuery->whereHas('recipients', fn ($q) => $q->where('office_id', $userOfficeId));
         }
         $requests = $reqQuery->get(['id', 'status', 'mode', 'due_at', 'created_at']);

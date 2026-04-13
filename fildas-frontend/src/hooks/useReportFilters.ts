@@ -3,9 +3,12 @@ import { type Bucket, type Parent, type DateField, type Scope } from "../compone
 
 interface UseReportFiltersProps {
   isOfficeHead: boolean;
+  isOfficeStaff: boolean;
 }
 
-export const useReportFilters = ({ isOfficeHead }: UseReportFiltersProps) => {
+export const useReportFilters = ({ isOfficeHead, isOfficeStaff }: UseReportFiltersProps) => {
+  const isDeptUser = isOfficeHead || isOfficeStaff;
+
   const [dateFrom, setDateFrom] = React.useState("");
   const [dateTo, setDateTo] = React.useState("");
   const [bucket, setBucket] = React.useState<Bucket>("monthly");
@@ -15,9 +18,9 @@ export const useReportFilters = ({ isOfficeHead }: UseReportFiltersProps) => {
   const [officeId, setOfficeId] = React.useState<number | null>(null);
 
   const activeFilterCount = [
-    !isOfficeHead && scope !== "offices",
-    !isOfficeHead && scope === "clusters" && parent !== "ALL",
-    !isOfficeHead && scope === "offices" && officeId !== null,
+    !isDeptUser && scope !== "offices",
+    !isDeptUser && scope === "clusters" && parent !== "ALL",
+    !isDeptUser && scope === "offices" && officeId !== null,
     bucket !== "monthly",
     dateField !== "completed",
     !!dateFrom,
@@ -31,7 +34,7 @@ export const useReportFilters = ({ isOfficeHead }: UseReportFiltersProps) => {
     setParent("ALL");
     setOfficeId(null);
     setDateField("completed");
-    if (!isOfficeHead) setScope("offices");
+    if (!isDeptUser) setScope("offices");
   };
 
   return {
