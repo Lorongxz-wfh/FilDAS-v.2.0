@@ -15,8 +15,7 @@ import { DateRangePicker } from "../../components/ui/DateRangePicker";
 import { PageActions, CreateAction, RefreshAction } from "../../components/ui/PageActions";
 import SearchFilterBar from "../../components/ui/SearchFilterBar";
 import { markWorkQueueSession } from "../../lib/guards/RequireFromWorkQueue";
-import { Archive, Library, Trash2, History, CheckSquare, Download } from "lucide-react";
-import { formatDate } from "../../utils/formatters";
+import { Archive, Library, Trash2, CheckSquare, Download } from "lucide-react";
 import { Tabs } from "../../components/ui/Tabs";
 import { TabBar as SubTabBar } from "../../components/documentRequests/shared";
 import DeletedItemsView from "../../components/admin/DeletedItemsView";
@@ -40,8 +39,6 @@ import {
   listDocumentsPage,
   deleteDocument,
   listOffices,
-  getDocumentVersions,
-  type DocumentVersion,
 } from "../../services/documents";
 import {
   listDocumentRequestIndividual,
@@ -78,8 +75,6 @@ export default function LibraryPage() {
   const [batchFilter, setBatchFilter] = useState("");
 
   const [rows, setRows] = useState<any[]>([]);
-  const [versionHistory, setVersionHistory] = useState<Record<number, DocumentVersion[]>>({});
-  const [loadingVersions, setLoadingVersions] = useState<Set<number>>(new Set());
   const [, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);

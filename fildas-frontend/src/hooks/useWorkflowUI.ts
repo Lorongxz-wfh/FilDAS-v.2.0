@@ -495,29 +495,6 @@ export function useWorkflowUI({
         }
       : null;
 
-    const cancelBtn =
-      workflow.availableActions.includes("CANCEL_DOCUMENT") && showCancel
-        ? [
-            {
-              key: "CANCEL_DOCUMENT",
-              label: ACTION_LABELS["CANCEL_DOCUMENT"] ?? "Cancel document",
-              variant: "danger" as const,
-              disabled: workflow.isChangingStatus,
-              onClick: async (note?: string) => {
-                try {
-                  const res = await workflow.submitAction("CANCEL_DOCUMENT", note);
-                  if (res) {
-                    handleActionResult(res);
-                    push({ type: "success", title: "Workflow updated", message: res.message || "Action completed." });
-                  }
-                } catch (e: any) {
-                  push({ type: "error", title: "Action failed", message: e?.message ?? "Action failed." });
-                }
-              },
-            },
-          ]
-        : [];
-
     const makeWorkflowBtn = (code: string): HeaderActionButton => {
       let label = ACTION_LABELS[code] ?? code;
       let confirmMessage = ACTION_CONFIRM_MESSAGES[code];
