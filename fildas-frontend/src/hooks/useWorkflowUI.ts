@@ -423,6 +423,12 @@ export function useWorkflowUI({
     if (s === "For Office Head Approval") return true;
     if (s === "For Staff Approval Check") return true;
     if (/^For .+ Approval$/.test(s)) return true;
+
+    // Bridge statuses where creator signs before Approval phase starts
+    if (s === "For QA Review Check") return true;
+    if (s === "For Staff Review Check") return true;
+    if (s === "For Owner Review Check") return true;
+
     return false;
   }, [localVersion?.status]);
 
