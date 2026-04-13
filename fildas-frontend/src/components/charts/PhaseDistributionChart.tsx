@@ -22,6 +22,7 @@ import {
   PieChart,
   Pie,
   Legend,
+  CartesianGrid,
 } from "recharts";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -151,7 +152,7 @@ const DonutChart: React.FC<{
           <Legend
             iconType="circle"
             iconSize={8}
-            wrapperStyle={{ fontSize: 11, fontWeight: 500, paddingTop: 8 }}
+            wrapperStyle={{ fontSize: 11, fontWeight: 500, paddingTop: 8, color: '#94a3b8' }}
           />
         </PieChart>
       </ResponsiveContainer>
@@ -226,15 +227,16 @@ const VerticalBar: React.FC<{
         margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
         barCategoryGap="40%"
       >
+        <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.1} vertical={false} />
         <XAxis
           dataKey="phase"
-          tick={{ fontSize: 11, fontWeight: 500 }}
+          tick={{ fontSize: 11, fontWeight: 500, fill: "#94a3b8" }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
           allowDecimals={false}
-          tick={{ fontSize: 11, fontWeight: 500 }}
+          tick={{ fontSize: 11, fontWeight: 500, fill: "#94a3b8" }}
           axisLine={false}
           tickLine={false}
         />

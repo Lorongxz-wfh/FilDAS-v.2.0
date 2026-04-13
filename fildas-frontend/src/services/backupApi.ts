@@ -58,7 +58,7 @@ export function downloadBackup(
       // Extract filename from Content-Disposition header
       const disposition = res.headers.get("Content-Disposition") ?? "";
       const match = disposition.match(/filename[^;=\n]*=['"]*([^'";\n]*)/);
-      const filename = match?.[1] ?? `fildas-backup-${endpoint}.${endpoint.includes("zip") ? "zip" : "csv"}`;
+      const filename = match?.[1] ?? `fildocs-backup-${endpoint}.${endpoint.includes("zip") ? "zip" : "csv"}`;
 
       return res.blob().then((blob) => ({ blob, filename }));
     })

@@ -259,6 +259,7 @@ class DocumentRequestController extends Controller
                         'office_name'            => $isMine ? $recNames : $row->creator_office_name,
                         'recipient_offices_code' => $recCodes,
                         'recipient_offices_name' => $recNames,
+                        'can_act'                => $isMine ? DB::table('document_request_recipients')->where('request_id', $requestId)->where('status', 'submitted')->exists() : false,
                     ];
                 } catch (\Throwable $e) {
                     \Log::warning("Skipping bad request row ID: " . ($row->id ?? 'unknown') . " - " . $e->getMessage());
@@ -501,6 +502,9 @@ class DocumentRequestController extends Controller
                     'direction'   => $direction,
                     'office_code' => $row->creator_office_code,
                     'office_name' => $row->creator_office_name,
+                    'can_act'     => $direction === 'outgoing' 
+                        ? DB::table('document_request_recipients')->where('request_id', (int)$row->id)->where('status', 'submitted')->exists()
+                        : in_array($row->recipient_status ?? 'pending', ['pending', 'rejected']),
                 ]);
             });
 
@@ -1393,7 +1397,7 @@ class DocumentRequestController extends Controller
                         actorName: $actorName,
                         documentId: null,
                         appUrl: $frontendUrl,
-                        appName: config('app.name', 'FilDAS'),
+                        appName: config('app.name', 'FilDOCS'),
                         overrideLinkUrl: $frontendUrl . '/document-requests/' . $requestId,
                         cardLabel: 'Document Request',
                     ));

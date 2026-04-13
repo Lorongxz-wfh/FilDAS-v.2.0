@@ -110,11 +110,11 @@ const DashboardPendingList: React.FC<Props> = ({ items, loading, hasData }) => {
             <div className={`${items.length > 0 ? "pb-4 pointer-events-auto" : "mt-2"}`}>
               <button
                 type="button"
-                onClick={() => navigate("/documents/all")}
+                onClick={() => navigate("/work-queue")}
                 className="flex items-center gap-1.5 px-3 py-1 border border-slate-200 dark:border-surface-300 bg-white dark:bg-surface-400 rounded-sm text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] shadow-xs hover:bg-slate-50 dark:hover:bg-surface-300 transition-all active:scale-95"
               >
                 <FileText className="h-2.5 w-2.5" />
-                View all workflows
+                View full work queue
               </button>
             </div>
           </div>

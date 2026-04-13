@@ -140,6 +140,67 @@ class WorkflowService
         });
     }
 
+    /**
+     * Get unique users who are participants in the routing chain for this version.
+     * Used exclusively for Admin Impersonation during testing.
+     * 
+     * @return \Illuminate\Support\Collection<User>
+     */
+    public function getRoutingUsers(DocumentVersion $version): \Illuminate\Support\Collection
+    {
+        $officeIds = collect();
+
+        // 1. Owner Office
+        $ownerOfficeId = (int) ($version->document->owner_office_id ?? 0);
+        if ($ownerOfficeId) $officeIds->push($ownerOfficeId);
+
+        // 2. Offices from tasks (current and historical)
+        $taskOfficeIds = WorkflowTask::where('document_version_id', $version->id)
+            ->pluck('assigned_office_id')
+            ->unique()
+            ->filter();
+        $officeIds = $officeIds->merge($taskOfficeIds);
+
+        // 3. Offices from routing chain
+        if ($version->routing_mode === 'custom') {
+            $customOfficeIds = DB::table('document_route_steps')
+                ->where('document_version_id', $version->id)
+                ->pluck('office_id')
+                ->unique();
+            $officeIds = $officeIds->merge($customOfficeIds);
+        } else {
+            // Default flow offices: Creator -> Head (if office) -> VP -> President -> QA
+            $officeIds->push((int) \App\Models\Office::where('code', 'QA')->value('id'));
+            $officeIds->push((int) \App\Models\Office::where('code', 'PO')->value('id'));
+            
+            $vpOffice = $this->hierarchy->findVpOfficeForOfficeId($ownerOfficeId);
+            if ($vpOffice) $officeIds->push($vpOffice->id);
+            
+            // For office flow, we also care about the office head role in the owner office
+            // For QA flow, we care about the reviewer office head
+            if ($version->workflow_type === 'office') {
+                // Owner office users are already added
+            } else {
+                 // QA-start: find the reviewer office (first recipient)
+                 $firstTask = WorkflowTask::where('document_version_id', $version->id)
+                    ->where('id', WorkflowTask::where('document_version_id', $version->id)->min('id'))
+                    ->first();
+                 if ($firstTask && $firstTask->assigned_office_id != $ownerOfficeId) {
+                     $officeIds->push($firstTask->assigned_office_id);
+                 }
+            }
+        }
+
+        $uniqueOfficeIds = $officeIds->unique()->filter()->values();
+
+        // 4. Return all users belonging to these offices
+        return User::query()
+            ->whereIn('office_id', $uniqueOfficeIds)
+            ->whereNull('deleted_at')
+            ->with('office')
+            ->get();
+    }
+
     // ──────────────────────────────────────────────────────────────────────
     // AVAILABLE ACTIONS
     // ──────────────────────────────────────────────────────────────────────
@@ -611,7 +672,7 @@ class WorkflowService
 
         $involvedOfficeIds = $this->involvedOfficeIds($version);
         $appUrl  = rtrim(env('FRONTEND_URL', config('app.url')), '/');
-        $appName = config('app.name', 'FilDAS');
+        $appName = config('app.name', 'FilDOCS');
         $actorName = trim($user->first_name . ' ' . $user->last_name) ?: 'Someone';
 
         foreach ($involvedOfficeIds as $officeId) {
@@ -939,7 +1000,7 @@ class WorkflowService
                         actorName:       $actorName,
                         documentId:      $version->document_id,
                         appUrl:          rtrim(env('FRONTEND_URL', config('app.url')), '/'),
-                        appName:         config('app.name', 'FilDAS'),
+                        appName:         config('app.name', 'FilDOCS'),
                     ));
                 } catch (\Throwable) {
                     // Email failure must never break the workflow action
@@ -953,7 +1014,7 @@ class WorkflowService
         $doc       = $this->doc($version);
         $actorName = trim($actor->first_name . ' ' . $actor->last_name) ?: 'Someone';
         $appUrl    = rtrim(env('FRONTEND_URL', config('app.url')), '/');
-        $appName   = config('app.name', 'FilDAS');
+        $appName   = config('app.name', 'FilDOCS');
 
         $participantOfficeIds = WorkflowTask::where('document_version_id', $version->id)
             ->pluck('assigned_office_id')

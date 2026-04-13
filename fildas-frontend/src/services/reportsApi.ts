@@ -195,7 +195,7 @@ export async function downloadMasterReportZip(params?: {
   const blob = new Blob([res.data], { type: "application/zip" });
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement("a");
-  const filename = `FilDAS_Report_Bundle_${new Date().toISOString().split("T")[0]}.zip`;
+  const filename = `FilDOCS_Report_Bundle_${new Date().toISOString().split("T")[0]}.zip`;
 
   link.href = url;
   link.setAttribute("download", filename);

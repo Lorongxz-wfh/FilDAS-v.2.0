@@ -42,75 +42,64 @@ class ChunkErrorBoundary extends React.Component<
   }
 }
 
-import LoginPage from "./pages/LoginPage";
-const ForgotPasswordPage = React.lazy(() => import("./pages/ForgotPasswordPage"));
-const ResetPasswordPage = React.lazy(() => import("./pages/ResetPasswordPage"));
-const ForcePasswordChangePage = React.lazy(() => import("./pages/ForcePasswordChangePage"));
+import LoginPage from "./pages/auth/LoginPage";
+const ForgotPasswordPage = React.lazy(() => import("./pages/auth/ForgotPasswordPage"));
+const ResetPasswordPage = React.lazy(() => import("./pages/auth/ResetPasswordPage"));
+const ForcePasswordChangePage = React.lazy(() => import("./pages/auth/ForcePasswordChangePage"));
 
 
 const DashboardPage = React.lazy(() => import("./pages/DashboardPage"));
-const MyWorkQueuePage = React.lazy(() => import("./pages/MyWorkQueuePage"));
-const DocumentLibraryPage = React.lazy(
-  () => import("./pages/DocumentLibraryPage"),
+const WorkQueueHubPage = React.lazy(() => import("./pages/WorkQueueHubPage"));
+const LibraryPage = React.lazy(
+  () => import("./pages/library/LibraryPage"),
 );
-const CreateDocumentPage = React.lazy(
-  () => import("./pages/CreateDocumentPage"),
+const CreateWorkflowPage = React.lazy(
+  () => import("./pages/workflows/CreateWorkflowPage"),
 );
 const InboxPage = React.lazy(() => import("./pages/InboxPage"));
-const ReportsPage = React.lazy(() => import("./pages/ReportsPage"));
-const AdminReportsPage = React.lazy(() => import("./pages/AdminReportsPage"));
-const ReportExportPage = React.lazy(() => import("./pages/ReportExportPage"));
+const ReportsPage = React.lazy(() => import("./pages/reports/ReportsPage"));
+const ReportExportPage = React.lazy(() => import("./pages/reports/ReportExportPage"));
 const ProfileSettingsPage = React.lazy(() => import("./pages/ProfileSettingsPage"));
-const UserManagerPage = React.lazy(() => import("./pages/UserManagerPage"));
-const OfficeManagerPage = React.lazy(() => import("./pages/OfficeManagerPage"));
-const ActivityLogsPage = React.lazy(() => import("./pages/ActivityLogsPage"));
-const DocumentFlowPage = React.lazy(() => import("./pages/DocumentFlowPage"));
-const DocumentViewPage = React.lazy(() => import("./pages/DocumentViewPage"));
-const ArchivePage = React.lazy(() => import("./pages/ArchivePage"));
+const UserManagerPage = React.lazy(() => import("./pages/system/UserManagerPage"));
+const OfficeManagerPage = React.lazy(() => import("./pages/system/OfficeManagerPage"));
+const ActivityLogsPage = React.lazy(() => import("./pages/system/ActivityLogsPage"));
+const WorkflowPage = React.lazy(() => import("./pages/workflows/WorkflowPage"));
+const DocumentViewPage = React.lazy(() => import("./pages/library/DocumentViewPage"));
+const ArchivePage = React.lazy(() => import("./pages/library/ArchivePage"));
 const SystemHealthPage = React.lazy(
-  () => import("./pages/admin/SystemHealthPage"),
+  () => import("./pages/system/SystemHealthPage"),
 );
 
 
-const DocumentRequestListPage = React.lazy(
-  () => import("./pages/DocumentRequestListPage"),
+const RequestListPage = React.lazy(
+  () => import("./pages/requests/RequestListPage"),
 );
-const CreateDocumentRequestPage = React.lazy(
-  () => import("./pages/CreateDocumentRequestPage"),
+const CreateRequestPage = React.lazy(
+  () => import("./pages/requests/CreateRequestPage"),
 );
-const DocumentRequestBatchPage = React.lazy(
-  () => import("./pages/DocumentRequestBatchPage"),
+const RequestBatchPage = React.lazy(
+  () => import("./pages/requests/RequestBatchPage"),
 );
-const DocumentRequestPage = React.lazy(
-  () => import("./pages/DocumentRequestPage"),
+const RequestPage = React.lazy(
+  () => import("./pages/requests/RequestPage"),
 );
-const DocumentRequestViewPage = React.lazy(
-  () => import("./pages/DocumentRequestViewPage"),
-);
-const TemplatesPage = React.lazy(() => import("./pages/TemplatesPage"));
+const TemplatesPage = React.lazy(() => import("./pages/library/TemplatesPage"));
 const WorkflowListPage = React.lazy(
-  () => import("./pages/WorkflowListPage"),
+  () => import("./pages/workflows/WorkflowListPage"),
 );
-const AnnouncementsPage = React.lazy(() => import("./pages/AnnouncementsPage"));
-const BackupPage = React.lazy(() => import("./pages/BackupPage"));
-const HelpPage = React.lazy(() => import("./pages/HelpPage"));
-const HelpTopicPage = React.lazy(() => import("./pages/HelpTopicPage"));
-const WhatsNewPage = React.lazy(() => import("./pages/WhatsNewPage"));
-const ReportIssuePage = React.lazy(() => import("./pages/ReportIssuePage"));
+const AnnouncementsPage = React.lazy(() => import("./pages/system/AnnouncementsPage"));
+const BackupAndRestorePage = React.lazy(() => import("./pages/system/BackupAndRestorePage"));
+const HelpPage = React.lazy(() => import("./pages/support/HelpPage"));
+const HelpTopicPage = React.lazy(() => import("./pages/support/HelpTopicPage"));
+const WhatsNewPage = React.lazy(() => import("./pages/support/WhatsNewPage"));
+const ReportIssuePage = React.lazy(() => import("./pages/support/ReportIssuePage"));
 
 import ProtectedLayout from "./lib/guards/ProtectedLayout";
 import RequireRole from "./lib/guards/RequireRole";
-import { getUserRole } from "./lib/roleFilters";
 import { ToastProvider } from "./components/ui/toast/ToastContext";
 
 
-// Routes /reports to the role-appropriate page
-const ReportsRoute: React.FC = () => {
-  const role = getUserRole();
-  return role === "ADMIN" || role === "SYSADMIN"
-    ? <AdminReportsPage />
-    : <ReportsPage />;
-};
+// Reports routing is handled internally by ReportsPage based on the user's role
 
 import type { UserRole } from "./lib/roleFilters";
 const nonAuditorRoles: UserRole[] = [
@@ -156,31 +145,31 @@ export default function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route element={<RequireRole allow={nonAuditorRoles} />}>
-              <Route path="/work-queue" element={<MyWorkQueuePage />} />
+              <Route path="/work-queue" element={<WorkQueueHubPage />} />
               <Route path="/inbox" element={<InboxPage />} />
               <Route
                 path="/document-requests"
-                element={<DocumentRequestListPage />}
+                element={<RequestListPage />}
               />
               <Route
                 path="/document-requests/:id"
-                element={<DocumentRequestBatchPage />}
+                element={<RequestBatchPage />}
               />
               <Route
                 path="/document-requests/:id/recipients/:recipientId"
-                element={<DocumentRequestPage />}
+                element={<RequestPage />}
               />
               <Route
                 path="/document-requests/:id/items/:itemId"
-                element={<DocumentRequestPage />}
+                element={<RequestPage />}
               />
               <Route
-                path="/documents/view/request/:id/recipients/:recipientId"
-                element={<DocumentRequestViewPage />}
+                path="/documents/view/request/:requestId/recipients/:recipientId"
+                element={<DocumentViewPage />}
               />
               <Route
-                path="/documents/view/request/:id/items/:itemId"
-                element={<DocumentRequestViewPage />}
+                path="/documents/view/request/:requestId/items/:itemId"
+                element={<DocumentViewPage />}
               />
               <Route path="/templates" element={<TemplatesPage />} />
             </Route>
@@ -190,7 +179,7 @@ export default function App() {
             >
               <Route
                 path="/document-requests/create"
-                element={<CreateDocumentRequestPage />}
+                element={<CreateRequestPage />}
               />
             </Route>
 
@@ -214,9 +203,9 @@ export default function App() {
 
             {/* Document view (library/finished) */}
             <Route path="/documents/:id/view" element={<DocumentViewPage />} />
-            <Route path="/documents/:id" element={<DocumentFlowPage />} />
+            <Route path="/documents/:id" element={<WorkflowPage />} />
             <Route path="/documents/all" element={<WorkflowListPage />} />
-            <Route path="/documents" element={<DocumentLibraryPage />} />
+            <Route path="/documents" element={<LibraryPage />} />
             <Route path="/archive" element={<ArchivePage />} />
 
             <Route
@@ -235,7 +224,7 @@ export default function App() {
             >
               <Route
                 path="/documents/create"
-                element={<CreateDocumentPage />}
+                element={<CreateWorkflowPage />}
               />
             </Route>
 
@@ -262,7 +251,7 @@ export default function App() {
                 />
               }
             >
-              <Route path="/reports" element={<ReportsRoute />} />
+              <Route path="/reports" element={<ReportsPage />} />
               <Route path="/reports/export" element={<ReportExportPage />} />
             </Route>
 
@@ -280,19 +269,13 @@ export default function App() {
               <Route path="/activity-logs" element={<ActivityLogsPage />} />
             </Route>
 
-            <Route element={<RequireRole allow={["SYSADMIN", "ADMIN"]} />}>
+            <Route element={<RequireRole allow={["SYSADMIN", "ADMIN", "QA"]} />}>
+              <Route path="/system/backup" element={<BackupAndRestorePage />} />
               <Route path="/user-manager" element={<UserManagerPage />} />
               <Route path="/office-manager" element={<OfficeManagerPage />} />
               <Route path="/system-health" element={<SystemHealthPage />} />
             </Route>
 
-            <Route
-              element={
-                <RequireRole allow={["QA", "ADMIN", "OFFICE_HEAD"]} />
-              }
-            >
-              <Route path="/backup" element={<BackupPage />} />
-            </Route>
 
 
             <Route path="/announcements" element={<AnnouncementsPage />} />

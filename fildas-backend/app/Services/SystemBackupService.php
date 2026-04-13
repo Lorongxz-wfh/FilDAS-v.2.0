@@ -23,7 +23,7 @@ class SystemBackupService
             throw new \Exception('PHP Zip extension is not installed.');
         }
 
-        $tempZipPath = tempnam(sys_get_temp_dir(), 'fildas_zip_') . '.zip';
+        $tempZipPath = tempnam(sys_get_temp_dir(), 'fildocs_zip_') . '.zip';
         $zip = new ZipArchive();
         
         if ($zip->open($tempZipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
@@ -47,7 +47,7 @@ class SystemBackupService
                     $zip->addFile($found['abs_path'], $entryName);
                 } else {
                     // It's remote (S3/R2). Stream it to a local temp file first.
-                    $tempFile = tempnam(sys_get_temp_dir(), 'fildas_stream_');
+                    $tempFile = tempnam(sys_get_temp_dir(), 'fildocs_stream_');
                     $srcStream = $disk->readStream($zipPath);
                     $destStream = fopen($tempFile, 'w');
                     
@@ -212,7 +212,7 @@ class SystemBackupService
      */
     public function generateSqlDump(): string
     {
-        $tempPath = tempnam(sys_get_temp_dir(), 'fildas_db_') . '.sql';
+        $tempPath = tempnam(sys_get_temp_dir(), 'fildocs_db_') . '.sql';
         $dbConnection = config('database.default');
         
         if ($dbConnection === 'sqlite') {
@@ -223,7 +223,7 @@ class SystemBackupService
 
         // Standard MySQL/Postgres dump logic (simplified from SystemBackupController)
         $fh = fopen($tempPath, 'w');
-        fwrite($fh, "-- FilDAS Database Snapshot\n-- Generated: " . now()->toDateTimeString() . "\n");
+        fwrite($fh, "-- FilDOCS Database Snapshot\n-- Generated: " . now()->toDateTimeString() . "\n");
         fwrite($fh, "-- BackupDriver: {$dbConnection}\n\n");
 
         $isMysql = in_array($dbConnection, ['mysql', 'mariadb'], true);

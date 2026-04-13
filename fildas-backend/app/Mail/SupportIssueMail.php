@@ -31,7 +31,7 @@ class SupportIssueMail extends Mailable
         public readonly string $notifMessage,
         public readonly array  $attachmentPaths,
         public readonly string $appUrl,
-        public readonly string $appName,
+        public readonly string $appName = 'FilDOCS',
     ) {}
 
     /**
@@ -40,7 +40,7 @@ class SupportIssueMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "[FilDAS Support] " . $this->notifTitle,
+            subject: "[FilDOCS Support] " . $this->notifTitle,
             replyTo: $this->senderEmail,
         );
     }

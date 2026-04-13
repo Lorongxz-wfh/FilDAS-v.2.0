@@ -1,6 +1,6 @@
 import React from "react";
 import { ChevronDown } from "lucide-react";
-import CommentBubble from "../documents/documentFlow/CommentBubble";
+import WorkflowCommentBubble from "../documents/ui/WorkflowCommentBubble";
 import CommentComposer from "../ui/CommentComposer";
 import type { DocumentRequestMessageRow } from "../../services/documentRequests";
 import { formatDateTime } from "./shared";
@@ -131,7 +131,7 @@ export default function RequestCommentsPanel({
             messages
               .filter((m, i, self) => self.findIndex(t => t.id === m.id) === i)
               .map((m) => (
-                <CommentBubble
+                <WorkflowCommentBubble
                   key={m.id}
                   senderName={m.sender?.name ?? "Unknown"}
                   roleName={

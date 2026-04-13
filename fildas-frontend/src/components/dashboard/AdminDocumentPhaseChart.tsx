@@ -7,6 +7,7 @@ import {
   YAxis,
   Tooltip,
   Cell,
+  CartesianGrid,
 } from "recharts";
 
 type Props = {
@@ -69,10 +70,11 @@ const AdminDocumentPhaseChart: React.FC<Props> = ({ byPhase, height = 180, loadi
           data={data}
           margin={{ top: 0, right: 32, left: 0, bottom: 0 }}
         >
+          <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.1} horizontal={false} />
           <XAxis
             type="number"
             allowDecimals={false}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 11, fill: "#94a3b8" }}
             axisLine={false}
             tickLine={false}
           />
@@ -80,7 +82,7 @@ const AdminDocumentPhaseChart: React.FC<Props> = ({ byPhase, height = 180, loadi
             type="category"
             dataKey="label"
             width={82}
-            tick={{ fontSize: 11 }}
+            tick={{ fontSize: 11, fill: "#94a3b8" }}
             axisLine={false}
             tickLine={false}
           />

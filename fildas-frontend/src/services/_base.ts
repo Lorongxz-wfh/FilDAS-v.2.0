@@ -19,9 +19,12 @@ export const API_BASE =
   (import.meta.env.VITE_API_BASE_URL as string) || "http://127.0.0.1:8001/api";
 
 export function normalizePaginated<T>(payload: any): Paginated<T> {
-  if (payload && Array.isArray(payload.data)) {
-    // Laravel ResourceCollection has { data, links, meta }
-    // Laravel default paginator has current_page, last_page etc. at root
+  if (!payload) return { data: [] };
+
+  const data = payload.data || payload.items || payload.results || payload.messages || (Array.isArray(payload) ? payload : null);
+
+  if (Array.isArray(data)) {
+    // If it was already a paginated object, extract meta
     const meta = payload.meta ?? {
       current_page: payload.current_page,
       last_page: payload.last_page,
@@ -31,17 +34,18 @@ export function normalizePaginated<T>(payload: any): Paginated<T> {
       to: payload.to,
     };
     return {
-      data: payload.data as T[],
-      meta,
+      data: data as T[],
+      meta: payload.current_page ? meta : undefined,
       links: payload.links,
     };
   }
 
-  if (Array.isArray(payload)) {
-    return { data: payload as T[] };
+  // If it's a single object that looks like the expected type, wrap it
+  if (typeof payload === "object" && (payload.id || payload.event || payload.message)) {
+    return { data: [payload] as T[] };
   }
 
-  throw new Error("Invalid response format");
+  return { data: [] };
 }
 
 export type NotifCacheEntry = {

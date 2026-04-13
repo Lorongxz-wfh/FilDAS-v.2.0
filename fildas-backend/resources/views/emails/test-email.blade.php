@@ -17,7 +17,7 @@
         </div>
         <div class="content">
             <p>Hello {{ $adminName }},</p>
-            <p>This is a manual SMTP verification email triggered from the FilDAS System Health Hub.</p>
+            <p>This is a manual SMTP verification email triggered from the FilDOCS System Health Hub.</p>
             <div class="success-box">
                 <strong>Connection Successful:</strong> Your mail server is correctly configured to send system notifications and workflow alerts.
             </div>
@@ -26,7 +26,7 @@
             </p>
         </div>
         <div class="footer">
-            <p>&copy; {{ date('Y') }} FilDAS Document Workflow System</p>
+            <p>&copy; {{ date('Y') }} FilDOCS Document Workflow System</p>
         </div>
     </div>
 </body>

@@ -15,7 +15,7 @@ interface ChartSkeletonProps {
 }
 
 /**
- * Standardized Chart Skeleton for FilDAS.
+ * Standardized Chart Skeleton for FilDOCS.
  * Use this as the loading state for all charts to ensure consistent, premium UI transition.
  */
 const ChartSkeleton: React.FC<ChartSkeletonProps> = ({

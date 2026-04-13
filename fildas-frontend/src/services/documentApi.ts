@@ -315,7 +315,7 @@ export async function replaceDocumentVersionFileWithProgress(
   versionId: number,
   file: File,
   onProgress?: (pct: number) => void,
-): Promise<void> {
+): Promise<DocumentVersion> {
   const token = localStorage.getItem("auth_token");
   if (!token) throw new Error("Not authenticated");
 
@@ -324,7 +324,7 @@ export async function replaceDocumentVersionFileWithProgress(
 
   const url = `${API_BASE}/document-versions/${versionId}/replace-file`;
 
-  return await new Promise<void>((resolve, reject) => {
+  return await new Promise<DocumentVersion>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
 
@@ -339,7 +339,15 @@ export async function replaceDocumentVersionFileWithProgress(
 
     xhr.onload = () => {
       const ok = xhr.status >= 200 && xhr.status < 300;
-      if (ok) return resolve();
+      if (ok) {
+        try {
+          const json = JSON.parse(xhr.responseText || "{}");
+          const v = (json?.version ?? json?.data ?? json) as DocumentVersion;
+          return resolve(v);
+        } catch {
+          return resolve({} as any);
+        }
+      }
       if (xhr.status === 401) {
         clearAuthAndRedirect();
         return;

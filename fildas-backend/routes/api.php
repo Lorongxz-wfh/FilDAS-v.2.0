@@ -96,6 +96,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class]
         Route::get('/tasks',             [WorkflowController::class, 'tasks']);
         Route::get('/route-steps',       [WorkflowController::class, 'routeSteps']);
         Route::get('/available-actions', [WorkflowController::class, 'availableActions']);
+        Route::get('/routing-users',     [WorkflowController::class, 'routingUsers']);
         Route::post('/actions',          [WorkflowController::class, 'action']);
     });
     Route::get('/work-queue', [WorkflowController::class, 'workQueue']);

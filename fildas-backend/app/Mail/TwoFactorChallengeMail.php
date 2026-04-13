@@ -24,7 +24,7 @@ class TwoFactorChallengeMail extends Mailable
     {
         $this->recipientName = $recipientName;
         $this->code = $code;
-        $this->appName = config('app.name', 'FilDAS');
+        $this->appName = config('app.name', 'FilDOCS');
     }
 
     /**

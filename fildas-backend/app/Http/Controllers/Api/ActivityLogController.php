@@ -57,6 +57,11 @@ class ActivityLogController extends Controller
             'documentRequest:id,title',
         ])->paginate($perPage);
 
+        // Inject durations for document/version scoped views
+        if ($request->query('scope') === 'document' || $request->query('document_version_id') || $request->query('document_id')) {
+            $this->injectDurations($paginated->getCollection());
+        }
+
         return response()->json($paginated);
     }
 
@@ -81,7 +86,42 @@ class ActivityLogController extends Controller
             'documentRequest:id,title',
         ])->limit(5000)->get();
 
+        if ($request->query('scope') === 'document' || $request->query('document_version_id') || $request->query('document_id')) {
+            $this->injectDurations($logs);
+        }
+
         return response()->json($logs);
+    }
+
+    /**
+     * Calculate time difference between sequential events for the same version.
+     * Assumes items are ordered by created_at DESC.
+     */
+    private function injectDurations($collection)
+    {
+        if ($collection->isEmpty()) return;
+
+        // Group by version to ensure we only calculate durations within the same workflow context
+        $grouped = $collection->groupBy('document_version_id');
+
+        foreach ($grouped as $versionId => $items) {
+            if (!$versionId) continue;
+
+            // Items are DESC. i=0 is newest, i=1 is older.
+            // Duration for $items[1] is ($items[0]->created_at - $items[1]->created_at)
+            for ($i = 0; $i < count($items) - 1; $i++) {
+                $newest = $items[$i];
+                $older  = $items[$i + 1];
+
+                $diffSeconds = $newest->created_at->diffInSeconds($older->created_at);
+                $actionLower = strtolower($older->event ?? "");
+                $older->is_loop = str_contains($actionLower, 'return') || str_contains($actionLower, 'back');
+
+                $older->duration_seconds = $diffSeconds;
+                // Human readable string
+                $older->duration_human = $older->created_at->diffForHumans($newest->created_at, true);
+            }
+        }
     }
 
     private function validateQueryParams(Request $request)

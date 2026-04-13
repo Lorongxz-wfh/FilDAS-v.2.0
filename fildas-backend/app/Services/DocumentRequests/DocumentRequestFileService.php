@@ -29,7 +29,7 @@ class DocumentRequestFileService
         }
 
         // Non-PDF: attempt LibreOffice conversion
-        $tmpDir = sys_get_temp_dir() . '/fildas/doc_requests/' . $requestId;
+        $tmpDir = sys_get_temp_dir() . '/fildocs/doc_requests/' . $requestId;
         if (!is_dir($tmpDir)) mkdir($tmpDir, 0775, true);
 
         $tmpFilePath = $tmpDir . '/' . $storedName;
@@ -76,7 +76,7 @@ class DocumentRequestFileService
         }
 
         // Non-PDF: attempt LibreOffice conversion
-        $tmpDir = sys_get_temp_dir() . '/fildas/doc_request_items/' . $itemId;
+        $tmpDir = sys_get_temp_dir() . '/fildocs/doc_request_items/' . $itemId;
         if (!is_dir($tmpDir)) mkdir($tmpDir, 0775, true);
 
         $tmpFilePath = $tmpDir . '/' . $storedName;
@@ -130,7 +130,7 @@ class DocumentRequestFileService
         }
 
         // Non-PDF: attempt LibreOffice conversion
-        $tmpDir = sys_get_temp_dir() . '/fildas/doc_request_submissions/' . $submissionId;
+        $tmpDir = sys_get_temp_dir() . '/fildocs/doc_request_submissions/' . $submissionId;
         if (!is_dir($tmpDir)) mkdir($tmpDir, 0775, true);
 
         $tmpFilePath = $tmpDir . '/' . $storedName;

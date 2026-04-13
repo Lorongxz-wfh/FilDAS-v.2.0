@@ -91,7 +91,7 @@ const DashboardRecentActivity: React.FC<Props> = ({ logs, loading, hasData }) =>
 
       const timer = setTimeout(() => {
         setNewLogIds(new Set(ids));
-      }, 400);
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [logs]);

@@ -1,4 +1,4 @@
-const THEME_KEY = "fildas-theme";
+const THEME_KEY = "fildocs-theme";
 
 export type ThemePreference = "light" | "dark" | "system";
 
@@ -10,7 +10,7 @@ export function getStoredTheme(): ThemePreference {
   return "system";
 }
 
-const THEMES_KEY_PERSISTENT = "fildas-pref-theme";
+const THEMES_KEY_PERSISTENT = "fildocs-pref-theme";
 
 export function resolveTheme(theme: ThemePreference): "light" | "dark" {
   if (theme === "system") {

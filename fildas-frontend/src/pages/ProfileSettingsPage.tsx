@@ -24,7 +24,6 @@ import {
   changePassword, 
   uploadProfilePhoto, 
   uploadSignature, 
-  updateNotificationPreferences,
   updateThemePreference,
   fetchProfile,
   type ProfileUpdatePayload 
@@ -377,30 +376,14 @@ const SettingsLayout: React.FC<{ user: any; push: any }> = ({ user, push }) => {
 
   // Notifications
   const [prefs, setPrefs] = useState({
-    email_doc_updates: user?.email_doc_updates,
-    email_approvals: user?.email_approvals,
-    email_requests: user?.email_requests,
     sound_notif: localStorage.getItem(`pref_sound_notif_${user?.id}`) !== "false"
   });
 
-  const handleToggle = async (key: string, val: boolean) => {
+  const handleToggle = (key: string, val: boolean) => {
     if (key === "sound_notif") {
       setPrefs(p => ({ ...p, [key]: val }));
       localStorage.setItem(`pref_sound_notif_${user?.id}`, String(val));
       return;
-    }
-
-    try {
-      const newPrefs = { ...prefs, [key]: val };
-      setPrefs(newPrefs);
-      const updated = await updateNotificationPreferences({
-        email_doc_updates: newPrefs.email_doc_updates,
-        email_approvals: newPrefs.email_approvals,
-        email_requests: newPrefs.email_requests
-      });
-      localStorage.setItem("auth_user", JSON.stringify({ ...JSON.parse(localStorage.getItem("auth_user") || "{}"), ...updated }));
-    } catch {
-      push({ type: "error", title: "Error", message: "Failed to update preference." });
     }
   };
 
@@ -510,11 +493,9 @@ const SettingsLayout: React.FC<{ user: any; push: any }> = ({ user, push }) => {
         <Section 
           title="Notifications & Sound" 
           icon={<Bell className="h-4 w-4" />} 
-          description="Manage how and when you want to be notified about workflow events."
+          description="System-critical emails (Action Required, Document Updates) are mandatory to ensure workflow accountability."
         >
             <div className="divide-y divide-slate-100 dark:divide-surface-400 border border-slate-100 dark:border-surface-400 rounded-md bg-white dark:bg-surface-500 overflow-hidden shadow-sm">
-               <ToggleRow label="Document Updates" desc="Notify when documents are distributed or renamed." checked={prefs.email_doc_updates} onChange={v => handleToggle("email_doc_updates", v)} />
-               <ToggleRow label="Action Required" desc="Notify about new tasks and workflow returns." checked={prefs.email_approvals} onChange={v => handleToggle("email_approvals", v)} />
                <ToggleRow label="In-App Notification Sound" desc="Play a subtle chime when new notifications arrive." icon={<Volume2 className="h-3.5 w-3.5" />} checked={prefs.sound_notif} onChange={v => handleToggle("sound_notif", v)} />
             </div>
         </Section>

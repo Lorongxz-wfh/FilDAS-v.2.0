@@ -67,7 +67,7 @@
         </div>
         <div>
           <div class="header-title">{{ $appName }}</div>
-          <div class="header-sub">Document Workflow System</div>
+          <div class="header-sub">Document Operations and Control System</div>
         </div>
       </div>
 

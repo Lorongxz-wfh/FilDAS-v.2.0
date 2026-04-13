@@ -81,7 +81,7 @@ export default function MaintenancePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
              <a 
-               href="mailto:support@fildas.fcu.edu.ph"
+               href="mailto:support@fildocs.fcu.edu.ph"
                className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-slate-200 dark:border-surface-400 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 transition text-[13px] font-bold"
              >
                 <Mail size={16} />

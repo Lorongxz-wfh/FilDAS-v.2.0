@@ -25,7 +25,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
   // Update browser tab title with badge count
   React.useEffect(() => {
-    const baseTitle = "FilDAS";
+    const baseTitle = "FilDOCS";
     if (stats.total > 0) {
       document.title = `(${stats.total}) ${baseTitle}`;
     } else {

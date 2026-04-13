@@ -54,6 +54,7 @@ export async function listActivityLogs(params: {
           sort_dir: params.sort_dir,
         },
       });
+      console.debug("[activityApi] Raw response", res.data);
 
       return normalizePaginated<ActivityLogItem>(res.data);
     } catch (e: any) {

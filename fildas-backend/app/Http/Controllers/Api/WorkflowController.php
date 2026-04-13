@@ -109,14 +109,31 @@ class WorkflowController extends Controller
         ]);
     }
 
+    // GET /api/document-versions/{version}/routing-users
+    public function routingUsers(DocumentVersion $version)
+    {
+        $user         = request()->user();
+        $roleName     = strtolower($this->roleNameOf($user));
+        $isAdmin      = in_array($roleName, ['admin', 'sysadmin'], true);
+
+        if (!$isAdmin) {
+             return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $users = $this->workflow->getRoutingUsers($version);
+
+        return response()->json($users);
+    }
+
     // POST /api/document-versions/{version}/actions
     public function action(Request $request, DocumentVersion $version)
     {
         $data = $request->validate([
-            'action'         => 'required|string',
-            'note'           => 'nullable|string',
-            'effective_date' => 'nullable|date',
-            'debug'          => 'nullable|boolean',
+            'action'             => 'required|string',
+            'note'               => 'nullable|string',
+            'effective_date'     => 'nullable|date',
+            'debug'              => 'nullable|boolean',
+            'acting_as_user_id'  => 'nullable|integer|exists:users,id',
         ]);
 
         $user     = $request->user();
@@ -133,10 +150,19 @@ class WorkflowController extends Controller
             }
         }
 
+        // Impersonation logic
+        $actor = $user;
+        if ($isAdmin && $debug && !empty($data['acting_as_user_id'])) {
+            $impersonated = \App\Models\User::find($data['acting_as_user_id']);
+            if ($impersonated) {
+                $actor = $impersonated;
+            }
+        }
+
         try {
             $newTask = $this->workflow->applyAction(
                 $version,
-                $user,
+                $actor,
                 strtoupper(trim($data['action'])),
                 $data['note'] ?? null,
                 $data['effective_date'] ?? null,

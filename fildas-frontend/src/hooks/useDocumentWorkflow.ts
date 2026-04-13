@@ -7,6 +7,7 @@ import {
   submitWorkflowAction,
   listDocumentMessages,
   listActivityLogs,
+  listRoutingUsers,
   type WorkflowTask,
   type WorkflowActionCode,
   type DocumentMessage,
@@ -47,6 +48,11 @@ export function useDocumentWorkflow({
   >([]);
   const [isTasksReady, setIsTasksReady] = useState(false);
   const [isChangingStatus, setIsChangingStatus] = useState(false);
+
+  // Impersonation
+  const [routingUsers, setRoutingUsers] = useState<any[]>([]);
+  const [actingAsUserId, setActingAsUserId] = useState<number | undefined>(undefined);
+  const [isLoadingRoutingUsers, setIsLoadingRoutingUsers] = useState(false);
 
   const [messages, setMessages] = useState<DocumentMessage[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -160,7 +166,9 @@ export function useDocumentWorkflow({
           prevMessageCountRef.current = incoming.length;
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn("[useDocumentWorkflow] Polling messages failed:", err.message);
+      });
   }, []);
 
   // ── Activity logs: silent background refresh (used by polling) ────────────
@@ -285,27 +293,45 @@ export function useDocumentWorkflow({
       // Notify parent if needed
       if (onChanged) void Promise.resolve(onChanged()).catch(() => {});
     },
-    requestId: null, // Workflow messages handled by pollMessages or existing logic
+    onDocumentMessage: (incoming: DocumentMessage) => {
+      // Push message into state immediately — no poll round-trip needed.
+      // Deduplication guard prevents duplicates if the polling also picks it up.
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === incoming.id)) return prev;
+        return [...prev, incoming];
+      });
+      // Bump unread badge only for messages from others
+      if (Number(incoming.sender_user_id) !== Number(myUserIdRef.current)) {
+        setNewMessageCount((c) => c + 1);
+      }
+    },
+    requestId: null,
   });
 
   // ── Reset load guards when versionId changes ────────────────────────────
-  useEffect(() => {
-    hasLoadedMessagesRef.current = false;
-    hasLoadedLogsRef.current = false;
-    isFirstTaskLoadRef.current = true;
-    isFirstMessageLoadRef.current = true;
-  }, [versionId]);
-
   // ── Messages: load once ──────────────────────────────────────────────────
   useEffect(() => {
-    if (!versionId || versionId === 0) return;
+    if (!versionId || versionId === 0) {
+      setMessages([]);
+      setIsLoadingMessages(false);
+      return;
+    }
+    
     let alive = true;
-    if (hasLoadedMessagesRef.current) return;
     setIsLoadingMessages(true);
+    hasLoadedMessagesRef.current = false;
+    
+    // Clear messages ONLY if we are truly moving to a new ID
+    setMessages([]);
+
     listDocumentMessages(versionId)
       .then((m) => {
         if (!alive) return;
+        
+        // Final Safety: Only set messages if the versionId we fetched for 
+        // still matches the versionId in the state.
         setMessages(m);
+        
         hasLoadedMessagesRef.current = true;
         const incoming = m.filter(
           (msg) => Number(msg.sender_user_id) !== Number(myUserIdRef.current),
@@ -313,12 +339,14 @@ export function useDocumentWorkflow({
         prevMessageCountRef.current = incoming.length;
         isFirstMessageLoadRef.current = false;
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("[useDocumentWorkflow] Failed to load messages:", err);
         if (alive) setMessages([]);
       })
       .finally(() => {
         if (alive) setIsLoadingMessages(false);
       });
+
     return () => {
       alive = false;
     };
@@ -328,13 +356,11 @@ export function useDocumentWorkflow({
   useEffect(() => {
     if (!versionId || versionId === 0) return;
     let alive = true;
-    if (hasLoadedLogsRef.current) return;
     setIsLoadingActivityLogs(true);
     listActivityLogs({
       scope: "document",
       document_id: documentId || undefined,
       document_version_id: !documentId ? versionId : undefined,
-      category: "workflow",
       per_page: 50,
     })
       .then((p) => {
@@ -353,12 +379,43 @@ export function useDocumentWorkflow({
     };
   }, [versionId]);
 
+  // ── Routing users for Admin Impersonation ────────────────────────────────
+  useEffect(() => {
+    if (!versionId || !adminDebugMode) {
+      setRoutingUsers([]);
+      setActingAsUserId(undefined);
+      return;
+    }
+    let alive = true;
+    setIsLoadingRoutingUsers(true);
+    listRoutingUsers(versionId)
+      .then((users) => {
+        if (!alive) return;
+        setRoutingUsers(users);
+      })
+      .catch(() => {
+        if (alive) setRoutingUsers([]);
+      })
+      .finally(() => {
+        if (alive) setIsLoadingRoutingUsers(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [versionId, adminDebugMode]);
+
   // ── Submit action ────────────────────────────────────────────────────────
   const submitAction = useCallback(
     async (code: WorkflowActionCode, note?: string) => {
       setIsChangingStatus(true);
       try {
-        const res = await submitWorkflowAction(versionId, code, note, adminDebugMode);
+        const res = await submitWorkflowAction(
+          versionId, 
+          code, 
+          note, 
+          adminDebugMode,
+          actingAsUserId
+        );
         window.dispatchEvent(new Event("notifications:refresh"));
 
         // Refresh tasks immediately
@@ -393,13 +450,9 @@ export function useDocumentWorkflow({
     },
     [
       versionId,
-      adminDebugMode,
-      refreshTasksAndActions,
-      startBurstPolling,
-      onChanged,
-      onAfterActionClose,
       myOfficeId,
       qaOfficeId,
+      actingAsUserId,
     ],
   );
 
@@ -449,6 +502,12 @@ export function useDocumentWorkflow({
     taskChanged,
     clearTaskChanged,
     syncAll,
+
+    // Impersonation
+    routingUsers,
+    actingAsUserId,
+    setActingAsUserId,
+    isLoadingRoutingUsers,
   }), [
      tasks,
      availableActions,
@@ -469,5 +528,8 @@ export function useDocumentWorkflow({
      taskChanged,
      clearTaskChanged,
      syncAll,
+     routingUsers,
+     actingAsUserId,
+     isLoadingRoutingUsers,
   ]);
 }

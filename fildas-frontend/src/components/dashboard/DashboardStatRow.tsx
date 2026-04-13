@@ -154,7 +154,7 @@ const DashboardStatRow: React.FC<Props> = ({
 
     if (indicesToPulse.size > 0) {
       setPulseIndices(indicesToPulse);
-      const timer = setTimeout(() => setPulseIndices(new Set()), 300);
+      const timer = setTimeout(() => setPulseIndices(new Set()), 1500);
       return () => clearTimeout(timer);
     }
 

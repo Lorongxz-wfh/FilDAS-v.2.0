@@ -317,7 +317,7 @@ class DocumentRequestService
                         documentId:      null,
                         cardLabel:       'Document Request',
                         appUrl:          $frontendUrl,
-                        appName:         config('app.name', 'FilDAS'),
+                        appName:         config('app.name', 'FilDOCS'),
                         overrideLinkUrl: $frontendUrl . '/document-requests/' . $requestId,
                     ));
                 } catch (\Throwable) {}
@@ -374,7 +374,7 @@ class DocumentRequestService
                         documentId:      null,
                         cardLabel:       'Document Request',
                         appUrl:          $frontendUrl,
-                        appName:         config('app.name', 'FilDAS'),
+                        appName:         config('app.name', 'FilDOCS'),
                         overrideLinkUrl: $frontendUrl . '/document-requests/' . $requestId,
                     ));
                 } catch (\Throwable) {}
@@ -420,7 +420,7 @@ class DocumentRequestService
                         documentId:      null,
                         cardLabel:       'Document Request',
                         appUrl:          $frontendUrl,
-                        appName:         config('app.name', 'FilDAS'),
+                        appName:         config('app.name', 'FilDOCS'),
                         overrideLinkUrl: $frontendUrl . '/document-requests/' . $requestId,
                     ));
                 } catch (\Throwable) {}

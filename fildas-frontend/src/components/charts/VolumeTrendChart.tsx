@@ -62,30 +62,37 @@ const VolumeTrendChart: React.FC<{ data: VolumeSeries[]; height?: number; loadin
       <ResponsiveContainer width="100%" height="100%" debounce={1}>
         <BarChart
           data={data}
-          margin={{ top: 4, right: 8, left: -16, bottom: 0 }}
+          margin={{ top: 8, right: 8, left: -16, bottom: 20 }}
           barCategoryGap="40%"
           barGap={3}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.12)" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.15} vertical={false} />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 11, fontWeight: 500, fill: "currentColor" }}
+            tick={{ fontSize: 11, fontWeight: 500, fill: "#94a3b8" }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             allowDecimals={false}
-            tick={{ fontSize: 11, fontWeight: 500, fill: "currentColor" }}
+            tick={{ fontSize: 11, fontWeight: 500, fill: "#94a3b8" }}
             axisLine={false}
             tickLine={false}
           />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(148,163,184,0.07)" }} />
           <Legend 
-            verticalAlign="top" 
-            align="right"
+            verticalAlign="bottom" 
+            align="center"
             iconType="circle"
             iconSize={6}
-            wrapperStyle={{ fontSize: 10, fontWeight: 700, paddingTop: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}
+            wrapperStyle={{ 
+              fontSize: 10, 
+              fontWeight: 700, 
+              paddingTop: 16,
+              textTransform: 'uppercase', 
+              letterSpacing: '0.05em',
+              color: '#94a3b8' 
+            }}
           />
           <Bar dataKey="created" name="Created" fill="#38bdf8" radius={[4, 4, 0, 0]} maxBarSize={32} />
           <Bar dataKey="approved_final" name="Approved" fill="#34d399" radius={[4, 4, 0, 0]} maxBarSize={32} />

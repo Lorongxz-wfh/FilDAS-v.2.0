@@ -11,19 +11,33 @@ class DocumentResource extends JsonResource
     {
         $doc = $this;
 
-        // For library queries (status=Distributed), latestDistributedVersion is eager-loaded
-        // and gives the correct distributed version even when a newer revision draft exists.
-        $v = ($doc->relationLoaded('latestDistributedVersion') && $doc->latestDistributedVersion !== null)
-            ? $doc->latestDistributedVersion
-            : ($doc->relationLoaded('latestVersion') ? $doc->latestVersion : null);
+        // CHECK: If this Model result came from the Archive space join, it has flat version attributes.
+        // Priority 1: Use specific target version info from joined list (Archive space)
+        // Priority 2: Use latestDistributedVersion (Library space)
+        // Priority 3: Fallback to latestVersion (WorkQueue space)
+        
+        $v = null;
+        if (isset($doc->target_version_id)) {
+            // Fake a version object or just use the attributes directly.
+            // For safety with relations, we'll extract what we need.
+            $status = $doc->version_status ?? 'Superseded';
+            $versionNumber = $doc->version_number ?? 0;
+            $distributedAt = $doc->version_distributed_at ?? null;
+        } else {
+            $versionObj = ($doc->relationLoaded('latestDistributedVersion') && $doc->latestDistributedVersion !== null)
+                ? $doc->latestDistributedVersion
+                : ($doc->relationLoaded('latestVersion') ? $doc->latestVersion : null);
+            
+            $v = $versionObj;
+            $status = $v?->status ?? 'Draft';
+            $versionNumber = $v?->version_number ?? 0;
+            $distributedAt = $v?->distributed_at ?? null;
+        }
 
         // Resolve current OPEN task assignee only if it was eager-loaded.
-        // Never query inside a Resource (avoids N+1 on lists). [web:702]
         $assigneeOffice = null;
-
         if ($v && $v->relationLoaded('tasks')) {
             $openTask = $v->tasks->firstWhere('status', 'open');
-
             if ($openTask && $openTask->relationLoaded('assignedOffice')) {
                 $assigneeOffice = $openTask->assignedOffice;
             }
@@ -83,7 +97,7 @@ class DocumentResource extends JsonResource
 
 
             // Flattened version fields (compat)
-            'status' => $v?->status ?? 'Draft',
+            'status' => $status,
 
             // Who currently needs to act (office), used for UI labels like “Forward to X”
             'current_assignee_office' => $assigneeOffice ? [
@@ -92,12 +106,12 @@ class DocumentResource extends JsonResource
                 'code' => $assigneeOffice->code,
             ] : null,
 
-            'version_number' => $v?->version_number ?? 0,
-            'effective_date' => $v?->effective_date,
-            'distributed_at' => $v?->distributed_at,
-            'file_path' => $v?->file_path,
-            'preview_path' => $v?->preview_path,
-            'original_filename' => $v?->original_filename,
+            'version_number' => $versionNumber,
+            'effective_date' => isset($doc->target_version_id) ? ($doc->version_effective_date ?? null) : $v?->effective_date,
+            'distributed_at' => $distributedAt,
+            'file_path' => isset($doc->target_version_id) ? ($doc->version_file_path ?? null) : $v?->file_path,
+            'preview_path' => isset($doc->target_version_id) ? ($doc->version_preview_path ?? null) : $v?->preview_path,
+            'original_filename' => isset($doc->target_version_id) ? ($doc->version_original_filename ?? null) : $v?->original_filename,
 
             // New metadata (optional for frontend now)
             'visibility_scope' => $doc->visibility_scope,
@@ -112,9 +126,9 @@ class DocumentResource extends JsonResource
             // Explicit reason for archiving, prioritized for the UI label
             'archive_reason' => $doc->archived_at 
                 ? 'Manually Archived' 
-                : ($v?->status === 'Superseded' 
+                : ($status === 'Superseded' 
                     ? 'Superseded' 
-                    : ($v?->status === 'Cancelled' ? 'Cancelled' : null)),
+                    : ($status === 'Cancelled' ? 'Cancelled' : null)),
         ];
     }
 }

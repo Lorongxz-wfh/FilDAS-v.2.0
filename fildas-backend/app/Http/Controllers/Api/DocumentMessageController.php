@@ -61,13 +61,37 @@ class DocumentMessageController extends Controller
             ],
         ]);
 
-        return response()->json(
-            $msg->load([
-                'sender:id,first_name,middle_name,last_name,suffix,role_id,profile_photo_path',
-                'sender.role:id,name',
-            ]),
-            201
-        );
+        // Load sender once — used for both broadcast payload and the HTTP response
+        $msg->load([
+            'sender:id,first_name,middle_name,last_name,suffix,role_id,profile_photo_path',
+            'sender.role:id,name',
+        ]);
+
+        $payload = [
+            'id'                  => $msg->id,
+            'document_version_id' => $msg->document_version_id,
+            'sender_user_id'      => $msg->sender_user_id,
+            'type'                => $msg->type,
+            'message'             => $msg->message,
+            'created_at'          => $msg->created_at,
+            'updated_at'          => $msg->updated_at,
+            'sender'              => $msg->sender ? [
+                'id'                 => $msg->sender->id,
+                'full_name'          => $msg->sender->full_name,
+                'profile_photo_path' => $msg->sender->profile_photo_path ?? null,
+                'profile_photo_url'  => $msg->sender->profile_photo_url ?? null,
+                'role'               => $msg->sender->role
+                    ? ['id' => $msg->sender->role->id, 'name' => $msg->sender->role->name]
+                    : null,
+            ] : null,
+        ];
+
+        broadcast(new \App\Events\DocumentMessagePosted(
+            versionId: $version->id,
+            message: $payload,
+        ));
+
+        return response()->json($msg, 201);
     }
 
     private function notifyParticipants(DocumentVersion $version, \App\Models\User $sender, DocumentMessage $msg)

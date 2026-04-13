@@ -43,7 +43,7 @@ const SidebarBrand: React.FC<SidebarBrandProps> = ({
           {(!collapsed || mobileOpen) && (
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-[17px] font-bold tracking-tight text-neutral-900 dark:text-surface-50 truncate">
-                FilDAS
+                FilDOCS
               </span>
               {(() => {
                 const role = getUserRole();

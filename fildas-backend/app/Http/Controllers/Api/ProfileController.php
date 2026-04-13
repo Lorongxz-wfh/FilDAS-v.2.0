@@ -71,7 +71,7 @@ class ProfileController extends Controller
 
             try {
                 $appUrl = rtrim(env('FRONTEND_URL', config('app.url')), '/');
-                $appName = config('app.name', 'FilDAS');
+                $appName = config('app.name', 'FilDOCS');
                 // Notify BOTH old and new email
                 $emails = [$user->getOriginal('email'), $data['email']];
                 foreach ($emails as $target) {
@@ -147,7 +147,7 @@ class ProfileController extends Controller
             try {
                 $name    = trim($user->first_name . ' ' . $user->last_name) ?: $user->email;
                 $appUrl  = rtrim(env('FRONTEND_URL', config('app.url')), '/');
-                $appName = config('app.name', 'FilDAS');
+                $appName = config('app.name', 'FilDOCS');
                 Mail::to($user->email)->queue(new WorkflowNotificationMail(
                     recipientName:  $name,
                     notifTitle:     'Your password was changed',
@@ -314,9 +314,9 @@ class ProfileController extends Controller
         $user = $request->user();
 
         $data = $request->validate([
-            'email_doc_updates' => ['required', 'boolean'],
-            'email_approvals'   => ['required', 'boolean'],
-            'email_requests'    => ['required', 'boolean'],
+            'email_doc_updates' => ['sometimes', 'boolean'],
+            'email_approvals'   => ['sometimes', 'boolean'],
+            'email_requests'    => ['sometimes', 'boolean'],
         ]);
 
         $user->fill($data);

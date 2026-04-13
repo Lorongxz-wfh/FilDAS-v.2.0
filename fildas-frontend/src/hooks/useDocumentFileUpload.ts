@@ -4,7 +4,7 @@ import { useToast } from "../components/ui/toast/ToastContext";
 
 type Options = {
   versionId: number;
-  onUploadComplete: () => void;
+  onUploadComplete: (version?: any) => void;
 };
 
 const ALLOWED_EXTENSIONS = /\.(pdf|doc|docx|xls|xlsx|ppt|pptx)$/i;
@@ -45,7 +45,7 @@ export function useDocumentFileUpload({
     setIsUploading(true);
     setUploadProgress(0);
     try {
-      await replaceDocumentVersionFileWithProgress(versionId, file, (pct) =>
+      const updatedVersion = await replaceDocumentVersionFileWithProgress(versionId, file, (pct) =>
         setUploadProgress(pct),
       );
       push({
@@ -53,7 +53,7 @@ export function useDocumentFileUpload({
         title: "Upload complete",
         message: "File replaced successfully.",
       });
-      onUploadComplete();
+      onUploadComplete(updatedVersion);
     } catch (e: any) {
       push({
         type: "error",

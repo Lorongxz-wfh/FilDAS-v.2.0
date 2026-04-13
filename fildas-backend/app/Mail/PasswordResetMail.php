@@ -16,7 +16,7 @@ class PasswordResetMail extends Mailable
         public readonly string $recipientName,
         public readonly string $resetUrl,
         public readonly string $appUrl,
-        public readonly string $appName = 'FilDAS',
+        public readonly string $appName = 'FilDOCS',
         public readonly int    $expiresInMinutes = 60,
     ) {}
 

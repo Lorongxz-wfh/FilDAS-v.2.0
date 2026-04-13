@@ -48,7 +48,7 @@ export default function SplashScreen() {
         <div className="h-18 w-18 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 shadow-sm">
           <img
             src={logoUrl}
-            alt="FilDAS logo"
+            alt="FilDOCS logo"
             className="h-full w-full object-contain p-1.5"
           />
         </div>
@@ -56,7 +56,7 @@ export default function SplashScreen() {
         {/* Title block */}
         <div className="text-center space-y-1">
           <p className="text-xl font-semibold tracking-tight text-slate-800 dark:text-slate-100">
-            FilDAS
+            FilDOCS
           </p>
           <p className="text-xs text-slate-400 dark:text-slate-500">
             FCU · Quality Assurance

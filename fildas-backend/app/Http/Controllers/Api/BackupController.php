@@ -87,7 +87,7 @@ class BackupController extends Controller
         if ($from) $query->where('documents.created_at', '>=', "{$from} 00:00:00");
         if ($to)   $query->where('documents.created_at', '<=', "{$to} 23:59:59");
 
-        $filename = "fildas-documents-{$suffix}.csv";
+        $filename = "fildocs-documents-{$suffix}.csv";
 
         return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');
@@ -134,7 +134,7 @@ class BackupController extends Controller
         $suffix = $this->dateSuffix($request);
         $saveToSystem = filter_var($request->query('save_to_system', false), FILTER_VALIDATE_BOOLEAN);
 
-        $filename = "fildas-documents-{$suffix}.zip";
+        $filename = "fildocs-documents-{$suffix}.zip";
 
         try {
             $tempPath = $service->generateDocumentZip($from, $to);
@@ -186,7 +186,7 @@ class BackupController extends Controller
         if ($from) $query->where('activity_logs.created_at', '>=', "{$from} 00:00:00");
         if ($to)   $query->where('activity_logs.created_at', '<=', "{$to} 23:59:59");
 
-        $filename = "fildas-activity-{$suffix}.csv";
+        $filename = "fildocs-activity-{$suffix}.csv";
 
         return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');
@@ -231,7 +231,7 @@ class BackupController extends Controller
             ->whereNull('deleted_at')
             ->with(['role:id,name', 'office:id,code,name']);
 
-        $filename = "fildas-users-{$suffix}.csv";
+        $filename = "fildocs-users-{$suffix}.csv";
 
         return response()->streamDownload(function () use ($query) {
             $out = fopen('php://output', 'w');

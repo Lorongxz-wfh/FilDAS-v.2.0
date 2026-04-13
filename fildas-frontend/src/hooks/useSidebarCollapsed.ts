@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const KEY = "fildas_sidebar_collapsed";
+const KEY = "fildocs_sidebar_collapsed";
 
 export function useSidebarCollapsed() {
   const [collapsed, setCollapsed] = useState<boolean>(() => {

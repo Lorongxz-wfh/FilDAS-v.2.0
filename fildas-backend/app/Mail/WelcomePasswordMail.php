@@ -16,7 +16,7 @@ class WelcomePasswordMail extends Mailable
         public readonly string $recipientName,
         public readonly string $tempPassword,
         public readonly string $appUrl,
-        public readonly string $appName = 'FilDAS',
+        public readonly string $appName = 'FilDOCS',
     ) {}
 
     public function envelope(): Envelope

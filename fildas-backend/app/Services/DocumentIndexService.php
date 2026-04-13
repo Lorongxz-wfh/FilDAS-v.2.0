@@ -127,25 +127,38 @@ class DocumentIndexService
         } elseif ($space === 'library') {
             // Active distributed documents: Has a Distributed version and not manually archived/cancelled
             $query->whereNull('documents.archived_at')
-                ->whereHas('versions', function ($v) {
-                    $v->where('status', 'Distributed');
-                })
                 ->whereHas('latestVersion', function ($v) {
                     $v->whereNotIn('status', ['Cancelled', 'Superseded']);
+                })
+                ->whereHas('versions', function ($v) {
+                    $v->where('status', 'Distributed');
                 });
         } elseif ($space === 'archive') {
-            // Terminated or manually archived documents
-            $query->where(function ($q) {
-                $q->whereNotNull('documents.archived_at')
-                    ->orWhereHas('latestVersion', function ($v) {
-                        $v->whereIn('status', ['Cancelled', 'Superseded']);
-                    });
-            });
+            // Show all historical versions that are Cancelled or Superseded, 
+            // OR all versions of a document family that was manually archived.
+            $query->join('document_versions as dv_list', 'dv_list.document_id', '=', 'documents.id')
+                ->where(function ($q) {
+                    $q->where('dv_list.status', 'Cancelled')
+                      ->orWhere('dv_list.status', 'Superseded')
+                      ->orWhereNotNull('documents.archived_at');
+                });
+            
+            // Allow sorting by version distributed_at if needed
+            $query->select([
+                'documents.*',
+                'dv_list.id as target_version_id',
+                'dv_list.version_number',
+                'dv_list.description as version_description',
+                'dv_list.effective_date as version_effective_date',
+                'dv_list.status as version_status',
+                'dv_list.distributed_at as version_distributed_at',
+                'dv_list.created_at as version_created_at',
+                'dv_list.file_path as version_file_path',
+                'dv_list.preview_path as version_preview_path',
+                'dv_list.original_filename as version_original_filename',
+            ]);
         } else {
-            // 'all' space (legacy/default): respect explicit status filter if provided, 
-            // otherwise just apply the status filters below. 
-            // Note: we removed the global 'whereNotIn(Cancelled, Superseded)' 
-            // to allow full visibility in Admin views if needed.
+            // 'all' space (legacy/default)
         }
 
         if (!empty($data['status'])) {
@@ -280,19 +293,23 @@ class DocumentIndexService
             $withs[] = 'latestDistributedVersion';
         }
 
-        $query->select([
-            'documents.id',
-            'documents.title',
-            'documents.code',
-            'documents.doctype',
-            'documents.owner_office_id',
-            'documents.review_office_id',
-            'documents.visibility_scope',
-            'documents.school_year',
-            'documents.semester',
-            'documents.created_at',
-            'documents.updated_at',
-        ]);
+        // Standard select for documents. Only apply if a specialized select 
+        // hasn't already been set (e.g. by the Archive space join).
+        if ($query->getQuery()->columns === null) {
+            $query->select([
+                'documents.id',
+                'documents.title',
+                'documents.code',
+                'documents.doctype',
+                'documents.owner_office_id',
+                'documents.review_office_id',
+                'documents.visibility_scope',
+                'documents.school_year',
+                'documents.semester',
+                'documents.created_at',
+                'documents.updated_at',
+            ]);
+        }
 
         if ($sortBy === 'distributed_at') {
             $query->orderBy(

@@ -57,7 +57,7 @@ api.interceptors.response.use(
       // PROD RESILIENCE: 
       // Do not auto-logout if we are currently in a Restoration window.
       // During restore, the users table may be empty for a few seconds/minutes.
-      if (localStorage.getItem('fildas_restoring_node')) {
+      if (localStorage.getItem('fildocs_restoring_node')) {
         console.warn("Auth check failed during active restoration. Ignoring redirect.");
         return Promise.reject(error);
       }

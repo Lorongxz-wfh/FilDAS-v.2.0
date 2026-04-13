@@ -35,7 +35,7 @@ class ProcessDocumentVersion implements ShouldQueue
             $year = $version->created_at->year;
 
             // 1. Download original file to temp for processing
-            $tmpDir = sys_get_temp_dir() . '/fildas_queue/' . $version->id;
+            $tmpDir = sys_get_temp_dir() . '/fildocs_queue/' . $version->id;
             if (!is_dir($tmpDir)) {
                 mkdir($tmpDir, 0775, true);
             }

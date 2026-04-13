@@ -7,7 +7,20 @@ export async function listDocumentMessages(
   try {
     const api = await getApi();
     const res = await api.get(`/document-versions/${versionId}/messages`);
-    return res.data as DocumentMessage[];
+    const payload = res.data;
+    console.debug("[messagesApi] Raw response for version", versionId, payload);
+    
+    // Robust normalization
+    if (Array.isArray(payload)) return payload as DocumentMessage[];
+    if (payload?.data && Array.isArray(payload.data)) return payload.data as DocumentMessage[];
+    if (payload?.messages && Array.isArray(payload.messages)) return payload.messages as DocumentMessage[];
+    
+    // If it's a single object that looks like a message, wrap it
+    if (payload && typeof payload === "object" && (payload.id || payload.message)) {
+      return [payload] as DocumentMessage[];
+    }
+    
+    return [] as DocumentMessage[];
   } catch (e: any) {
     const status = e?.response?.status;
     const msg =
@@ -25,11 +38,13 @@ export async function postDocumentMessage(
 ): Promise<DocumentMessage> {
   try {
     const api = await getApi();
+    console.debug("[messagesApi] Posting message to version", versionId, payload);
     const res = await api.post(
       `/document-versions/${versionId}/messages`,
       payload,
     );
-    return res.data as DocumentMessage;
+    console.debug("[messagesApi] Post response", res.data);
+    return (res.data?.data ?? res.data) as DocumentMessage;
   } catch (e: any) {
     const status = e?.response?.status;
     const msg =

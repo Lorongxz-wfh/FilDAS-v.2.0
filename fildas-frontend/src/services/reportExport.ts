@@ -73,7 +73,7 @@ function makePdf(title: string): jsPDF {
   doc.setFontSize(13);
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.text(`FilDAS — ${title}`, 14, 12);
+  doc.text(`FilDOCS — ${title}`, 14, 12);
   doc.setFontSize(8);
   doc.setTextColor(148, 163, 184);
   doc.setFont("helvetica", "normal");
@@ -171,7 +171,7 @@ export async function exportElementPdf(
 export async function exportFullTabPdf(element: HTMLElement, tabName: string) {
   await exportElementPdf(
     element,
-    `fildas_report_${tabName.toLowerCase()}.pdf`,
+    `fildocs_report_${tabName.toLowerCase()}.pdf`,
     `Report — ${tabName}`,
   );
 }
@@ -183,7 +183,7 @@ export function exportKpiCsv(
   totals: { in_review: number; approved: number; returned: number },
 ) {
   downloadCsv(
-    "fildas_kpi_summary.csv",
+    "fildocs_kpi_summary.csv",
     ["Metric", "Value"],
     [
       ["Total created", kpis.total_created],
@@ -233,14 +233,14 @@ export async function exportKpiPdf(
     alternateRowStyles: altRowStyles,
     columnStyles: { 1: { halign: "right" } },
   });
-  await savePdf(doc, "fildas_kpi_summary.pdf");
+  await savePdf(doc, "fildocs_kpi_summary.pdf");
 }
 
 // ── Volume Trend ───────────────────────────────────────────────────────────────
 
 export function exportVolumeCsv(data: ComplianceVolumeSeriesDatum[]) {
   downloadCsv(
-    "fildas_volume_trend.csv",
+    "fildocs_volume_trend.csv",
     ["Period", "Created", "Distributed"],
     data.map((r) => [r.label, r.created, r.approved_final]),
   );
@@ -266,14 +266,14 @@ export async function exportVolumePdf(data: ComplianceVolumeSeriesDatum[]) {
       3: { halign: "right" },
     },
   });
-  await savePdf(doc, "fildas_volume_trend.pdf");
+  await savePdf(doc, "fildocs_volume_trend.pdf");
 }
 
 // ── Cluster Compliance ─────────────────────────────────────────────────────────
 
 export function exportClusterCsv(data: ComplianceClusterDatum[]) {
   downloadCsv(
-    "fildas_cluster_compliance.csv",
+    "fildocs_cluster_compliance.csv",
     ["Cluster", "In Review", "Approved", "Approval %", "Returned", "Return %"],
     data.map((r) => [
       r.cluster,
@@ -322,14 +322,14 @@ export async function exportClusterPdf(data: ComplianceClusterDatum[]) {
       6: { halign: "right" },
     },
   });
-  await savePdf(doc, "fildas_cluster_compliance.pdf");
+  await savePdf(doc, "fildocs_cluster_compliance.pdf");
 }
 
 // ── Office Compliance ──────────────────────────────────────────────────────────
 
 export function exportOfficeCsv(data: ComplianceOfficeDatum[]) {
   downloadCsv(
-    "fildas_office_compliance.csv",
+    "fildocs_office_compliance.csv",
     [
       "Office",
       "Cluster",
@@ -386,14 +386,14 @@ export async function exportOfficePdf(data: ComplianceOfficeDatum[]) {
       6: { halign: "right" },
     },
   });
-  await savePdf(doc, "fildas_office_compliance.pdf");
+  await savePdf(doc, "fildocs_office_compliance.pdf");
 }
 
 // ── Stage Delays ───────────────────────────────────────────────────────────────
 
 export function exportStageDelayCsv(data: ComplianceStageDelayDatum[]) {
   downloadCsv(
-    "fildas_stage_delays.csv",
+    "fildocs_stage_delays.csv",
     ["Stage", "Avg Hours", "Versions Count", "Task Count"],
     data.map((r) => [r.stage, r.avg_hours, r.count, r.task_count]),
   );
@@ -421,14 +421,14 @@ export async function exportStageDelayPdf(data: ComplianceStageDelayDatum[]) {
       4: { halign: "right" },
     },
   });
-  await savePdf(doc, "fildas_stage_delays.pdf");
+  await savePdf(doc, "fildocs_stage_delays.pdf");
 }
 
 // ── Approval Timeline ──────────────────────────────────────────────────────────
 
 export function exportTimelineCsv(data: ComplianceSeriesDatum[]) {
   downloadCsv(
-    "fildas_approval_timeline.csv",
+    "fildocs_approval_timeline.csv",
     ["Period", "In Review", "In Approval", "Distributed", "Returned"],
     data.map((r) => [
       r.label,
@@ -473,7 +473,7 @@ export async function exportTimelinePdf(data: ComplianceSeriesDatum[]) {
       5: { halign: "right" },
     },
   });
-  await savePdf(doc, "fildas_approval_timeline.pdf");
+  await savePdf(doc, "fildocs_approval_timeline.pdf");
 }
 
 // ── Doctype Distribution ────────────────────────────────────────────────────────
@@ -481,7 +481,7 @@ export async function exportTimelinePdf(data: ComplianceSeriesDatum[]) {
 export function exportDoctypeCsv(data: { doctype: string; count: number }[]) {
   const total = data.reduce((s, r) => s + r.count, 0) || 1;
   downloadCsv(
-    "fildas_doctype_distribution.csv",
+    "fildocs_doctype_distribution.csv",
     ["Document Type", "Count", "Percentage"],
     data.map((r) => [r.doctype, r.count, `${pct(r.count, total)}%`]),
   );
@@ -501,7 +501,7 @@ export async function exportDoctypePdf(
     alternateRowStyles: altRowStyles,
     columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
   });
-  await savePdf(doc, "fildas_doctype_distribution.pdf");
+  await savePdf(doc, "fildocs_doctype_distribution.pdf");
 }
 
 // ── Creation by Office ──────────────────────────────────────────────────────────
@@ -517,7 +517,7 @@ type CreationByOfficeDatum = {
 
 export function exportCreationByOfficeCsv(data: CreationByOfficeDatum[]) {
   downloadCsv(
-    "fildas_creation_by_office.csv",
+    "fildocs_creation_by_office.csv",
     ["Office Code", "Office Name", "Internal", "External", "Forms", "Total"],
     data.map((r) => [
       r.office_code,
@@ -553,7 +553,7 @@ export async function exportCreationByOfficePdf(data: CreationByOfficeDatum[]) {
       5: { halign: "right" },
     },
   });
-  await savePdf(doc, "fildas_creation_by_office.pdf");
+  await savePdf(doc, "fildocs_creation_by_office.pdf");
 }
 
 // ── Lifecycle Funnel ────────────────────────────────────────────────────────────
@@ -562,7 +562,7 @@ export function exportLifecycleFunnelCsv(
   data: { stage: string; count: number }[],
 ) {
   downloadCsv(
-    "fildas_lifecycle_funnel.csv",
+    "fildocs_lifecycle_funnel.csv",
     ["Stage", "Count"],
     data.map((r) => [r.stage, r.count]),
   );
@@ -582,7 +582,7 @@ export async function exportLifecycleFunnelPdf(
     alternateRowStyles: altRowStyles,
     columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
   });
-  await savePdf(doc, "fildas_lifecycle_funnel.pdf");
+  await savePdf(doc, "fildocs_lifecycle_funnel.pdf");
 }
 
 // ── Routing & Revision ──────────────────────────────────────────────────────────
@@ -593,7 +593,7 @@ export function exportRoutingRevisionCsv(
 ) {
   const total = routing.default_flow + routing.custom_flow || 1;
   downloadCsv(
-    "fildas_routing_revision.csv",
+    "fildocs_routing_revision.csv",
     ["Metric", "Value"],
     [
       ["Default Flow Documents", routing.default_flow],
@@ -628,14 +628,14 @@ export async function exportRoutingRevisionPdf(
     alternateRowStyles: altRowStyles,
     columnStyles: { 1: { halign: "right" } },
   });
-  await savePdf(doc, "fildas_routing_revision.pdf");
+  await savePdf(doc, "fildocs_routing_revision.pdf");
 }
 
 // ── Requests KPI ───────────────────────────────────────────────────────────────
 
 export function exportRequestsKpiCsv(kpis: RequestsReportKpis) {
   downloadCsv(
-    "fildas_requests_kpi.csv",
+    "fildocs_requests_kpi.csv",
     ["Metric", "Value"],
     [
       ["Total Requests", kpis.total],
@@ -668,7 +668,7 @@ export async function exportRequestsKpiPdf(kpis: RequestsReportKpis) {
     alternateRowStyles: altRowStyles,
     columnStyles: { 1: { halign: "right" } },
   });
-  await savePdf(doc, "fildas_requests_kpi.pdf");
+  await savePdf(doc, "fildocs_requests_kpi.pdf");
 }
 
 // ── Office Acceptance Rates ─────────────────────────────────────────────────────
@@ -683,7 +683,7 @@ type OfficeAcceptanceDatum = {
 
 export function exportOfficeAcceptanceCsv(data: OfficeAcceptanceDatum[]) {
   downloadCsv(
-    "fildas_office_acceptance.csv",
+    "fildocs_office_acceptance.csv",
     ["Office", "Sent", "Accepted", "Rejected", "Rate (%)"],
     data.map((r) => [r.office, r.sent, r.accepted, r.rejected, r.rate]),
   );
@@ -711,7 +711,7 @@ export async function exportOfficeAcceptancePdf(data: OfficeAcceptanceDatum[]) {
       4: { halign: "right" },
     },
   });
-  await savePdf(doc, "fildas_office_acceptance.pdf");
+  await savePdf(doc, "fildocs_office_acceptance.pdf");
 }
 
 // ── Submission Attempts ─────────────────────────────────────────────────────────
@@ -719,7 +719,7 @@ export async function exportOfficeAcceptancePdf(data: OfficeAcceptanceDatum[]) {
 export function exportAttemptsCsv(data: { attempt: string; count: number }[]) {
   const total = data.reduce((s, r) => s + r.count, 0) || 1;
   downloadCsv(
-    "fildas_submission_attempts.csv",
+    "fildocs_submission_attempts.csv",
     ["Attempt", "Count", "Percentage"],
     data.map((r) => [r.attempt, r.count, `${pct(r.count, total)}%`]),
   );
@@ -739,14 +739,14 @@ export async function exportAttemptsPdf(
     alternateRowStyles: altRowStyles,
     columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
   });
-  await savePdf(doc, "fildas_submission_attempts.pdf");
+  await savePdf(doc, "fildocs_submission_attempts.pdf");
 }
 // ── System Activity Distribution ──────────────────────────────────────────────
 
 export function exportActivityDistributionCsv(data: { label: string; count: number }[]) {
   const total = data.reduce((s, r) => s + r.count, 0) || 1;
   downloadCsv(
-    "fildas_activity_distribution.csv",
+    "fildocs_activity_distribution.csv",
     ["Category", "Action Count", "Percentage"],
     data.map((r) => [r.label, r.count, `${pct(r.count, total)}%`]),
   );
@@ -764,14 +764,14 @@ export async function exportActivityDistributionPdf(data: { label: string; count
     alternateRowStyles: altRowStyles,
     columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
   });
-  await savePdf(doc, "fildas_activity_distribution.pdf");
+  await savePdf(doc, "fildocs_activity_distribution.pdf");
 }
 
 // ── System Activity Daily Trend ────────────────────────────────────────────────
 
 export function exportActivityTrendCsv(data: any[]) {
   downloadCsv(
-    "fildas_activity_trend.csv",
+    "fildocs_activity_trend.csv",
     ["Date", "Workflows", "Access", "System", "Others", "Total"],
     data.map((r) => [r.date, r.Workflows, r.Access, r.System, r.Others, r.total]),
   );
@@ -794,14 +794,14 @@ export async function exportActivityTrendPdf(data: any[]) {
       5: { halign: "right" },
     },
   });
-  await savePdf(doc, "fildas_activity_trend.pdf");
+  await savePdf(doc, "fildocs_activity_trend.pdf");
 }
 
 // ── Top System Actors ──────────────────────────────────────────────────────────
 
 export function exportTopActorsCsv(data: TopActor[]) {
   downloadCsv(
-    "fildas_top_actors.csv",
+    "fildocs_top_actors.csv",
     ["User", "Office", "Actions Count"],
     data.map((u) => [u.full_name, u.office, u.count]),
   );
@@ -818,5 +818,5 @@ export async function exportTopActorsPdf(data: TopActor[]) {
     alternateRowStyles: altRowStyles,
     columnStyles: { 2: { halign: "right" } },
   });
-  await savePdf(doc, "fildas_top_actors.pdf");
+  await savePdf(doc, "fildocs_top_actors.pdf");
 }

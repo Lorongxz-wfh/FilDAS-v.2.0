@@ -71,8 +71,8 @@ class DocumentController extends Controller
             ]);
 
             // Ensure we use null instead of empty strings for date parameters
-            $df = $data['date_from'] ? (string) $data['date_from'] : null;
-            $dt = $data['date_to'] ? (string) $data['date_to'] : null;
+            $df = ($data['date_from'] ?? null) ? (string) $data['date_from'] : null;
+            $dt = ($data['date_to'] ?? null) ? (string) $data['date_to'] : null;
 
             $qaOfficeId = Cache::remember('office_id:QA', 3600, function () {
                 return \App\Models\Office::where('code', 'QA')->value('id');
@@ -354,7 +354,7 @@ class DocumentController extends Controller
             $actorName  = trim($user->first_name . ' ' . $user->last_name) ?: 'Someone';
             $docTitle   = $document->title ?? 'A document';
             $appUrl     = rtrim(env('FRONTEND_URL', config('app.url')), '/');
-            $appName    = config('app.name', 'FilDAS');
+            $appName    = config('app.name', 'FilDOCS');
 
             $shareUsers = User::whereIn('office_id', $addedOfficeIds)
                 ->select(['id', 'first_name', 'last_name', 'email', 'email_doc_updates'])
@@ -1372,11 +1372,11 @@ class DocumentController extends Controller
         $updatedAt = $version->updated_at?->timestamp ?? 0;
         $cacheKey = "preview_link:v{$version->id}:uid{$userId}:updated{$updatedAt}";
 
-        $payload = Cache::remember($cacheKey, ($ttlMinutes - 5) * 60, function () use ($version, $ttlMinutes, $userId) {
+        $payload = Cache::remember($cacheKey, ($ttlMinutes - 5) * 60, function () use ($version, $ttlMinutes, $userId, $updatedAt) {
             $signedUrl = URL::temporarySignedRoute(
                 'document-versions.preview',
                 now()->addMinutes($ttlMinutes),
-                ['version' => $version->id, 'uid' => $userId]
+                ['version' => $version->id, 'uid' => $userId, 'v' => $updatedAt]
             );
 
             return [

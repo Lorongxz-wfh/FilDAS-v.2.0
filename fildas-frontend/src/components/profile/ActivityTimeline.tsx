@@ -10,6 +10,7 @@ import {
   ExternalLink,
   type LucideIcon
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { friendlyEvent } from "../../utils/activityFormatters";
 import Skeleton from "../ui/loader/Skeleton";
 
@@ -37,12 +38,14 @@ const EVENT_ICONS: Record<string, LucideIcon> = {
   "workflow.forward": ArrowRight,
   "workflow.approve": CheckCircle2,
   "workflow.return": History,
+  "workflow.rejected": AlertCircle,
   "document.create": FileText,
   "document.update": FileText,
   "document.distribute": FileText,
   "workflow.start_finalization": FileText,
   "message.create": MessageSquare,
   "request.create": AlertCircle,
+  "document_request.created": AlertCircle,
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -90,7 +93,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ items, loadi
 
   const handleItemClick = (item: ActivityLogRow) => {
     // 1. Check for request associations
-    const requestId = item.meta?.request_id || item.meta?.batch_id;
+    const requestId = item.meta?.document_request_id || item.meta?.request_id || item.meta?.batch_id;
     if (requestId) {
       return navigate(`/document-requests/${requestId}`);
     }
@@ -98,8 +101,6 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ items, loadi
     // 2. Check for document associations
     const docId = item.document_id || item.meta?.document_id;
     if (docId) {
-      // If it's a "distributed" or "finalized" event, ideally we'd go to view page
-      // But /documents/:id (DocumentFlowPage) often handles the redirection appropriately
       if (item.event === "document.distribute" || item.event === "document.finalize") {
         return navigate(`/documents/${docId}/view`);
       }
@@ -145,63 +146,88 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ items, loadi
   return (
     <div className="relative space-y-8 p-4">
       {/* Main vertical line */}
-      <div className="absolute left-8 top-8 bottom-8 w-px bg-slate-200 dark:bg-surface-400" />
+      <motion.div 
+        initial={{ height: 0 }}
+        animate={{ height: "calc(100% - 64px)" }}
+        transition={{ duration: 0.8, ease: "easeInOut" }}
+        className="absolute left-8 top-8 w-px bg-slate-200 dark:bg-surface-400 origin-top" 
+      />
 
-      {groups.map((group) => (
-        <div key={group.label} className="relative">
-          <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-6 bg-white dark:bg-surface-500 sticky top-0 py-1 z-10 w-fit pr-4">
-            {group.label}
-          </h3>
-          
-          <div className="space-y-8">
-            {group.items.map((item) => {
-              const category = categoryFromEvent(item.event);
-              const Icon = EVENT_ICONS[item.event] || History;
-              const isClickable = !!(item.document_id || item.meta?.document_id || item.meta?.request_id || item.meta?.batch_id);
-              
-              return (
-                <div 
-                  key={item.id} 
-                  className={`relative flex items-start gap-5 group transition-colors rounded-md p-2 -m-2 ${isClickable ? "cursor-pointer hover:bg-slate-50/80 dark:hover:bg-surface-400/20" : ""}`}
-                  onClick={() => isClickable && handleItemClick(item)}
-                >
-                  {/* Timeline marker */}
-                  <div className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-4 border-white dark:border-surface-500 text-white shadow-sm transition-transform group-hover:scale-110 ${CATEGORY_COLORS[category]}`}>
-                    <Icon className="h-3.5 w-3.5" />
-                  </div>
+      <AnimatePresence initial={false} mode="popLayout">
+        {groups.map((group) => (
+          <motion.div 
+            layout
+            key={group.label} 
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            className="relative"
+          >
+            <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-6 bg-white dark:bg-surface-500 sticky top-0 py-1 z-20 w-fit pr-4">
+              {group.label}
+            </h3>
+            
+            <div className="space-y-8">
+              <AnimatePresence initial={false}>
+                {group.items.map((item, idx) => {
+                  const category = categoryFromEvent(item.event);
+                  const Icon = EVENT_ICONS[item.event] || History;
+                  const isClickable = !!(item.document_id || item.meta?.document_id || item.meta?.document_request_id || item.meta?.request_id || item.meta?.batch_id);
+                  
+                  return (
+                    <motion.div 
+                      layout
+                      key={item.id} 
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      transition={{ 
+                        duration: 0.25, 
+                        delay: Math.min(idx * 0.05, 0.3),
+                        ease: "easeOut" 
+                      }}
+                      className={`relative flex items-start gap-5 group rounded-md p-2 -m-2 ${isClickable ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-surface-400/20" : ""}`}
+                      onClick={() => isClickable && handleItemClick(item)}
+                    >
+                      {/* Timeline marker with scale animation */}
+                      <motion.div 
+                        whileHover={{ scale: 1.1 }}
+                        className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-4 border-white dark:border-surface-500 text-white shadow-sm ring-1 ring-slate-100 dark:ring-surface-400/50 ${CATEGORY_COLORS[category]}`}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                      </motion.div>
 
-                  <div className="min-w-0 flex-1 pt-1">
-                    <div className="flex flex-wrap items-baseline gap-x-2">
-                       <p className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
-                        {friendlyEvent(item.event)}
-                      </p>
-                      <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap">
-                        {item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "—"}
-                      </span>
-                    </div>
+                      <div className="min-w-0 flex-1 pt-1">
+                        <div className="flex flex-wrap items-baseline gap-x-2">
+                           <p className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100 leading-tight">
+                            {friendlyEvent(item.event)}
+                          </p>
+                          <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                            {item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "—"}
+                          </span>
+                        </div>
 
-                    {item.label && (
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-2xl">
-                        {item.label}
-                      </p>
-                    )}
-                    
-                    {isClickable && (
-                       <div className="mt-2 flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider text-brand-500 dark:text-brand-400 group-hover:text-brand-600 transition-colors">
-                          <ExternalLink className="h-2.5 w-2.5" />
-                          <span>View Details</span>
-                          {item.meta?.document_id && (
-                            <span className="ml-1 opacity-60">#{item.meta.document_id}</span>
-                          )}
-                       </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+                        {item.label && (
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-2xl">
+                            {item.label}
+                          </p>
+                        )}
+                        
+                        {isClickable && (
+                           <div className="mt-2 flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider text-brand-500 dark:text-brand-400 group-hover:text-brand-600 transition-colors">
+                              <ExternalLink className="h-2.5 w-2.5" />
+                              <span>View Details</span>
+                           </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 };

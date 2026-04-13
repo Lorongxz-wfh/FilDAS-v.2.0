@@ -10,7 +10,7 @@ const IDLE_EVENTS: (keyof WindowEventMap)[] = [
   "focus",
 ];
 
-const LAST_ACTIVITY_KEY = "fildas_last_activity";
+const LAST_ACTIVITY_KEY = "fildocs_last_activity";
 
 /**
  * Tracks user inactivity and logs them out after `timeoutMs`.

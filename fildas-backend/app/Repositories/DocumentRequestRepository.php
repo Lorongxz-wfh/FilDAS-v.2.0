@@ -43,9 +43,14 @@ class DocumentRequestRepository
                 DB::raw('NULL as item_title'),
                 'rr.id as recipient_id',
                 DB::raw('NULL as item_id'),
-                'r.created_by_user_id',
                 'rr.office_id',
-                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN 'outgoing' ELSE 'incoming' END as direction")
+                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN 'outgoing' ELSE 'incoming' END as direction"),
+                DB::raw("CASE 
+                    WHEN r.created_by_user_id = {$userId} THEN 
+                        (SELECT COUNT(*) FROM document_request_recipients rr_act WHERE rr_act.request_id = r.id AND rr_act.status = 'submitted') > 0
+                    ELSE 
+                        rr.status IN ('pending', 'rejected')
+                END as can_act")
             ]);
 
         if (!$isQa) {
@@ -117,9 +122,14 @@ class DocumentRequestRepository
                 'dri.title as item_title',
                 'rr.id as recipient_id',
                 'dri.id as item_id',
-                'r.created_by_user_id',
                 'rr.office_id',
-                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN 'outgoing' ELSE 'incoming' END as direction")
+                DB::raw("CASE WHEN r.created_by_user_id = {$userId} THEN 'outgoing' ELSE 'incoming' END as direction"),
+                DB::raw("CASE 
+                    WHEN r.created_by_user_id = {$userId} THEN 
+                        (SELECT COUNT(*) FROM document_request_recipients rr_act WHERE rr_act.request_id = r.id AND rr_act.status = 'submitted') > 0
+                    ELSE 
+                        COALESCE((SELECT s.status FROM document_request_submissions s WHERE s.item_id = dri.id AND s.recipient_id = rr.id ORDER BY s.attempt_no DESC LIMIT 1), rr.status) IN ('pending', 'rejected')
+                END as can_act")
             ]);
 
         if (!$isQa) {

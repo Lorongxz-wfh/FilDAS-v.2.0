@@ -17,7 +17,7 @@
         </div>
         <div class="content">
             <p>Hello Administrator,</p>
-            <p>This is an automated health alert from FilDAS.</p>
+            <p>This is an automated health alert from FilDOCS.</p>
             <div class="alert-box">
                 <strong>Disk Space Critical:</strong> The system drive is currently at <strong>{{ round($diskPercentage, 1) }}%</strong> usage.
             </div>
@@ -27,7 +27,7 @@
             </p>
         </div>
         <div class="footer">
-            <p>&copy; {{ date('Y') }} FilDAS Document Workflow System</p>
+            <p>&copy; {{ date('Y') }} FilDOCS Document Workflow System</p>
         </div>
     </div>
 </body>

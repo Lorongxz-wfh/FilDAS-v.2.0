@@ -66,7 +66,7 @@ export function clearAuthUser(): void {
 
 export function clearAuthAndRedirect(reason?: "inactivity"): void {
   clearAuth();
-  localStorage.removeItem("fildas_last_activity");
+  localStorage.removeItem("fildocs_last_activity");
   const url = reason === "inactivity" ? "/login?inactive=1" : "/login";
   window.location.href = url;
 }

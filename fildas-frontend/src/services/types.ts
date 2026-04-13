@@ -1,4 +1,4 @@
-// Canonical shared types for all FilDAS service modules.
+// Canonical shared types for all FilDOCS service modules.
 
 export interface CreateDocumentPayload {
   title: string;
@@ -427,6 +427,9 @@ export interface ActivityLogItem {
     title: string;
     code: string | null;
   } | null;
+  duration_seconds?: number | null;
+  duration_human?: string | null;
+  is_loop?: boolean;
 }
 
 export type DocumentStats = {

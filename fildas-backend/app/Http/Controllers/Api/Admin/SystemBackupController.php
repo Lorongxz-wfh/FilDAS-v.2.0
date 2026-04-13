@@ -67,9 +67,9 @@ class SystemBackupController extends Controller
             $totalSize += $size;
             
             $type = 'db';
-            if (str_contains($filename, 'doc_snap_') || str_contains($filename, 'fildas-documents-') || str_contains($filename, 'docs')) {
+            if (str_contains($filename, 'doc_snap_') || str_contains($filename, 'fildocs-documents-') || str_contains($filename, 'docs')) {
                 $type = 'doc';
-            } elseif (str_contains($filename, 'fildas-full-snapshot-') || str_contains($filename, 'full')) {
+            } elseif (str_contains($filename, 'fildocs-full-snapshot-') || str_contains($filename, 'full')) {
                 $type = 'full';
             }
 
@@ -135,7 +135,7 @@ class SystemBackupController extends Controller
                     throw new \Exception("Document ZIP generation failed: file not found.");
                 }
 
-                $finalFilename = "fildas-documents-{$timestamp}.zip";
+                $finalFilename = "fildocs-documents-{$timestamp}.zip";
                 $backupPath = "{$this->backupDir}/{$finalFilename}";
                 
                 $stream = fopen($tempZip, 'r');
@@ -152,7 +152,7 @@ class SystemBackupController extends Controller
                     throw new \Exception("Full snapshot components missing.");
                 }
 
-                $finalFilename = "fildas-full-snapshot-{$timestamp}.zip";
+                $finalFilename = "fildocs-full-snapshot-{$timestamp}.zip";
                 $zipTempPath = tempnam(sys_get_temp_dir(), 'full_zip_');
                 
                 $zip = new \ZipArchive();
@@ -165,7 +165,7 @@ class SystemBackupController extends Controller
                 // Add the Documents
                 $zip->addFile($tempDocZip, "document_collection.zip");
                 
-                $zip->addFromString('readme.txt', "FilDAS Full Institutional Backup\nGenerated: " . now()->toDateTimeString() . "\nContains Database Image and Documents Archive.");
+                $zip->addFromString('readme.txt', "FilDOCS Full Institutional Backup\nGenerated: " . now()->toDateTimeString() . "\nContains Database Image and Documents Archive.");
                 $zip->close();
                 
                 $backupPath = "{$this->backupDir}/{$finalFilename}";

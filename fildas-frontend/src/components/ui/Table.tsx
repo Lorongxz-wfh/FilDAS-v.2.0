@@ -56,6 +56,9 @@ export type TableProps<T> = {
   selectedIds?: Set<string | number>;
   onToggleRow?: (id: string | number) => void;
   onToggleAll?: () => void;
+
+  // Row expansion
+  renderRowDetails?: (row: T) => React.ReactNode;
 };
 
 const alignClass = (align: Align | undefined) => {
@@ -156,7 +159,18 @@ export default function Table<T>({
   selectedIds,
   onToggleRow,
   onToggleAll,
+  renderRowDetails,
 }: TableProps<T>) {
+  const [expandedIds, setExpandedIds] = React.useState<Set<string | number>>(new Set());
+
+  const toggleExpand = (id: string | number) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const sentinelRef = React.useRef<HTMLDivElement>(null);
 
@@ -416,47 +430,64 @@ export default function Table<T>({
 
               // Standard Table view
               return (
-                <div
-                  key={key}
-                  role={clickable ? "button" : undefined}
-                  tabIndex={clickable ? 0 : undefined}
-                  onClick={clickable ? () => onRowClick?.(row) : undefined}
-                  onKeyDown={clickable ? (e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onRowClick?.(row);
-                    }
-                  } : undefined}
-                  className={[
-                    "grid gap-3 items-center px-4 py-2.5 rounded-none text-sm transition-colors group",
-                    clickable
-                      ? "cursor-pointer hover:bg-neutral-50/80 dark:hover:bg-surface-400/40"
-                      : "",
-                    isSelected ? "bg-brand-50/40 dark:bg-brand-900/10" : ""
-                  ].join(" ")}
-                  style={{ gridTemplateColumns: finalTemplate }}
-                >
-                  {selectable && (
-                    <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox 
-                        checked={isSelected}
-                        onChange={() => onToggleRow?.(key)}
-                      />
+                <React.Fragment key={key}>
+                  <div
+                    role={clickable ? "button" : undefined}
+                    tabIndex={clickable ? 0 : undefined}
+                    onClick={clickable ? () => onRowClick?.(row) : undefined}
+                    onKeyDown={clickable ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onRowClick?.(row);
+                      }
+                    } : undefined}
+                    className={[
+                      "grid gap-3 items-center px-4 py-2.5 rounded-none text-sm transition-colors group",
+                      clickable ? "cursor-pointer hover:bg-neutral-50/80 dark:hover:bg-surface-400/40" : "",
+                      isSelected ? "bg-brand-50/40 dark:bg-brand-900/10" : "",
+                      renderRowDetails && expandedIds.has(key) ? "border-l-2 border-brand-500" : ""
+                    ].join(" ")}
+                    style={{ gridTemplateColumns: finalTemplate }}
+                  >
+                    {selectable && (
+                      <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox 
+                          checked={isSelected}
+                          onChange={() => onToggleRow?.(key)}
+                        />
+                      </div>
+                    )}
+                    {columns.map((c) => (
+                      <div
+                        key={c.key}
+                        className={[
+                          "min-w-0 overflow-hidden",
+                          alignClass(c.align), 
+                          c.className ?? ""
+                        ].join(" ")}
+                      >
+                        {c.key === 'expand' ? (
+                           <button 
+                             onClick={(e) => { e.stopPropagation(); toggleExpand(key); }}
+                             className="p-1 rounded hover:bg-slate-100 dark:hover:bg-surface-400 transition-colors"
+                           >
+                             <svg 
+                               className={`h-4 w-4 transition-transform ${expandedIds.has(key) ? "rotate-180" : ""}`} 
+                               viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                             >
+                               <path d="m6 9 6 6 6-6"/>
+                             </svg>
+                           </button>
+                        ) : c.render(row)}
+                      </div>
+                    ))}
+                  </div>
+                  {renderRowDetails && expandedIds.has(key) && (
+                    <div className="bg-slate-50/50 dark:bg-surface-600/30 border-b border-neutral-100 dark:border-surface-400/50">
+                      {renderRowDetails(row)}
                     </div>
                   )}
-                  {columns.map((c) => (
-                    <div
-                      key={c.key}
-                      className={[
-                        "min-w-0 overflow-hidden",
-                        alignClass(c.align), 
-                        c.className ?? ""
-                      ].join(" ")}
-                    >
-                      {c.render(row)}
-                    </div>
-                  ))}
-                </div>
+                </React.Fragment>
               );
             })}
 

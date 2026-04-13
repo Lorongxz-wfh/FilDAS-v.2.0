@@ -1,6 +1,9 @@
 import React from "react";
 import BackButton from "../ui/buttons/BackButton";
 import Breadcrumb, { type BreadcrumbItem } from "../ui/Breadcrumb";
+import { motion, AnimatePresence } from "framer-motion";
+import { useIsMobile } from "../../hooks/useMediaQuery";
+import { Info, X } from "lucide-react";
 
 type Props = {
   // Left header
@@ -39,6 +42,12 @@ export default function DocFrame({
   onCollapseToggle,
 }: Props) {
   const [mobileRightOpen, setMobileRightOpen] = React.useState(false);
+  const isMobile = useIsMobile();
+
+  // Close mobile sheet if window is resized to desktop
+  React.useEffect(() => {
+    if (!isMobile) setMobileRightOpen(false);
+  }, [isMobile]);
 
   return (
     <div className="flex flex-1 flex-col min-h-0 overflow-hidden">
@@ -67,7 +76,7 @@ export default function DocFrame({
             </div>
           </div>
           {actions && (
-            <div className="shrink-0 flex items-center gap-2 overflow-x-auto overflow-y-hidden sm:pb-0">{actions}</div>
+            <div className="shrink-0 flex items-center gap-2">{actions}</div>
           )}
         </div>
 
@@ -164,30 +173,66 @@ export default function DocFrame({
         )}
       </div>
 
-      {/* Mobile-only bottom drawer for right panel (Details) */}
-      <div className="md:hidden shrink-0 border-t border-slate-200 dark:border-surface-400">
-        <button
-          type="button"
-          onClick={() => setMobileRightOpen((v) => !v)}
-          className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-white dark:bg-surface-600 hover:bg-slate-50 dark:hover:bg-surface-500 transition"
-        >
-          <span>Details</span>
-          <svg
-            className={`h-4 w-4 transition-transform duration-200 ${mobileRightOpen ? "rotate-180" : ""}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
+      {/* Mobile-only Bottom Sheet for right panel */}
+      <AnimatePresence>
+        {isMobile && (
+          <motion.div
+            initial={false}
+            animate={{ 
+              scale: mobileRightOpen ? 0.8 : 1, 
+              opacity: mobileRightOpen ? 0 : 1 
+            }}
+            transition={{ duration: 0.15 }}
+            className={`fixed bottom-24 right-6 z-40 md:hidden ${mobileRightOpen ? "pointer-events-none" : ""}`}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-          </svg>
-        </button>
-        {mobileRightOpen && (
-          <div className="h-[55vh] border-t border-slate-100 dark:border-surface-400 overflow-hidden flex flex-col bg-white dark:bg-surface-500">
-            {right}
-          </div>
+            <button
+              onClick={() => setMobileRightOpen(true)}
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg shadow-brand-600/20 ring-4 ring-white dark:ring-surface-500 hover:scale-105 active:scale-95 transition-all duration-150"
+            >
+              <div className="relative">
+                <Info size={28} />
+              </div>
+            </button>
+          </motion.div>
         )}
-      </div>
+
+        {mobileRightOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileRightOpen(false)}
+              className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm md:hidden"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-white dark:bg-surface-500 shadow-2xl md:hidden max-h-[85vh] flex flex-col"
+            >
+              <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-surface-400">
+                <div className="flex items-center gap-2">
+                  <div className="h-1 w-8 rounded-full bg-slate-200 dark:bg-surface-400 absolute left-1/2 -top-2 -translate-x-1/2" />
+                  <span className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-tight">
+                    Document Hub
+                  </span>
+                </div>
+                <button
+                  onClick={() => setMobileRightOpen(false)}
+                  className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-surface-400 text-slate-500 dark:text-slate-400 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                {right}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

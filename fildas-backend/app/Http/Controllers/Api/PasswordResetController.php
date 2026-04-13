@@ -89,7 +89,7 @@ class PasswordResetController extends Controller
         ]);
 
         $appUrl  = rtrim(config('app.url', 'http://localhost'), '/');
-        $appName = config('app.name', 'FilDAS');
+        $appName = config('app.name', 'FilDOCS');
 
         Mail::to($email)->queue(new PasswordResetMail(
             recipientName:    $user->full_name,

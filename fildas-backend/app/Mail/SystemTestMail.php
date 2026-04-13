@@ -20,7 +20,7 @@ class SystemTestMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'FilDAS: SMTP Connection Test Successful',
+            subject: 'FilDOCS: SMTP Connection Test Successful',
         );
     }
 

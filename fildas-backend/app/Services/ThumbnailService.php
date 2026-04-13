@@ -17,13 +17,13 @@ class ThumbnailService
         $disk = Storage::disk($diskName);
         if (!$disk->exists($filePath)) return null;
 
-        $tmpOriginal = sys_get_temp_dir() . '/fildas_orig_' . uniqid();
+        $tmpOriginal = sys_get_temp_dir() . '/fildocs_orig_' . uniqid();
         file_put_contents($tmpOriginal, $disk->get($filePath));
 
         $outputPath = 'template-thumbnails/' . Str::uuid() . '.png';
         
         // We ALWAYS generate the thumbnail locally first
-        $localTmpThumb = sys_get_temp_dir() . '/fildas_thumb_out_' . uniqid() . '.png';
+        $localTmpThumb = sys_get_temp_dir() . '/fildocs_thumb_out_' . uniqid() . '.png';
 
         try {
             if ($mimeType === 'application/pdf') {
@@ -61,7 +61,7 @@ class ThumbnailService
     {
         // Use LibreOffice to convert PDF first page to PNG
         $sofficePath = $this->getSofficePath();
-        $tempDir = sys_get_temp_dir() . '/fildas_thumb_' . uniqid();
+        $tempDir = sys_get_temp_dir() . '/fildocs_thumb_' . uniqid();
         mkdir($tempDir, 0755, true);
 
         $cmd = sprintf(
@@ -90,7 +90,7 @@ class ThumbnailService
     private function officeToThumbnail(string $filePath, string $outputPath, string $mimeType): bool
     {
         $sofficePath = $this->getSofficePath();
-        $tempDir = sys_get_temp_dir() . '/fildas_thumb_' . uniqid();
+        $tempDir = sys_get_temp_dir() . '/fildocs_thumb_' . uniqid();
         mkdir($tempDir, 0755, true);
 
         // Convert to PDF first, then to PNG

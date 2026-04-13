@@ -10,6 +10,7 @@ import {
   Cell,
   LabelList,
   Legend,
+  CartesianGrid,
 } from "recharts";
 
 export type StageDelay = {
@@ -142,10 +143,11 @@ const StageDelayChart: React.FC<{
               iconSize={8}
               wrapperStyle={{ fontSize: 11, fontWeight: 500, paddingTop: 15 }}
             />
+            <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" strokeOpacity={0.15} horizontal={false} />
             <XAxis
               type="number"
               domain={[0, maxVal * 1.15]}
-              tick={{ fontSize: 11, fontWeight: 500, fill: "currentColor" }}
+              tick={{ fontSize: 11, fontWeight: 500, fill: "#94a3b8" }}
               unit="h"
               axisLine={false}
               tickLine={false}
@@ -153,7 +155,7 @@ const StageDelayChart: React.FC<{
             <YAxis
               type="category"
               dataKey="stage"
-              tick={{ fontSize: 11, fontWeight: 500, fill: "currentColor" }}
+              tick={{ fontSize: 11, fontWeight: 500, fill: "#94a3b8" }}
               width={88}
               axisLine={false}
               tickLine={false}
@@ -167,7 +169,7 @@ const StageDelayChart: React.FC<{
                   const n = v as number;
                   return n > 0 ? `${n}h` : "—";
                 }}
-                style={{ fontSize: 11 }}
+                style={{ fontSize: 11, fill: "#94a3b8" }}
               />
               {chartData.map((entry) => (
                 <Cell

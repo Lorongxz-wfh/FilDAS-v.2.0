@@ -13,6 +13,8 @@ interface UseRealtimeUpdatesOptions {
   // Document-specific workflow update
   documentVersionId?: number | null;
   onWorkflowUpdate?: (data: any) => void;
+  // Document-specific new comment pushed from server
+  onDocumentMessage?: (message: any) => void;
 }
 
 export function useRealtimeUpdates({
@@ -23,6 +25,7 @@ export function useRealtimeUpdates({
   onWorkspaceChange,
   documentVersionId,
   onWorkflowUpdate,
+  onDocumentMessage,
 }: UseRealtimeUpdatesOptions = {}) {
   const user = getAuthUser();
   const userId = user?.id;
@@ -36,12 +39,14 @@ export function useRealtimeUpdates({
   const onRequestMessageRef = React.useRef(onRequestMessage);
   const onWorkspaceChangeRef = React.useRef(onWorkspaceChange);
   const onWorkflowUpdateRef = React.useRef(onWorkflowUpdate);
+  const onDocumentMessageRef = React.useRef(onDocumentMessage);
 
   React.useEffect(() => { onNotificationRef.current = onNotification; }, [onNotification]);
   React.useEffect(() => { onAnnouncementRef.current = onAnnouncement; }, [onAnnouncement]);
   React.useEffect(() => { onRequestMessageRef.current = onRequestMessage; }, [onRequestMessage]);
   React.useEffect(() => { onWorkspaceChangeRef.current = onWorkspaceChange; }, [onWorkspaceChange]);
   React.useEffect(() => { onWorkflowUpdateRef.current = onWorkflowUpdate; }, [onWorkflowUpdate]);
+  React.useEffect(() => { onDocumentMessageRef.current = onDocumentMessage; }, [onDocumentMessage]);
 
   // ── Private user channel — notifications ──────────────────────────────
   React.useEffect(() => {
@@ -141,13 +146,18 @@ export function useRealtimeUpdates({
     };
   }, [!!onWorkspaceChange]);
 
-  // ── Private document channel — workflow flow ─────────────────────────
+  // ── Private document channel — workflow updates + comment messages ───
   React.useEffect(() => {
     if (!documentVersionId) return;
 
     const channel = echo.private(`document.${documentVersionId}`);
+
     channel.listen(".workflow.updated", (data: any) => {
       if (onWorkflowUpdateRef.current) onWorkflowUpdateRef.current(data);
+    });
+
+    channel.listen(".message.posted", (data: any) => {
+      if (onDocumentMessageRef.current) onDocumentMessageRef.current(data);
     });
 
     return () => {

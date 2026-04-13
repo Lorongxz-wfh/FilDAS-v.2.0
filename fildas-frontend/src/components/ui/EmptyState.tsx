@@ -17,7 +17,7 @@ interface EmptyStateProps {
 }
 
 /**
- * Standardized Empty State component for FilDAS.
+ * Standardized Empty State component for FilDOCS.
  * Follows premium, utilitarian design principles with clear typography and spacing.
  */
 export default function EmptyState({
