@@ -32,13 +32,17 @@ class SystemBackupController extends Controller
 
     private function checkAccess(Request $request): void
     {
-        // Allow status checks to bypass local role check since DB might be wiped
-        if ($request->route() && $request->route()->getActionMethod() === 'status') {
+        // PERFORMANCE/ROBUSTNESS: Allow status checks to bypass local role check
+        // because the DB (and thus users table) might be undergoing a wipe/restore.
+        // We use the request from the status() method to identify the bypass.
+        if ($request->is('*/system/restore-status')) {
             return;
         }
 
         $user = $request->user();
-        if (!$user) abort(401);
+        if (!$user) {
+            abort(401, 'Unauthenticated.');
+        }
 
         $role = $this->roleNameOf($user);
         if (!in_array($role, ['qa', 'admin', 'sysadmin', 'office_head'], true)) {
@@ -648,5 +652,12 @@ class SystemBackupController extends Controller
                 ));
             } catch (\Throwable $e) {}
         }
+    }
+
+    public function unlock(Request $request)
+    {
+        $this->checkAccess($request);
+        Cache::forget('system_restore_status');
+        return response()->json(['message' => 'System state unlocked.']);
     }
 }

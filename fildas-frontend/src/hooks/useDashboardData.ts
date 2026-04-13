@@ -293,6 +293,10 @@ export function useDashboardData(role: UserRole): DashboardData {
       // Trigger a silent reload when a workflow task is assigned to/updated for this user
       loadRef(true).catch(() => {});
     },
+    onAnnouncement: () => {
+      // Refresh dashboard stats when a new announcement is broadcast
+      loadRef(true).catch(() => {});
+    },
   });
 
   const reload = useCallback(async (): Promise<ReloadResult> => {

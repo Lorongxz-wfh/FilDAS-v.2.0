@@ -40,7 +40,7 @@ Route::post('/forgot-password', [\App\Http\Controllers\Api\PasswordResetControll
 Route::post('/reset-password', [\App\Http\Controllers\Api\PasswordResetController::class, 'reset'])->middleware('throttle:6,1');
 Route::get('/offices', [OfficeController::class, 'index']);
 Route::get('/system/maintenance', [SystemHealthController::class, 'maintenance']);
-Route::get('/admin/system/backups/restore-status', [SystemBackupController::class, 'status']);
+Route::get('/system/restore-status', [SystemBackupController::class, 'status']);
 
 // ── Signed URLs (no auth middleware — signature is the guard) ──────────────
 Route::get('/document-versions/{version}/preview', [DocumentController::class, 'previewSigned'])

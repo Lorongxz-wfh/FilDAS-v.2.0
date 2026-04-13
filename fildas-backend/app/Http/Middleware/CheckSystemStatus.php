@@ -17,6 +17,19 @@ class CheckSystemStatus
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Define critical routes that must ALWAYS be accessible (Auth & UI Status)
+        // We check this FIRST to avoid any side-effects from $request->user() or DB lookups
+        $isExempt = $request->is('api/login*') || 
+                    $request->is('api/auth/logout') ||
+                    $request->is('api/forgot-password') || 
+                    $request->is('api/reset-password') ||
+                    $request->is('api/system/maintenance') ||
+                    $request->is('api/system/restore-status');
+
+        if ($isExempt) {
+            return $next($request);
+        }
+
         $status = SystemStatus::first();
         if (!$status) {
             return $next($request);
@@ -38,30 +51,6 @@ class CheckSystemStatus
         $mode = $status->maintenance_mode;
         $message = $status->maintenance_message ?? 'System is currently under maintenance.';
         $forceLogout = false;
-
-        // Check scheduling
-        if ($status->maintenance_starts_at) {
-            $now = now();
-            $startsAt = Carbon::parse($status->maintenance_starts_at);
-
-            if ($now->greaterThanOrEqualTo($startsAt)) {
-                // Timer reached: Use the saved mode and logout only if hard mode
-                $mode = $status->maintenance_mode;
-                $forceLogout = ($mode === 'hard');
-            } else {
-                // Countdown in progress: Force SOFT mode (grace period)
-                // This prevents users from starting new work during the countdown
-                $mode = 'soft';
-                $message = "Scheduled maintenance starts in " . $now->diffInMinutes($startsAt) . " minutes. Please save your work.";
-            }
-        }
-
-        // Define critical routes that must ALWAYS be accessible (Auth & UI Status)
-        $isExempt = $request->is('api/login*') || 
-                    $request->is('api/auth/logout') ||
-                    $request->is('api/forgot-password') || 
-                    $request->is('api/reset-password') ||
-                    $request->is('api/system/maintenance');
 
         // Hard Lock: Block everything except exemptions
         if ($mode === 'hard') {

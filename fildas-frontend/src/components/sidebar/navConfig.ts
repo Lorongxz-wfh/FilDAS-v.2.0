@@ -209,10 +209,10 @@ export const navGroups: NavGroup[] = [
         roles: ["SYSADMIN", "ADMIN"],
       },
       {
-        to: "/backup",
+        to: "/system/backup",
         label: "Backup",
         icon: HardDrive,
-        roles: ["QA", "ADMIN", "OFFICE_HEAD"],
+        roles: ["QA", "ADMIN", "SYSADMIN"],
       },
     ],
   },

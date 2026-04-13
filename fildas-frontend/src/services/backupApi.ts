@@ -187,7 +187,7 @@ export async function restoreDocumentBackup(filename: string): Promise<void> {
  */
 export async function getRestoreStatus(): Promise<{ status: string; message: string; progress: number }> {
   try {
-    const response = await fetch(`${API_BASE}/admin/system/backups/restore-status`, {
+    const response = await fetch(`${API_BASE}/system/restore-status`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' }
     });

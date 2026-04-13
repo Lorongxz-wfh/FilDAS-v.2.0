@@ -22,6 +22,7 @@ const NotificationBell: React.FC = () => {
   const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = React.useState(false);
+  const [hasUnseen, setHasUnseen] = React.useState<boolean>(false);
   const [unreadCount, setUnreadCount] = React.useState<number>(0);
   const [notifItems, setNotifItems] = React.useState<NotificationItem[]>([]);
   const [notifLoading, setNotifLoading] = React.useState(false);
@@ -51,6 +52,9 @@ const NotificationBell: React.FC = () => {
       setAnnouncements(ann);
       setUnreadCount(count);
       prevUnreadRef.current = count;
+      
+      // When dropdown is loaded (meaning it's open), we clear the unseen dot
+      setHasUnseen(false);
     } catch { 
       /* silent fail */
     } finally {
@@ -77,6 +81,28 @@ const NotificationBell: React.FC = () => {
   }
 
   React.useEffect(() => {
+    // Initial fetch to determine if we show the red dot
+    const init = async () => {
+      try {
+        const [count, { data }] = await Promise.all([
+          getUnreadNotificationCount(),
+          listNotifications({ page: 1, perPage: 1 })
+        ]);
+        
+        setUnreadCount(count);
+        
+        // Phase 1: Seen vs Viewed
+        // If there are unread items, check if the latest one is newer than our last 'seenAt'
+        if (count > 0 && data.length > 0) {
+          const latestTime = new Date(data[0].created_at).getTime();
+          if (latestTime > seenAtRef.current) {
+            setHasUnseen(true);
+          }
+        }
+      } catch { /* silent fail */ }
+    };
+    
+    init();
     startPolling();
     return () => stopPolling();
   }, []);
@@ -85,6 +111,7 @@ const NotificationBell: React.FC = () => {
     onNotification: React.useCallback((newNotif: any) => {
       playNotificationChime();
       setUnreadCount((prev) => prev + 1);
+      setHasUnseen(true); // New arrival = unseen
       setNotifItems((prev) => [newNotif, ...prev].slice(0, 15));
     }, []),
     onAnnouncement: React.useCallback((ann: Announcement) => {
@@ -111,6 +138,7 @@ const NotificationBell: React.FC = () => {
             setSeenAt(now);
             seenAtRef.current = now;
             localStorage.setItem(SEEN_AT_KEY, String(now));
+            setHasUnseen(false); // Clear dot immediately on click
             setIsOpen(true);
             loadDropdown();
           }
@@ -118,7 +146,7 @@ const NotificationBell: React.FC = () => {
         className={`relative rounded-md p-1.5 transition ${isOpen ? "bg-slate-100 text-brand-600 dark:bg-surface-400 dark:text-brand-400" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-surface-400 dark:hover:text-slate-200"}`}
       >
         <BellRing className={`h-4 w-4 ${isOpen ? "scale-110" : ""}`} />
-        {unreadCount > 0 && (
+        {hasUnseen && (
           <span className="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 items-center justify-center rounded-full bg-rose-600 ring-2 ring-white dark:ring-surface-500" />
         )}
       </button>

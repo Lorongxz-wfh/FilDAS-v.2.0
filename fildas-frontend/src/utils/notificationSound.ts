@@ -16,6 +16,11 @@ export function playNotificationChime() {
 
     const ctx = getAudioContext();
 
+    // Ensure context is resumed (browsers auto-suspend audio)
+    if (ctx.state === 'suspended') {
+        ctx.resume();
+    }
+
     // Two-tone soft chime
     const notes = [880, 1100];
     notes.forEach((freq, i) => {

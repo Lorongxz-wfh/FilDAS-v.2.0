@@ -127,6 +127,27 @@ class AnnouncementController extends Controller
             foreach (array_chunk($rows, 500) as $chunk) {
                 \App\Models\Notification::insert($chunk);
             }
+
+            // Real-time broadcast for each recipient
+            // Note: In extremely large environments (>5k users), this should be queued 
+            // or use a global broadcast signal to avoid blocking the request.
+            foreach ($recipientIds as $userId) {
+                try {
+                    // We broadcast a simplified version of the notification
+                    broadcast(new \App\Events\NotificationCreated($userId, [
+                        'id' => null, // ID will be fetched on dropdown open
+                        'event' => 'announcement.posted',
+                        'title' => "{$typeEmoji} Announcement: {$announcement->title}",
+                        'body' => \Illuminate\Support\Str::limit($announcement->body, 120),
+                        'created_at' => $now->toISOString(),
+                        'read_at' => null,
+                        'meta' => [
+                            'announcement_id' => $announcement->id,
+                            'type' => $announcement->type,
+                        ],
+                    ]));
+                } catch (\Throwable) {}
+            }
         }
 
         $payload = [
