@@ -181,9 +181,9 @@ class WorkflowService
             if ($version->workflow_type === 'office') {
                 // Owner office users are already added
             } else {
-                 // QA-start: find the reviewer office (first recipient)
+                 // QA-start: find the reviewer office (first recipient in creation order)
                  $firstTask = WorkflowTask::where('document_version_id', $version->id)
-                    ->where('id', WorkflowTask::where('document_version_id', $version->id)->min('id'))
+                    ->orderBy('id')
                     ->first();
                  if ($firstTask && $firstTask->assigned_office_id != $ownerOfficeId) {
                      $officeIds->push($firstTask->assigned_office_id);
@@ -474,13 +474,6 @@ class WorkflowService
                 [$vpOfficeId, $vpRoleId, $vpUserId] = $this->resolveVp($ownerOfficeId);
                 return [WorkflowSteps::STEP_OFFICE_VP_REVIEW, $vpOfficeId, $vpRoleId, $vpUserId];
             })(),
-
-            WorkflowSteps::ACTION_OFFICE_HEAD_RETURN_TO_STAFF => [
-                WorkflowSteps::STEP_OFFICE_DRAFT,
-                $ownerOfficeId,
-                null,
-                null,
-            ],
 
             WorkflowSteps::ACTION_OFFICE_VP_SEND_BACK_TO_STAFF => [
                 WorkflowSteps::STEP_OFFICE_REVIEW_FINAL_CHECK,
@@ -828,39 +821,41 @@ class WorkflowService
             if (!$doc->code) {
                 $office = \App\Models\Office::find($doc->owner_office_id);
                 if ($office) {
-                    DB::transaction(function () use ($doc, $office) {
-                        $counter = \App\Models\DocumentCounter::query()
-                            ->where('office_id', $doc->owner_office_id)
-                            ->where('doctype', $doc->doctype)
-                            ->lockForUpdate()
-                            ->first();
+                    // NOTE: No nested DB::transaction here — we are already inside the
+                    // applyAction() transaction. Adding another would create a nested
+                    // transaction on PostgreSQL and risk rolling back the entire action.
+                    // The lockForUpdate() on the counter row provides sufficient isolation.
+                    $counter = \App\Models\DocumentCounter::query()
+                        ->where('office_id', $doc->owner_office_id)
+                        ->where('doctype', $doc->doctype)
+                        ->lockForUpdate()
+                        ->first();
 
-                        if (!$counter) {
-                            $counter = \App\Models\DocumentCounter::create([
-                                'office_id' => $doc->owner_office_id,
-                                'doctype'   => $doc->doctype,
-                                'next_seq'  => 1,
-                            ]);
-                        }
+                    if (!$counter) {
+                        $counter = \App\Models\DocumentCounter::create([
+                            'office_id' => $doc->owner_office_id,
+                            'doctype'   => $doc->doctype,
+                            'next_seq'  => 1,
+                        ]);
+                    }
 
-                        $seq = (int) $counter->next_seq;
+                    $seq = (int) $counter->next_seq;
 
-                        // Skip any seq whose code is already taken (handles counter
-                        // drift from testing resets or partial transaction failures).
-                        while (\App\Models\Document::where(
-                            'code',
-                            \App\Models\Document::generateCode($office, $doc->doctype, $seq)
-                        )->exists()) {
-                            $seq++;
-                        }
+                    // Skip any seq whose code is already taken (handles counter
+                    // drift from testing resets or partial transaction failures).
+                    while (\App\Models\Document::where(
+                        'code',
+                        \App\Models\Document::generateCode($office, $doc->doctype, $seq)
+                    )->exists()) {
+                        $seq++;
+                    }
 
-                        $doc->code  = \App\Models\Document::generateCode($office, $doc->doctype, $seq);
-                        $doc->reserved_code = null;
-                        $doc->save();
+                    $doc->code        = \App\Models\Document::generateCode($office, $doc->doctype, $seq);
+                    $doc->reserved_code = null;
+                    $doc->save();
 
-                        $counter->next_seq = $seq + 1;
-                        $counter->save();
-                    });
+                    $counter->next_seq = $seq + 1;
+                    $counter->save();
                 }
             }
         }
@@ -936,25 +931,28 @@ class WorkflowService
     private function resolveVp(int $basisOfficeId): array
     {
         $vpOffice = $this->hierarchy->findVpOfficeForOfficeId($basisOfficeId);
-        if (!$vpOffice) throw new \RuntimeException('VP office not found for this office.');
+        if (!$vpOffice) throw new \RuntimeException('VP office not found for this office. Ensure the office has a parent VP cluster assigned.');
 
         $roleId = $this->hierarchy->roleId('vp');
-        $user   = $this->hierarchy->findSingleActiveUser((int) $vpOffice->id, 'vp');
-        if (!$user) throw new \RuntimeException('No VP user found for VP office ' . $vpOffice->code . '.');
+        // Soft-fail: assign to the VP office even if no specific VP user account exists yet.
+        // The task will still be routed to the office; any user in that office with the VP
+        // role can complete it. A missing user no longer blocks the entire workflow.
+        $user = $this->hierarchy->findSingleActiveUser((int) $vpOffice->id, 'vp');
 
-        return [(int) $vpOffice->id, $roleId, (int) $user->id];
+        return [(int) $vpOffice->id, $roleId, $user ? (int) $user->id : null];
     }
 
     private function resolvePresident(): array
     {
         $presOffice = $this->hierarchy->findPresidentOffice();
-        if (!$presOffice) throw new \RuntimeException('President office not found.');
+        if (!$presOffice) throw new \RuntimeException('President office not found. Ensure an office with cluster_kind="president" exists.');
 
         $roleId = $this->hierarchy->roleId('president');
-        $user   = $this->hierarchy->findSingleActiveUser((int) $presOffice->id, 'president');
-        if (!$user) throw new \RuntimeException('No President user found.');
+        // Soft-fail: same pattern as resolveVp — assign to the President office even
+        // if no specific President user account exists yet.
+        $user = $this->hierarchy->findSingleActiveUser((int) $presOffice->id, 'president');
 
-        return [(int) $presOffice->id, $roleId, (int) $user->id];
+        return [(int) $presOffice->id, $roleId, $user ? (int) $user->id : null];
     }
 
     private function notify(int $officeId, User $actor, DocumentVersion $version, string $toStatus, bool $isReject): void

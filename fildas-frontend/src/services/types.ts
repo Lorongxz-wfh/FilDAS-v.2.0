@@ -356,7 +356,6 @@ export type WorkflowActionCode =
   // QA flow
   | "QA_SEND_TO_OFFICE_REVIEW"
   | "QA_OFFICE_FORWARD_TO_VP"
-  | "QA_OFFICE_RETURN_TO_QA"
   | "QA_VP_SEND_BACK_TO_QA"
   | "QA_START_OFFICE_APPROVAL"
   | "QA_OFFICE_FORWARD_TO_VP_APPROVAL"
@@ -368,7 +367,7 @@ export type WorkflowActionCode =
   // Office flow
   | "OFFICE_SEND_TO_HEAD"
   | "OFFICE_HEAD_FORWARD_TO_VP"
-  | "OFFICE_HEAD_RETURN_TO_STAFF"
+  // OFFICE_HEAD_RETURN_TO_STAFF removed — REJECT covers the Head→Staff return path
   | "OFFICE_VP_SEND_BACK_TO_STAFF"
   | "OFFICE_START_APPROVAL"
   | "OFFICE_HEAD_FORWARD_TO_VP_APPROVAL"

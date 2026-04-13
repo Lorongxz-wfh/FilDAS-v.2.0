@@ -77,11 +77,18 @@ const Workflow: React.FC<WorkflowProps> = ({
     adminDebugMode,
   });
 
+  const lastHandledRefreshRef = React.useRef(refreshTrigger);
   React.useEffect(() => {
-    if (refreshTrigger > 0) {
+    if (refreshTrigger > 0 && refreshTrigger !== lastHandledRefreshRef.current) {
+      lastHandledRefreshRef.current = refreshTrigger;
       actions.syncAll();
+      if (state.localVersion) {
+        invalidatePreviewCache(state.localVersion.id);
+        actions.setPreviewNonce((n) => n + 1); // Force iframe to remount and refetch the URL
+      }
+      onChanged?.(); // Pull latest version
     }
-  }, [refreshTrigger, actions]);
+  }, [refreshTrigger, actions, state.localVersion, onChanged]);
 
   // ── Sync Header State to Parent ───────────────────────────
   const onHeaderStateChangeRef = React.useRef(onHeaderStateChange);
@@ -326,11 +333,6 @@ const Workflow: React.FC<WorkflowProps> = ({
                 actions.fileUpload.triggerFilePicker();
               }}
               onClickTemplates={() => setTemplatesPanelOpen(true)}
-              onReloadPreview={async () => {
-                // This logic is mostly handled in hook useEffect, but we can trigger a refresh via actions if needed
-                invalidatePreviewCache(state.localVersion!.id);
-                actions.handleActionResult({ version: state.localVersion! });
-              }}
               onDrop={actions.fileUpload.handleDrop}
               onDragOver={actions.fileUpload.handleDragOver}
               onDragLeave={actions.fileUpload.handleDragLeave}
@@ -389,6 +391,7 @@ const Workflow: React.FC<WorkflowProps> = ({
             actions.setApproverHasUploaded(true);
             actions.setSigningInBackground(false);
             actions.setSigningEditMode(false);
+            await actions.syncAll();
             if (onChanged) await onChanged();
             // Preview refresh handled by hook's useEffect watching localVersion.updated_at
           }}

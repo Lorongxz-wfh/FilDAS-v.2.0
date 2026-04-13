@@ -16,7 +16,6 @@ type Props = {
   fileInputRef: React.Ref<HTMLInputElement>;
   onOpenPreview: () => Promise<void>;
   onClickReplace: () => void;
-  onReloadPreview: () => void;
   onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
@@ -46,7 +45,6 @@ const WorkflowPreviewWrapper: React.FC<Props> = ({
   onOpenPreview,
   onClickReplace,
   onClickTemplates,
-  onReloadPreview,
   onDrop,
   onDragOver,
   onDragLeave,
@@ -101,7 +99,6 @@ const WorkflowPreviewWrapper: React.FC<Props> = ({
           onOpenPreview={onOpenPreview}
           onClickReplace={onClickReplace}
           onClickTemplates={onClickTemplates}
-          onReloadPreview={onReloadPreview}
           onDrop={onDrop}
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}

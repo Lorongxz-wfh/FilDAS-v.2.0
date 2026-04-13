@@ -186,6 +186,7 @@ const WorkflowPage: React.FC = () => {
   // ── Header action confirm modal ──────────────────────────────
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [processingKey, setProcessingKey] = useState<string | null>(null);
+  const [processingVersionAction, setProcessingVersionAction] = useState<string | null>(null);
 
   const handleHeaderActionClick = async (a: any) => {
     if (a.skipConfirm) {
@@ -559,6 +560,8 @@ const refreshAndSelectBest = React.useCallback(
                  a.key === "restore" ? Undo2 :
                  History;
 
+               const isThisActionBusy = processingVersionAction === a.key;
+
                return (
                  <Button
                    key={a.key}
@@ -570,15 +573,27 @@ const refreshAndSelectBest = React.useCallback(
                        ? "danger"
                        : "outline"
                    }
-                   onClick={() => a.onClick()}
+                   onClick={async () => {
+                     setProcessingVersionAction(a.key);
+                     try {
+                       await a.onClick();
+                     } finally {
+                       setProcessingVersionAction(null);
+                     }
+                   }}
                    disabled={
                      !!processingKey ||
+                     !!processingVersionAction ||
                      isLoadingSelectedVersion ||
                      pendingUploadPct !== null
                    }
                    tooltip={a.label}
                  >
-                   <Icon className="h-3.5 w-3.5 sm:mr-1" />
+                   {isThisActionBusy ? (
+                     <Loader2 className="animate-spin h-3.5 w-3.5 sm:mr-1" />
+                   ) : (
+                     <Icon className="h-3.5 w-3.5 sm:mr-1" />
+                   )}
                    <span>{a.label}</span>
                  </Button>
                );

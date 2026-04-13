@@ -142,7 +142,6 @@ export default function CreateWorkflowPage() {
     string,
     string[]
   > | null>(null);
-  const [uploadPct] = useState(0);
   const previewSeqRef = React.useRef(0);
 
   // ── Admin: office picker ───────────────────────────────────────────────────
@@ -524,16 +523,9 @@ export default function CreateWorkflowPage() {
                           className="block w-full text-sm text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 dark:file:bg-surface-400 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-slate-600 dark:file:text-slate-300 hover:file:bg-slate-200 dark:hover:file:bg-surface-300 disabled:opacity-60"
                         />
                         {loading && (
-                          <div className="w-24 shrink-0">
-                            <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-surface-400 overflow-hidden">
-                              <div
-                                className="h-full bg-brand-400 dark:bg-brand-300 transition-[width]"
-                                style={{ width: `${Math.max(2, uploadPct)}%` }}
-                              />
-                            </div>
-                            <p className="mt-0.5 text-[11px] text-slate-400 text-right">
-                              {uploadPct}%
-                            </p>
+                          <div className="shrink-0 flex items-center gap-1.5">
+                            <div className="h-3.5 w-3.5 rounded-full border-2 border-slate-300 dark:border-surface-400 border-t-brand-400 animate-spin" />
+                            <span className="text-[11px] text-slate-400">Saving…</span>
                           </div>
                         )}
                       </div>

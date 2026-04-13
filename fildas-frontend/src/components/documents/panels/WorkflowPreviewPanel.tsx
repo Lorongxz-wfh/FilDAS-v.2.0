@@ -187,16 +187,7 @@ const WorkflowPreviewPanel: React.FC<Props> = ({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            {onReloadPreview && (
-              <button
-                type="button"
-                onClick={onReloadPreview}
-                title="Refresh Preview"
-                className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-400 transition hover:bg-slate-50 hover:text-slate-700 dark:border-surface-400 dark:bg-surface-500 dark:text-slate-500 dark:hover:bg-surface-400 dark:hover:text-slate-200"
-              >
-                <RefreshCw size={13} />
-              </button>
-            )}
+
             {isActiveApprover && onApproverDownload && (
               <button
                 type="button"

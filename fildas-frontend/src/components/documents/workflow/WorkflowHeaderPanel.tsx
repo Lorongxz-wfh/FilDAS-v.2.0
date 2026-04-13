@@ -125,26 +125,38 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                 </Button>
               </div>
             ) : (
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={onTriggerUpload}
-                disabled={isUploading || isChangingStatus}
-              >
-                {isUploading ? "Uploading…" : "Upload signed"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={onTriggerUpload}
+                  disabled={isUploading || isChangingStatus}
+                >
+                  {isUploading ? "Uploading…" : "Upload signed"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onTriggerSign(false)}
+                  disabled={isChangingStatus || signingInBackground || !canAct}
+                >
+                  {signingInBackground && <Loader2 size={12} className="animate-spin mr-1" />}
+                  {signingInBackground ? "Signing…" : "Sign in-app"}
+                </Button>
+              </div>
             )
           }
         >
           {!approverHasDownloaded
             ? "Please choose one of the signing options below to enable forwarding."
-            : "Upload your signed copy to enable forwarding."}
+            : "Upload your signed copy or sign directly in the app to enable forwarding."}
         </Alert>
       )}
 
       {/* 2. QA Creator Signing Banner (Pre-Approval) */}
-      {isPreApprovalCreatorCheck && canAct && !hasSignedFile && (
+      {isPreApprovalCreatorCheck && !hasSignedFile && (
         <Alert
           variant="primary"
           icon={<Upload className="h-4 w-4" />}
@@ -173,12 +185,15 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
             </div>
           }
         >
-          You must sign the document before starting the formal approval phase.
+          {canAct 
+            ? "You must sign the document before starting the formal approval phase."
+            : "A signature is required from the document owner before approval can start. If you are the owner, please ensure you are logged into the correct account."
+          }
         </Alert>
       )}
 
       {/* 3. Success Banner (Signed State - Persistent) */}
-      {((isPreApprovalCreatorCheck && hasSignedFile) || (isActiveApprover && approverHasUploaded)) && canAct && (
+      {((isPreApprovalCreatorCheck && hasSignedFile) || (isActiveApprover && approverHasUploaded)) && (
         <Alert
           variant="success"
           icon={<CheckCircle2 className="h-4 w-4" />}

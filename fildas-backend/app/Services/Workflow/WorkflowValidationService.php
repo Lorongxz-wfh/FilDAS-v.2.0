@@ -113,10 +113,9 @@ class WorkflowValidationService
             WorkflowSteps::STEP_OFFICE_VP_APPROVAL,
             WorkflowSteps::STEP_OFFICE_PRES_APPROVAL,
             WorkflowSteps::STEP_CUSTOM_OFFICE_APPROVAL,
-            // Pre-approval creator double-check steps
-            WorkflowSteps::STEP_QA_REVIEW_FINAL_CHECK,
-            WorkflowSteps::STEP_OFFICE_REVIEW_FINAL_CHECK,
-            WorkflowSteps::STEP_CUSTOM_REVIEW_BACK_TO_OWNER,
+            // Review-final-check steps are NOT included here — the creator is performing
+            // a content double-check at that point, not a formal approval action.
+            // Signing is enforced by the frontend guard for the creator's own transition.
         ], true);
     }
 

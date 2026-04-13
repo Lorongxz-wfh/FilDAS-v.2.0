@@ -315,9 +315,18 @@ export function useWorkflowUI({
         previewUrlCacheRef.current = {};
         setSignedPreviewUrl("");
         setPreviewNonce((n) => n + 1);
+        await workflow.syncAll();
         if (onChangedRef.current) await onChangedRef.current();
+
+        // If the upload happened during the approval phase (i.e. the approver
+        // uploaded their signed copy), unblock the Forward button immediately.
+        // Without this, approverHasUploaded only becomes true after a page
+        // refresh restores it via the activity log (hasLoggedSignature).
+        if (v?.signed_file_path) {
+          setApproverHasUploaded(true);
+        }
       },
-      [handleActionResult, onChangedRef]
+      [workflow.syncAll, handleActionResult, onChangedRef]
     ),
   });
 
@@ -411,7 +420,14 @@ export function useWorkflowUI({
     : null, [currentGlobalIndex, activeFlowSteps]);
 
   const assignedOfficeId = currentTask?.assigned_office_id ?? null;
-  const canAct = useMemo(() => adminDebugMode || (!!assignedOfficeId && Number(myOfficeId) === Number(assignedOfficeId)), [adminDebugMode, assignedOfficeId, myOfficeId]);
+  const canAct = useMemo(() => {
+    const isAdmin = adminDebugMode;
+    const isAssigned = !!assignedOfficeId && Number(myOfficeId) === Number(assignedOfficeId);
+    if (!isAssigned && !isAdmin && assignedOfficeId) {
+      console.debug(`[Workflow] Permission denied: myOfficeId(${myOfficeId}) !== assignedOfficeId(${assignedOfficeId})`);
+    }
+    return isAdmin || isAssigned;
+  }, [adminDebugMode, assignedOfficeId, myOfficeId]);
 
   // ── Signing state ─────────────────────────────────────────────────────
   const isInApprovalPhase = useMemo(() => {
@@ -423,11 +439,6 @@ export function useWorkflowUI({
     if (s === "For Office Head Approval") return true;
     if (s === "For Staff Approval Check") return true;
     if (/^For .+ Approval$/.test(s)) return true;
-
-    // Bridge statuses where creator signs before Approval phase starts
-    if (s === "For QA Review Check") return true;
-    if (s === "For Staff Review Check") return true;
-    if (s === "For Owner Review Check") return true;
 
     return false;
   }, [localVersion?.status]);
@@ -454,8 +465,19 @@ export function useWorkflowUI({
   
 
   const [approverHasDownloaded, setApproverHasDownloaded] = useState(false);
-  const [approverHasUploaded, setApproverHasUploaded] = useState(false); // Reset to false by default for consistency
-  const approverNeedsSignedUpload = isActiveApprover && canAct && (!approverHasDownloaded || !approverHasUploaded);
+  const [approverHasUploaded, setApproverHasUploaded] = useState(false);
+  const approverNeedsSignedUpload = isActiveApprover && (!approverHasDownloaded || !approverHasUploaded);
+
+  // Reset signing state whenever the document moves to a new step
+  const prevStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    const currentStatus = localVersion?.status ?? null;
+    if (currentStatus && prevStatusRef.current && currentStatus !== prevStatusRef.current) {
+      setApproverHasDownloaded(false);
+      setApproverHasUploaded(false);
+    }
+    prevStatusRef.current = currentStatus;
+  }, [localVersion?.status]);
 
   const isDraftStatus = localVersion?.status === "Draft" || localVersion?.status === "Office Draft";
   const needsFileReplacement = isDraftStatus && canAct && !!(localVersion as any)?.needs_file_replacement;
@@ -526,7 +548,7 @@ export function useWorkflowUI({
         key: code,
         label,
         confirmMessage,
-        loading: (isRegisterAction && isRegisterModalOpen) || (isDistributeAction && isDistributeModalOpen) || (workflow.isChangingStatus && code === activeWorkflowCode),
+        loading: workflow.isChangingStatus && code === activeWorkflowCode,
         variant: (code === "REJECT" || code === "CANCEL_DOCUMENT") ? "danger" : "primary",
         disabled:
           workflow.isChangingStatus ||
