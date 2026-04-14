@@ -147,7 +147,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                       variant="primary"
                       size="sm"
                       onClick={onTriggerUpload}
-                      disabled={isUploading || isChangingStatus}
+                      disabled={isUploading || isChangingStatus || signingInBackground || !canAct}
                     >
                       {isUploading ? "Uploading…" : "Upload signed"}
                     </Button>
@@ -192,7 +192,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                     variant="primary"
                     size="sm"
                     onClick={onTriggerUpload}
-                    disabled={isUploading || isChangingStatus || !canAct}
+                    disabled={isUploading || isChangingStatus || signingInBackground || !canAct}
                   >
                     {isUploading ? "Uploading…" : "Upload signed"}
                   </Button>

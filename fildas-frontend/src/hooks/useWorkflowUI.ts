@@ -189,7 +189,7 @@ export function useWorkflowUI({
         }
       });
     return () => { alive = false; };
-  }, [localVersion?.id, localVersion?.preview_path]);
+  }, [localVersion?.id, localVersion?.preview_path, localVersion?.updated_at]);
 
   const handleActionResult = useCallback(
     (res: { version: DocumentVersion; message?: string }) => {

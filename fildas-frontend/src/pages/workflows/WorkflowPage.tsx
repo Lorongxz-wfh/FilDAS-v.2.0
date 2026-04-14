@@ -58,6 +58,7 @@ const WorkflowPage: React.FC = () => {
   const params = useParams();
   const id = Number(params.id);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const role = getUserRole();
   const isAdmin = role === "ADMIN" || role === "SYSADMIN";
@@ -159,7 +160,6 @@ const WorkflowPage: React.FC = () => {
         preferVersionId: selectedVersion?.id,
       });
 
-      // Trigger deep sync of tasks/comments/logs/preview in Workflow.tsx
       setDocRefreshTrigger((prev) => prev + 1);
 
       const statusChanged = selectedVersion?.status !== prevStatus;
@@ -167,13 +167,14 @@ const WorkflowPage: React.FC = () => {
       const contentUpdated = selectedVersion?.updated_at !== prevUpdatedAt;
 
       if (statusChanged || newVersionAdded || contentUpdated) {
-        return "Document workspace updated.";
+        toast.push({ type: "success", title: "Refreshed", message: "Document workspace updated." });
+      } else {
+        toast.push({ type: "info", title: "Refreshed", message: "Document is up to date." });
       }
-      return "Document is up to date.";
     } catch {
-      return "Refresh failed.";
+      toast.push({ type: "error", title: "Refresh failed", message: "Could not sync workspace." });
     }
-  }, [refreshAndSelectBest, selectedVersion?.id, selectedVersion?.status, selectedVersion?.updated_at, allVersions.length]);
+  }, [refreshAndSelectBest, selectedVersion?.id, selectedVersion?.status, selectedVersion?.updated_at, allVersions.length, toast]);
 
   useEffect(() => {
     if (initialMountRef.current) {
@@ -211,7 +212,6 @@ const WorkflowPage: React.FC = () => {
   const [rightCollapsed, setRightCollapsed] = useState(false);
 
   // ── Pending file upload (from create page async redirect) ─────────────────
-  const toast = useToast();
   const [pendingUploadPct, setPendingUploadPct] = useState<number | null>(null);
   const pendingFileRef = React.useRef<File | null>(
     (location.state as any)?.pendingFile ?? null,
