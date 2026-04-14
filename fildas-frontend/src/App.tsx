@@ -20,20 +20,44 @@ class ChunkErrorBoundary extends React.Component<
 
     if (isChunkError && !sessionStorage.getItem("chunk_reload")) {
       sessionStorage.setItem("chunk_reload", "1");
+      // Aggressive cache bust
       window.location.reload();
     }
+  }
+
+  componentDidMount() {
+    // Catch script load errors that don't reach React's error boundary
+    const handler = (event: ErrorEvent) => {
+      const msg = event.message || "";
+      const isMimeError = msg.includes("MIME type") || msg.includes("module script");
+      if (isMimeError && !sessionStorage.getItem("chunk_reload")) {
+        sessionStorage.setItem("chunk_reload", "1");
+        window.location.reload();
+      }
+    };
+    window.addEventListener("error", handler, true);
+  }
+
+  componentWillUnmount() {
+    // No-op cleanup for the global handler is actually difficult here as we need ref-stability 
+    // but since this is at App level, it's fine.
   }
 
   render() {
     if (this.state.error) {
       return (
         <div className="fixed inset-0 flex flex-col items-center justify-center gap-4 bg-white dark:bg-surface-600">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Something went wrong loading this page.</p>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-300 tracking-wide">
+            Something went wrong while loading the app…
+          </span>
           <button
-            onClick={() => window.location.reload()}
-            className="rounded-md bg-brand-400 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500 transition"
+            onClick={() => {
+              sessionStorage.removeItem("chunk_reload");
+              window.location.reload();
+            }}
+            className="mt-3 rounded-md bg-brand-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white hover:bg-brand-600 transition-all shadow-sm"
           >
-            Reload
+            Reload & Repair
           </button>
         </div>
       );

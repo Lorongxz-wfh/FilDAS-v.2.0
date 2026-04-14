@@ -881,12 +881,13 @@ class ReportsController extends Controller
     {
         $user     = $request->user();
         $roleName = $this->roleNameOf($user);
-        $qaOfficeId = (int) ($this->clusterAnalysis->officeIdByCode('QA') ?? 0);
         $userOfficeId = (int) ($user?->office_id ?? 0);
         $isQA = ($roleName === 'qa') || ($qaOfficeId && $userOfficeId === $qaOfficeId);
         $isAdmin = in_array($roleName, ['admin', 'sysadmin'], true);
+        $isOfficeHead = ($roleName === 'office_head');
+        $isOfficeStaff = ($roleName === 'office_staff');
 
-        if (!$isQA && !$isAdmin) {
+        if (!$isQA && !$isAdmin && !$isOfficeHead && !$isOfficeStaff) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -899,14 +900,11 @@ class ReportsController extends Controller
         ]);
 
         $officeId = null;
-        if (isset($data['office_id'])) {
+        if (($isOfficeHead || $isOfficeStaff) && $userOfficeId) {
+            // Hardlock Office users to their own office stats
+            $officeId = $userOfficeId;
+        } elseif (isset($data['office_id'])) {
             $officeId = (int) $data['office_id'];
-        } elseif (isset($data['parent']) && $data['parent'] !== 'ALL') {
-            // For activity logs, we might want to filter by any office in a cluster. 
-            // However, the service currently takes a single office_id. 
-            // For 'all analytics', we'll support the specific office_id if provided.
-            // If parent is provided, we can either update the service to handle multiple IDs 
-            // or just pick the first one for now. Let's keep it simple for this phase.
         }
 
         $stats = $this->activityReport->getActivityStats([
