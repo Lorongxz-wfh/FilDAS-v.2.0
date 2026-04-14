@@ -39,7 +39,7 @@ const TABS_OFFICE_HEAD: { key: Tab; label: string; icon: React.ReactNode }[] = [
 ];
 
 const TABS_OFFICE_STAFF: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: "overview", label: "My Stats", icon: <LayoutDashboard className="h-3.5 w-3.5" /> },
+  { key: "overview", label: "Workflow Performance", icon: <LayoutDashboard className="h-3.5 w-3.5" /> },
   { key: "requests", label: "My Requests", icon: <FileQuestion className="h-3.5 w-3.5" /> },
 ];
 
@@ -70,9 +70,10 @@ const ReportsPage: React.FC = () => {
   const qaMode = isQA(role);
   const isOfficeHead = role === "OFFICE_HEAD";
   const isOfficeStaff = role === "OFFICE_STAFF";
-  const isVP = role?.startsWith("VP");
+  const isVP = ["VPAA", "VPAD", "VPF", "VPR"].includes(role);
   const isPresident = role === "PRESIDENT";
   const isAdmin = role === "ADMIN" || role === "SYSADMIN";
+  const isRestricted = isOfficeHead || role === "OFFICE_STAFF";
 
   const getTabs = () => {
     if (qaMode) return TABS_QA;
@@ -310,6 +311,7 @@ const ReportsPage: React.FC = () => {
           <div className="w-72 shrink-0 border-l border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-y-auto hidden lg:block">
             <ReportFilters
               isOfficeHead={isOfficeHead}
+              isRestricted={isRestricted}
               me={me}
               activeFilterCount={activeFilterCount}
               officesList={officesList}

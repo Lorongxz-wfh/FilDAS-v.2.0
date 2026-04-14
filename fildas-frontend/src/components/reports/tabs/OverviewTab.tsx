@@ -134,7 +134,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
       </ReportChartCard>
 
       {/* Activity Summary */}
-      {(qaMode || role === "ADMIN" || role === "SYSADMIN") && (
+      {(qaMode || role === "ADMIN" || role === "SYSADMIN" || role === "OFFICE_HEAD" || role === "OFFICE_STAFF") && (
         <div className="relative group/snap">
           <div className="sm:hidden absolute right-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none animate-pulse-slow">
             <div className="bg-white/80 dark:bg-surface-600/80 backdrop-blur-sm p-1.5 rounded-full shadow-md border border-slate-200 dark:border-surface-400">

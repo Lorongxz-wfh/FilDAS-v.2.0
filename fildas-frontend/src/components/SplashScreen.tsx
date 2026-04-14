@@ -18,8 +18,8 @@ export default function SplashScreen() {
         requestAnimationFrame(() => setPhase("visible"));
       });
       // Standard animation flow
-      exitTimer = setTimeout(() => setPhase("exit"), 1700);
-      hiddenTimer = setTimeout(() => setPhase("hidden"), 2050);
+      exitTimer = setTimeout(() => setPhase("exit"), 1300);
+      hiddenTimer = setTimeout(() => setPhase("hidden"), 1700);
 
       // EMERGENCY FAIL-SAFE: Force hide after 5 seconds if timers above somehow stall
       setTimeout(() => setPhase("hidden"), 5000);

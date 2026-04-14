@@ -13,6 +13,7 @@ interface ReportFiltersProps {
   onClear: () => void;
   activeFilterCount: number;
   isOfficeHead: boolean;
+  isRestricted?: boolean;
   me: any;
   scope: Scope;
   setScope: (scope: Scope) => void;
@@ -35,6 +36,7 @@ const ReportFilters: React.FC<ReportFiltersProps> = ({
   onClear,
   activeFilterCount,
   isOfficeHead,
+  isRestricted = false,
   me,
   scope,
   setScope,
@@ -91,8 +93,8 @@ const ReportFilters: React.FC<ReportFiltersProps> = ({
         </div>
       )}
 
-      {/* View by — hidden for office head */}
-      {!isOfficeHead && (
+      {/* View by — hidden for restricted roles */}
+      {!isRestricted && (
         <div>
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
             View by
@@ -122,8 +124,8 @@ const ReportFilters: React.FC<ReportFiltersProps> = ({
         </div>
       )}
 
-      {/* Cluster picker */}
-      {!isOfficeHead && scope === "clusters" && (
+      {/* Cluster picker — hidden for restricted roles */}
+      {!isRestricted && scope === "clusters" && (
         <div>
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
             Cluster
@@ -144,8 +146,8 @@ const ReportFilters: React.FC<ReportFiltersProps> = ({
         </div>
       )}
 
-      {/* Office picker */}
-      {!isOfficeHead && scope === "offices" && (
+      {/* Office picker — hidden for restricted roles */}
+      {!isRestricted && scope === "offices" && (
         <div>
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
             Office

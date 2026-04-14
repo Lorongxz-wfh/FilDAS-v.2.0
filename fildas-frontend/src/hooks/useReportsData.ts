@@ -98,8 +98,9 @@ export const useReportsData = ({
       if (filtersChanged) prevFilterSummaryRef.current = filterSummary;
 
       try {
-        const effectiveScope = isOfficeHead ? "offices" : scope;
-        const effectiveOfficeId = isOfficeHead
+        const isOffice = isOfficeHead || (role === "OFFICE_STAFF");
+        const effectiveScope = isOffice ? "offices" : scope;
+        const effectiveOfficeId = isOffice
           ? (me?.office_id ?? undefined)
           : scope === "offices" && officeId ? officeId : undefined;
 
@@ -131,7 +132,7 @@ export const useReportsData = ({
       }
     })();
     return () => { alive = false; };
-  }, [me, dateFrom, dateTo, bucket, parent, officeId, dateField, scope, refreshKey, isOfficeHead]);
+  }, [me, dateFrom, dateTo, bucket, parent, officeId, dateField, scope, refreshKey, isOfficeHead, role]);
 
   // ── Requests report ──────────────────────────────────────────────────────────
   React.useEffect(() => {

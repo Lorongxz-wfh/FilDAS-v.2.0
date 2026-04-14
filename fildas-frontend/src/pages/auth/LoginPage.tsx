@@ -19,7 +19,10 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState("");
   const [emailTouched, setEmailTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const { theme, toggle: toggleDark, setTheme } = useThemeContext();
 
   // 2FA Challenge States
@@ -27,6 +30,39 @@ const LoginPage: React.FC = () => {
   const [challengeId, setChallengeId] = useState("");
   const [isRecovery, setIsRecovery] = useState(false);
   const [code, setCode] = useState("");
+  const resendTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Recovery timer from localStorage
+  React.useEffect(() => {
+    const resendUntil = localStorage.getItem("fildocs_resend_2fa_until");
+    if (resendUntil) {
+      const remaining = Math.round((Number(resendUntil) - Date.now()) / 1000);
+      if (remaining > 0) {
+        setResendCooldown(remaining);
+      } else {
+        localStorage.removeItem("fildocs_resend_2fa_until");
+      }
+    }
+  }, []);
+
+  // Timer tick
+  React.useEffect(() => {
+    if (resendCooldown > 0) {
+      resendTimerRef.current = setInterval(() => {
+        setResendCooldown((prev) => {
+          if (prev <= 1) {
+            if (resendTimerRef.current) clearInterval(resendTimerRef.current);
+            localStorage.removeItem("fildocs_resend_2fa_until");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (resendTimerRef.current) clearInterval(resendTimerRef.current);
+    };
+  }, [resendCooldown > 0]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,17 +151,18 @@ const LoginPage: React.FC = () => {
       window.dispatchEvent(new Event("show_splash"));
       window.dispatchEvent(new Event("auth_user_updated"));
       
-      // Background pre-load (non-blocking)
-      import("../DashboardPage").catch(() => {});
+      // 3. INTENTIONAL PAINT DELAY: Give the browser a moment to render the splash 
+      // and stabilize storage before the heavy Lazy-loading of the dashboard starts.
+      // This prevents the "Something went wrong" race-condition crashes.
+      setTimeout(() => {
+        if (data.user?.must_change_password) {
+          navigate("/force-password-change", { replace: true });
+        } else {
+          navigate("/dashboard", { replace: true });
+        }
+      }, 100);
     } catch (sideEffectError) {
       console.error("Non-critical login side-effect failed:", sideEffectError);
-    }
-    
-    // 3. Navigate
-    if (data.user?.must_change_password) {
-      navigate("/force-password-change", { replace: true });
-    } else {
-      navigate("/dashboard", { replace: true });
     }
   };
 
@@ -351,24 +388,40 @@ const LoginPage: React.FC = () => {
                     </button>
 
                     {!isRecovery && (
-                      <button
-                        type="button"
-                        disabled={loading}
-                        onClick={async () => {
-                          setLoading(true);
-                          try {
-                            await api.post("/login/two-factor/email", { challenge_id: challengeId });
-                            setError("Verification code sent to your email."); 
-                          } catch (err: any) {
-                            setError(err?.response?.data?.message || "Failed to send email.");
-                          } finally {
-                            setLoading(false);
-                          }
-                        }}
-                        className="mt-3 text-xs font-bold text-slate-500 hover:text-brand-500 dark:text-slate-400 dark:hover:text-brand-300 transition text-center py-1"
-                      >
-                        Can't access your app? Send code to email
-                      </button>
+                      <div className="flex flex-col items-center mt-3">
+                         <button
+                            type="button"
+                            disabled={loading || isResendingEmail || resendCooldown > 0}
+                            onClick={async () => {
+                              setIsResendingEmail(true);
+                              try {
+                                await api.post("/login/two-factor/email", { challenge_id: challengeId });
+                                setSuccessMessage("Verification code sent to your email.");
+                                setError(null);
+                                
+                                // Set 5 minute cooldown
+                                const until = Date.now() + (5 * 60 * 1000);
+                                localStorage.setItem("fildocs_resend_2fa_until", String(until));
+                                setResendCooldown(5 * 60);
+                              } catch (err: any) {
+                                setError(err?.response?.data?.message || "Failed to send email.");
+                                setSuccessMessage(null);
+                              } finally {
+                                setIsResendingEmail(false);
+                              }
+                            }}
+                            className="text-xs font-bold text-slate-500 hover:text-brand-500 dark:text-slate-400 dark:hover:text-brand-300 transition text-center py-1 disabled:opacity-50 disabled:cursor-not-allowed group"
+                          >
+                            <div className="flex items-center gap-2">
+                              {isResendingEmail && <div className="h-3 w-3 rounded-full border border-slate-300 border-t-brand-500 animate-spin" />}
+                              <span>
+                                {resendCooldown > 0 
+                                  ? `Resend available in ${Math.floor(resendCooldown / 60)}:${(resendCooldown % 60).toString().padStart(2, "0")}`
+                                  : "Can't access your app? Send code to email"}
+                              </span>
+                            </div>
+                         </button>
+                      </div>
                     )}
                     
                     <button
@@ -396,9 +449,13 @@ const LoginPage: React.FC = () => {
                     </button>
                  </div>
 
-                 {error && (
-                  <div className="rounded-md border border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/40 px-4 py-3 text-xs text-rose-700 dark:text-rose-400">
-                    {error}
+                 {(error || successMessage) && (
+                  <div className={`rounded-md border px-4 py-3 text-xs transition-colors ${
+                    successMessage 
+                      ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800/50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400"
+                      : "border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400"
+                  }`}>
+                    {successMessage || error}
                   </div>
                 )}
               </form>
