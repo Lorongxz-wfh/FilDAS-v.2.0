@@ -275,6 +275,8 @@ const Workflow: React.FC<WorkflowProps> = ({
             actions.setRemovingSignature(true);
             try {
               await removeInAppSignature(state.localVersion!.id);
+              actions.setApproverHasUploaded(false);
+              actions.setApproverHasDownloaded(false);
               if (onChanged) await onChanged();
             } catch (e: any) {
               push({ type: "error", title: "Failed to remove signature", message: e?.message ?? "Could not remove signature." });
