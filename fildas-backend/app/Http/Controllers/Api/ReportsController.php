@@ -881,6 +881,7 @@ class ReportsController extends Controller
     {
         $user     = $request->user();
         $roleName = $this->roleNameOf($user);
+        $qaOfficeId = (int) ($this->clusterAnalysis->officeIdByCode('QA') ?? 0);
         $userOfficeId = (int) ($user?->office_id ?? 0);
         $isQA = ($roleName === 'qa') || ($qaOfficeId && $userOfficeId === $qaOfficeId);
         $isAdmin = in_array($roleName, ['admin', 'sysadmin'], true);
