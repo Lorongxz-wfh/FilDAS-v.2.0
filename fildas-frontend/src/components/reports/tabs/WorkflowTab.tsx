@@ -39,9 +39,9 @@ const WorkflowTab: React.FC<WorkflowTabProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <KpiCard
           loading={loading}
-          label="Total created"
+          label="Documents created"
           value={kpis.total_created}
-          sub="All document versions created"
+          sub="Total unique documents initiated"
           icon={<FileText size={16} className="text-sky-600 dark:text-sky-400" />}
           iconBg="bg-sky-50 dark:bg-sky-900/30"
         />
@@ -65,7 +65,7 @@ const WorkflowTab: React.FC<WorkflowTabProps> = ({
           loading={loading}
           label="Avg cycle time"
           value={`${kpis.cycle_time_avg_days}d`}
-          sub="Draft to distributed, avg days"
+          sub="Draft to distributed, total duration"
           icon={<Clock size={16} className="text-slate-500 dark:text-slate-400" />}
           iconBg="bg-slate-100 dark:bg-surface-400"
         />

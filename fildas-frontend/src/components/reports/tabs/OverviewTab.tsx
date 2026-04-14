@@ -45,7 +45,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
           loading={loading}
           label="All documents"
           value={kpis.total_created}
-          sub="All versions ever created"
+          sub="Total unique documents initiated"
           icon={<FileText size={16} className="text-sky-600 dark:text-sky-400" />}
           iconBg="bg-sky-50 dark:bg-sky-900/30"
         />
@@ -102,7 +102,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
           loading={loading}
           label="First pass yield"
           value={`${kpis.first_pass_yield_pct}%`}
-          sub="Docs distributed with zero returns"
+          sub="Docs distributed with NO returns"
           icon={<Percent size={16} className="text-emerald-600 dark:text-emerald-400" />}
           iconBg="bg-emerald-50 dark:bg-emerald-900/30"
         />
@@ -110,7 +110,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
           loading={loading}
           label="Avg cycle time"
           value={`${kpis.cycle_time_avg_days}d`}
-          sub="Draft to distributed, avg days"
+          sub="Draft to distributed, total days"
           icon={<Clock size={16} className="text-sky-600 dark:text-sky-400" />}
           iconBg="bg-sky-50 dark:bg-sky-900/30"
         />

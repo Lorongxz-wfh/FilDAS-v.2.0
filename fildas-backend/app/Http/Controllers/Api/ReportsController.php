@@ -380,10 +380,14 @@ class ReportsController extends Controller
             }
         }
 
-        // Created versions, filtered by date range and optionally by cluster
-        $createdQ = DocumentVersion::query()->select(['id', 'created_at']);
-        if (!empty($data['date_from'])) $createdQ->whereDate('created_at', '>=', $data['date_from']);
-        if (!empty($data['date_to']))   $createdQ->whereDate('created_at', '<=', $data['date_to']);
+        // Created unique documents, filtered by date range and optionally by cluster
+        $createdQ = DocumentVersion::query()
+            ->select('document_id', DB::raw('MIN(created_at) as first_created_at'))
+            ->groupBy('document_id');
+
+        if (!empty($data['date_from'])) $createdQ->having(DB::raw('MIN(created_at)'), '>=', $data['date_from']);
+        if (!empty($data['date_to']))   $createdQ->having(DB::raw('MIN(created_at)'), '<=', $data['date_to']);
+
         if ($clusterOfficeIds !== null) {
             $createdQ->whereExists(function ($q) use ($clusterOfficeIds) {
                 $q->select(DB::raw(1))
@@ -395,7 +399,7 @@ class ReportsController extends Controller
 
         $createdRows = $createdQ->get();
         foreach ($createdRows as $v) {
-            $label = $bucketLabel($v->created_at?->toISOString() ?? null);
+            $label = $bucketLabel($v->first_created_at ?? null);
             if (!$label) continue;
             $ensureVol($label);
             $volumeAcc[$label]['created']++;
@@ -507,10 +511,10 @@ class ReportsController extends Controller
             $vTasks = $tasksByVersion[$vid] ?? [];
             if (empty($vTasks)) continue;
 
-            // earliest opened_at among tasks for start time (fallback to created_at)
+            // earliest created_at among tasks for start time (absolute start)
             $start = null;
             foreach ($vTasks as $t) {
-                $candidate = $t->opened_at ?? $t->created_at ?? null;
+                $candidate = $t->created_at ?? null;
                 if (!$candidate) continue;
                 $dt = \Carbon\Carbon::parse($candidate);
                 if (!$start || $dt->lt($start)) $start = $dt;
@@ -555,7 +559,7 @@ class ReportsController extends Controller
             if (!$t->opened_at || !$t->completed_at) continue;
             if ($t->status !== 'completed') continue;
 
-            $startDt = \Carbon\Carbon::parse($t->opened_at);
+            $startDt = \Carbon\Carbon::parse($t->created_at);
             $endDt   = \Carbon\Carbon::parse($t->completed_at);
 
             $sec = $startDt->diffInSeconds($endDt, false);
@@ -752,9 +756,12 @@ class ReportsController extends Controller
         $inReviewCount   = (clone $openTaskBase)->where('phase', 'review')->count();
         $inApprovalCount = (clone $openTaskBase)->where('phase', 'approval')->count();
 
-        // ── Doctype distribution ──────────────────────────────────────────────────
-        $doctypeQ = DB::table('document_versions as dv')
-            ->join('documents as d', 'd.id', '=', 'dv.document_id')
+        // ── Doctype distribution (unique documents) ───────────────────────────────
+        $doctypeQ = DB::table('documents as d')
+            ->join('document_versions as dv', 'd.id', '=', 'dv.document_id')
+            ->whereIn('dv.id', function($q) {
+                $q->selectRaw('MIN(id)')->from('document_versions')->groupBy('document_id');
+            })
             ->selectRaw('d.doctype, count(*) as cnt')
             ->groupBy('d.doctype');
         if (!empty($data['date_from'])) $doctypeQ->whereDate('dv.created_at', '>=', $data['date_from']);
@@ -765,15 +772,21 @@ class ReportsController extends Controller
             'count'   => (int) $r->cnt,
         ])->values()->all();
 
-        // ── Creation by office (top 10, split by doctype) ────────────────────────
-        $creationRawQ = DB::table('document_versions as dv')
-            ->join('documents as d', 'd.id', '=', 'dv.document_id')
+        // ── Creation by office (unique documents, top 10, split by doctype) ──────
+        $creationRawQ = DB::table('documents as d')
             ->join('offices as o', 'o.id', '=', 'd.owner_office_id')
             ->selectRaw('o.code as office_code, o.name as office_name, d.doctype, count(*) as cnt')
             ->groupBy('o.code', 'o.name', 'd.doctype')
             ->orderBy('o.code');
-        if (!empty($data['date_from'])) $creationRawQ->whereDate('dv.created_at', '>=', $data['date_from']);
-        if (!empty($data['date_to']))   $creationRawQ->whereDate('dv.created_at', '<=', $data['date_to']);
+        
+        if (!empty($data['date_from']) || !empty($data['date_to'])) {
+            $creationRawQ->whereIn('d.id', function($q) use ($data) {
+                $q->select('document_id')->from('document_versions');
+                if (!empty($data['date_from'])) $q->whereDate('created_at', '>=', $data['date_from']);
+                if (!empty($data['date_to']))   $q->whereDate('created_at', '<=', $data['date_to']);
+            });
+        }
+        
         if ($clusterOfficeIds !== null) $creationRawQ->whereIn('d.owner_office_id', $clusterOfficeIds);
 
         $creationRaw = $creationRawQ->get();
