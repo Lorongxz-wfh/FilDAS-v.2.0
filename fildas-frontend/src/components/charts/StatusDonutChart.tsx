@@ -68,7 +68,7 @@ const StatusDonutChart: React.FC<FullProps> = ({
   const displayData = data.length ? data : [{ label: "Empty", value: 1, color: "#e2e8f0" }];
 
   return (
-    <div className="flex items-center gap-6">
+    <div className="flex-1 flex items-center gap-6">
       {/* Donut */}
       <div style={{ width: size, height: size, minWidth: 0 }} className="relative shrink-0">
         <ResponsiveContainer width="100%" height="100%" debounce={100}>

@@ -69,9 +69,9 @@ const Card: React.FC<{
 
   return (
     <div
-      className={`rounded-md border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden ${className}`}
+      className={`flex flex-col rounded-md border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden ${className}`}
     >
-      <div className={`flex items-start justify-between gap-3 border-b border-slate-100 dark:border-surface-400 p-3 sm:px-4 sm:py-3`}>
+      <div className={`shrink-0 flex items-start justify-between gap-3 border-b border-slate-100 dark:border-surface-400 p-3 sm:px-4 sm:py-3`}>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 leading-tight truncate">
@@ -96,7 +96,7 @@ const Card: React.FC<{
           </Button>
         )}
       </div>
-      <div className={`p-3 sm:p-4 transition-opacity duration-200`}>
+      <div className={`flex-1 flex flex-col p-3 sm:p-4 transition-opacity duration-200`}>
         {children}
       </div>
     </div>
@@ -322,11 +322,11 @@ const OfficeDashboard: React.FC<
         />
 
         {/* Document summary + pending work queue */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="relative group">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+          <div className="relative group lg:h-full">
             <div
               onScroll={onCarouselScroll}
-              className="flex sm:grid grid-cols-1 gap-4 lg:grid-cols-1 overflow-x-auto sm:overflow-visible snap-x snap-mandatory hide-scrollbar pb-1 sm:pb-0"
+              className="flex sm:grid grid-cols-1 gap-4 lg:grid-cols-1 overflow-x-auto sm:overflow-visible snap-x snap-mandatory hide-scrollbar pb-1 sm:pb-0 h-full"
             >
               <Card
                 title="My document summary"
@@ -335,7 +335,7 @@ const OfficeDashboard: React.FC<
                   label: "Open library",
                   onClick: () => navigate("/documents"),
                 }}
-                className="min-w-[88vw] sm:min-w-0 snap-center"
+                className="min-w-[88vw] sm:min-w-0 snap-center h-full"
                 loading={loading}
                 hasData={!!stats}
               >
@@ -360,7 +360,9 @@ const OfficeDashboard: React.FC<
             </div>
           </div>
 
-          <DashboardPendingList items={pendingActions} loading={loading} hasData={!!pendingActions?.length} />
+          <div className="h-full">
+            <DashboardPendingList items={pendingActions} loading={loading} hasData={!!pendingActions?.length} />
+          </div>
         </div>
 
         {/* Recent activity */}

@@ -16,7 +16,7 @@ const DashboardPendingList: React.FC<Props> = ({ items, loading, hasData }) => {
   const navigate = useNavigate();
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden">
+    <div className="h-full flex flex-col rounded-md border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-200 dark:border-surface-400 px-4 py-3">
         <div className="flex items-center gap-2">
@@ -35,7 +35,7 @@ const DashboardPendingList: React.FC<Props> = ({ items, loading, hasData }) => {
       </div>
 
       {/* List container with fade */}
-      <div className="relative h-[240px] overflow-hidden">
+      <div className="relative flex-1 min-h-[240px] overflow-hidden">
         <div 
           key={items.length} // Force re-mount animation if count changes
           className={`divide-y divide-slate-100 dark:divide-surface-400 transition-opacity duration-200 ${loading && hasData ? "opacity-60" : "opacity-100"} ${!loading && hasData ? "animate-pulse-highlight" : ""}`}
