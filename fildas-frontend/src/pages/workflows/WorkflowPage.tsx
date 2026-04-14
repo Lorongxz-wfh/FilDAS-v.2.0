@@ -30,7 +30,8 @@ import { replaceDocumentVersionFileWithProgress } from "../../services/documents
 import { useToast } from "../../components/ui/toast/ToastContext";
 import { getUserRole } from "../../lib/roleFilters";
 import { getAuthUser } from "../../lib/auth";
-import { useRefresh } from "../../lib/RefreshContext";
+
+
 import { 
   FileX,
   Share2,
@@ -117,7 +118,8 @@ const WorkflowPage: React.FC = () => {
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
   const [isLoadingSelectedVersion, setIsLoadingSelectedVersion] =
     useState(false);
-  const [docRefreshTrigger, setDocRefreshTrigger] = useState(0);
+
+
 
 
 
@@ -680,7 +682,6 @@ const WorkflowPage: React.FC = () => {
                 await refreshAndSelectBest({ preferVersionId: preferId });
               }, [selectedVersion?.id, refreshAndSelectBest])}
               onRightPanelContent={setRightPanelContent}
-              refreshTrigger={docRefreshTrigger}
             />
           </div>
         }
