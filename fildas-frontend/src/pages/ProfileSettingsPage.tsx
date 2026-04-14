@@ -36,10 +36,11 @@ import { Tabs } from "../components/ui/Tabs";
 import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import SelectDropdown from "../components/ui/SelectDropdown";
-import { PageActions, RefreshAction } from "../components/ui/PageActions";
+import { PageActions } from "../components/ui/PageActions";
 import { inputCls } from "../utils/formStyles";
 import { useToast } from "../components/ui/toast/ToastContext";
 import { useThemeContext } from "../lib/ThemeContext";
+import { useRefresh } from "../lib/RefreshContext";
 import { normalizeError } from "../lib/normalizeError";
 import { getUserRole, isAuditor } from "../lib/roleFilters";
 import { PasswordRequirements, validatePassword } from "../components/auth/PasswordRequirements";
@@ -140,6 +141,17 @@ const ProfileSettingsPage: React.FC = () => {
     }
   };
 
+  const { refreshKey } = useRefresh();
+  const initialMountRef = Object.assign(React.useRef(true), {});
+
+  useEffect(() => {
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      return;
+    }
+    handleRefresh();
+  }, [refreshKey]);
+
   // ── Sync Profile Form ─────────────────────────────────────────────────────
   useEffect(() => {
     if (user) {
@@ -213,13 +225,7 @@ const ProfileSettingsPage: React.FC = () => {
       fullHeight
       onBack={() => navigate(-1)}
       right={
-        <PageActions>
-          <RefreshAction
-            onRefresh={handleRefresh}
-            loading={refreshing}
-            title="Refresh activity logs"
-          />
-        </PageActions>
+        <PageActions />
       }
       contentClassName="flex flex-col min-h-0 h-full overflow-hidden bg-slate-50/50 dark:bg-black/10"
     >

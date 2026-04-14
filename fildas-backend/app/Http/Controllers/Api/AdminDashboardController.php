@@ -42,7 +42,6 @@ class AdminDashboardController extends Controller
         if (!empty($data['date_to'])) {
             $docQuery->where('created_at', '<=', $data['date_to']);
         }
-
         $totalDocuments = $docQuery->count();
         
         $distQuery = Document::whereHas('latestVersion', function ($v) use ($data) {
@@ -52,20 +51,19 @@ class AdminDashboardController extends Controller
         });
         $distributedDocuments = $distQuery->count();
 
-        $progQuery = Document::whereHas('latestVersion', function ($v) use ($data) {
+        $progQuery = Document::whereHas('latestVersion', function ($v) {
             $v->whereNotIn('status', ['Distributed', 'Cancelled', 'Superseded', 'Draft', 'Office Draft']);
-            // For in-progress, we usually count those active in the period, 
-            // but created_at filter on the document is safer for "Volume" charts.
         });
-        if (!empty($data['date_from'])) $progQuery->where('created_at', '>=', $data['date_from']);
-        if (!empty($data['date_to']))   $progQuery->where('created_at', '<=', $data['date_to']);
+        // Use updated_at for in-progress to capture documents active during the period
+        if (!empty($data['date_from'])) $progQuery->where('updated_at', '>=', $data['date_from']);
+        if (!empty($data['date_to']))   $progQuery->where('updated_at', '<=', $data['date_to']);
         
         $inProgressDocuments = $progQuery->count();
 
-        // Document phase breakdown (Filtered by creation date)
+        // Document phase breakdown (Filtered by activity period)
         $phaseBase = Document::query();
-        if (!empty($data['date_from'])) $phaseBase->where('created_at', '>=', $data['date_from']);
-        if (!empty($data['date_to']))   $phaseBase->where('created_at', '<=', $data['date_to']);
+        if (!empty($data['date_from'])) $phaseBase->where('updated_at', '>=', $data['date_from']);
+        if (!empty($data['date_to']))   $phaseBase->where('updated_at', '<=', $data['date_to']);
 
         $docsByPhase = [
             'draft'        => (clone $phaseBase)->whereHas('latestVersion', fn($q) => $q->whereIn('status', ['Draft', 'Office Draft']))->count(),
@@ -108,6 +106,10 @@ class AdminDashboardController extends Controller
             'date_to'   => $data['date_to'] ?? null,
         ]);
 
+        $allTimeRequests = DB::table('document_requests')->count();
+        $openRequests    = DB::table('document_requests')->where('status', 'open')->count();
+        $allTimeDocs     = DB::table('documents')->count();
+
         return response()->json([
             'users' => [
                 'total'        => $totalUsers,
@@ -121,10 +123,15 @@ class AdminDashboardController extends Controller
                 'active' => $activeOffices,
             ],
             'documents' => [
-                'total'       => $totalDocuments,
-                'distributed' => $distributedDocuments,
-                'in_progress' => $inProgressDocuments,
-                'by_phase'    => $docsByPhase,
+                'total_all_time' => $allTimeDocs,
+                'new_arrivals'   => $totalDocuments,
+                'distributed'    => $distributedDocuments,
+                'in_progress'    => $inProgressDocuments,
+                'by_phase'       => $docsByPhase,
+            ],
+            'requests' => [
+                'total_all_time' => $allTimeRequests,
+                'open'           => $openRequests,
             ],
             'activity' => $activityStats,
         ]);

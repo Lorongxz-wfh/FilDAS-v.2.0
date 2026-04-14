@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import PageFrame from "../../components/layout/PageFrame";
 import Button from "../../components/ui/Button";
-import { PageActions, RefreshAction, CreateAction } from "../../components/ui/PageActions";
+import { PageActions, CreateAction } from "../../components/ui/PageActions";
 import Skeleton from "../../components/ui/loader/Skeleton";
 import { useSmartRefresh } from "../../hooks/useSmartRefresh";
 import {
@@ -553,10 +553,6 @@ const AnnouncementsPage: React.FC = () => {
       onBack={handleBack}
       right={
         <PageActions>
-          <RefreshAction
-            onRefresh={refresh}
-            loading={isRefreshing || loading}
-          />
           <Button
             variant="outline"
             size="sm"

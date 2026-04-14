@@ -1,5 +1,4 @@
 import Button from "./Button";
-import RefreshButton from "./RefreshButton";
 import { Plus, Archive, FileDown, Upload, Trash2 } from "lucide-react";
 
 /**
@@ -42,26 +41,6 @@ export function CreateAction({
   );
 }
 
-/**
- * A wrapper for RefreshButton to keep things in one place.
- */
-export function RefreshAction({
-  onRefresh,
-  loading,
-  title = "Refresh",
-}: {
-  onRefresh: () => void | Promise<any>;
-  loading: boolean;
-  title?: string;
-}) {
-  return (
-    <RefreshButton
-      onRefresh={onRefresh as any}
-      loading={loading}
-      title={title}
-    />
-  );
-}
 
 /**
  * Standardizes the "Archive" link/button.

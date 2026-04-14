@@ -1,6 +1,7 @@
 import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import MainLayout from "../../layout/MainLayout";
+import { RefreshProvider } from "../RefreshContext";
 import { getAuthToken, logoutUser } from "../auth";
 import { useIdleTimeout } from "../../hooks/useIdleTimeout";
 import api from "../../services/api";
@@ -52,9 +53,11 @@ export default function ProtectedLayout() {
 
   return (
     <>
-      <MainLayout onLogout={handleLogout} noBodyScroll={true}>
-        <Outlet />
-      </MainLayout>
+      <RefreshProvider>
+        <MainLayout onLogout={handleLogout} noBodyScroll={true}>
+          <Outlet />
+        </MainLayout>
+      </RefreshProvider>
 
       {showWarning && (
         <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/40">

@@ -6,6 +6,7 @@ import {
   Link,
 } from "react-router-dom";
 import PageFrame from "../../components/layout/PageFrame";
+import { useRefresh } from "../../lib/RefreshContext";
 
 import { getAuthUser } from "../../lib/auth";
 import { isAdmin } from "../../lib/roleFilters";
@@ -33,7 +34,7 @@ import {
   Megaphone,
   FileIcon,
 } from "lucide-react";
-import { PageActions, RefreshAction } from "../../components/ui/PageActions";
+import { PageActions } from "../../components/ui/PageActions";
 import { useRealtimeUpdates } from "../../hooks/useRealtimeUpdates";
 import { roleLower, TabBar } from "../../components/documentRequests/shared";
 import RequestHeaderCard from "../../components/documentRequests/RequestHeaderCard";
@@ -145,6 +146,33 @@ export default function RequestPage() {
   const [reviewing, setReviewing] = React.useState(false);
 
   const [refreshing, setRefreshing] = React.useState(false);
+  
+  const { refreshKey } = useRefresh();
+  const initialMountRef = Object.assign(React.useRef(true), {});
+
+  const handleManualRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    const before = msgCountRef.current;
+    try {
+      await Promise.all([load(), loadMessages()]);
+      const after = msgCountRef.current;
+      const diff = after - before;
+      if (diff > 0) return `${diff} new message${diff === 1 ? "" : "s"} received.`;
+      return "Already up to date.";
+    } catch {
+      // throw new Error("Refresh failed.");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load, loadMessages]);
+
+  React.useEffect(() => {
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      return;
+    }
+    handleManualRefresh();
+  }, [refreshKey, handleManualRefresh]);
 
   const msgCountRef = React.useRef(messages.length);
   React.useEffect(() => {
@@ -726,10 +754,6 @@ export default function RequestPage() {
               <span>View in Library</span>
             </Button>
           )}
-          <RefreshAction
-            onRefresh={handleRefresh}
-            loading={refreshing || loading}
-          />
         </PageActions>
       }
     >

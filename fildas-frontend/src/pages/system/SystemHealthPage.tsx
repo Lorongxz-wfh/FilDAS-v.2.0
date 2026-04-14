@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import PageFrame from "../../components/layout/PageFrame";
 import Skeleton from "../../components/ui/loader/Skeleton";
@@ -21,7 +21,8 @@ import {
   Send,
   Timer
 } from "lucide-react";
-import { PageActions, RefreshAction, ActionButton } from "../../components/ui/PageActions";
+import { PageActions, ActionButton } from "../../components/ui/PageActions";
+import { useRefresh } from "../../lib/RefreshContext";
 import { 
   getSystemHealth, 
   updateMaintenanceMode, 
@@ -204,11 +205,22 @@ export default function SystemHealthPage() {
       setIsCancelling(false);
     }
   };
-
   useEffect(() => {
     fetchData();
     fetchLogs();
   }, [fetchData, fetchLogs]);
+
+  const { refreshKey } = useRefresh();
+  const initialMountRef = useRef(true);
+
+  useEffect(() => {
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      return;
+    }
+    fetchData();
+    fetchLogs();
+  }, [refreshKey, fetchData, fetchLogs]);
 
 
 
@@ -235,7 +247,6 @@ export default function SystemHealthPage() {
             loading={runningDiag}
             variant="secondary"
           />
-          <RefreshAction onRefresh={fetchData} loading={loading} />
         </PageActions>
       }
     >

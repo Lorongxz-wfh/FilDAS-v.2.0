@@ -22,7 +22,7 @@ import {
 import { Tabs } from "../../components/ui/Tabs";
 import { TabBar as SubTabBar } from "../../components/documentRequests/shared";
 import DeletedItemsView from "../../components/admin/DeletedItemsView";
-import { PageActions, CreateAction, RefreshAction } from "../../components/ui/PageActions";
+import { PageActions, CreateAction } from "../../components/ui/PageActions";
 import { formatDate } from "../../utils/formatters";
 import MiddleTruncate from "../../components/ui/MiddleTruncate";
 import { StatusBadge, TypePill } from "../../components/ui/Badge";
@@ -593,10 +593,6 @@ export default function RequestListPage() {
       breadcrumbs={[{ label: "Work Queue", to: "/work-queue" }]}
       right={
         <PageActions>
-          <RefreshAction
-            onRefresh={refreshRequests}
-            loading={isRefreshing}
-          />
           {canCreate && (
             <CreateAction
               label="Create request"

@@ -47,6 +47,7 @@ class DocumentController extends Controller
         private DocumentShareService $shares,
         private DocumentIndexService $docIndex,
         private OfficeHierarchyService $officeHierarchy,
+        private \App\Services\Reports\ClusterAnalysisService $clusterAnalysis,
     ) {}
 
     // GET /api/documents
@@ -80,44 +81,65 @@ class DocumentController extends Controller
 
             $roleName = $this->roleNameOf($user) ?: null;
             $isAdmin  = in_array($roleName, ['admin', 'sysadmin'], true);
+            $isVp     = in_array($roleName, ['vpaa', 'vpad', 'vpf', 'vpr'], true);
+            $isPres   = ($roleName === 'president');
 
             // 1. Base Query with Visibility Guards
             $visibleDocsQuery = Document::query();
 
-            if (!$isAdmin) {
-                if ($qaOfficeId && (int) $userOfficeId !== (int) $qaOfficeId) {
-                    // Non-QA see: 
-                    // - Docs they created (owner_office_id)
-                    // - Docs where they have an open task on the latest version
-                    $visibleDocsQuery->where(function($q) use ($userOfficeId) {
-                        $q->where('documents.owner_office_id', $userOfficeId)
-                          ->orWhereHas('latestVersion', function ($v) use ($userOfficeId) {
-                              $v->whereHas('tasks', function ($t) use ($userOfficeId) {
-                                  $t->where('workflow_tasks.status', 'open')
-                                    ->where('workflow_tasks.assigned_office_id', $userOfficeId);
-                              });
+            // Scoping logic
+            if ($isAdmin || $isPres) {
+                // System-wide
+            } elseif ($isVp) {
+                // VP Cluster Scope:
+                // 1. Docs owned by any office in the cluster
+                // 2. OR Docs where any office in the cluster has an open task
+                $vpMap = ['vpaa' => 'VA', 'vpad' => 'VAd', 'vpf' => 'VF', 'vpr' => 'VR'];
+                $clusterCode = $vpMap[$roleName] ?? null;
+                $clusterIds = $clusterCode ? $this->clusterAnalysis->officeIdsForCluster($clusterCode) : [];
+                
+                $visibleDocsQuery->where(function ($q) use ($clusterIds) {
+                    $q->whereIn('documents.owner_office_id', $clusterIds)
+                      ->orWhereHas('latestVersion', function ($v) use ($clusterIds) {
+                          $v->whereHas('tasks', function ($t) use ($clusterIds) {
+                              $t->where('workflow_tasks.status', 'open')
+                                ->whereIn('workflow_tasks.assigned_office_id', $clusterIds);
                           });
-                    });
-                }
-
-                if ($roleName === 'auditor') {
-                    // Auditor: only docs whose latest version is Distributed
-                    $visibleDocsQuery->whereHas('latestVersion', function ($v) {
-                        $v->where('document_versions.status', 'Distributed');
+                      });
+                });
+            } else {
+                // Office specific or participation
+                if ($qaOfficeId && (int) $userOfficeId !== (int) $qaOfficeId) {
+                    $visibleDocsQuery->where(function ($q) use ($userOfficeId) {
+                        $q->where('documents.owner_office_id', $userOfficeId)
+                            ->orWhereHas('latestVersion', function ($v) use ($userOfficeId) {
+                                $v->whereHas('tasks', function ($t) use ($userOfficeId) {
+                                    $t->where('workflow_tasks.assigned_office_id', $userOfficeId);
+                                });
+                            });
                     });
                 }
             }
 
-            // 3. Multi-Pass Aggregation (Cleaner and safer for different SQL engines)
-            // Total docs in range
-            $total = (clone $visibleDocsQuery)
+            if ($roleName === 'auditor') {
+                $visibleDocsQuery->whereHas('latestVersion', function ($v) {
+                    $v->where('document_versions.status', 'Distributed');
+                });
+            }
+
+            // 3. Multi-Pass Aggregation
+            // Total All Time (Absolute)
+            $totalAllTime = (clone $visibleDocsQuery)->count();
+
+            // Total Created in Period (Filtered)
+            $newArrivals = (clone $visibleDocsQuery)
                 ->where(function ($q) use ($df, $dt) {
                     if ($df) $q->where('documents.created_at', '>=', $df);
                     if ($dt) $q->where('documents.created_at', '<=', $dt . ' 23:59:59');
                 })
                 ->count();
-            
-            // Distributed count
+
+            // Distributed count (Distributed in period)
             $distributed = (clone $visibleDocsQuery)
                 ->whereHas('latestVersion', function ($v) use ($df, $dt) {
                     $v->where('status', 'Distributed');
@@ -126,18 +148,20 @@ class DocumentController extends Controller
                 })
                 ->count();
 
-            // Drafts (v0 or revision drafts)
+            // Pending Workflows (Absolute Backlog: not Distributed, not Cancelled, not Superseded)
+            $pendingWorkflows = (clone $visibleDocsQuery)
+                ->whereHas('latestVersion', function ($v) {
+                    $v->whereNotIn('status', ['Distributed', 'Cancelled', 'Superseded']);
+                })
+                ->count();
+
+            // Phase Breakdown (Absolute backlog)
             $drafts = (clone $visibleDocsQuery)
                 ->whereHas('latestVersion', function ($v) {
                     $v->whereIn('status', ['Draft', 'Office Draft']);
                 })
-                ->where(function ($q) use ($df, $dt) {
-                    if ($df) $q->where('documents.created_at', '>=', $df);
-                    if ($dt) $q->where('documents.created_at', '<=', $dt . ' 23:59:59');
-                })
                 ->count();
 
-            // Review / Check
             $reviews = (clone $visibleDocsQuery)
                 ->whereHas('latestVersion', function ($v) {
                     $v->where(function ($vv) {
@@ -145,24 +169,14 @@ class DocumentController extends Controller
                            ->orWhere('status', 'like', '%Check%');
                     });
                 })
-                ->where(function ($q) use ($df, $dt) {
-                    if ($df) $q->where('documents.created_at', '>=', $df);
-                    if ($dt) $q->where('documents.created_at', '<=', $dt . ' 23:59:59');
-                })
                 ->count();
 
-            // Approval
             $approvals = (clone $visibleDocsQuery)
                 ->whereHas('latestVersion', function ($v) {
                     $v->where('status', 'like', '%Approval%');
                 })
-                ->where(function ($q) use ($df, $dt) {
-                    if ($df) $q->where('documents.created_at', '>=', $df);
-                    if ($dt) $q->where('documents.created_at', '<=', $dt . ' 23:59:59');
-                })
                 ->count();
 
-            // Finalization (Registration / Distribution step)
             $finalizations = (clone $visibleDocsQuery)
                 ->whereHas('latestVersion', function ($v) {
                     $v->where(function ($vv) {
@@ -170,28 +184,11 @@ class DocumentController extends Controller
                            ->orWhere('status', 'like', '%Distribution%');
                     });
                 })
-                ->where(function ($q) use ($df, $dt) {
-                    if ($df) $q->where('documents.created_at', '>=', $df);
-                    if ($dt) $q->where('documents.created_at', '<=', $dt . ' 23:59:59');
-                })
                 ->count();
 
-            $stats = (object) [
-                'total' => $total,
-                'distributed_count' => $distributed,
-                'draft_count' => $drafts,
-                'review_count' => $reviews,
-                'approval_count' => $approvals,
-                'finalization_count' => $finalizations,
-            ];
-
-            $total       = (int) ($stats->total ?? 0);
-            $distributed = (int) ($stats->distributed_count ?? 0);
-
-            // 4. Pending Tasks - Optimized for Latest Version tasks ONLY
+            // 4. My Action Needed (Absolute backlog assigned specifically to current user/office)
             if ($isAdmin) {
-                // Admin sees all open tasks on versions that are currently the latest for their document
-                $pending = (int) WorkflowTask::query()
+                $myActionNeeded = (int) WorkflowTask::query()
                     ->where('workflow_tasks.status', 'open')
                     ->whereExists(function ($query) {
                         $query->select(DB::raw(1))
@@ -199,11 +196,21 @@ class DocumentController extends Controller
                             ->whereColumn('d_lat.latest_version_id', 'workflow_tasks.document_version_id');
                     })
                     ->count();
-            } elseif ($roleName === 'auditor') {
-                $pending = 0;
+            } elseif ($roleName === 'auditor' || $isPres) {
+                // President doesn't have tasks assigned to them daily, they review approval tasks
+                // but usually action needed means *current inbox*. 
+                // President sees work assigned to 'President' role/office.
+                $myActionNeeded = (int) WorkflowTask::query()
+                    ->where('workflow_tasks.status', 'open')
+                    ->where('workflow_tasks.assigned_office_id', $userOfficeId)
+                    ->whereExists(function ($query) {
+                        $query->select(DB::raw(1))
+                            ->from('documents as d_lat')
+                            ->whereColumn('d_lat.latest_version_id', 'workflow_tasks.document_version_id');
+                    })
+                    ->count();
             } else {
-                // QA and Office Users: only tasks assigned to their office on the latest version
-                $pending = (int) WorkflowTask::query()
+                $myActionNeeded = (int) WorkflowTask::query()
                     ->where('workflow_tasks.status', 'open')
                     ->where('workflow_tasks.assigned_office_id', $userOfficeId)
                     ->whereExists(function ($query) {
@@ -215,15 +222,17 @@ class DocumentController extends Controller
             }
 
             return response()->json([
-                'total' => $total,
-                'pending' => $pending,
-                'distributed' => $distributed,
+                'all_time_total'    => $totalAllTime,
+                'new_arrivals'      => $newArrivals,
+                'pending'           => $myActionNeeded,
+                'pending_workflows' => $pendingWorkflows,
+                'distributed'       => $distributed,
                 'by_phase' => [
-                    'draft'        => (int) ($stats->draft_count ?? 0),
-                    'review'       => (int) ($stats->review_count ?? 0),
-                    'approval'     => (int) ($stats->approval_count ?? 0),
-                    'finalization' => (int) ($stats->finalization_count ?? 0),
-                    'distributed'  => $distributed,
+                    'draft'        => (int) $drafts,
+                    'review'       => (int) $reviews,
+                    'approval'     => (int) $approvals,
+                    'finalization' => (int) $finalizations,
+                    'distributed'  => (int) $distributed,
                 ],
             ]);
         } catch (\Exception $e) {

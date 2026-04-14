@@ -1,6 +1,7 @@
-import { Menu, Sun, Moon, Monitor } from "lucide-react";
+import { Menu, Sun, Moon, Monitor, RefreshCw } from "lucide-react";
 import SearchBar from "./SearchBar";
 import NotificationBell from "./NotificationBell";
+import { useRefresh } from "../../lib/RefreshContext";
 
 interface NavbarProps {
   onThemeToggle?: () => void;
@@ -13,6 +14,8 @@ const Navbar: React.FC<NavbarProps> = ({
   theme = "light",
   onMobileMenuOpen,
 }) => {
+  const { triggerRefresh, isRefreshing } = useRefresh();
+
   return (
     <header className="relative z-50 h-13.5 border-b border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
       <div className="flex h-full items-center gap-3 px-4">
@@ -33,6 +36,18 @@ const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right actions */}
         <div className="flex shrink-0 items-center justify-end gap-1.5">
+          {/* Universal Refresh */}
+          <button
+            type="button"
+            onClick={triggerRefresh}
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400 transition-all duration-200 active:scale-90"
+            title="Refresh current page and sidebar"
+          >
+            <RefreshCw
+              className={`h-4.5 w-4.5 ${isRefreshing ? "animate-spin text-brand-500" : ""}`}
+            />
+          </button>
+
           {/* Theme toggle — Hidden on mobile */}
           <button
             type="button"

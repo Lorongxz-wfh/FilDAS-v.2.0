@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRefresh } from "../lib/RefreshContext";
 
 /**
  * Listens for `notifications:refresh` events and fires a burst of
@@ -60,6 +61,17 @@ export function usePageBurstRefresh(onRefresh: () => Promise<void> | void) {
       stopBurst();
     };
   }, [startBurst, stopBurst]);
+
+  const { refreshKey } = useRefresh();
+  const initialMountRef = useRef(true);
+
+  useEffect(() => {
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      return;
+    }
+    refresh();
+  }, [refreshKey, refresh]);
 
   return { refresh, refreshing };
 }

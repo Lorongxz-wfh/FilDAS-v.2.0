@@ -10,6 +10,7 @@ export type DocumentRequestProgress = {
 
 export type DocumentRequestStats = {
   active: number;
+  all_time_total?: number;
   action_required: number;
   incoming_action: number;
   outgoing_action: number;

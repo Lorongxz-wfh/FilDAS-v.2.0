@@ -10,7 +10,8 @@ import { useReportFilters } from "../../hooks/useReportFilters";
 import { getOffices } from "../../services/reportsApi";
 import { SlidersHorizontal, BarChart3, LayoutDashboard, BarChart2, FileQuestion, Activity, Users, CheckCircle2, ShieldCheck, HeartPulse } from "lucide-react";
 import { Tabs, TabContent } from "../../components/ui/Tabs";
-import { PageActions, RefreshAction } from "../../components/ui/PageActions";
+import { PageActions } from "../../components/ui/PageActions";
+import { useRefresh } from "../../lib/RefreshContext";
 
 // Tabs
 import OverviewTab from "../../components/reports/tabs/OverviewTab";
@@ -92,6 +93,18 @@ const ReportsPage: React.FC = () => {
   const [activeTab, setActiveTab] = React.useState<Tab>(initialTab);
   const [officesList, setOfficesList] = React.useState<{ id: number; name: string; code: string }[]>([]);
 
+  const { refreshKey: globalRefreshKey } = useRefresh();
+  const initialMountRef = React.useRef(true);
+
+  // Global Refresh Listener
+  React.useEffect(() => {
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      return;
+    }
+    setRefreshKey((k) => k + 1);
+  }, [globalRefreshKey]);
+
   // ── Filter state hook ────────────────────────────────────────────────────────
   const {
     dateFrom, setDateFrom,
@@ -163,14 +176,6 @@ const ReportsPage: React.FC = () => {
       contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
       right={
         <PageActions>
-          <RefreshAction
-            loading={loading}
-            onRefresh={async () => {
-              setRefreshKey((k) => k + 1);
-              return "Report data refreshed.";
-            }}
-          />
-
           <Button
             type="button"
             variant="primary"

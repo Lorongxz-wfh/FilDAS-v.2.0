@@ -22,7 +22,7 @@ import {
   ShieldCheck,
   Zap,
 } from "lucide-react";
-import { PageActions, RefreshAction } from "../../components/ui/PageActions";
+import { PageActions } from "../../components/ui/PageActions";
 import { getUserRole } from "../../lib/roleFilters";
 import { useSmartRefresh } from "../../hooks/useSmartRefresh";
 import DatePresetSwitcher, { type PresetOption } from "../../components/ui/DatePresetSwitcher";
@@ -511,10 +511,6 @@ export default function BackupAndRestorePage() {
             </div>
           </div>
 
-          <RefreshAction
-            onRefresh={refresh}
-            loading={isRefreshing || loading || backupsLoading}
-          />
         </PageActions>
       }
       contentClassName="flex flex-col bg-slate-50/50 dark:bg-surface-600"

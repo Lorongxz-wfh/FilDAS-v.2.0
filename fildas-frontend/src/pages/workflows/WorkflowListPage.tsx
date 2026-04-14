@@ -17,7 +17,7 @@ import SearchFilterBar from "../../components/ui/SearchFilterBar";
 import { formatDate } from "../../utils/formatters";
 import SelectDropdown from "../../components/ui/SelectDropdown";
 import { Tabs } from "../../components/ui/Tabs";
-import { PageActions, CreateAction, RefreshAction } from "../../components/ui/PageActions";
+import { PageActions, CreateAction } from "../../components/ui/PageActions";
 import { StatusBadge } from "../../components/ui/Badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { useBulkActions } from "../../hooks/useBulkActions";
@@ -344,7 +344,6 @@ export default function WorkflowListPage() {
       breadcrumbs={[{ label: "Work Queue", to: "/work-queue" }]}
       right={
         <PageActions>
-          <RefreshAction onRefresh={refresh} loading={isRefreshing} />
           {canCreate && (
             <CreateAction
               label="Create document"

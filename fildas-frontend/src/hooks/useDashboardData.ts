@@ -14,11 +14,13 @@ import {
 import {
   listDocumentRequests,
   listDocumentRequestInbox,
+  getDocumentRequestStats,
 } from "../services/documentRequests";
 import { type DocumentRequestRow } from "../services/types";
 import { isQA, isAuditor, type UserRole } from "../lib/roleFilters";
 import type { PendingAction } from "../services/types";
 import { useRealtimeUpdates } from "./useRealtimeUpdates";
+import { useRefresh } from "../lib/RefreshContext";
 
 const emptyReport: ComplianceReport = {
   clusters: [],
@@ -47,6 +49,7 @@ export type DashboardData = {
   report: ComplianceReport;
   adminStats: AdminDashboardStats | null;
   pendingRequestsCount: number;
+  allTimeRequestsCount: number;
   pendingRequestsInboxCount: number;
   pendingActions: PendingAction[];
   loading: boolean;
@@ -57,13 +60,15 @@ export type DashboardData = {
 };
 
 export function useDashboardData(role: UserRole): DashboardData {
+  const { refreshKey } = useRefresh();
   const [stats, setStats] = useState<DocumentStats | null>(null);
   const [pending, setPending] = useState<WorkQueueItem[]>([]);
   const [monitoring, setMonitoring] = useState<WorkQueueItem[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityLogItem[]>([]);
   const [report, setReport] = useState<ComplianceReport>(emptyReport);
   const [adminStats, setAdminStats] = useState<AdminDashboardStats | null>(null);
-  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0); // This will be the "Open Requests" (Absolute)
+  const [allTimeRequestsCount, setAllTimeRequestsCount] = useState(0); // This will be the "Total Requests" (Absolute)
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -136,12 +141,13 @@ export function useDashboardData(role: UserRole): DashboardData {
 
           // Priority 2: Reports & Requests (slightly delayed)
           setTimeout(async () => {
-             const [reportRes, reqRes] = await Promise.all([
+             const [reportRes, reqStatsRes, reqRes] = await Promise.all([
                 getComplianceReport({ 
                   date_from: dateFrom, 
                   date_to: dateTo,
                   bucket: period === "this_week" ? "daily" : period === "today" ? "daily" : "monthly"
                 }),
+                getDocumentRequestStats(), // ABSOLUTE Backlog
                 listDocumentRequests({ 
                   per_page: 8,
                   status: "open",
@@ -151,7 +157,8 @@ export function useDashboardData(role: UserRole): DashboardData {
              ]);
              
              setReport(reportRes);
-             setPendingRequestsCount(reqRes?.meta?.total ?? 0);
+             setPendingRequestsCount(reqStatsRes.active);
+             setAllTimeRequestsCount(reqStatsRes.all_time_total ?? 0);
 
              const docs = (queueRes.status === "fulfilled" ? (queueRes.value.assigned as WorkQueueItem[]) : []).map(
                (x) => ({
@@ -222,13 +229,19 @@ export function useDashboardData(role: UserRole): DashboardData {
 
           // Priority 2: Inbox & Actions
           setTimeout(async () => {
-            const inboxRes = await listDocumentRequestInbox({ 
-              per_page: 8,
-              status: "open",
-              date_from: dateFrom,
-              date_to: dateTo
-            });
+            const [reqStatsRes, inboxRes] = await Promise.all([
+                   getDocumentRequestStats(), // ABSOLUTE Backlog
+                   listDocumentRequestInbox({ 
+                    per_page: 8,
+                    status: "open",
+                    date_from: dateFrom,
+                    date_to: dateTo
+                  })
+            ]);
+
             setPendingRequestsInboxCount(inboxRes?.meta?.total ?? 0);
+            setPendingRequestsCount(reqStatsRes.active);
+            setAllTimeRequestsCount(reqStatsRes.all_time_total ?? 0);
 
             const docs = (queueRes.status === "fulfilled" ? (queueRes.value.assigned as WorkQueueItem[]) : []).map(
               (x) => ({
@@ -282,7 +295,7 @@ export function useDashboardData(role: UserRole): DashboardData {
   useEffect(() => {
     loadRef();
     // Aggressive polling deprecated. WebSockets (useRealtimeUpdates) now handle all refreshes.
-  }, [loadRef]);
+  }, [loadRef, refreshKey]);
 
   // ── Real-time Integration ──────────────────────────────────────────────
   useRealtimeUpdates({
@@ -316,6 +329,7 @@ export function useDashboardData(role: UserRole): DashboardData {
     report,
     adminStats,
     pendingRequestsCount,
+    allTimeRequestsCount,
     pendingRequestsInboxCount,
     pendingActions,
     loading,

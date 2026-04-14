@@ -462,7 +462,10 @@ export interface ActivityLogItem {
 
 export type DocumentStats = {
   total: number;
+  all_time_total?: number;
+  new_arrivals?: number;
   pending: number;
+  pending_workflows?: number;
   distributed: number;
   by_phase?: Record<string, number>;
 };
@@ -487,9 +490,15 @@ export type AdminDashboardStats = {
   offices: { total: number; active: number };
   documents: {
     total: number;
+    total_all_time?: number;
+    new_arrivals?: number;
     distributed: number;
     in_progress: number;
     by_phase?: Record<string, number>;
+  };
+  requests?: {
+    total_all_time: number;
+    open: number;
   };
   activity: ActivityReportResponse;
 };

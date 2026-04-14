@@ -1,8 +1,7 @@
 import React from "react";
 import Skeleton from "../ui/loader/Skeleton";
 import type { DocumentStats } from "../../services/documents";
-import { isQA, type UserRole } from "../../lib/roleFilters";
-import { Bell, FileText, Clock, CheckCircle2, Inbox } from "lucide-react";
+import { Bell, FileText, Clock, Inbox } from "lucide-react";
 
 type StatItem = {
   label: string;
@@ -15,19 +14,23 @@ type StatItem = {
 };
 
 type Props = {
-  role: UserRole;
   stats: DocumentStats | null;
   pendingCount: number;
-  pendingRequestsCount: number;
+  pendingWorkflowsCount: number;
+  openRequestsCount: number;
+  allTimeWorkflowsCount: number;
+  allTimeRequestsCount: number;
   loading: boolean;
   onStatClick?: (label: string) => void;
 };
 
 const DashboardStatRow: React.FC<Props> = ({
-  role,
   stats,
   pendingCount,
-  pendingRequestsCount,
+  pendingWorkflowsCount,
+  openRequestsCount,
+  allTimeWorkflowsCount,
+  allTimeRequestsCount,
   loading,
   onStatClick,
 }) => {
@@ -35,7 +38,7 @@ const DashboardStatRow: React.FC<Props> = ({
   const prevValues = React.useRef<(number | null)[]>([]);
 
   const items = React.useMemo(() => {
-    const qaItems: StatItem[] = [
+    const kpis: StatItem[] = [
       {
         label: "Action needed",
         value: pendingCount,
@@ -49,96 +52,45 @@ const DashboardStatRow: React.FC<Props> = ({
         onClick: () => onStatClick?.("Action needed"),
       },
       {
-        label: "Total documents",
-        value: stats?.total ?? 0,
+        label: "Pending workflows",
+        value: pendingWorkflowsCount,
+        icon: <Clock className="h-4 w-4" />,
+        iconColor: "text-slate-400 dark:text-slate-500",
+        valueColor: "text-slate-900 dark:text-slate-100",
+        sub: "active cycles",
+        onClick: () => onStatClick?.("In progress"),
+      },
+      {
+        label: "Open requests",
+        value: openRequestsCount,
+        icon: <Inbox className="h-4 w-4" />,
+        iconColor: "text-sky-400 dark:text-sky-400",
+        valueColor: "text-slate-900 dark:text-slate-100",
+        sub: "pending evidence",
+        onClick: () => onStatClick?.("Pending requests"),
+      },
+      {
+        label: "Total workflows",
+        value: allTimeWorkflowsCount,
         icon: <FileText className="h-4 w-4" />,
         iconColor: "text-slate-400 dark:text-slate-500",
         valueColor: "text-slate-900 dark:text-slate-100",
-        sub: "in system",
+        sub: "all-time documents",
         onClick: () => onStatClick?.("Total documents"),
       },
       {
-        label: "In progress",
-        value: stats?.pending ?? 0,
-        icon: <Clock className="h-4 w-4" />,
+        label: "Total requests",
+        value: allTimeRequestsCount,
+        icon: <Inbox className="h-4 w-4" />,
         iconColor: "text-slate-400 dark:text-slate-500",
         valueColor: "text-slate-900 dark:text-slate-100",
-        sub: "active workflows",
-        onClick: () => onStatClick?.("In progress"),
-      },
-      {
-        label: "Distributed",
-        value: stats?.distributed ?? 0,
-        icon: <CheckCircle2 className="h-4 w-4" />,
-        iconColor: stats?.distributed && stats.distributed > 0 ? "text-emerald-500" : "text-slate-400 dark:text-slate-500",
-        valueColor: stats?.distributed && stats.distributed > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-slate-100",
-        sub: "official versions",
-        onClick: () => onStatClick?.("Distributed"),
-      },
-      {
-        label: "Pending requests",
-        value: pendingRequestsCount,
-        icon: <Inbox className="h-4 w-4" />,
-        iconColor: "text-sky-400 dark:text-sky-400",
-        valueColor: "text-slate-900 dark:text-slate-100",
-        sub: "open doc requests",
-        onClick: () => onStatClick?.("Pending requests"),
+        sub: "all-time batches",
+        onClick: () => onStatClick?.("Total requests"),
       },
     ];
 
-    const officeItems: StatItem[] = [
-      {
-        label: "Action needed",
-        value: pendingCount,
-        icon: <Bell className="h-4 w-4" />,
-        iconColor: "text-rose-400 dark:text-rose-400",
-        valueColor:
-          pendingCount > 0
-            ? "text-rose-600 dark:text-rose-400"
-            : "text-slate-900 dark:text-slate-100",
-        sub: pendingCount === 1 ? "task waiting" : "tasks waiting",
-        onClick: () => onStatClick?.("Action needed"),
-      },
-      {
-        label: "My documents",
-        value: stats?.total ?? 0,
-        icon: <FileText className="h-4 w-4" />,
-        iconColor: "text-slate-400 dark:text-slate-500",
-        valueColor: "text-slate-900 dark:text-slate-100",
-        sub: "in system",
-        onClick: () => onStatClick?.("My documents"),
-      },
-      {
-        label: "In progress",
-        value: stats?.pending ?? 0,
-        icon: <Clock className="h-4 w-4" />,
-        iconColor: "text-slate-400 dark:text-slate-500",
-        valueColor: "text-slate-900 dark:text-slate-100",
-        sub: "active workflows",
-        onClick: () => onStatClick?.("In progress"),
-      },
-      {
-        label: "Distributed",
-        value: stats?.distributed ?? 0,
-        icon: <CheckCircle2 className="h-4 w-4" />,
-        iconColor: "text-slate-400 dark:text-slate-500",
-        valueColor: "text-slate-900 dark:text-slate-100",
-        sub: "official versions",
-        onClick: () => onStatClick?.("Distributed"),
-      },
-      {
-        label: "Pending requests",
-        value: pendingRequestsCount,
-        icon: <Inbox className="h-4 w-4" />,
-        iconColor: "text-sky-400 dark:text-sky-400",
-        valueColor: "text-slate-900 dark:text-slate-100",
-        sub: "open doc requests",
-        onClick: () => onStatClick?.("Pending requests"),
-      },
-    ];
-
-    return isQA(role) ? qaItems : officeItems;
-  }, [role, stats, pendingCount, pendingRequestsCount, onStatClick]);
+    return kpis;
+  }, [pendingCount, pendingWorkflowsCount, openRequestsCount, allTimeWorkflowsCount, allTimeRequestsCount, onStatClick]);
 
   // Pulse effect on value change
   React.useEffect(() => {

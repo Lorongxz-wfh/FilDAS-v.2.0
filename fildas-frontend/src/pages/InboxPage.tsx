@@ -4,7 +4,7 @@ import { getAuthUser } from "../lib/auth";
 import PageFrame from "../components/layout/PageFrame";
 import Button from "../components/ui/Button";
 import { Trash2, Search, X, Megaphone, Bell, CheckCircle, ShieldAlert } from "lucide-react";
-import { PageActions, RefreshAction } from "../components/ui/PageActions";
+import { PageActions } from "../components/ui/PageActions";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   listNotifications,
@@ -17,6 +17,7 @@ import {
 import { inputCls } from "../utils/formStyles";
 import EmptyState from "../components/ui/EmptyState";
 import Skeleton from "../components/ui/loader/Skeleton";
+import { useRefresh } from "../lib/RefreshContext";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 type FilterTab = "all" | "unread" | "read";
@@ -210,6 +211,19 @@ const InboxPage: React.FC = () => {
   const [markingAll, setMarkingAll] = React.useState(false);
   const [confirmClearAll, setConfirmClearAll] = React.useState(false);
 
+  const { refreshKey } = useRefresh();
+  const initialMountRef = React.useRef(true);
+
+  // Global Refresh Listener
+  React.useEffect(() => {
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      return;
+    }
+    setPage(1);
+    setReloadTick((t) => t + 1);
+  }, [refreshKey]);
+
   const [tab, setTab] = React.useState<FilterTab>("all");
   const [search, setSearch] = React.useState("");
 
@@ -344,22 +358,6 @@ const InboxPage: React.FC = () => {
       }
       right={
         <PageActions>
-          <RefreshAction 
-            onRefresh={async () => { 
-                setPage(1); 
-                setReloadTick((t) => t + 1);
-                // Return promise for button feedback
-                return new Promise<void>((resolve) => {
-                    const check = setInterval(() => {
-                        if (!loading && !isRefreshing) {
-                            clearInterval(check);
-                            resolve();
-                        }
-                    }, 100);
-                });
-            }} 
-            loading={isRefreshing || loading} 
-          />
           <Button
             variant="outline"
             size="sm"

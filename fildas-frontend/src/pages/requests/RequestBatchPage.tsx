@@ -25,7 +25,8 @@ import {
   Clock,
   Loader2,
 } from "lucide-react";
-import { PageActions, RefreshAction } from "../../components/ui/PageActions";
+import { PageActions } from "../../components/ui/PageActions";
+import { useRefresh } from "../../lib/RefreshContext";
 import { useRealtimeUpdates } from "../../hooks/useRealtimeUpdates";
 import {
   roleLower,
@@ -183,6 +184,17 @@ export default function RequestBatchPage() {
       setRefreshing(false);
     }
   }, [load, req?.progress]);
+
+  const { refreshKey } = useRefresh();
+  const initialMountRef = Object.assign(React.useRef(true), {});
+
+  React.useEffect(() => {
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      return;
+    }
+    handleRefresh();
+  }, [refreshKey, handleRefresh]);
 
   const [mobileTab, setMobileTab] = React.useState<"items" | "discussion">("items");
   const [isSummaryOpen, setIsSummaryOpen] = React.useState(true);
@@ -443,7 +455,6 @@ export default function RequestBatchPage() {
       fullHeight
       right={
         <PageActions>
-          <RefreshAction onRefresh={handleRefresh} loading={refreshing || loading} />
           {canManage && req?.status === "open" && (
             <>
               <Button

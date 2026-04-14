@@ -20,7 +20,7 @@ import {
 } from "react-router-dom";
 import Alert from "../../components/ui/Alert";
 import Button from "../../components/ui/Button";
-import { PageActions, RefreshAction } from "../../components/ui/PageActions";
+import { PageActions } from "../../components/ui/PageActions";
 import DocFrame from "../../components/layout/DocFrame";
 import WorkflowRightPanel from "../../components/documents/panels/WorkflowRightPanel";
 import WorkflowVersionsDropdown from "../../components/documents/ui/WorkflowVersionsDropdown";
@@ -30,6 +30,7 @@ import { replaceDocumentVersionFileWithProgress } from "../../services/documents
 import { useToast } from "../../components/ui/toast/ToastContext";
 import { getUserRole } from "../../lib/roleFilters";
 import { getAuthUser } from "../../lib/auth";
+import { useRefresh } from "../../lib/RefreshContext";
 import { 
   FileX,
   Share2,
@@ -116,6 +117,38 @@ const WorkflowPage: React.FC = () => {
     useState(false);
   const [docRefreshTrigger, setDocRefreshTrigger] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const { refreshKey } = useRefresh();
+  const initialMountRef = Object.assign(React.useRef(true), {});
+
+  const handleManualRefresh = React.useCallback(async () => {
+    setIsRefreshing(true);
+    const prevStatus = selectedVersion?.status;
+    const prevVersionCount = allVersions.length;
+    try {
+      await refreshAndSelectBest({
+        preferVersionId: selectedVersion?.id,
+      });
+
+      // Trigger deep sync of tasks/comments/logs
+      setDocRefreshTrigger((prev) => prev + 1);
+
+      const statusChanged = selectedVersion?.status !== prevStatus;
+      const newVersionAdded = allVersions.length > prevVersionCount;
+      if (statusChanged || newVersionAdded) return "Document workspace updated.";
+      return "No changes found.";
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshAndSelectBest, selectedVersion?.id, selectedVersion?.status, allVersions.length]);
+
+  useEffect(() => {
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      return;
+    }
+    handleManualRefresh();
+  }, [refreshKey, handleManualRefresh]);
 
   const [error, setError] = useState<string | null>(null);
   const [reviseModalOpen, setReviseModalOpen] = useState(false);
@@ -430,34 +463,6 @@ const refreshAndSelectBest = React.useCallback(
         onCollapseToggle={() => setRightCollapsed((v) => !v)}
         actions={
           <PageActions>
-            {!loading && (
-              <RefreshAction
-                onRefresh={async () => {
-                  setIsRefreshing(true);
-                  const prevStatus = selectedVersion?.status;
-                  const prevVersionCount = allVersions.length;
-                  try {
-                    await refreshAndSelectBest({
-                      preferVersionId: selectedVersion?.id,
-                    });
-                    
-                    // Trigger deep sync of tasks/comments/logs
-                    setDocRefreshTrigger(prev => prev + 1);
-
-                    const statusChanged =
-                      selectedVersion?.status !== prevStatus;
-                    const newVersionAdded =
-                      allVersions.length > prevVersionCount;
-                    if (statusChanged || newVersionAdded)
-                      return "Document workspace updated.";
-                    return "No changes found.";
-                  } finally {
-                    setIsRefreshing(false);
-                  }
-                }}
-                loading={isRefreshing || loading}
-              />
-            )}
             {current?.status === "Distributed" && isOwner && role !== "AUDITOR" && !isArchived && (
               <Button
                 type="button"

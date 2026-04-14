@@ -29,67 +29,85 @@ class DocumentRequestController extends Controller
         private DocumentRequestProgressService $progress,
         private DocumentRequestService $service,
         private DocumentRequestRepository $repository,
+        private \App\Services\Reports\ClusterAnalysisService $clusterAnalysis,
     ) {}
 
     // ── GET /api/document-requests/stats ───────────────────────────────────
     public function stats(Request $request)
     {
-        $user     = $request->user();
-        $role     = $this->roleName($request);
-        $isQa     = $this->isQaOrAdmin($role);
-        $officeId = (int) ($user?->office_id ?? 0);
+        $user      = $request->user();
+        $role      = $this->roleName($request);
+        $isAdmin   = in_array($role, ['admin', 'sysadmin'], true);
+        $isPres    = ($role === 'president');
+        $isQa      = ($role === 'qa') || (Cache::get('office_id:QA') == $user?->office_id);
+        $isVp      = in_array($role, ['vpaa', 'vpad', 'vpf', 'vpr'], true);
+        $officeId  = (int) ($user?->office_id ?? 0);
 
-        $params = $request->validate([
-            'date_from' => 'nullable|date',
-            'date_to'   => 'nullable|date',
-        ]);
-
-        if (!$isQa && $officeId <= 0) {
+        if (!$isQa && !$isAdmin && !$isPres && !$isVp && $officeId <= 0) {
             return response()->json(['message' => 'Your account has no office assigned.'], 422);
         }
 
-        // Active Requests: All requests where I am the creator OR a recipient (open status)
-        $activeQuery = DB::table('document_requests as r')
-            ->where('r.status', 'open');
-
-        if (!empty($params['date_from'])) $activeQuery->whereDate('r.created_at', '>=', $params['date_from']);
-        if (!empty($params['date_to']))   $activeQuery->whereDate('r.created_at', '<=', $params['date_to']);
-
-        if (!$isQa) {
-            $activeQuery->where(function ($q) use ($user, $officeId) {
-                // If I created it, it stays active until the batch is closed/cancelled
-                $q->where('r.created_by_user_id', $user->id)
-                  // If I received it, it stays active only if I haven't finished it yet
-                  ->orWhereExists(function ($sub) use ($officeId) {
-                      $sub->select(DB::raw(1))
-                          ->from('document_request_recipients as rr')
-                          ->whereColumn('rr.request_id', 'r.id')
-                          ->where('rr.office_id', $officeId)
-                          ->whereNotIn('rr.status', ['accepted', 'cancelled']);
-                  });
-            });
+        // Determine Cluster Scoping
+        $clusterOfficeIds = null;
+        if ($isVp) {
+            $vpMap = ['vpaa' => 'VA', 'vpad' => 'VAd', 'vpf' => 'VF', 'vpr' => 'VR'];
+            $parent = $vpMap[$role] ?? 'ALL';
+            $clusterOfficeIds = $this->clusterAnalysis->officeIdsForCluster($parent);
         }
 
-        $activeCount = $activeQuery->count();
+        // Absolute All-Time Total (Scoped)
+        $totalAllTimeQuery = DB::table('document_requests as r');
+        
+        // Active/Open Requests (Scoped & Absolute Backlog)
+        $activeQuery = DB::table('document_requests as r')->where('r.status', 'open');
 
-        // Action Required:
-        // 1. Incoming: My office is a recipient and status is pending or rejected
+        if (!$isQa && !$isAdmin && !$isPres) {
+            if ($isVp && $clusterOfficeIds) {
+                // VP sees requests where ANY participant is in their cluster
+                $scopedCids = $clusterOfficeIds;
+                $scopeFunc = function ($q) use ($user, $scopedCids) {
+                    $q->where('r.created_by_user_id', $user->id)
+                      ->orWhereExists(function ($sub) use ($scopedCids) {
+                          $sub->select(DB::raw(1))
+                              ->from('document_request_recipients as rr_vp')
+                              ->whereColumn('rr_vp.request_id', 'r.id')
+                              ->whereIn('rr_vp.office_id', $scopedCids);
+                      });
+                };
+                $totalAllTimeQuery->where($scopeFunc);
+                $activeQuery->where($scopeFunc);
+            } else {
+                // Office specific
+                $scopeFunc = function ($q) use ($user, $officeId) {
+                    $q->where('r.created_by_user_id', $user->id)
+                      ->orWhereExists(function ($sub) use ($officeId) {
+                          $sub->select(DB::raw(1))
+                              ->from('document_request_recipients as rr_off')
+                              ->whereColumn('rr_off.request_id', 'r.id')
+                              ->where('rr_off.office_id', $officeId);
+                      });
+                };
+                $totalAllTimeQuery->where($scopeFunc);
+                $activeQuery->where($scopeFunc);
+            }
+        }
+
+        $allTimeTotal = $totalAllTimeQuery->count();
+        $activeCount  = $activeQuery->count();
+
+        // Action Required (Unfinished incoming tasks for current office)
         $incomingAction = 0;
         if ($officeId > 0) {
-            $incomingActionQuery = DB::table('document_request_recipients as rr')
+            $incomingAction = DB::table('document_request_recipients as rr')
                 ->join('document_requests as r', 'r.id', '=', 'rr.request_id')
                 ->where('r.status', 'open')
                 ->where('rr.office_id', $officeId)
-                ->whereIn('rr.status', ['pending', 'rejected']);
-            
-            if (!empty($params['date_from'])) $incomingActionQuery->whereDate('r.created_at', '>=', $params['date_from']);
-            if (!empty($params['date_to']))   $incomingActionQuery->whereDate('r.created_at', '<=', $params['date_to']);
-            
-            $incomingAction = $incomingActionQuery->count();
+                ->whereIn('rr.status', ['pending', 'rejected'])
+                ->count();
         }
 
-        // 2. Outgoing: I am the creator and at least one recipient has a 'submitted' status
-        $outgoingActionQuery = DB::table('document_requests as r')
+        // Outgoing Action (Items submitted to my requests that I need to review)
+        $outgoingAction = DB::table('document_requests as r')
             ->where('r.status', 'open')
             ->where('r.created_by_user_id', $user->id)
             ->whereExists(function ($sub) {
@@ -97,15 +115,12 @@ class DocumentRequestController extends Controller
                     ->from('document_request_recipients as rr')
                     ->whereColumn('rr.request_id', 'r.id')
                     ->where('rr.status', 'submitted');
-            });
-
-        if (!empty($params['date_from'])) $outgoingActionQuery->whereDate('r.created_at', '>=', $params['date_from']);
-        if (!empty($params['date_to']))   $outgoingActionQuery->whereDate('r.created_at', '<=', $params['date_to']);
-        
-        $outgoingAction = $outgoingActionQuery->count();
+            })
+            ->count();
 
         return response()->json([
-            'active' => $activeCount,
+            'all_time_total'  => $allTimeTotal,
+            'active'          => $activeCount,
             'action_required' => $incomingAction + $outgoingAction,
             'incoming_action' => $incomingAction,
             'outgoing_action' => $outgoingAction,
@@ -181,8 +196,13 @@ class DocumentRequestController extends Controller
 
             if (!empty($data['status'])) $q->where('r.status', $data['status']);
             if (!empty($data['mode']))   $q->where('r.mode', $data['mode']);
-            if (!empty($data['date_from'])) $q->whereDate('r.created_at', '>=', $data['date_from']);
-            if (!empty($data['date_to']))   $q->whereDate('r.created_at', '<=', $data['date_to']);
+            
+            // Only apply date filters if NOT looking specifically for "open" requests
+            if (($data['status'] ?? '') !== 'open') {
+                if (!empty($data['date_from'])) $q->whereDate('r.updated_at', '>=', $data['date_from']);
+                if (!empty($data['date_to']))   $q->whereDate('r.updated_at', '<=', $data['date_to']);
+            }
+
             if (!empty($data['office_id'])) {
                 $fOfficeId = (int) $data['office_id'];
                 $q->where(function ($qq) use ($fOfficeId) {
@@ -427,6 +447,8 @@ class DocumentRequestController extends Controller
             'direction' => 'nullable|in:all,incoming,outgoing',
             'sort_by'   => 'nullable|string|in:id,title,created_at,due_at',
             'sort_dir'  => 'nullable|in:asc,desc',
+            'date_from' => 'nullable|date',
+            'date_to'   => 'nullable|date',
         ]);
         $perPage = (int) ($data['per_page'] ?? 25);
         $sortMap = [
@@ -494,6 +516,9 @@ class DocumentRequestController extends Controller
                        });
                 });
             }
+
+            if (!empty($data['date_from'])) $q->whereDate('r.updated_at', '>=', $data['date_from']);
+            if (!empty($data['date_to']))   $q->whereDate('r.updated_at', '<=', $data['date_to']);
 
             if (!empty($data['q'])) {
                 $term = trim($data['q']);

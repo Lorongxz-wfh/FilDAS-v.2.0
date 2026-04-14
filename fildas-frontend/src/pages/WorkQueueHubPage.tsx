@@ -24,7 +24,7 @@ import { useAdminDebugMode } from "../hooks/useAdminDebugMode";
 import { useRealtimeUpdates } from "../hooks/useRealtimeUpdates";
 import { friendlyEvent } from "../utils/activityFormatters";
 import PageFrame from "../components/layout/PageFrame";
-import { PageActions, RefreshAction, CreateAction } from "../components/ui/PageActions";
+import { PageActions, CreateAction } from "../components/ui/PageActions";
 import { useSmartRefresh } from "../hooks/useSmartRefresh";
 import { markWorkQueueSession } from "../lib/guards/RequireFromWorkQueue";
 import { FileText, ClipboardList, LayoutTemplate } from "lucide-react";
@@ -197,14 +197,6 @@ const WorkQueueHubPage: React.FC = () => {
     <PageFrame
       title="Work Queue Hub"
       contentClassName="flex flex-col min-h-0 gap-5 h-full overflow-hidden"
-      right={
-        <PageActions>
-          <RefreshAction
-            onRefresh={refresh}
-            loading={isRefreshing || loading}
-          />
-        </PageActions>
-      }
     >
       {/* Error */}
       {error && (

@@ -188,7 +188,7 @@ const LoginPage: React.FC = () => {
                   FilDOCS
                 </h1>
                 <p className="text-xl font-display font-bold text-blue-200 mt-2">
-                  Filamer Digital Archiving System
+                  Filamer Document Operations and Control System
                 </p>
               </div>
 

@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useToastSafe } from "../components/ui/toast/ToastContext";
 import { normalizeError } from "../lib/normalizeError";
+import { useRefresh } from "../lib/RefreshContext";
 
 export type SmartRefreshResult = {
   changed: boolean;
@@ -83,6 +84,18 @@ export function useSmartRefresh(
       setTimeout(() => setIsRefreshing(false), 300);
     }
   }, []); // ABSOLUTELY STABLE: Never changes identity.
+
+  const { refreshKey } = useRefresh();
+  const initialMountRef = useRef(true);
+
+  // 4. Trigger on global refreshKey change
+  useEffect(() => {
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      return;
+    }
+    refresh();
+  }, [refreshKey, refresh]);
 
 
 

@@ -668,10 +668,10 @@ class ReportsController extends Controller
                     $q->whereIn('documents.owner_office_id', $clusterOfficeIds);
                 }
                 if (!empty($data['date_from'])) {
-                    $q->whereDate('documents.created_at', '>=', $data['date_from']);
+                    $q->whereDate('documents.updated_at', '>=', $data['date_from']);
                 }
                 if (!empty($data['date_to'])) {
-                    $q->whereDate('documents.created_at', '<=', $data['date_to']);
+                    $q->whereDate('documents.updated_at', '<=', $data['date_to']);
                 }
             });
         }

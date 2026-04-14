@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import Skeleton from "../components/ui/loader/Skeleton";
-import { PageActions, RefreshAction } from "../components/ui/PageActions";
+import { PageActions } from "../components/ui/PageActions";
 import DatePresetSwitcher, { type PresetOption } from "../components/ui/DatePresetSwitcher";
 import Button from "../components/ui/Button";
 
@@ -118,6 +118,7 @@ const QADashboard: React.FC<
   report,
   recentActivity,
   pendingRequestsCount,
+  allTimeRequestsCount,
   pendingActions,
   loading,
   navigate,
@@ -136,15 +137,17 @@ const QADashboard: React.FC<
         />
 
         <DashboardStatRow
-          role="QA"
           stats={stats}
           pendingCount={pending.length}
-          pendingRequestsCount={pendingRequestsCount}
+          pendingWorkflowsCount={stats?.pending_workflows ?? 0}
+          openRequestsCount={pendingRequestsCount}
+          allTimeWorkflowsCount={stats?.all_time_total ?? 0}
+          allTimeRequestsCount={allTimeRequestsCount}
           loading={loading}
           onStatClick={(label) => {
-            if (label === "Action needed" || label === "In progress") navigate("/work-queue");
-            if (label === "Total documents" || label === "Distributed") navigate("/documents");
-            if (label === "Pending requests") navigate("/document-requests");
+            if (label === "Action needed" || label === "Pending workflows") navigate("/work-queue");
+            if (label === "Total workflows" || label === "Distributed") navigate("/documents");
+            if (label === "Open requests" || label === "Total requests") navigate("/document-requests");
           }}
         />
 
@@ -274,15 +277,14 @@ const OfficeDashboard: React.FC<
   recentActivity,
   loading,
   navigate,
-  role,
   announcements,
-  pendingRequestsInboxCount,
+  pendingRequestsCount,
+  allTimeRequestsCount,
   pending,
   onCarouselScroll,
   activeIndex = 0,
 }) => {
     const chartCount = 1; // Just one donut chart for office currently, but let's keep it consistent
-    const inboxCount = pendingRequestsInboxCount ?? 0;
 
     const donutSegments = [
       { label: "Distributed", value: stats?.distributed ?? 0, color: "#10b981" },
@@ -306,15 +308,17 @@ const OfficeDashboard: React.FC<
         />
 
         <DashboardStatRow
-          role={role}
           stats={stats}
           pendingCount={pending.length}
-          pendingRequestsCount={inboxCount}
+          pendingWorkflowsCount={stats?.pending_workflows ?? 0}
+          openRequestsCount={pendingRequestsCount}
+          allTimeWorkflowsCount={stats?.all_time_total ?? 0}
+          allTimeRequestsCount={allTimeRequestsCount}
           loading={loading}
           onStatClick={(label) => {
-            if (label === "Action needed" || label === "In progress") navigate("/work-queue");
-            if (label === "My documents" || label === "Distributed") navigate("/documents");
-            if (label === "Pending requests") navigate("/document-requests");
+            if (label === "Action needed" || label === "Pending workflows") navigate("/work-queue");
+            if (label === "Total workflows" || label === "Distributed") navigate("/documents");
+            if (label === "Open requests" || label === "Total requests") navigate("/document-requests");
           }}
         />
 
@@ -629,11 +633,6 @@ const DashboardPage: React.FC = () => {
               onChange={(val) => setPeriod(val)}
               layoutId="active-period"
             />
-
-
-            <PageActions>
-              <RefreshAction onRefresh={refresh} loading={isRefreshing} />
-            </PageActions>
           </div>
         </div>
       </div>

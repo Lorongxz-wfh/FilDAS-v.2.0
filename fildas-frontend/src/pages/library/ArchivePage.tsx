@@ -15,7 +15,7 @@ import Modal from "../../components/ui/Modal";
 import Button from "../../components/ui/Button";
 import { usePageBurstRefresh } from "../../hooks/usePageBurstRefresh";
 import SearchFilterBar from "../../components/ui/SearchFilterBar";
-import { PageActions, RefreshAction } from "../../components/ui/PageActions";
+import { PageActions } from "../../components/ui/PageActions";
 import SelectDropdown from "../../components/ui/SelectDropdown";
 import { DateRangePicker } from "../../components/ui/DateRangePicker";
 import { useBulkActions } from "../../hooks/useBulkActions";
@@ -246,14 +246,6 @@ export default function ArchivePage() {
     <PageFrame
       title="Archive"
       onBack={() => navigate("/documents")}
-      right={
-        <PageActions>
-          <RefreshAction
-            onRefresh={async () => { await loadData(false); }}
-            loading={refreshing || loading}
-          />
-        </PageActions>
-      }
       contentClassName="flex flex-col min-h-0 h-full"
     >
       <div className="flex items-center justify-end border-b border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 shrink-0 px-4 h-12">

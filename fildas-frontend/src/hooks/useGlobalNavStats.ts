@@ -4,6 +4,7 @@ import { getUnreadNotificationCount, getWorkQueue } from "../services/documents"
 import { listDocumentRequests, listDocumentRequestInbox } from "../services/documentRequests";
 import { getUserRole, isQA } from "../lib/roleFilters";
 import { useRealtimeUpdates } from "./useRealtimeUpdates";
+import { useRefresh } from "../lib/RefreshContext";
 
 export type NavStats = {
   notifications: number;
@@ -15,6 +16,7 @@ export type NavStats = {
 };
 
 export function useGlobalNavStats() {
+  const { refreshKey } = useRefresh();
   const [stats, setStats] = useState<NavStats>({
     notifications: 0,
     workflows: 0,
@@ -88,7 +90,7 @@ export function useGlobalNavStats() {
   useEffect(() => {
     fetchStats();
     // Aggressive polling deprecated. WebSockets handle all pushes.
-  }, [fetchStats]);
+  }, [fetchStats, refreshKey]);
 
   // Real-time updates — Memoized to prevent re-join loops
   const handleNotify = useCallback(() => fetchStats(), [fetchStats]);

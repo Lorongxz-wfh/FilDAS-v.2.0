@@ -10,7 +10,7 @@ import { Tabs } from "../../components/ui/Tabs";
 import { getAuthUser } from "../../lib/auth";
 import { isAdmin } from "../../lib/roleFilters";
 import { useAdminDebugMode } from "../../hooks/useAdminDebugMode";
-import { PageActions, RefreshAction, UploadAction } from "../../components/ui/PageActions";
+import { PageActions, UploadAction } from "../../components/ui/PageActions";
 import SearchFilterBar from "../../components/ui/SearchFilterBar";
 import SelectDropdown from "../../components/ui/SelectDropdown";
 import { useSmartRefresh } from "../../hooks/useSmartRefresh";
@@ -302,10 +302,6 @@ const TemplatesPage: React.FC = () => {
         contentClassName="flex flex-col min-h-0 gap-0 h-full overflow-hidden"
         right={
           <PageActions>
-            <RefreshAction
-              onRefresh={refresh}
-              loading={isRefreshing}
-            />
             {canUpload && (
               <UploadAction
                 label="Upload template"

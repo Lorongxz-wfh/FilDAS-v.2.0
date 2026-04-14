@@ -17,21 +17,21 @@ const AdminStatGrid: React.FC<Props> = ({ data, loading }) => {
       icon: <Users className="h-4 w-4" />,
     },
     {
-      label: "Total offices",
-      value: data?.offices.total ?? 0,
-      sub: `${data?.offices.active ?? 0} active`,
-      icon: <Building2 className="h-4 w-4" />,
-    },
-    {
-      label: "Total documents",
-      value: data?.documents.total ?? 0,
-      sub: `${data?.documents.distributed ?? 0} distributed`,
+      label: "Total workflows",
+      value: data?.documents.total_all_time ?? 0,
+      sub: "all-time documents",
       icon: <FileText className="h-4 w-4" />,
     },
     {
-      label: "In progress",
+      label: "Pending workflows",
       value: data?.documents.in_progress ?? 0,
-      sub: "active workflows",
+      sub: "active cycles",
+      icon: <Activity className="h-4 w-4" />,
+    },
+    {
+      label: "Open requests",
+      value: data?.requests?.open ?? 0,
+      sub: "pending evidence",
       icon: <Activity className="h-4 w-4" />,
     },
   ];

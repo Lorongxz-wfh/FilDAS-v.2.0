@@ -6,7 +6,7 @@ import Button from "../../components/ui/Button";
 import Skeleton from "../../components/ui/loader/Skeleton";
 import { getComplianceReport, getRequestsReport, getActivityReport, downloadMasterReportZip } from "../../services/reportsApi";
 import { useAuthUser } from "../../hooks/useAuthUser";
-import { PageActions, RefreshAction } from "../../components/ui/PageActions";
+import { PageActions } from "../../components/ui/PageActions";
 import { useSmartRefresh } from "../../hooks/useSmartRefresh";
 import {
   exportKpiCsv,
@@ -577,10 +577,6 @@ const ReportExportPage: React.FC = () => {
       contentClassName="flex flex-col gap-6"
       right={
         <PageActions>
-          <RefreshAction
-            loading={isRefreshing || loading}
-            onRefresh={refresh}
-          />
           <Button
             variant="outline"
             size="sm"

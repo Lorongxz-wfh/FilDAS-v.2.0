@@ -95,8 +95,6 @@ const ActivityLogsPage: React.FC = () => {
         <ActivityLogsHeader
           tab={tab}
           setTab={setTab}
-          onRefresh={refresh}
-          refreshing={isRefreshing}
           onExport={handleExport}
           exporting={exporting}
           disabled={initialLoading}

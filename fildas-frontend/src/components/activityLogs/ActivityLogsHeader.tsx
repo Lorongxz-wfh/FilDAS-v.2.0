@@ -1,13 +1,11 @@
 import React from "react";
 import { List, CalendarDays, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { PageActions, RefreshAction, ExportSplitAction } from "../ui/PageActions";
+import { PageActions, ExportSplitAction } from "../ui/PageActions";
 
 interface Props {
   tab: "log" | "calendar";
   setTab: (tab: "log" | "calendar") => void;
-  onRefresh: () => Promise<void | boolean>;
-  refreshing: boolean;
   onExport: (format: "csv" | "pdf") => void;
   exporting: boolean;
   disabled?: boolean;
@@ -16,8 +14,6 @@ interface Props {
 const ActivityLogsHeader: React.FC<Props> = ({
   tab,
   setTab,
-  onRefresh,
-  refreshing,
   onExport,
   exporting,
   disabled = false,
@@ -33,11 +29,6 @@ const ActivityLogsHeader: React.FC<Props> = ({
           disabled={disabled}
         />
       )}
-
-      <RefreshAction
-        onRefresh={onRefresh}
-        loading={refreshing || exporting}
-      />
 
       <div className="flex bg-white dark:bg-surface-500 border border-slate-200 dark:border-surface-400 rounded-sm p-0.5 shadow-sm overflow-hidden shrink-0">
         <button

@@ -12,7 +12,7 @@ import Table from "../../components/ui/Table";
 import SelectDropdown from "../../components/ui/SelectDropdown";
 import Alert from "../../components/ui/Alert";
 import { DateRangePicker } from "../../components/ui/DateRangePicker";
-import { PageActions, CreateAction, RefreshAction } from "../../components/ui/PageActions";
+import { PageActions, CreateAction } from "../../components/ui/PageActions";
 import SearchFilterBar from "../../components/ui/SearchFilterBar";
 import { markWorkQueueSession } from "../../lib/guards/RequireFromWorkQueue";
 import { Archive, Library, Trash2, CheckSquare, Download } from "lucide-react";
@@ -440,7 +440,6 @@ export default function LibraryPage() {
       title="Document Library"
       right={
         <PageActions>
-          <RefreshAction onRefresh={refresh} loading={isRefreshing} />
           <button
             type="button"
             onClick={() => navigate("/archive")}

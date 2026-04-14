@@ -18,7 +18,7 @@ import MiddleTruncate from "../../components/ui/MiddleTruncate";
 import { formatDate } from "../../utils/formatters";
 import { StatusBadge } from "../../components/ui/Badge";
 import RoleBadge from "../../components/ui/RoleBadge";
-import { PageActions, CreateAction, RefreshAction } from "../../components/ui/PageActions";
+import { PageActions, CreateAction } from "../../components/ui/PageActions";
 import SearchFilterBar from "../../components/ui/SearchFilterBar";
 import DeletedItemsView from "../../components/admin/DeletedItemsView";
 import AdminSessionsTab from "../../components/admin/AdminSessionsTab";
@@ -327,7 +327,6 @@ const UserManagerPage: React.FC = () => {
       contentClassName="flex flex-col min-h-0 h-full"
       right={
         <PageActions>
-          <RefreshAction onRefresh={refresh} loading={isRefreshing} />
           <CreateAction label="New user" onClick={openCreate} />
         </PageActions>
       }
