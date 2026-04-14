@@ -152,22 +152,28 @@ const WorkflowPage: React.FC = () => {
   const handleManualRefresh = React.useCallback(async () => {
     const prevStatus = selectedVersion?.status;
     const prevVersionCount = allVersions.length;
+    const prevUpdatedAt = selectedVersion?.updated_at;
+
     try {
       await refreshAndSelectBest({
         preferVersionId: selectedVersion?.id,
       });
 
-      // Trigger deep sync of tasks/comments/logs
+      // Trigger deep sync of tasks/comments/logs/preview in Workflow.tsx
       setDocRefreshTrigger((prev) => prev + 1);
 
       const statusChanged = selectedVersion?.status !== prevStatus;
       const newVersionAdded = allVersions.length > prevVersionCount;
-      if (statusChanged || newVersionAdded) return "Document workspace updated.";
-      return "No changes found.";
+      const contentUpdated = selectedVersion?.updated_at !== prevUpdatedAt;
+
+      if (statusChanged || newVersionAdded || contentUpdated) {
+        return "Document workspace updated.";
+      }
+      return "Document is up to date.";
     } catch {
       return "Refresh failed.";
     }
-  }, [refreshAndSelectBest, selectedVersion?.id, selectedVersion?.status, allVersions.length]);
+  }, [refreshAndSelectBest, selectedVersion?.id, selectedVersion?.status, selectedVersion?.updated_at, allVersions.length]);
 
   useEffect(() => {
     if (initialMountRef.current) {

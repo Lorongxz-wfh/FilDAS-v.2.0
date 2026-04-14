@@ -285,11 +285,17 @@ export function useDocumentWorkflow({
   // ── Real-time Integration ──────────────────────────────────────────────
   useRealtimeUpdates({
     documentVersionId: versionId,
-    onWorkflowUpdate: () => {
+    onWorkflowUpdate: (data: any) => {
       // Trigger instant refresh of tasks/actions, and background refresh of logs/messages
+      const isSig = data?.event === "version.in_app_signature_applied" || data?.event === "version.in_app_signature_removed";
+      const isPreview = data?.event === "version.preview_regenerated";
+
       refreshTasksAndActions(versionId, { isPolling: true }).catch(() => {});
       silentRefreshLogs(versionId);
       pollMessages(versionId);
+
+      // Force taskChanged pulse if it's a signature or preview event so UI unblocks buttons or refreshes iframe
+      if (isSig || isPreview) setTaskChanged(true);
 
       // Notify parent if needed
       if (onChanged) void Promise.resolve(onChanged()).catch(() => {});

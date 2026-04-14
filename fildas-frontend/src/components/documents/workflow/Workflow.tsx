@@ -90,6 +90,20 @@ const Workflow: React.FC<WorkflowProps> = ({
     }
   }, [refreshTrigger, actions, state.localVersion, onChanged]);
 
+  // ── Automatic Real-time Sync ───────────────────────────────
+  React.useEffect(() => {
+    if (actions.workflow.taskChanged) {
+      actions.workflow.clearTaskChanged();
+      // Silent refresh of workspace/version data
+      onChanged?.(); 
+      // Auto-bust preview if file/signature might have changed
+      if (state.localVersion) {
+        invalidatePreviewCache(state.localVersion.id);
+        actions.setPreviewNonce((n) => n + 1);
+      }
+    }
+  }, [actions.workflow.taskChanged, actions.workflow, actions.setPreviewNonce, state.localVersion?.id, onChanged]);
+
   // ── Sync Header State to Parent ───────────────────────────
   const onHeaderStateChangeRef = React.useRef(onHeaderStateChange);
   React.useEffect(() => {
@@ -97,7 +111,7 @@ const Workflow: React.FC<WorkflowProps> = ({
   }, [onHeaderStateChange]);
 
   const headerSig = React.useMemo(() => {
-    return `${state.localVersion?.id}|${state.localVersion?.status}|${state.localVersion?.version_number}|${state.canAct}|${actions.workflow.isTasksReady}|${actions.workflow.availableActions.join(",")}|${state.needsFileReplacement ? 1 : 0}|${actions.fileUpload.isUploading ? 1 : 0}|${state.localTitle}|${state.routingUsers?.length}|${state.actingAsUserId}|${state.isLoadingRoutingUsers}`;
+    return `${state.localVersion?.id}|${state.localVersion?.status}|${state.localVersion?.version_number}|${state.canAct}|${actions.workflow.isTasksReady}|${actions.workflow.availableActions.join(",")}|${state.needsFileReplacement ? 1 : 0}|${actions.fileUpload.isUploading ? 1 : 0}|${state.localTitle}|${state.routingUsers?.length}|${state.actingAsUserId}|${state.isLoadingRoutingUsers}|${state.hasSignedFile ? 1 : 0}|${state.approverHasUploaded ? 1 : 0}`;
   }, [
     state.localVersion?.id,
     state.localVersion?.status,
@@ -111,6 +125,8 @@ const Workflow: React.FC<WorkflowProps> = ({
     state.routingUsers?.length,
     state.actingAsUserId,
     state.isLoadingRoutingUsers,
+    state.hasSignedFile,
+    state.approverHasUploaded,
   ]);
 
   const lastSigRef = React.useRef("");
