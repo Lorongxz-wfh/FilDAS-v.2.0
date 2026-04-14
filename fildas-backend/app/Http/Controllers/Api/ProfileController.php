@@ -215,15 +215,16 @@ class ProfileController extends Controller
         ]);
 
         try {
+            $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
             if ($user->profile_photo_path && !str_starts_with($user->profile_photo_path, 'data:')) {
-                Storage::disk()->delete($user->profile_photo_path);
+                Storage::disk($disk)->delete($user->profile_photo_path);
             }
 
             $file = $request->file('photo');
             $ext = strtolower($file->getClientOriginalExtension());
             $path = "avatars/user_{$user->id}." . $ext;
 
-            Storage::disk()->putFileAs('avatars', $file, "user_{$user->id}.{$ext}");
+            Storage::disk($disk)->putFileAs('avatars', $file, "user_{$user->id}.{$ext}");
             
             $user->profile_photo_path = $path;
             $user->save();
@@ -251,14 +252,15 @@ class ProfileController extends Controller
         ]);
 
         try {
+            $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
             if ($user->signature_path && !str_starts_with($user->signature_path, 'data:')) {
-                Storage::disk()->delete($user->signature_path);
+                Storage::disk($disk)->delete($user->signature_path);
             }
 
             $file = $request->file('signature');
             $path = "signatures/user_{$user->id}.png";
 
-            Storage::disk()->putFileAs('signatures', $file, "user_{$user->id}.png");
+            Storage::disk($disk)->putFileAs('signatures', $file, "user_{$user->id}.png");
             
             $user->signature_path = $path;
             $user->save();
