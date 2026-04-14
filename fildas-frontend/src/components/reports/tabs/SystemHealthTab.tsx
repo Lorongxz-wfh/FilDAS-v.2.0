@@ -103,12 +103,12 @@ const SystemHealthTab: React.FC<SystemHealthTabProps> = ({
         </ReportChartCard>
 
         {/* Technical Alerts Summary */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-surface-400 dark:bg-surface-500">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-surface-400 dark:bg-surface-500">
           <div className="flex items-center gap-2 mb-4">
              <AlertTriangle size={16} className="text-emerald-500" />
              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-50">System Logs</h3>
           </div>
-          <div className="space-y-3 min-h-[100px] flex flex-col justify-center">
+          <div className="space-y-2 min-h-[100px] flex flex-col justify-center">
              {!alerts.length ? (
                <div className="text-center py-4">
                   <p className="text-xs text-slate-400 font-medium">No critical system events detected in current period.</p>

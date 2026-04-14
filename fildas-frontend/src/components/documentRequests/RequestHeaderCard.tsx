@@ -1,6 +1,7 @@
 import { Clock, Building2, Pencil } from "lucide-react";
 import { StatusBadge, formatDate } from "./shared";
 import Button from "../ui/Button";
+import LiveValuePulse from "../ui/LiveValuePulse";
 
 type Props = {
   req: any;
@@ -21,6 +22,7 @@ type Props = {
   onEditSave?: () => void;
   onEditCancel?: () => void;
   canManage?: boolean;
+  pulseKey?: number;
 };
 
 export default function RequestHeaderCard({
@@ -42,6 +44,7 @@ export default function RequestHeaderCard({
   onEditSave,
   onEditCancel,
   canManage = false,
+  pulseKey = 0,
 }: Props) {
   const batchDue = req.due_at ?? null;
   const itemDue = effectiveDueAt ?? batchDue;
@@ -64,7 +67,9 @@ export default function RequestHeaderCard({
             {req.item_title ?? req.title}
           </h1>
         )}
-        <StatusBadge status={req.status} />
+        <LiveValuePulse value={pulseKey}>
+          <StatusBadge status={req.status} />
+        </LiveValuePulse>
       </div>
 
       {/* Item description — only visible when editing */}
@@ -106,7 +111,9 @@ export default function RequestHeaderCard({
             <span className="text-slate-200 dark:text-surface-400">·</span>
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-slate-400 dark:text-slate-500">Submission</span>
-              <StatusBadge status={recipient.status} />
+              <LiveValuePulse value={pulseKey}>
+                <StatusBadge status={recipient.status} />
+              </LiveValuePulse>
             </div>
           </>
         )}

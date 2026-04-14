@@ -896,6 +896,10 @@ class DocumentRequestController extends Controller
             uploadedFiles: $request->file('files')
         );
 
+        try {
+            broadcast(new \App\Events\WorkspaceChanged('request'));
+        } catch (\Throwable) {}
+
         return response()->json([
             'message'       => 'Submission uploaded.',
             'submission_id' => $submissionId,
@@ -948,6 +952,10 @@ class DocumentRequestController extends Controller
             data:         $data,
             actor:        $request->user()
         );
+
+        try {
+            broadcast(new \App\Events\WorkspaceChanged('request'));
+        } catch (\Throwable) {}
 
         return response()->json(['message' => 'Reviewed.'], 200);
     }

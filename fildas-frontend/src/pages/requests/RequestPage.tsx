@@ -76,6 +76,7 @@ export default function RequestPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [req, setReq] = React.useState<any | null>(null);
   const [recipient, setRecipient] = React.useState<any | null>(null);
+  const [pulseKey, setPulseKey] = React.useState(0);
   const [submissions, setSubmissions] = React.useState<any[]>([]);
   const [latestSubmission, setLatestSubmission] = React.useState<any | null>(
     null,
@@ -459,10 +460,16 @@ export default function RequestPage() {
       },
       [isItemView, itemId, recipientId, commentThread, isQa],
     ),
-    onWorkspaceChange: React.useCallback(() => {
-      load(true).catch(() => { });
-      loadActivity(true).catch(() => { });
-    }, [load, loadActivity]),
+    onWorkspaceChange: React.useCallback(
+      (data: any) => {
+        if (data.source === "request") {
+          load(true).catch(() => { });
+          loadActivity(true).catch(() => { });
+          setPulseKey((p) => p + 1);
+        }
+      },
+      [load, loadActivity],
+    ),
     onWorkflowUpdate: React.useCallback(() => {
       load(true).catch(() => { });
       loadActivity(true).catch(() => { });
@@ -749,6 +756,7 @@ export default function RequestPage() {
               req={req}
               recipient={recipient}
               canManage={canManage}
+              pulseKey={pulseKey}
               isItemView={isItemView}
               effectiveDueAt={effectiveDueAt}
               editOpen={editOpen}

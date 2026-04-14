@@ -220,7 +220,7 @@ const ReportsPage: React.FC = () => {
       {/* Content + filter panel */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div ref={tabContentRef} className="flex-1 min-w-0 overflow-y-auto">
-          <div className="flex flex-col gap-6 p-4 sm:p-5">
+          <div className="flex flex-col gap-4 p-4 sm:p-4">
             <TabContent activeKey={activeTab} currentKey="health">
               <SystemHealthTab 
                 loading={loading}
