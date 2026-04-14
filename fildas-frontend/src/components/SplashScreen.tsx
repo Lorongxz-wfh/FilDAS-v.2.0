@@ -17,13 +17,25 @@ export default function SplashScreen() {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setPhase("visible"));
       });
+      // Standard animation flow
       exitTimer = setTimeout(() => setPhase("exit"), 1700);
       hiddenTimer = setTimeout(() => setPhase("hidden"), 2050);
+
+      // EMERGENCY FAIL-SAFE: Force hide after 5 seconds if timers above somehow stall
+      setTimeout(() => setPhase("hidden"), 5000);
+    };
+
+    const hideHandler = () => {
+      clearTimeout(exitTimer);
+      clearTimeout(hiddenTimer);
+      setPhase("hidden");
     };
 
     window.addEventListener("show_splash", handler);
+    window.addEventListener("hide_splash", hideHandler);
     return () => {
       window.removeEventListener("show_splash", handler);
+      window.removeEventListener("hide_splash", hideHandler);
       clearTimeout(exitTimer);
       clearTimeout(hiddenTimer);
     };

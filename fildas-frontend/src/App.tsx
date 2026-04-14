@@ -118,21 +118,40 @@ const nonAuditorRoles: UserRole[] = [
 
 const MaintenancePage = React.lazy(() => import("./pages/MaintenancePage"));
 
+function SuspenseFallback() {
+  const [showReload, setShowReload] = React.useState(false);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setShowReload(true), 8000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-surface-600 z-[100]">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-8 w-8 rounded-full border-2 border-sky-500 border-t-transparent animate-spin" />
+        <div className="flex flex-col items-center gap-1 text-center">
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-300 tracking-wide">
+            Loading your workspace…
+          </span>
+          {showReload && (
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-3 rounded-md bg-slate-100 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 transition-all animate-in fade-in slide-in-from-bottom-2 duration-500"
+            >
+              Taking too long? Reload
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <ChunkErrorBoundary>
-      <Suspense
-        fallback={
-          <div className="fixed inset-0 flex items-center justify-center bg-white dark:bg-surface-600 z-[100]">
-            <div className="flex flex-col items-center gap-3">
-              <div className="h-8 w-8 rounded-full border-2 border-sky-500 border-t-transparent animate-spin" />
-              <span className="text-xs text-slate-400 dark:text-slate-500 tracking-wide">
-                Loading…
-              </span>
-            </div>
-          </div>
-        }
-      >
+      <Suspense fallback={<SuspenseFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
