@@ -174,163 +174,165 @@ function SuspenseFallback() {
 
 export default function App() {
   return (
-    <ChunkErrorBoundary>
-      <Suspense fallback={<SuspenseFallback />}>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/maintenance" element={<MaintenancePage />} />
-          <Route path="/force-password-change" element={<ToastProvider><ForcePasswordChangePage /></ToastProvider>} />
+    <ToastProvider>
+      <ChunkErrorBoundary>
+        <Suspense fallback={<SuspenseFallback />}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/maintenance" element={<MaintenancePage />} />
+            <Route path="/force-password-change" element={<ForcePasswordChangePage />} />
 
 
-          <Route element={<ProtectedLayout />}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route element={<RequireRole allow={nonAuditorRoles} />}>
-              <Route path="/work-queue" element={<WorkQueueHubPage />} />
-              <Route path="/inbox" element={<InboxPage />} />
-              <Route
-                path="/document-requests"
-                element={<RequestListPage />}
-              />
-              <Route
-                path="/document-requests/:id"
-                element={<RequestBatchPage />}
-              />
-              <Route
-                path="/document-requests/:id/recipients/:recipientId"
-                element={<RequestPage />}
-              />
-              <Route
-                path="/document-requests/:id/items/:itemId"
-                element={<RequestPage />}
-              />
-              <Route
-                path="/documents/view/request/:requestId/recipients/:recipientId"
-                element={<DocumentViewPage />}
-              />
-              <Route
-                path="/documents/view/request/:requestId/items/:itemId"
-                element={<DocumentViewPage />}
-              />
-              <Route path="/templates" element={<TemplatesPage />} />
-            </Route>
-
-            <Route
-              element={<RequireRole allow={nonAuditorRoles.filter(r => r !== 'ADMIN' || import.meta.env.DEV)} />}
-            >
-              <Route
-                path="/document-requests/create"
-                element={<CreateRequestPage />}
-              />
-            </Route>
-
-            {/* Back-compat */}
-            <Route
-              path="/compliance"
-              element={<Navigate to="/document-requests" replace />}
-            />
-            <Route
-              path="/compliance/create"
-              element={<Navigate to="/document-requests/create" replace />}
-            />
-            <Route
-              path="/compliance/inbox"
-              element={<Navigate to="/document-requests" replace />}
-            />
-            <Route
-              path="/compliance/:id"
-              element={<Navigate to="/document-requests/:id" replace />}
-            />
-
-            {/* Document view (library/finished) */}
-            <Route path="/documents/:id/view" element={<DocumentViewPage />} />
-            <Route path="/documents/:id" element={<WorkflowPage />} />
-            <Route path="/documents/all" element={<WorkflowListPage />} />
-            <Route path="/documents" element={<LibraryPage />} />
-            <Route path="/archive" element={<ArchivePage />} />
-
-            <Route
-              element={
-                <RequireRole allow={[
-                  "QA", 
-                  "OFFICE_STAFF", 
-                  "OFFICE_HEAD", 
-                  "VPAA", 
-                  "VPAD", 
-                  "VPF", 
-                  "VPR", 
-                  "PRESIDENT"
-                ]} />
-              }
-            >
-              <Route
-                path="/documents/create"
-                element={<CreateWorkflowPage />}
-              />
-            </Route>
-
-            <Route
-              path="/documents/request"
-              element={<Navigate to="/documents/create" replace />}
-            />
-
-            <Route
-              element={
-                <RequireRole
-                  allow={[
-                    "PRESIDENT",
-                    "VPAA",
-                    "QA",
-                    "SYSADMIN",
-                    "ADMIN",
-                    "VPAD",
-                    "VPF",
-                    "VPR",
-                    "OFFICE_HEAD",
-                    "OFFICE_STAFF",
-                  ]}
+            <Route element={<ProtectedLayout />}>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route element={<RequireRole allow={nonAuditorRoles} />}>
+                <Route path="/work-queue" element={<WorkQueueHubPage />} />
+                <Route path="/inbox" element={<InboxPage />} />
+                <Route
+                  path="/document-requests"
+                  element={<RequestListPage />}
                 />
-              }
-            >
-              <Route path="/reports" element={<ReportsPage />} />
-              <Route path="/reports/export" element={<ReportExportPage />} />
-            </Route>
-
-            <Route path="/profile" element={<ProfileSettingsPage />} />
-            <Route path="/settings" element={<Navigate to="/profile" replace />} />
-            <Route path="/my-activity" element={<Navigate to="/profile" replace />} />
-
-            <Route
-              element={
-                <RequireRole
-                  allow={["QA", "SYSADMIN", "ADMIN", "OFFICE_HEAD", "AUDITOR"]}
+                <Route
+                  path="/document-requests/:id"
+                  element={<RequestBatchPage />}
                 />
-              }
-            >
-              <Route path="/activity-logs" element={<ActivityLogsPage />} />
+                <Route
+                  path="/document-requests/:id/recipients/:recipientId"
+                  element={<RequestPage />}
+                />
+                <Route
+                  path="/document-requests/:id/items/:itemId"
+                  element={<RequestPage />}
+                />
+                <Route
+                  path="/documents/view/request/:requestId/recipients/:recipientId"
+                  element={<DocumentViewPage />}
+                />
+                <Route
+                  path="/documents/view/request/:requestId/items/:itemId"
+                  element={<DocumentViewPage />}
+                />
+                <Route path="/templates" element={<TemplatesPage />} />
+              </Route>
+
+              <Route
+                element={<RequireRole allow={nonAuditorRoles.filter(r => r !== 'ADMIN' || import.meta.env.DEV)} />}
+              >
+                <Route
+                  path="/document-requests/create"
+                  element={<CreateRequestPage />}
+                />
+              </Route>
+
+              {/* Back-compat */}
+              <Route
+                path="/compliance"
+                element={<Navigate to="/document-requests" replace />}
+              />
+              <Route
+                path="/compliance/create"
+                element={<Navigate to="/document-requests/create" replace />}
+              />
+              <Route
+                path="/compliance/inbox"
+                element={<Navigate to="/document-requests" replace />}
+              />
+              <Route
+                path="/compliance/:id"
+                element={<Navigate to="/document-requests/:id" replace />}
+              />
+
+              {/* Document view (library/finished) */}
+              <Route path="/documents/:id/view" element={<DocumentViewPage />} />
+              <Route path="/documents/:id" element={<WorkflowPage />} />
+              <Route path="/documents/all" element={<WorkflowListPage />} />
+              <Route path="/documents" element={<LibraryPage />} />
+              <Route path="/archive" element={<ArchivePage />} />
+
+              <Route
+                element={
+                  <RequireRole allow={[
+                    "QA", 
+                    "OFFICE_STAFF", 
+                    "OFFICE_HEAD", 
+                    "VPAA", 
+                    "VPAD", 
+                    "VPF", 
+                    "VPR", 
+                    "PRESIDENT"
+                  ]} />
+                }
+              >
+                <Route
+                  path="/documents/create"
+                  element={<CreateWorkflowPage />}
+                />
+              </Route>
+
+              <Route
+                path="/documents/request"
+                element={<Navigate to="/documents/create" replace />}
+              />
+
+              <Route
+                element={
+                  <RequireRole
+                    allow={[
+                      "PRESIDENT",
+                      "VPAA",
+                      "QA",
+                      "SYSADMIN",
+                      "ADMIN",
+                      "VPAD",
+                      "VPF",
+                      "VPR",
+                      "OFFICE_HEAD",
+                      "OFFICE_STAFF",
+                    ]}
+                  />
+                }
+              >
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/reports/export" element={<ReportExportPage />} />
+              </Route>
+
+              <Route path="/profile" element={<ProfileSettingsPage />} />
+              <Route path="/settings" element={<Navigate to="/profile" replace />} />
+              <Route path="/my-activity" element={<Navigate to="/profile" replace />} />
+
+              <Route
+                element={
+                  <RequireRole
+                    allow={["QA", "SYSADMIN", "ADMIN", "OFFICE_HEAD", "AUDITOR"]}
+                  />
+                }
+              >
+                <Route path="/activity-logs" element={<ActivityLogsPage />} />
+              </Route>
+
+              <Route element={<RequireRole allow={["SYSADMIN", "ADMIN", "QA"]} />}>
+                <Route path="/system/backup" element={<BackupAndRestorePage />} />
+                <Route path="/user-manager" element={<UserManagerPage />} />
+                <Route path="/office-manager" element={<OfficeManagerPage />} />
+                <Route path="/system-health" element={<SystemHealthPage />} />
+              </Route>
+
+
+
+              <Route path="/announcements" element={<AnnouncementsPage />} />
+              <Route path="/help" element={<HelpPage />} />
+              <Route path="/help/:topic" element={<HelpTopicPage />} />
+              <Route path="/whats-new" element={<WhatsNewPage />} />
+              <Route path="/report-issue" element={<ReportIssuePage />} />
             </Route>
 
-            <Route element={<RequireRole allow={["SYSADMIN", "ADMIN", "QA"]} />}>
-              <Route path="/system/backup" element={<BackupAndRestorePage />} />
-              <Route path="/user-manager" element={<UserManagerPage />} />
-              <Route path="/office-manager" element={<OfficeManagerPage />} />
-              <Route path="/system-health" element={<SystemHealthPage />} />
-            </Route>
-
-
-
-            <Route path="/announcements" element={<AnnouncementsPage />} />
-            <Route path="/help" element={<HelpPage />} />
-            <Route path="/help/:topic" element={<HelpTopicPage />} />
-            <Route path="/whats-new" element={<WhatsNewPage />} />
-            <Route path="/report-issue" element={<ReportIssuePage />} />
-          </Route>
-
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </Suspense>
-    </ChunkErrorBoundary>
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Suspense>
+      </ChunkErrorBoundary>
+    </ToastProvider>
   );
 }

@@ -38,7 +38,13 @@ const ActivityLogsPage: React.FC = () => {
     scope: isOfficeHead ? "office" : "all",
   });
 
-  useSmartRefresh(internalRefresh);
+  useSmartRefresh(async () => {
+    const res = await internalRefresh();
+    return {
+      changed: !!res?.changed,
+      message: res?.changed ? "Activity logs synchronized." : "Logs are up to date."
+    };
+  });
 
   const handleRowNavigate = async (row: any) => {
     if (row.meta?.document_request_id) {

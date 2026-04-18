@@ -50,6 +50,7 @@ export function useDocumentWorkflow({
   const prevOpenTaskOfficeRef = useRef<number | null>(null);
   const prevActionsRef = useRef<string>("");
   const isFirstTaskLoadRef = useRef(true);
+  const lastActionTimeRef = useRef<number>(0);
 
   // 2. Impersonation State
   const [routingUsers, setRoutingUsers] = useState<OfficeUser[]>([]);
@@ -159,6 +160,7 @@ export function useDocumentWorkflow({
         }
         return res;
       } finally {
+        lastActionTimeRef.current = Date.now();
         setIsChangingStatus(false);
       }
     },
@@ -199,6 +201,14 @@ export function useDocumentWorkflow({
   useRealtimeUpdates({
     documentVersionId: versionId,
     onWorkflowUpdate: (data: any) => {
+      // Throttling: if we just manually performed an action, ignore the incoming WebSocket 
+      // event for a moment to prevent "double refresh" loops.
+      const now = Date.now();
+      if (now - lastActionTimeRef.current < 1500) {
+        console.debug("[WorkflowRealtime] Throttling event arrival (recent local action).", data?.event);
+        return;
+      }
+
       const isSig = data?.event === "version.in_app_signature_applied" || data?.event === "version.in_app_signature_removed";
       const isPreview = data?.event === "version.preview_regenerated";
 
@@ -247,6 +257,9 @@ export function useDocumentWorkflow({
     taskChanged,
     clearTaskChanged: () => setTaskChanged(false),
  
+    // Manual action tracking
+    updateLastActionTime: () => { lastActionTimeRef.current = Date.now(); },
+
     // Impersonation
     routingUsers,
     actingAsUserId,

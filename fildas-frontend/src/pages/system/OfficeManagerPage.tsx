@@ -109,7 +109,10 @@ export function OfficeManagerPage() {
 
     if (!data) return { changed: false };
     const changed = JSON.stringify(data) !== JSON.stringify(prevItems.slice(0, data.length));
-    return { changed };
+    return { 
+      changed,
+      message: changed ? "Office list synchronized." : "Offices are up to date."
+    };
   });
 
   // Reset on filter change

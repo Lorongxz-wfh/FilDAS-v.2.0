@@ -40,7 +40,12 @@ const Navbar: React.FC<NavbarProps> = ({
           <button
             type="button"
             onClick={triggerRefresh}
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400 transition-all duration-200 active:scale-90"
+            disabled={isRefreshing}
+            className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200 active:scale-90 ${
+              isRefreshing 
+                ? "text-slate-300 dark:text-surface-300 cursor-not-allowed" 
+                : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400"
+            }`}
             title="Refresh current page and sidebar"
           >
             <RefreshCw

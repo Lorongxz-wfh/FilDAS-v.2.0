@@ -551,6 +551,8 @@ export function useWorkflowUI({
         disabled:
           workflow.isChangingStatus ||
           fileUpload.isUploading ||
+          signingInBackground ||
+          removingSignature ||
           (code !== "CANCEL_DOCUMENT" && !canAct) ||
           (isDraftStatus && ["QA_SEND_TO_OFFICE_REVIEW", "OFFICE_SEND_TO_HEAD", "CUSTOM_FORWARD"].includes(code) && !localVersion?.file_path && !adminDebugMode) ||
           (needsFileReplacement && !["REJECT", "CANCEL_DOCUMENT"].includes(code)) ||
@@ -607,7 +609,7 @@ export function useWorkflowUI({
               key: "ARCHIVE_DOCUMENT",
               label: "Archive",
               variant: "outline" as const,
-              disabled: workflow.isChangingStatus || !canAct,
+              disabled: workflow.isChangingStatus || signingInBackground || removingSignature || fileUpload.isUploading || !canAct,
               onClick: async () => {
                 try {
                   await archiveDocument(document!.id);
@@ -636,7 +638,7 @@ export function useWorkflowUI({
               key: "RESTORE_DOCUMENT",
               label: "Restore to Library",
               variant: "primary" as const,
-              disabled: workflow.isChangingStatus || !canAct,
+              disabled: workflow.isChangingStatus || signingInBackground || removingSignature || fileUpload.isUploading || !canAct,
               onClick: async () => {
                 try {
                   await restoreDocument(document!.id);
@@ -694,6 +696,7 @@ export function useWorkflowUI({
         key: "download",
         label: "Download",
         variant: "outline",
+        disabled: workflow.isChangingStatus || signingInBackground || removingSignature || fileUpload.isUploading,
         onClick: async () => {
           try {
             await downloadDocument(localVersion);
@@ -709,6 +712,7 @@ export function useWorkflowUI({
         key: "delete_draft",
         label: "Delete draft",
         variant: "danger",
+        disabled: workflow.isChangingStatus || signingInBackground || removingSignature || fileUpload.isUploading,
         onClick: async () => setPendingDelete("draft"),
       });
     }
@@ -761,7 +765,7 @@ export function useWorkflowUI({
     routeSteps,
     isRegisterModalOpen,
     isDistributeModalOpen,
-    isBusy: isRegisterModalOpen || isDistributeModalOpen || workflow.isChangingStatus,
+    isBusy: isRegisterModalOpen || isDistributeModalOpen || workflow.isChangingStatus || signingInBackground || removingSignature || fileUpload.isUploading,
     activeWorkflowCode,
     participantOfficeIds,
     isDraft: isDraftStatus,

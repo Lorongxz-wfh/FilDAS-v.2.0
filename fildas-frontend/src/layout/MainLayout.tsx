@@ -4,7 +4,6 @@ import Sidebar from "../components/sidebar/SideBar";
 import BottomNav from "../components/layout/BottomNav";
 import MobileActionFab from "../components/layout/MobileActionFab";
 import MaintenanceBanner from "../components/layout/MaintenanceBanner";
-import { ToastProvider } from "../components/ui/toast/ToastContext";
 import { useThemeContext } from "../lib/ThemeContext";
 import { useGlobalNavStats } from "../hooks/useGlobalNavStats";
 
@@ -53,9 +52,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   ), [theme, toggle]);
 
   return (
-    <ToastProvider>
-      <div
-        className={[
+    <div
+      className={[
           "flex font-sans bg-slate-50 dark:bg-surface-600",
           noBodyScroll ? "h-screen overflow-hidden" : "min-h-screen",
         ].join(" ")}
@@ -74,7 +72,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
         <MobileActionFab />
       </div>
-    </ToastProvider>
   );
 };
 

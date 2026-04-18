@@ -557,7 +557,7 @@ const DashboardPage: React.FC = () => {
       announcements.reload()
     ]);
 
-    let message = "Dashboard data synchronized.";
+    let message = "Dashboard synchronized.";
     if (!dashResult.changed) message = "Dashboard is up to date.";
     else if (dashResult.delta > 0)
       message = `${dashResult.delta} new pending task${dashResult.delta === 1 ? "" : "s"} found.`;

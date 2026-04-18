@@ -47,7 +47,7 @@ export function useSmartRefresh(
       if (!result) {
         t?.push({
           type: "success",
-          message: "Page data synchronized.",
+          message: "Data synchronized.",
           durationMs: 2000,
         });
       } else if (result.message) {
@@ -58,11 +58,11 @@ export function useSmartRefresh(
         });
       } else if (result.changed) {
         const deltaMsg = result.delta != null && result.delta > 0 
-          ? ` (${result.delta} new updates)` 
-          : "";
+          ? ` — ${result.delta} new update${result.delta === 1 ? "" : "s"} found.` 
+          : ".";
         t?.push({
           type: "success",
-          message: `Data synchronized${deltaMsg}.`,
+          message: `Data synchronized${deltaMsg}`,
           durationMs: 2500,
         });
       } else {

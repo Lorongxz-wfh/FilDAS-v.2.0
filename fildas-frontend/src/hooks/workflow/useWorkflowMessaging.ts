@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { listDocumentMessages, type DocumentMessage } from "../../services/documents";
 
 export function useWorkflowMessaging(versionId: number, myUserId: number | null) {
@@ -71,7 +71,7 @@ export function useWorkflowMessaging(versionId: number, myUserId: number | null)
 
   const clearNewMessageCount = useCallback(() => setNewMessageCount(0), []);
 
-  return {
+  return useMemo(() => ({
     messages,
     setMessages,
     isLoadingMessages,
@@ -79,5 +79,12 @@ export function useWorkflowMessaging(versionId: number, myUserId: number | null)
     clearNewMessageCount,
     pollMessages,
     pushMessage,
-  };
+  }), [
+    messages,
+    isLoadingMessages,
+    newMessageCount,
+    clearNewMessageCount,
+    pollMessages,
+    pushMessage,
+  ]);
 }

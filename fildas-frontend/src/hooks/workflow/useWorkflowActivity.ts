@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { listActivityLogs, type ActivityLogItem } from "../../services/documents";
 
 export function useWorkflowActivity(versionId: number, documentId?: number) {
@@ -41,11 +41,16 @@ export function useWorkflowActivity(versionId: number, documentId?: number) {
     return () => { alive = false; };
   }, [versionId, documentId, fetchLogs]);
 
-  return {
+  return useMemo(() => ({
     activityLogs,
     setActivityLogs,
     isLoadingActivityLogs,
     refreshLogsSilent,
     fetchLogs
-  };
+  }), [
+    activityLogs,
+    isLoadingActivityLogs,
+    refreshLogsSilent,
+    fetchLogs
+  ]);
 }

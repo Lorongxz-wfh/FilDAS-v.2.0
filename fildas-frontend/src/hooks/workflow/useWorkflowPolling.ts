@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useVisibilityPolling } from "../useVisibilityPolling";
 
 type PollingOptions = {
@@ -40,7 +40,7 @@ export function useWorkflowPolling({
       refreshLogs(id);
       refreshMessages(id);
     }, IDLE_POLL_MS);
-  }, [refreshTasks, refreshLogs]);
+  }, [refreshTasks, refreshLogs, refreshMessages]);
 
   const startBurstPolling = useCallback((id: number) => {
     if (idlePollRef.current) window.clearInterval(idlePollRef.current);
@@ -61,7 +61,7 @@ export function useWorkflowPolling({
       setIsBurstPolling(false);
       startIdlePolling(id);
     }, BURST_EXPIRE_MS);
-  }, [refreshTasks, refreshLogs, startIdlePolling]);
+  }, [refreshTasks, refreshLogs, refreshMessages, startIdlePolling]);
 
   // Visibility-aware catch-up
   useVisibilityPolling(
@@ -82,9 +82,13 @@ export function useWorkflowPolling({
     return () => stopAllPolling();
   }, [versionId, isTerminal, startIdlePolling, stopAllPolling]);
 
-  return {
+  return useMemo(() => ({
     isBurstPolling,
     startBurstPolling,
     stopAllPolling
-  };
+  }), [
+    isBurstPolling,
+    startBurstPolling,
+    stopAllPolling
+  ]);
 }

@@ -98,10 +98,9 @@ const Workflow: React.FC<WorkflowProps> = ({
       // Auto-bust preview if file/signature might have changed
       if (state.localVersion) {
         invalidatePreviewCache(state.localVersion.id);
-        actions.setPreviewNonce((n) => n + 1);
       }
     }
-  }, [actions.workflow.taskChanged, actions.workflow, actions.setPreviewNonce, state.localVersion?.id, onChanged]);
+  }, [actions.workflow.taskChanged, actions.workflow, state.localVersion?.id, onChanged]);
 
   // ── Sync Header State to Parent ───────────────────────────
   const onHeaderStateChangeRef = React.useRef(onHeaderStateChange);
@@ -179,11 +178,33 @@ const Workflow: React.FC<WorkflowProps> = ({
   }, [state.localVersion?.id, actions.workflow.refreshMessages]);
 
   // ── Sync right panel UI to parent shell (fully reactive) ───────────────────
+  const panelSig = React.useMemo(() => {
+    return `${state.localVersion?.id}|${state.localVersion?.status}|${state.localVersion?.updated_at}|${state.activeSideTab}|${actions.workflow.tasks.length}|${actions.workflow.messages.length}|${actions.workflow.activityLogs.length}|${actions.workflow.newMessageCount}|${actions.workflow.isLoadingActivityLogs ? 1 : 0}|${actions.workflow.isLoadingMessages ? 1 : 0}|${state.offices.length}|${state.routeSteps.length}|${state.isQAOfficeUser ? 1 : 0}|${me?.id}|${state.localTitle}`;
+  }, [
+    state.localVersion?.id,
+    state.localVersion?.status,
+    state.localVersion?.updated_at,
+    state.activeSideTab,
+    actions.workflow.tasks.length,
+    actions.workflow.messages.length,
+    actions.workflow.activityLogs.length,
+    actions.workflow.newMessageCount,
+    actions.workflow.isLoadingActivityLogs,
+    actions.workflow.isLoadingMessages,
+    state.offices.length,
+    state.routeSteps.length,
+    state.isQAOfficeUser,
+    me?.id,
+    state.localTitle
+  ]);
+
+  const lastPanelSigRef = React.useRef("");
   React.useEffect(() => {
+    if (panelSig === lastPanelSigRef.current) return;
+    lastPanelSigRef.current = panelSig;
+
     console.debug("[Workflow] Syncing right panel content to parent.");
     
-    // We stop the signature optimization because it caused 'frozen' UI or missed updates.
-    // Instead, we push whenever the underlying data or tab changes.
     onRightPanelContentRef.current?.(
       <WorkflowRightPanel
         document={document}
@@ -214,6 +235,7 @@ const Workflow: React.FC<WorkflowProps> = ({
       />
     );
   }, [
+    panelSig,
     document,
     state.localVersion,
     state.offices,
@@ -275,6 +297,7 @@ const Workflow: React.FC<WorkflowProps> = ({
             actions.setRemovingSignature(true);
             try {
               await removeInAppSignature(state.localVersion!.id);
+              actions.workflow.updateLastActionTime();
               actions.setApproverHasUploaded(false);
               actions.setApproverHasDownloaded(false);
               if (onChanged) await onChanged();
@@ -409,6 +432,7 @@ const Workflow: React.FC<WorkflowProps> = ({
             actions.setApproverHasUploaded(true);
             actions.setSigningInBackground(false);
             actions.setSigningEditMode(false);
+            actions.workflow.updateLastActionTime();
             await actions.syncAll();
             if (onChanged) await onChanged();
             // Preview refresh handled by hook's useEffect watching localVersion.updated_at

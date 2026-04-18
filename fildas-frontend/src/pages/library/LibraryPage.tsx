@@ -367,7 +367,10 @@ export default function LibraryPage() {
       setTrashRefreshTrigger(prev => prev + 1);
     }
     
-    return { changed: true };
+    return { 
+      changed: true,
+      message: "Document library synchronized."
+    };
   });
 
   useEffect(() => {

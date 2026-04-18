@@ -329,7 +329,11 @@ export default function RequestListPage() {
     const prevFirstId = firstIdRef.current;
     const result = await loadData(false, true);
     const newFirstId = result?.data?.[0]?.request_id || result?.data?.[0]?.id || null;
-    return { changed: newFirstId !== prevFirstId };
+    const changed = newFirstId !== prevFirstId;
+    return { 
+      changed,
+      message: changed ? "Request queue synchronized." : "Requests are up to date."
+    };
   });
 
   React.useEffect(() => {

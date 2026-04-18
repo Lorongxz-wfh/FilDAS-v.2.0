@@ -190,7 +190,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl rounded-2xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden shadow-sm shadow-slate-200/50 dark:shadow-none">
+    <div className="mx-auto w-full max-w-5xl rounded-xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden shadow-sm shadow-slate-200/50 dark:shadow-none">
       {/* ── Header bar — always visible, click to toggle ── */}
       <button
         type="button"
@@ -422,7 +422,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
               <div className="mt-3 flex items-center gap-1.5">
                 {phases.map((_, i) => (
                   <React.Fragment key={i}>
-                    <div className="flex-1 min-w-0 rounded-lg border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-3 py-2">
+                    <div className="flex-1 min-w-0 rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50 dark:bg-surface-600 px-3 py-2">
                       <div className="flex items-center gap-2">
                         <div className="h-2.5 w-2.5 rounded-full bg-slate-200 dark:bg-surface-300 shrink-0" />
                         <div className="h-2.5 w-full rounded-full bg-slate-200 dark:bg-surface-300 animate-pulse" />
@@ -446,7 +446,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                       <button
                         type="button"
                         onClick={() => setSelectedPhaseId(phase.id)}
-                        className={`flex-1 min-w-0 rounded-lg border px-3 py-2 text-left transition-all duration-300 cursor-pointer ${isCurrent
+                        className={`flex-1 min-w-0 rounded-md border px-3 py-2 text-left transition-all duration-300 cursor-pointer ${isCurrent
                             ? "border-sky-600/50 bg-sky-50 dark:border-sky-600/40 dark:bg-sky-500/10 shadow-sm shadow-sky-600/10"
                             : isSelected
                               ? "border-slate-400 bg-slate-100 dark:border-slate-400 dark:bg-surface-400/60"
@@ -516,7 +516,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
 
             {/* Steps timeline */}
             {!isTasksReady ? (
-              <div className="mt-3 rounded-lg border border-slate-200 dark:border-surface-400 bg-slate-50/40 dark:bg-surface-600/40 p-3">
+              <div className="mt-3 rounded-md border border-slate-200 dark:border-surface-400 bg-slate-50/40 dark:bg-surface-600/40 p-3">
                 <div className="flex justify-center items-center gap-6 py-2">
                   {[1, 2, 3].map((i) => (
                     <React.Fragment key={i}>
@@ -534,7 +534,7 @@ const WorkflowProgressCard: React.FC<Props> = ({
                 </div>
               </div>
             ) : (
-              <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50/40 p-3 dark:border-surface-400 dark:bg-surface-600/40">
+              <div className="mt-3 rounded-md border border-slate-200 bg-slate-50/40 p-3 dark:border-surface-400 dark:bg-surface-600/40">
                 <p className="text-center text-[10px] font-bold mb-2 uppercase tracking-widest text-slate-500 dark:text-slate-400">
                   {selectedPhaseId === currentPhaseId
                     ? "Current Steps"

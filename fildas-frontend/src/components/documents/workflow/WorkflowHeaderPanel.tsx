@@ -82,29 +82,27 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
             <Alert
+              dense
               variant="primary"
               icon={<FileSearch className="h-4 w-4" />}
               title="Drafting: No document attached"
               action={
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    onClick={onTriggerUpload}
-                    disabled={isUploading || isChangingStatus || !canAct}
-                  >
-                    {isUploading ? "Uploading…" : "Upload document"}
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={onTriggerUpload}
+                  disabled={isUploading || isChangingStatus || signingInBackground || removingSignature || !canAct}
+                >
+                  {isUploading ? "Uploading…" : "Upload document"}
+                </Button>
               }
             >
-              This workflow is currently a draft. You must attach a document before you can forward it to the next office.
+              Attach a document to begin the workflow.
             </Alert>
           </motion.div>
         )}
         
-        {/* 1. Approver Signing Banner (Uniform Blue) */}
         {canAct && approverNeedsSignedUpload && !approverHasUploaded && (
           <motion.div
             key="approver-sign"
@@ -114,60 +112,49 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
             <Alert
+              dense
               variant="primary"
               icon={<Upload className="h-4 w-4" />}
               title={approverHasDownloaded ? "Step 2: Upload signed copy" : "Step 1: Download for signing"}
               action={
-                !approverHasDownloaded ? (
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
+                  {!approverHasDownloaded ? (
                     <Button
                       type="button"
                       variant="primary"
                       size="sm"
                       onClick={onDownload}
-                      disabled={isChangingStatus || signingInBackground || !canAct}
+                      disabled={isUploading || isChangingStatus || signingInBackground || removingSignature || !canAct}
                     >
                       Download
                     </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onTriggerSign(false)}
-                      disabled={isChangingStatus || signingInBackground || !canAct}
-                    >
-                      {signingInBackground && <Loader2 size={12} className="animate-spin mr-1" />}
-                      {signingInBackground ? "Signing…" : "Sign in-app"}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
+                  ) : (
                     <Button
                       type="button"
                       variant="primary"
                       size="sm"
                       onClick={onTriggerUpload}
-                      disabled={isUploading || isChangingStatus || signingInBackground || !canAct}
+                      disabled={isUploading || isChangingStatus || signingInBackground || removingSignature || !canAct}
                     >
-                      {isUploading ? "Uploading…" : "Upload signed"}
+                      {isUploading ? "Uploading…" : "Upload"}
                     </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onTriggerSign(false)}
-                      disabled={isChangingStatus || signingInBackground || !canAct}
-                    >
-                      {signingInBackground && <Loader2 size={12} className="animate-spin mr-1" />}
-                      {signingInBackground ? "Signing…" : "Sign in-app"}
-                    </Button>
-                  </div>
-                )
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onTriggerSign(false)}
+                    disabled={isUploading || isChangingStatus || signingInBackground || removingSignature || !canAct}
+                  >
+                    {signingInBackground && <Loader2 size={12} className="animate-spin mr-1" />}
+                    {signingInBackground ? "Signing…" : "Sign in-app"}
+                  </Button>
+                </div>
               }
             >
               {!approverHasDownloaded
-                ? "Please choose one of the signing options below to enable forwarding."
-                : "Upload your signed copy or sign directly in the app to enable forwarding."}
+                ? "Choose a signing option to enable forwarding."
+                : "Upload signed copy or sign directly in the app."}
             </Alert>
           </motion.div>
         )}
@@ -182,6 +169,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
             <Alert
+              dense
               variant="primary"
               icon={<Upload className="h-4 w-4" />}
               title="Sign document before approval"
@@ -192,16 +180,16 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                     variant="primary"
                     size="sm"
                     onClick={onTriggerUpload}
-                    disabled={isUploading || isChangingStatus || signingInBackground || !canAct}
+                    disabled={isUploading || isChangingStatus || signingInBackground || removingSignature || !canAct}
                   >
-                    {isUploading ? "Uploading…" : "Upload signed"}
+                    {isUploading ? "Uploading…" : "Upload"}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => onTriggerSign(false)}
-                    disabled={isUploading || isChangingStatus || signingInBackground || !canAct}
+                    disabled={isUploading || isChangingStatus || signingInBackground || removingSignature || !canAct}
                   >
                     {signingInBackground && <Loader2 size={12} className="animate-spin mr-1" />}
                     {signingInBackground ? "Signing…" : "Sign in-app"}
@@ -209,10 +197,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                 </div>
               }
             >
-              {canAct 
-                ? "You must sign the document before starting the formal approval phase."
-                : "A signature is required from the document owner before approval can start. If you are the owner, please ensure you are logged into the correct account."
-              }
+              A signature is required from the document owner before approval.
             </Alert>
           </motion.div>
         )}
@@ -227,6 +212,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
             <Alert
+              dense
               variant="success"
               icon={<CheckCircle2 className="h-4 w-4" />}
               title={isActiveApprover && !isPreApprovalCreatorCheck ? "Document signed" : "Draft signed & ready"}
@@ -240,7 +226,7 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                       onClick={() => onTriggerSign(true)}
                       disabled={isChangingStatus || removingSignature || !canAct}
                     >
-                      Edit signature
+                      Edit
                     </Button>
                   )}
                   <Button
@@ -249,16 +235,13 @@ const WorkflowHeaderPanel: React.FC<Props> = ({
                     size="xs"
                     disabled={isChangingStatus || removingSignature || !canAct}
                     onClick={onRemoveSignature}
-                    className="bg-red-600 hover:bg-red-700 border-red-600 text-white"
                   >
-                    {removingSignature ? "Removing…" : "Remove signature"}
+                    {removingSignature ? "Removing…" : "Remove"}
                   </Button>
                 </div>
               }
             >
-              {isActiveApprover && !isPreApprovalCreatorCheck
-                ? "You have uploaded your signed copy. You can now proceed with the approval action below."
-                : "You have attached your signature. You can now proceed to forward this document for approval."}
+              Signature attached. You can now proceed.
             </Alert>
           </motion.div>
         )}

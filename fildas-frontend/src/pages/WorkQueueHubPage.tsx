@@ -195,7 +195,7 @@ const WorkQueueHubPage: React.FC = () => {
     const changed = await loadAll(true);
     return {
       changed,
-      message: changed ? "Work queue synchronized." : "Queue is up to date.",
+      message: changed ? "Work queue synchronized." : "Work queue is up to date.",
     };
   });
 

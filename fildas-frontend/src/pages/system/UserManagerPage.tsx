@@ -151,7 +151,10 @@ const UserManagerPage: React.FC = () => {
       setTrashRefreshTrigger(prev => prev + 1);
     }
 
-    return { changed };
+    return { 
+      changed,
+      message: changed ? "User list synchronized." : "User list is up to date."
+    };
   });
 
   // Reset on filter change
