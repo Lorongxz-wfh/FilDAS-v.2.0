@@ -258,12 +258,6 @@ export default function WorkflowListPage() {
         sortKey: "title",
         render: (doc) => <p className="text-sm font-semibold truncate text-slate-800 dark:text-slate-100 group-hover:text-brand-500 transition-colors">{doc.title}</p>,
       },
-      {
-        key: "code",
-        header: "Code",
-        sortKey: "code",
-        render: (doc) => <span className="font-mono text-[10px] font-bold text-slate-400 bg-slate-50 dark:bg-surface-400/30 px-1.5 py-0.5 rounded-sm border border-slate-100 dark:border-surface-400/50">{doc.code || "—"}</span>,
-      },
     ];
     if (!isDistributed) {
       cols.push({
@@ -320,8 +314,8 @@ export default function WorkflowListPage() {
 
   const gridTemplateColumns = useMemo(() => {
     const isDistributed = tab === "distributed";
-    // Base columns: ID, Activity/Dist, Name, Code
-    let parts = ["50px", isDistributed ? "120px" : "110px", "minmax(160px, 1fr)", "160px"];
+    // Base columns: ID, Activity/Dist, Name
+    let parts = ["50px", isDistributed ? "120px" : "110px", "minmax(160px, 1fr)"];
 
     // Status column (only if not distributed)
     if (!isDistributed) parts.push("140px");
