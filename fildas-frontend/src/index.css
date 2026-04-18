@@ -100,6 +100,15 @@
   :root {
     color-scheme: light;
     accent-color: var(--color-brand-600);
+    --base-font-size: 16px;
+  }
+
+  html.font-size-small { --base-font-size: 14px; }
+  html.font-size-default { --base-font-size: 16px; }
+  html.font-size-large { --base-font-size: 18px; }
+
+  html {
+    font-size: var(--base-font-size);
   }
 
   .dark {
@@ -110,7 +119,7 @@
 
   body {
     font-family: "Inter", -apple-system, system-ui, sans-serif;
-    font-size: 14px;
+    font-size: 1rem;
     font-weight: 450;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
@@ -130,7 +139,6 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
     font-weight: 700;
     line-height: 1.2;
     letter-spacing: -0.02em; /* Tightened for sharpness */
@@ -196,4 +204,4 @@
   .animate-pulse-highlight {
     animation: var(--animate-pulse-highlight);
   }
-}@layer utilities { .font-display { font-family: 'Plus Jakarta Sans', sans-serif !important; } .font-body { font-family: 'Inter', sans-serif !important; } }
+}@layer utilities { .font-body { font-family: 'Inter', sans-serif !important; } }

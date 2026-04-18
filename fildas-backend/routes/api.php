@@ -206,6 +206,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\UpdateLastActive::class]
     Route::delete('/profile/signature',                   [\App\Http\Controllers\Api\ProfileController::class, 'removeSignature']);
     Route::patch('/profile/notification-preferences',     [\App\Http\Controllers\Api\ProfileController::class, 'updateNotificationPreferences']);
     Route::patch('/profile/theme-preference',             [\App\Http\Controllers\Api\ProfileController::class, 'updateThemePreference']);
+    Route::patch('/profile/font-size-preference',        [\App\Http\Controllers\Api\ProfileController::class, 'updateFontSizePreference']);
     Route::patch('/profile/onboarding',                   [OnboardingController::class, 'update']);
 
     // ── Two-Factor Authentication ──────────────────────────────────────────────

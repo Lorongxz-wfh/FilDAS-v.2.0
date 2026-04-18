@@ -1,8 +1,16 @@
 import React from "react";
-import { getStoredTheme, applyTheme, type ThemePreference } from "../lib/theme";
+import { 
+  getStoredTheme, 
+  applyTheme, 
+  type ThemePreference,
+  getStoredFontSize,
+  applyFontSize,
+  type FontSize
+} from "../lib/theme";
 
 export function useTheme() {
   const [theme, setTheme] = React.useState<ThemePreference>(getStoredTheme);
+  const [fontSize, setFontSize] = React.useState<FontSize>(getStoredFontSize);
 
   React.useEffect(() => {
     applyTheme(theme);
@@ -17,6 +25,10 @@ export function useTheme() {
     }
   }, [theme]);
 
+  React.useEffect(() => {
+    applyFontSize(fontSize);
+  }, [fontSize]);
+
   const toggle = React.useCallback(() => {
     setTheme((t) => {
       if (t === "light") return "dark";
@@ -25,5 +37,5 @@ export function useTheme() {
     });
   }, []);
 
-  return { theme, toggle, setTheme };
+  return { theme, toggle, setTheme, fontSize, setFontSize };
 }

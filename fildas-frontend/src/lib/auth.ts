@@ -21,6 +21,7 @@ export type AuthUser = {
   office: { id: number; name: string; code: string } | null;
   two_factor_enabled: boolean;
   theme_preference?: "light" | "dark" | "system";
+  font_size_preference?: "small" | "default" | "large";
   onboarding_progress?: string[] | null;
 };
 

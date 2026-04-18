@@ -53,7 +53,6 @@ import {
 import { normalizeError } from "../../lib/normalizeError";
 import WorkflowVersionCompareModal from "../../components/documents/modals/WorkflowVersionCompareModal";
 import { GitCompare } from "lucide-react";
-import LiveValuePulse from "../../components/ui/LiveValuePulse";
 
 const WorkflowPage: React.FC = () => {
   const params = useParams();
@@ -427,20 +426,6 @@ const WorkflowPage: React.FC = () => {
                   <span className="min-w-0 whitespace-normal wrap-break-word font-bold text-slate-800 dark:text-white leading-snug">
                     {headerState?.title ?? document?.title}
                   </span>
-                  {!loading && headerState?.status && (
-                    <LiveValuePulse value={headerState.status}>
-                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-800 ring-1 ring-inset ring-slate-200 dark:bg-surface-400 dark:text-slate-200 dark:ring-surface-300">
-                        {headerState.status}
-                      </span>
-                    </LiveValuePulse>
-                  )}
-                  {!loading && headerState?.versionNumber !== undefined && (
-                    <LiveValuePulse value={headerState.versionNumber} pulseColor="bg-emerald-500/20">
-                      <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-400/10 dark:text-emerald-400 dark:ring-emerald-400/20">
-                        v{headerState.versionNumber}
-                      </span>
-                    </LiveValuePulse>
-                  )}
                 </div>
               )}
             </div>

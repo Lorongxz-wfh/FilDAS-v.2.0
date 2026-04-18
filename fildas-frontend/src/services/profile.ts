@@ -72,6 +72,11 @@ export async function updateThemePreference(theme: "light" | "dark" | "system") 
   return data.user;
 }
 
+export async function updateFontSizePreference(size: "small" | "default" | "large") {
+  const { data } = await api.patch("/profile/font-size-preference", { font_size_preference: size });
+  return data.user;
+}
+
 // ── Two-Factor Authentication ──────────────────────────────────────────────
 export async function setupTwoFactor() {
   const { data } = await api.get("/profile/two-factor/setup");

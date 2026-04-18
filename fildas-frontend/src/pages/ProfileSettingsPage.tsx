@@ -15,6 +15,7 @@ import {
   Sun,
   Moon,
   Laptop,
+  Type,
 } from "lucide-react";
 import {
   listActivityLogs
@@ -26,6 +27,7 @@ import {
   uploadSignature,
   removeSignature,
   updateThemePreference,
+  updateFontSizePreference,
   fetchProfile,
   type ProfileUpdatePayload
 } from "../services/profile";
@@ -378,7 +380,12 @@ const ProfileSettingsPage: React.FC = () => {
 // ── Internal Settings Sections ─────────────────────────────────────────────
 
 const SettingsLayout: React.FC<{ user: any; push: any }> = ({ user, push }) => {
-  const { theme: currentTheme, setTheme } = useThemeContext();
+  const { 
+    theme: currentTheme, 
+    setTheme, 
+    fontSize: currentFontSize, 
+    setFontSize 
+  } = useThemeContext();
   const [pw, setPw] = useState({ current_password: "", password: "", password_confirmation: "" });
   const [pwLoading, setPwLoading] = useState(false);
   const sigInputRef = useRef<HTMLInputElement>(null);
@@ -488,6 +495,16 @@ const SettingsLayout: React.FC<{ user: any; push: any }> = ({ user, push }) => {
     }
   };
 
+  const handleFontSizeChange = async (size: "small" | "default" | "large") => {
+    try {
+      setFontSize(size);
+      const updated = await updateFontSizePreference(size);
+      localStorage.setItem("auth_user", JSON.stringify({ ...JSON.parse(localStorage.getItem("auth_user") || "{}"), ...updated }));
+    } catch {
+      push({ type: "error", title: "Sync Failed", message: "Failed to save font size preference to your account." });
+    }
+  };
+
   const isAdmin = ["ADMIN", "SYSADMIN"].includes(String(getUserRole()).toUpperCase());
 
   return (
@@ -542,6 +559,33 @@ const SettingsLayout: React.FC<{ user: any; push: any }> = ({ user, push }) => {
               >
                 {opt.icon}
                 {opt.label}
+              </button>
+            ))}
+          </div>
+        </Section>
+
+        {/* Font Scaling section */}
+        <Section
+          title="System Font Scale"
+          icon={<Type className="h-4 w-4" />}
+          description="Adjust the base scaling of the system for better readability or high-density workflows."
+        >
+          <div className="flex p-1 bg-slate-100 dark:bg-surface-400 rounded-lg max-w-sm">
+            {[
+              { id: "small", label: "Small", size: "14px" },
+              { id: "default", label: "Default", size: "16px" },
+              { id: "large", label: "Large", size: "18px" }
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => handleFontSizeChange(opt.id as any)}
+                className={`flex-1 flex flex-col items-center justify-center py-1.5 rounded-md text-xs font-bold transition-all ${currentFontSize === opt.id
+                    ? "bg-white dark:bg-surface-600 text-brand-500 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 dark:text-slate-100"
+                  }`}
+              >
+                <span>{opt.label}</span>
+                <span className="text-[9px] opacity-60 font-medium">{opt.size}</span>
               </button>
             ))}
           </div>

@@ -352,6 +352,21 @@ class ProfileController extends Controller
 
         return response()->json(['user' => $this->userPayload($user)]);
     }
+    // PATCH /api/profile/font-size-preference
+    public function updateFontSizePreference(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        $data = $request->validate([
+            'font_size_preference' => ['required', 'string', 'in:small,default,large'],
+        ]);
+
+        $user->font_size_preference = $data['font_size_preference'];
+        $user->save();
+
+        return response()->json(['user' => $this->userPayload($user)]);
+    }
 
     private function userPayload(\App\Models\User $user): array
     {
@@ -380,6 +395,7 @@ class ProfileController extends Controller
             'email_approvals'     => (bool) ($user->email_approvals ?? true),
             'email_requests'      => (bool) ($user->email_requests ?? true),
             'theme_preference'    => $user->theme_preference ?? 'system',
+            'font_size_preference' => $user->font_size_preference ?? 'default',
             'must_change_password' => (bool) $user->must_change_password,
         ];
     }
