@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import PageFrame from "../../components/layout/PageFrame";
 import Button from "../../components/ui/Button";
+import { motion } from "framer-motion";
 import { getAuthUser } from "../../lib/auth";
 import { isAdmin } from "../../lib/roleFilters";
 import { useAdminDebugMode } from "../../hooks/useAdminDebugMode";
@@ -10,7 +11,6 @@ import {
   updateDocumentRequest,
   updateDocumentRequestStatus,
   type DocumentRequestItemRow,
-  // type DocumentRequestProgress,
 } from "../../services/documentRequests";
 import {
   Users,
@@ -20,10 +20,9 @@ import {
   Pencil,
   AlertTriangle,
   MessageSquare,
-  Activity,
-  ChevronRight,
   Clock,
   Loader2,
+  Activity,
 } from "lucide-react";
 import { PageActions } from "../../components/ui/PageActions";
 import { useRefresh } from "../../lib/RefreshContext";
@@ -44,6 +43,84 @@ import {
   postDocumentRequestMessage,
   type DocumentRequestMessageRow,
 } from "../../services/documentRequests";
+import Skeleton from "../../components/ui/loader/Skeleton";
+
+const RequestBatchSkeleton: React.FC<{ onBack: () => void }> = ({ onBack }) => (
+  <PageFrame title="Document Request" onBack={onBack}>
+    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-5 lg:h-full min-h-0 p-4 sm:p-5 bg-slate-50 dark:bg-surface-600">
+      <section className="lg:col-span-7 flex flex-col gap-4">
+        {/* Header Skeleton */}
+        <div className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-6 w-1/3" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+          <div className="flex items-center gap-4 pt-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </div>
+
+        {/* Progress Skeleton */}
+        <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 p-5 space-y-4">
+          <Skeleton className="h-3 w-32" />
+          <div className="space-y-3">
+            <Skeleton className="h-2.5 w-full rounded-full" />
+            <div className="flex justify-between">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+          </div>
+        </div>
+
+        {/* List Skeleton */}
+        <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+          <div className="h-10 bg-slate-50/80 dark:bg-surface-600/80 border-b border-slate-200 dark:border-surface-400 px-4 flex items-center">
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-surface-400">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="px-4 py-3 flex items-center justify-between gap-4">
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
+                <Skeleton className="h-4 w-16" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <aside className="lg:col-span-5 flex flex-col gap-4">
+        <div className="flex-1 rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex flex-col">
+          <div className="flex border-b border-slate-100 dark:border-surface-400">
+            <Skeleton className="h-10 w-1/2" />
+            <Skeleton className="h-10 w-1/2" />
+          </div>
+          <div className="p-5 flex-1 space-y-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex gap-3">
+                <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-2.5 w-12" />
+                  </div>
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </aside>
+    </div>
+  </PageFrame>
+);
 
 export default function RequestBatchPage() {
   const navigate = useNavigate();
@@ -70,43 +147,32 @@ export default function RequestBatchPage() {
   const [activityLoading, setActivityLoading] = React.useState(false);
 
   // ── Logic: Requester (Reviewer) vs. Requestee (Submitter) ──
-  // A Requester is the user who created the batch.
   const isRequester = me.id === Number(req?.created_by_user_id);
   const isRequestee =
     recipients.some((r) => Number(r.office_id) === Number(me?.office_id)) ||
     (isQa && recipients.some((r) => r.office_code === "QA"));
 
-  // Privileged user (can override in debug mode)
   const isPrivileged = isQa || isAdminUser;
   const canDebug = isPrivileged && adminDebugMode;
 
-  // Final roles
   const isReviewer = isRequester || (canDebug && !isRequestee);
-  const isSubmitter = isRequestee || (canDebug && !isRequester);
 
-  // canManage: Ability to edit titles/due dates/cancel
+
   const canManage = isReviewer || canDebug;
-
-  // Unused warning cleanup
-  if (isSubmitter && !isSubmitter) console.log(isSubmitter);
 
   // ── Right panel tabs + comments ────────────────────────────────────────────
   const [rightTab, setRightTab] = React.useState<"comments" | "activity">(
     "comments",
   );
 
-  // For multi-office: which recipient thread is selected (QA switcher)
-  // Default to null = shared/batch thread
   const [activeRecipientId, setActiveRecipientId] = React.useState<
     number | null
   >(null);
 
-  // When recipients load for multi-office, keep null (shared) as default — no auto-select
   React.useEffect(() => {
     if (!isMultiDoc && recipients.length > 0 && activeRecipientId !== null)
       return;
     setActiveRecipientId(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [req?.id]);
 
   const [messages, setMessages] = React.useState<DocumentRequestMessageRow[]>(
@@ -127,7 +193,6 @@ export default function RequestBatchPage() {
     filename?: string;
   } | null>(null);
 
-  // Edit panel state
   const [editOpen, setEditOpen] = React.useState(false);
   const [editDesc, setEditDesc] = React.useState("");
   const [editDueAt, setEditDueAt] = React.useState("");
@@ -156,7 +221,6 @@ export default function RequestBatchPage() {
     load().catch(() => { });
   }, [load]);
 
-  // Poll every 15s for status/progress updates
   React.useEffect(() => {
     const id = window.setInterval(() => {
       load(true).catch(() => { });
@@ -172,19 +236,17 @@ export default function RequestBatchPage() {
       await load();
       const nextProgress = `${req?.progress?.submitted ?? 0}-${req?.progress?.accepted ?? 0}`;
       prevProgressRef.current = nextProgress;
-      if (!prevProgress) return false; // initial load
+      if (!prevProgress) return false;
       return nextProgress !== prevProgress
         ? "Request progress updated."
         : "Already up to date.";
     } catch {
       throw new Error("Refresh failed.");
-    } finally {
-      // silent
     }
   }, [load, req?.progress]);
 
   const { refreshKey } = useRefresh();
-  const initialMountRef = Object.assign(React.useRef(true), {});
+  const initialMountRef = React.useRef(true);
 
   React.useEffect(() => {
     if (initialMountRef.current) {
@@ -195,21 +257,6 @@ export default function RequestBatchPage() {
   }, [refreshKey, handleRefresh]);
 
   const [mobileTab, setMobileTab] = React.useState<"items" | "discussion">("items");
-  const [isSummaryOpen, setIsSummaryOpen] = React.useState(true);
-  const [isDiscussionOpen, setIsDiscussionOpen] = React.useState(true);
-
-  const toggleMobileAccordion = (target: "summary" | "discussion") => {
-    if (window.innerWidth >= 1024) return;
-    if (target === "summary") {
-      const next = !isSummaryOpen;
-      setIsSummaryOpen(next);
-      if (next) setIsDiscussionOpen(false);
-    } else {
-      const next = !isDiscussionOpen;
-      setIsDiscussionOpen(next);
-      if (next) setIsSummaryOpen(false);
-    }
-  };
 
   const [statusUpdating, setStatusUpdating] = React.useState(false);
   const [confirmModal, setConfirmModal] = React.useState<{
@@ -242,14 +289,12 @@ export default function RequestBatchPage() {
     }
   }, [confirmModal, requestId, load]);
 
-  // Sync edit fields when req loads
   React.useEffect(() => {
     if (!req) return;
     setEditDesc(req.description ?? "");
     setEditDueAt(req.due_at ? req.due_at.slice(0, 16) : "");
   }, [req?.id]);
 
-  // ── Activity ───────────────────────────────────────────────────────────────
   const loadActivity = React.useCallback(async (silent = false) => {
     if (!silent) setActivityLoading(true);
     try {
@@ -269,9 +314,6 @@ export default function RequestBatchPage() {
     loadActivity().catch(() => { });
   }, [loadActivity]);
 
-  // ── Messages ───────────────────────────────────────────────────────────────
-  // For multi-office: scope to selected recipient thread
-  // For multi-doc: batch thread (both null)
   const messageScope = React.useMemo(() => {
     if (isMultiDoc) return { thread: "batch" as const };
     if (activeRecipientId) return { recipient_id: activeRecipientId };
@@ -293,28 +335,19 @@ export default function RequestBatchPage() {
     loadMessages().catch(() => { });
   }, [loadMessages]);
 
-  // Poll messages every 10s when on comments tab
   React.useEffect(() => {
     if (rightTab !== "comments") return;
     const id = window.setInterval(() => loadMessages(true).catch(() => { }), 10_000);
     return () => window.clearInterval(id);
   }, [loadMessages, rightTab]);
 
-  // ── Realtime: instant updates via Pusher ───────────────────────────────
   useRealtimeUpdates({
     requestId,
-    // Live comments and thread synchronization
     onRequestMessage: React.useCallback(
       (msg: any) => {
-        const msgRecipientId = msg.recipient_id
-          ? Number(msg.recipient_id)
-          : null;
+        const msgRecipientId = msg.recipient_id ? Number(msg.recipient_id) : null;
         const msgItemId = msg.item_id ? Number(msg.item_id) : null;
-
-        // On the batch page, we are interested in either the shared thread or a specific recipient
-        const isForActiveThread =
-          activeRecipientId === msgRecipientId && msgItemId === null;
-
+        const isForActiveThread = activeRecipientId === msgRecipientId && msgItemId === null;
         if (isForActiveThread) {
           setMessages((prev) => {
             if (prev.find((m) => m.id === msg.id)) return prev;
@@ -324,19 +357,16 @@ export default function RequestBatchPage() {
       },
       [activeRecipientId],
     ),
-    // Live data updates (items, recipients, progress)
     onWorkspaceChange: React.useCallback(() => {
       load(true).catch(() => {});
       loadActivity(true).catch(() => {});
     }, [load, loadActivity]),
-    // Live workflow transitions (accepted/rejected/closed)
     onWorkflowUpdate: React.useCallback(() => {
       load(true).catch(() => {});
       loadActivity(true).catch(() => {});
     }, [load, loadActivity]),
   });
 
-  // New message badge
   React.useEffect(() => {
     if (isFirstMsgLoadRef.current) {
       isFirstMsgLoadRef.current = false;
@@ -348,7 +378,6 @@ export default function RequestBatchPage() {
     prevMsgCountRef.current = messages.length;
   }, [messages.length]);
 
-  // Reset messages when switching recipient thread
   React.useEffect(() => {
     setMessages([]);
     isFirstMsgLoadRef.current = true;
@@ -362,11 +391,7 @@ export default function RequestBatchPage() {
     setPosting(true);
     setPostErr(null);
     try {
-      const msg = await postDocumentRequestMessage(
-        requestId,
-        text,
-        messageScope,
-      );
+      const msg = await postDocumentRequestMessage(requestId, text, messageScope);
       setMessages((prev) => [...prev, msg]);
       setCommentText("");
     } catch (e: any) {
@@ -376,7 +401,6 @@ export default function RequestBatchPage() {
     }
   };
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
   const saveTitle = async (title: string) => {
     await updateDocumentRequest(requestId, { title });
     setReq((prev: any) => ({ ...prev, title }));
@@ -403,35 +427,33 @@ export default function RequestBatchPage() {
     }
   };
 
-  // ── Loading / error ────────────────────────────────────────────────────────
   if (loading && !req) {
     return (
-      <PageFrame
-        title="Document Request"
-        onBack={() => navigate("/document-requests")}
+      <motion.div
+        initial={{ x: 40, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+        className="flex flex-1 flex-col min-h-0 min-w-0"
       >
-        <div className="flex h-60 items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-7 w-7 rounded-full border-2 border-sky-500 border-t-transparent animate-spin" />
-            <span className="text-sm text-slate-500 dark:text-slate-400">
-              Loading…
-            </span>
-          </div>
-        </div>
-      </PageFrame>
+        <RequestBatchSkeleton onBack={() => navigate("/document-requests")} />
+      </motion.div>
     );
   }
 
   if (error) {
     return (
-      <PageFrame
-        title="Document Request"
-        onBack={() => navigate("/document-requests")}
+      <motion.div
+        initial={{ x: 40, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+        className="flex flex-1 flex-col min-h-0 min-w-0"
       >
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
-          {error}
-        </div>
-      </PageFrame>
+        <PageFrame title="Document Request" onBack={() => navigate("/document-requests")}>
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
+            {error}
+          </div>
+        </PageFrame>
+      </motion.div>
     );
   }
 
@@ -444,471 +466,292 @@ export default function RequestBatchPage() {
     rejected: "text-rose-600 dark:text-rose-400",
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <PageFrame
-      title={req.title ?? `Request #${requestId}`}
-      onBack={() => navigate("/document-requests")}
-      breadcrumbs={[{ label: "Batch", to: "/document-requests" }]}
-      fullHeight
-      right={
-        <PageActions>
-          {canManage && req?.status === "open" && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                responsive
-                onClick={() => handleStatusChange("closed")}
-                disabled={statusUpdating}
-              >
-                {statusUpdating ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Check className="h-3.5 w-3.5" />
-                )}
-                <span>Close</span>
-              </Button>
-              <Button
-                type="button"
-                variant="danger"
-                size="sm"
-                responsive
-                onClick={() => handleStatusChange("cancelled")}
-                disabled={statusUpdating}
-              >
-                {statusUpdating ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Ban className="h-3.5 w-3.5" />
-                )}
-                <span>Cancel</span>
-              </Button>
-            </>
-          )}
-        </PageActions>
-      }
+    <motion.div
+      initial={{ x: 40, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+      className="flex flex-1 flex-col min-h-0 min-w-0"
     >
-      <div className="flex flex-col lg:grid lg:grid-cols-12 gap-5 lg:h-full min-h-0 p-4 sm:p-5">
-        {/* Mobile Tab Switcher */}
-        <div className="lg:hidden shrink-0">
-          <TabBar
-            tabs={[
-              { value: "items", label: "Request Items", icon: <FileStack size={12} /> },
-              { value: "discussion", label: "Comments & Activity", icon: <MessageSquare size={12} /> },
-            ]}
-            active={mobileTab}
-            onChange={(v: any) => setMobileTab(v)}
-          />
-        </div>
-
-        {/* ── LEFT (Items) ── */}
-        <section className={`lg:col-span-7 min-w-0 flex flex-col gap-4 ${mobileTab !== "items" ? "hidden lg:flex" : "flex"}`}>
-          {/* Header card */}
-          <div className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
-            {/* Title row */}
-            <div className="flex items-center gap-3 px-5 py-4">
-              {canManage ? (
-                <InlineEditField
-                  value={req.title ?? ""}
-                  onSave={saveTitle}
-                  className="flex-1 text-sm font-semibold text-slate-900 dark:text-slate-100"
-                />
-              ) : (
-                <h1 className="flex-1 text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                  {req.title}
-                </h1>
-              )}
-              <StatusBadge status={req.status} />
-              <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 px-2 py-0.5 text-xs text-slate-500 dark:text-slate-400 shrink-0">
-                {isMultiDoc ? <FileStack className="h-3 w-3" /> : <Users className="h-3 w-3" />}
-                {isMultiDoc ? "Multi-Doc" : "Multi-Office"}
-              </span>
-            </div>
-
-            {/* Description — editable textarea when open, plain text otherwise */}
-            {editOpen && canManage && (
-              <div className="px-5 pb-3">
-                <textarea
-                  rows={2}
-                  value={editDesc}
-                  onChange={(e) => setEditDesc(e.target.value)}
-                  placeholder="Add instructions for recipients…"
-                  className={`w-full resize-none ${inputCls}`}
-                />
-              </div>
-            )}
-            {req.description && !editOpen && (
-              <div className="px-5 pb-3">
-                <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{req.description}</p>
-              </div>
-            )}
-
-            {/* Meta strip */}
-            <div className="flex items-center gap-3 px-5 py-2.5 border-t border-slate-100 dark:border-surface-400 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <Clock size={11} className="text-slate-400 dark:text-slate-500 shrink-0" />
-                <span className="text-xs text-slate-400 dark:text-slate-500">Due</span>
-                {editOpen && canManage ? (
-                  <input
-                    type="datetime-local"
-                    value={editDueAt}
-                    onChange={(e) => setEditDueAt(e.target.value)}
-                    className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2 py-1 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-slate-400 transition"
-                  />
-                ) : (
-                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                    {req.due_at ? new Date(req.due_at).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}
-                  </span>
-                )}
-              </div>
-              <span className="text-slate-200 dark:text-surface-400">·</span>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-400 dark:text-slate-500">Created</span>
-                <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                  {req.created_at ? new Date(req.created_at).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}
-                </span>
-              </div>
-              {canManage && (
-                <div className="ml-auto flex items-center gap-2">
-                  {editOpen ? (
-                    <>
-                      {editErr && <span className="text-xs text-red-500">{editErr}</span>}
-                      <Button variant="outline" size="xs" onClick={() => { setEditOpen(false); setEditErr(null); }}>Cancel</Button>
-                      <Button variant="primary" size="xs" onClick={saveDetails} loading={editSaving}>Save</Button>
-                    </>
+      <PageFrame
+        title={req.title ?? `Request #${requestId}`}
+        onBack={() => navigate("/document-requests")}
+        breadcrumbs={[{ label: "Batch", to: "/document-requests" }]}
+        fullHeight
+        right={
+          <PageActions>
+            {canManage && req?.status === "open" && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  responsive
+                  onClick={() => handleStatusChange("closed")}
+                  disabled={statusUpdating}
+                >
+                  {statusUpdating ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    <Button variant="ghost" size="xs" onClick={() => setEditOpen(true)} className="gap-1">
-                      <Pencil className="h-3 w-3" /> Edit
-                    </Button>
+                    <Check className="h-3.5 w-3.5" />
                   )}
-                </div>
-              )}
-            </div>
+                  <span>Close</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  size="sm"
+                  responsive
+                  onClick={() => handleStatusChange("cancelled")}
+                  disabled={statusUpdating}
+                >
+                  {statusUpdating ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Ban className="h-3.5 w-3.5" />
+                  )}
+                  <span>Cancel</span>
+                </Button>
+              </>
+            )}
+          </PageActions>
+        }
+      >
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-5 lg:h-full min-h-0 p-4 sm:p-5">
+          <div className="lg:hidden shrink-0">
+            <TabBar
+              tabs={[
+                { value: "items", label: "Request Items", icon: <FileStack size={12} /> },
+                { value: "discussion", label: "Comments & Activity", icon: <MessageSquare size={12} /> },
+              ]}
+              active={mobileTab}
+              onChange={(v: any) => setMobileTab(v)}
+            />
           </div>
 
-          {/* Progress */}
-          {req.progress && (
-            <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-5 py-4">
-              <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide mb-3">
-                {isMultiDoc ? "Document Progress" : "Office Progress"}
-              </p>
-              <RequestProgressBar progress={req.progress} />
-            </div>
-          )}
+          <section className={`lg:col-span-7 min-w-0 flex flex-col gap-4 ${mobileTab !== "items" ? "hidden lg:flex" : "flex"}`}>
+            <div className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+              <div className="flex items-center gap-3 px-5 py-4">
+                {canManage ? (
+                  <InlineEditField
+                    value={req.title ?? ""}
+                    onSave={saveTitle}
+                    className="flex-1 text-sm font-semibold text-slate-900 dark:text-slate-100"
+                  />
+                ) : (
+                  <h1 className="flex-1 text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                    {req.title}
+                  </h1>
+                )}
+                <StatusBadge status={req.status} />
+                <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-surface-400 px-2 py-0.5 text-xs text-slate-500 dark:text-slate-400 shrink-0">
+                  {isMultiDoc ? <FileStack className="h-3 w-3" /> : <Users className="h-3 w-3" />}
+                  {isMultiDoc ? "Multi-Doc" : "Multi-Office"}
+                </span>
+              </div>
 
-          {/* Items / recipients list */}
-          <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex flex-col lg:flex-1 lg:min-h-0">
-            <div className="shrink-0 px-4 py-3 border-b border-slate-200 dark:border-surface-400 bg-slate-50/80 dark:bg-surface-600/80 flex items-center gap-2">
-              {isMultiDoc ? (
-                <FileStack className="h-4 w-4 text-violet-500" />
-              ) : (
-                <Users className="h-4 w-4 text-sky-500" />
+              {editOpen && canManage && (
+                <div className="px-5 pb-3">
+                  <textarea
+                    rows={2}
+                    value={editDesc}
+                    onChange={(e) => setEditDesc(e.target.value)}
+                    placeholder="Add instructions for recipients…"
+                    className={`w-full resize-none ${inputCls}`}
+                  />
+                </div>
               )}
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {isMultiDoc ? "Document Items" : "Recipient Offices"}
-              </p>
-              <span className="ml-auto text-[11px] text-slate-400 dark:text-slate-500">
-                {isMultiDoc ? items.length : recipients.length} total
-              </span>
+              {req.description && !editOpen && (
+                <div className="px-5 pb-3">
+                  <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{req.description}</p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 px-5 py-2.5 border-t border-slate-100 dark:border-surface-400 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <Clock size={11} className="text-slate-400 dark:text-slate-500 shrink-0" />
+                  <span className="text-xs text-slate-400 dark:text-slate-500">Due</span>
+                  {editOpen && canManage ? (
+                    <input
+                      type="datetime-local"
+                      value={editDueAt}
+                      onChange={(e) => setEditDueAt(e.target.value)}
+                      className="rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-2 py-1 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-slate-400 transition"
+                    />
+                  ) : (
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                      {req.due_at ? new Date(req.due_at).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}
+                    </span>
+                  )}
+                </div>
+                <span className="text-slate-200 dark:text-surface-400">·</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-slate-400 dark:text-slate-500">Created</span>
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                    {req.created_at ? new Date(req.created_at).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}
+                  </span>
+                </div>
+                {canManage && (
+                  <div className="ml-auto flex items-center gap-2">
+                    {editOpen ? (
+                      <>
+                        {editErr && <span className="text-xs text-red-500">{editErr}</span>}
+                        <Button variant="outline" size="xs" onClick={() => { setEditOpen(false); setEditErr(null); }}>Cancel</Button>
+                        <Button variant="primary" size="xs" onClick={saveDetails} loading={editSaving}>Save</Button>
+                      </>
+                    ) : (
+                      <Button variant="ghost" size="xs" onClick={() => setEditOpen(true)} className="gap-1">
+                        <Pencil className="h-3 w-3" /> Edit
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="divide-y divide-slate-100 dark:divide-surface-400 lg:overflow-y-auto lg:flex-1">
-              {isMultiDoc
-                ? items.map((item, idx) => {
-                  const sub = item.latest_submission;
-                  return (
+            {req.progress && (
+              <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-5 py-4">
+                <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wide mb-3">
+                  {isMultiDoc ? "Document Progress" : "Office Progress"}
+                </p>
+                <RequestProgressBar progress={req.progress} />
+              </div>
+            )}
+
+            <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex flex-col lg:flex-1 lg:min-h-0">
+              <div className="shrink-0 px-4 py-3 border-b border-slate-200 dark:border-surface-400 bg-slate-50/80 dark:bg-surface-600/80 flex items-center gap-2">
+                {isMultiDoc ? <FileStack className="h-4 w-4 text-violet-500" /> : <Users className="h-4 w-4 text-sky-500" />}
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {isMultiDoc ? "Document Items" : "Recipient Offices"}
+                </p>
+                <span className="ml-auto text-[11px] text-slate-400 dark:text-slate-500">
+                  {isMultiDoc ? items.length : recipients.length} total
+                </span>
+              </div>
+
+              <div className="divide-y divide-slate-100 dark:divide-surface-400 lg:overflow-y-auto lg:flex-1">
+                {isMultiDoc
+                  ? items.map((item, idx) => {
+                    const sub = item.latest_submission;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() =>
+                          navigate(`/document-requests/${requestId}/items/${item.id}`, {
+                               state: {
+                                 breadcrumbs: [
+                                   { label: "Batch", to: "/document-requests" },
+                                   { label: req.title ?? `Request #${requestId}`, to: `/document-requests/${requestId}` },
+                                 ],
+                               },
+                             })
+                        }
+                        className="group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-surface-400 transition"
+                      >
+                        <span className="shrink-0 text-xs font-semibold text-slate-400 w-5 text-center">{idx + 1}.</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-brand-500 dark:group-hover:text-brand-400 transition-colors">{item.title}</p>
+                          {item.description && <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{item.description}</p>}
+                        </div>
+                        <span className={`shrink-0 text-xs font-semibold uppercase ${statusColor[sub?.status ?? "pending"] ?? "text-slate-400"}`}>{sub?.status ?? "pending"}</span>
+                      </button>
+                    );
+                  })
+                  : recipients.map((r) => (
                     <button
-                      key={item.id}
+                      key={r.id}
                       type="button"
                       onClick={() =>
-                        navigate(
-                          `/document-requests/${requestId}/items/${item.id}`,
-                          {
-                            state: {
-                              breadcrumbs: [
-                                {
-                                  label: "Batch",
-                                  to: "/document-requests",
-                                },
-                                {
-                                  label: req.title ?? `Request #${requestId}`,
-                                  to: `/document-requests/${requestId}`,
-                                },
-                              ],
-                            },
-                          },
-                        )
+                        navigate(`/document-requests/${requestId}/recipients/${r.id}`, {
+                             state: {
+                               breadcrumbs: [
+                                 { label: "Batch", to: "/document-requests" },
+                                 { label: req.title ?? `Request #${requestId}`, to: `/document-requests/${requestId}` },
+                               ],
+                             },
+                           })
                       }
                       className="group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-surface-400 transition"
                     >
-                      <span className="shrink-0 text-xs font-bold text-slate-400 w-5 text-center">
-                        {idx + 1}.
-                      </span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-brand-500 dark:group-hover:text-brand-400 transition-colors">
-                          {item.title}
-                        </p>
-                        {item.description && (
-                          <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">
-                            {item.description}
-                          </p>
-                        )}
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-brand-500 dark:group-hover:text-brand-400 transition-colors">{r.office_name ?? `Office #${r.office_id}`}</p>
+                        {r.office_code && <p className="text-[11px] text-slate-400 font-mono">{r.office_code}</p>}
                       </div>
-                      {item.example_original_filename && (
-                        <span className="shrink-0 text-[10px] text-slate-400 dark:text-slate-500 hidden sm:block">
-                          Has example
-                        </span>
-                      )}
-                      <span
-                        className={`shrink-0 text-xs font-semibold uppercase ${statusColor[sub?.status ?? "pending"] ?? "text-slate-400"}`}
-                      >
-                        {sub?.status ?? "pending"}
-                      </span>
+                      <span className={`shrink-0 text-xs font-semibold uppercase ${statusColor[r.status] ?? "text-slate-500"}`}>{r.status}</span>
                     </button>
-                  );
-                })
-                : recipients.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() =>
-                      navigate(
-                        `/document-requests/${requestId}/recipients/${r.id}`,
-                        {
-                          state: {
-                            breadcrumbs: [
-                              {
-                                label: "Batch",
-                                to: "/document-requests",
-                              },
-                              {
-                                label: req.title ?? `Request #${requestId}`,
-                                to: `/document-requests/${requestId}`,
-                              },
-                            ],
-                          },
-                        },
-                      )
-                    }
-                    className="group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-surface-400 transition"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate group-hover:text-brand-500 dark:group-hover:text-brand-400 transition-colors">
-                        {r.office_name ?? `Office #${r.office_id}`}
-                      </p>
-                      {r.office_code && (
-                        <p className="text-[11px] text-slate-400 font-mono">
-                          {r.office_code}
-                        </p>
-                      )}
-                    </div>
-                    {r.due_at && (
-                      <span className="shrink-0 text-[11px] text-amber-600 dark:text-amber-400 hidden sm:block">
-                        Due {new Date(r.due_at).toLocaleDateString()}
-                      </span>
-                    )}
-                    {r.latest_submission_at && (
-                      <span className="shrink-0 text-[11px] text-slate-400 dark:text-slate-500 hidden sm:block">
-                        {new Date(
-                          r.latest_submission_at,
-                        ).toLocaleDateString()}
-                      </span>
-                    )}
-                    <span
-                      className={`shrink-0 text-xs font-semibold uppercase ${statusColor[r.status] ?? "text-slate-500"}`}
-                    >
-                      {r.status}
-                    </span>
-                  </button>
-                ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── RIGHT (Sidebar) ── */}
-        <aside className={`lg:col-span-5 flex flex-col gap-4 min-h-0 ${mobileTab !== "discussion" ? "hidden lg:flex" : "flex flex-1"}`}>
-          {/* Summary — Reviewer only */}
-          {isReviewer && (
-            <div className={`rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden shrink-0 flex flex-col ${!isSummaryOpen ? "h-auto" : "flex-1 lg:flex-none"}`}>
-              <button
-                type="button"
-                onClick={() => toggleMobileAccordion("summary")}
-                className="w-full flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-surface-400 bg-slate-50/80 dark:bg-surface-600/80 text-left"
-              >
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Summary
-                </p>
-                <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform lg:hidden ${isSummaryOpen ? "rotate-90" : ""}`} />
-              </button>
-              {isSummaryOpen && (
-                <div className="px-4 py-4 flex flex-col gap-3">
-                  {[
-                    {
-                      label: "Total",
-                      value: req.progress?.total ?? 0,
-                      color: "text-slate-700 dark:text-slate-300",
-                    },
-                    {
-                      label: "Pending",
-                      value:
-                        (req.progress?.total ?? 0) -
-                        (req.progress?.submitted ?? 0),
-                      color: "text-amber-600 dark:text-amber-400",
-                    },
-                    {
-                      label: "Submitted",
-                      value: req.progress?.submitted ?? 0,
-                      color: "text-sky-600 dark:text-sky-400",
-                    },
-                    {
-                      label: "Accepted",
-                      value: req.progress?.accepted ?? 0,
-                      color: "text-emerald-600 dark:text-emerald-400",
-                    },
-                    {
-                      label: "Rejected",
-                      value:
-                        (req.progress?.submitted ?? 0) -
-                        (req.progress?.accepted ?? 0),
-                      color: "text-rose-600 dark:text-rose-400",
-                    },
-                  ].map((stat) => (
-                    <div
-                      key={stat.label}
-                      className="flex items-center justify-between"
-                    >
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                        {stat.label}
-                      </span>
-                      <span className={`text-sm font-bold ${stat.color}`}>
-                        {stat.value}
-                      </span>
-                    </div>
                   ))}
+              </div>
+            </div>
+          </section>
+
+          <aside className={`lg:col-span-5 flex flex-col gap-4 ${mobileTab !== "discussion" ? "hidden lg:flex" : "flex"}`}>
+            <div className="flex flex-col rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex-1 lg:min-h-0">
+              <TabBar
+                tabs={[
+                  { value: "comments", label: "Comments", icon: <MessageSquare size={12} /> },
+                  { value: "activity", label: "Activity", icon: <Activity size={12} /> },
+                ]}
+                active={rightTab}
+                onChange={setRightTab}
+                badge={{ comments: messages.length > 0 ? messages.length : undefined }}
+              />
+
+              {rightTab === "comments" ? (
+                <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                  {!isMultiDoc && isReviewer && recipients.length > 0 && (
+                    <div className="shrink-0 border-b border-slate-100 dark:border-surface-400 px-3 py-2 flex items-center gap-1.5 overflow-x-auto">
+                      <button
+                        type="button"
+                        onClick={() => setActiveRecipientId(null)}
+                        className={`shrink-0 rounded px-2.5 py-1 text-[11px] font-medium transition-colors whitespace-nowrap ${activeRecipientId === null ? "bg-brand-500 text-white" : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400"}`}
+                      >
+                        Shared
+                      </button>
+                      {recipients.map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => setActiveRecipientId(Number(r.id))}
+                          className={`shrink-0 rounded px-2.5 py-1 text-[11px] font-medium transition-colors whitespace-nowrap ${activeRecipientId === Number(r.id) ? "bg-brand-500 text-white" : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400"}`}
+                        >
+                          {r.office_code ?? r.office_name ?? `#${r.id}`}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {!isMultiDoc && isReviewer && (
+                    <div className="shrink-0 px-4 py-1.5 bg-slate-50 dark:bg-surface-600/50 border-b border-slate-100 dark:border-surface-400">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                        {activeRecipientId ? `Thread — ${recipients.find((r) => Number(r.id) === activeRecipientId)?.office_name ?? "Office"}` : "Shared batch thread"}
+                      </p>
+                    </div>
+                  )}
+
+                  <RequestCommentsPanel
+                    messages={messages}
+                    loading={messagesLoading}
+                    myUserId={myUserId}
+                    commentText={commentText}
+                    posting={posting}
+                    postErr={postErr}
+                    messagesEndRef={messagesEndRef}
+                    onCommentChange={setCommentText}
+                    onPost={postComment}
+                    newMessageCount={newMsgCount}
+                    onClearNewMessages={() => setNewMsgCount(0)}
+                    readOnly={!isReviewer}
+                    readOnlyLabel="This broadcast thread is for announcements from the requester only."
+                  />
                 </div>
+              ) : (
+                <RequestActivityPanel logs={activityLogs} loading={activityLoading} />
               )}
             </div>
-          )}
-
-          {/* Instructions — Submitter/Member only */}
-          {!isReviewer && req.description && (
-            <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 px-4 py-4 shrink-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-500 dark:text-blue-400 mb-2">
-                Instructions
-              </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                {req.description}
-              </p>
-            </div>
-          )}
-
-          <div
-            className={`flex flex-col rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden lg:flex-1 lg:min-h-0 ${isDiscussionOpen ? "flex-1" : "h-auto"}`}
-          >
-            <button
-              type="button"
-              onClick={() => toggleMobileAccordion("discussion")}
-              className={`w-full flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-surface-400 bg-slate-50/80 dark:bg-surface-600/80 text-left lg:hidden`}
-            >
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Discussion & Logs
-              </p>
-              <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform ${isDiscussionOpen ? "rotate-90" : ""}`} />
-            </button>
-
-            {isDiscussionOpen && (
-              <>
-                <TabBar
-                  tabs={[
-                    {
-                      value: "comments" as const,
-                      label: "Comments",
-                      icon: <MessageSquare size={12} />,
-                    },
-                    {
-                      value: "activity" as const,
-                      label: "Activity",
-                      icon: <Activity size={12} />,
-                    },
-                  ]}
-                  active={rightTab}
-                  onChange={setRightTab}
-                  badge={{
-                    comments: messages.length > 0 ? messages.length : undefined,
-                  }}
-                />
-
-                {rightTab === "comments" ? (
-                  <div className="flex flex-col lg:flex-1 lg:min-h-0 lg:overflow-hidden">
-                    {/* Multi-office: recipient thread switcher — Reviewer only */}
-                    {!isMultiDoc && isReviewer && recipients.length > 0 && (
-                      <div className="shrink-0 border-b border-slate-100 dark:border-surface-400 px-3 py-2 flex items-center gap-1.5 overflow-x-auto">
-                        <button
-                          type="button"
-                          onClick={() => setActiveRecipientId(null)}
-                          className={`shrink-0 rounded px-2.5 py-1 text-[11px] font-medium transition-colors whitespace-nowrap ${activeRecipientId === null
-                              ? "bg-brand-500 text-white"
-                              : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400"
-                            }`}
-                        >
-                          Shared
-                        </button>
-                        {recipients.map((r) => (
-                          <button
-                            key={r.id}
-                            type="button"
-                            onClick={() => setActiveRecipientId(Number(r.id))}
-                            className={`shrink-0 rounded px-2.5 py-1 text-[11px] font-medium transition-colors whitespace-nowrap ${activeRecipientId === Number(r.id)
-                                ? "bg-brand-500 text-white"
-                                : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400"
-                              }`}
-                          >
-                            {r.office_code ?? r.office_name ?? `#${r.id}`}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Thread label — Reviewer only */}
-                    {!isMultiDoc && isReviewer && (
-                      <div className="shrink-0 px-4 py-1.5 bg-slate-50 dark:bg-surface-600/50 border-b border-slate-100 dark:border-surface-400">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                          {activeRecipientId
-                            ? `Thread — ${recipients.find((r) => Number(r.id) === activeRecipientId)?.office_name ?? "Office"}`
-                            : "Shared batch thread"}
-                        </p>
-                      </div>
-                    )}
-
-                    <RequestCommentsPanel
-                      messages={messages}
-                      loading={messagesLoading}
-                      myUserId={myUserId}
-                      commentText={commentText}
-                      posting={posting}
-                      postErr={postErr}
-                      messagesEndRef={messagesEndRef}
-                      onCommentChange={setCommentText}
-                      onPost={postComment}
-                      newMessageCount={newMsgCount}
-                      onClearNewMessages={() => setNewMsgCount(0)}
-                      readOnly={!isReviewer}
-                      readOnlyLabel="This broadcast thread is for announcements from the requester only."
-                    />
-                  </div>
-                ) : (
-                  <RequestActivityPanel
-                    logs={activityLogs}
-                    loading={activityLoading}
-                  />
-                )}
-              </>
-            )}
-          </div>
-        </aside>
-      </div>
+          </aside>
+        </div>
+      </PageFrame>
 
       {previewModal && (
         <RequestPreviewModal
@@ -922,43 +765,21 @@ export default function RequestBatchPage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-sm mx-4 rounded-2xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 shadow-xl p-6 flex flex-col gap-4">
             <div className="flex items-center gap-3">
-              <span
-                className={`flex items-center justify-center h-9 w-9 rounded-full ${confirmModal.status === "cancelled" ? "bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400" : "bg-slate-100 dark:bg-surface-500 text-slate-600 dark:text-slate-300"}`}
-              >
+              <span className={`flex items-center justify-center h-9 w-9 rounded-full ${confirmModal.status === "cancelled" ? "bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400" : "bg-slate-100 dark:bg-surface-500 text-slate-600 dark:text-slate-300"}`}>
                 <AlertTriangle className="h-4 w-4" />
               </span>
               <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 capitalize">
-                  {confirmModal.label} this request?
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {confirmModal.status === "cancelled"
-                    ? "This will void the request. This action cannot be undone."
-                    : "This will mark the request as closed and stop accepting submissions."}
-                </p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 capitalize">{confirmModal.label} this request?</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{confirmModal.status === "cancelled" ? "This will void the request. This action cannot be undone." : "This will mark the request as closed and stop accepting submissions."}</p>
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <button
-                type="button"
-                onClick={() => setConfirmModal(null)}
-                disabled={statusUpdating}
-                className="px-4 py-2 rounded-md text-xs font-medium border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition"
-              >
-                Go back
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmStatus}
-                disabled={statusUpdating}
-                className={`px-4 py-2 rounded-md text-xs font-semibold disabled:opacity-40 transition ${confirmModal.status === "cancelled" ? "bg-rose-600 hover:bg-rose-700 text-white" : "bg-slate-800 hover:bg-slate-900 dark:bg-slate-200 dark:hover:bg-white dark:text-slate-900 text-white"}`}
-              >
-                {statusUpdating ? "Processing…" : `Yes, ${confirmModal.label}`}
-              </button>
+              <button type="button" onClick={() => setConfirmModal(null)} disabled={statusUpdating} className="px-4 py-2 rounded-md text-xs font-medium border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-400 disabled:opacity-40 transition">Go back</button>
+              <button type="button" onClick={handleConfirmStatus} disabled={statusUpdating} className={`px-4 py-2 rounded-md text-xs font-semibold disabled:opacity-40 transition ${confirmModal.status === "cancelled" ? "bg-rose-600 hover:bg-rose-700 text-white" : "bg-slate-800 hover:bg-slate-900 dark:bg-slate-200 dark:hover:bg-white dark:text-slate-900 text-white"}`}>{statusUpdating ? "Processing…" : `Yes, ${confirmModal.label}`}</button>
             </div>
           </div>
         </div>
       )}
-    </PageFrame>
+    </motion.div>
   );
 }

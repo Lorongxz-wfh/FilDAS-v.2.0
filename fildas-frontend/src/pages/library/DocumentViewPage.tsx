@@ -5,6 +5,7 @@ import {
   useParams,
   useLocation,
 } from "react-router-dom";
+import { motion } from "framer-motion";
 import PageFrame from "../../components/layout/PageFrame";
 import { getAuthUser } from "../../lib/auth";
 import {
@@ -48,7 +49,86 @@ import {
 import WorkflowCommentBubble from "../../components/documents/ui/WorkflowCommentBubble";
 import WorkflowFlowTimeline from "../../components/documents/workflow/WorkflowFlowTimeline";
 import WorkflowActivityPanel from "../../components/documents/panels/WorkflowActivityPanel";
-import { formatDate, formatDateTime } from "../../utils/formatters";
+import { formatDate } from "../../utils/formatters";
+import Skeleton from "../../components/ui/loader/Skeleton";
+
+const DocumentViewSkeleton: React.FC<{ onBack: () => void }> = ({ onBack }) => (
+  <PageFrame title="Document" onBack={onBack}>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:h-full min-h-0 p-4 sm:p-5 bg-slate-50 dark:bg-surface-600">
+      {/* Left Column (Preview) */}
+      <aside className="lg:col-span-8 flex flex-col lg:min-h-0 lg:order-1 order-2">
+        <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 flex flex-col h-[600px] lg:h-full overflow-hidden">
+          <div className="shrink-0 px-4 py-2.5 border-b border-slate-100 dark:border-surface-400 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-surface-600/50">
+            <Skeleton className="h-4 w-32" />
+            <div className="flex gap-1.5 font-semibold">
+              <Skeleton className="h-6 w-8 rounded" />
+              <Skeleton className="h-6 w-8 rounded" />
+            </div>
+          </div>
+          <div className="flex-1 p-8 flex flex-col items-center justify-center gap-4">
+            <Skeleton className="h-24 w-24 rounded-full" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        </div>
+      </aside>
+
+      {/* Right Column (Sidebar) */}
+      <section className="lg:col-span-4 flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden lg:order-2 order-1">
+        {/* Metadata Card Skeleton */}
+        <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 dark:border-surface-400 flex items-center gap-3">
+            <Skeleton className="h-7 w-7 rounded-md shrink-0" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          </div>
+          <div className="p-4 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Skeleton className="h-2 w-10" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+              <div className="space-y-1.5">
+                <Skeleton className="h-2 w-10" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Skeleton className="h-2 w-10" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+              <div className="space-y-1.5">
+                <Skeleton className="h-2 w-10" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs Skeleton */}
+        <div className="flex flex-col rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden lg:flex-1 lg:min-h-0">
+          <div className="flex border-b border-slate-100 dark:border-surface-400">
+            <Skeleton className="h-10 w-1/2" />
+            <Skeleton className="h-10 w-1/2" />
+          </div>
+          <div className="p-4 space-y-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex gap-3">
+                <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  </PageFrame>
+);
 
 // ── Type badge ────────────────────────────────────────────────────────────────
 const TYPE_STYLES: Record<string, string> = {
@@ -335,344 +415,358 @@ export default function DocumentViewPage() {
     }
   };
 
-  // ── Loading ──────────────────────────────────────────────────────────────────
+  // ── Render States ──────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <PageFrame title="Document" onBack={() => navigate("/documents")}>
-        <div className="flex h-64 items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-6 w-6 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
-            <span className="text-xs text-slate-400 dark:text-slate-500">Loading document…</span>
-          </div>
-        </div>
-      </PageFrame>
+      <motion.div
+        initial={{ x: 40, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+        className="flex flex-1 flex-col min-h-0 min-w-0"
+      >
+        <DocumentViewSkeleton onBack={() => navigate("/documents")} />
+      </motion.div>
     );
   }
 
   if (error || !doc) {
     return (
-      <PageFrame title="Document" onBack={() => navigate("/documents")}>
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
-          {error ?? "Document not found."}
-        </div>
-      </PageFrame>
+      <motion.div
+        initial={{ x: 40, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+        className="flex flex-1 flex-col min-h-0 min-w-0"
+      >
+        <PageFrame title="Document" onBack={() => navigate("/documents")}>
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
+            {error ?? "Document not found."}
+          </div>
+        </PageFrame>
+      </motion.div>
     );
   }
 
   const ownerOffice = doc?.ownerOffice ?? (doc as any)?.office ?? null;
 
-  // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <PageFrame
-      title={doc.title}
-      onBack={() => navigate("/documents")}
-      breadcrumbs={parentCrumbs}
-      right={
-        <div className="flex items-center gap-2">
-          {!isRequestMode && (
-            <Button type="button" variant="outline" size="sm" responsive onClick={() => setFlowOpen(true)}>
-              <History className="h-3.5 w-3.5" />
-              <span>Flow History</span>
-            </Button>
-          )}
-          {!isRequestMode && canShare && (
-            <Button type="button" variant="outline" size="sm" responsive onClick={() => setShareOpen(true)}>
-              <Share2 className="h-3.5 w-3.5" />
-              <span>Share</span>
-            </Button>
-          )}
-          {version && (
-            <Button type="button" variant="outline" size="sm" responsive onClick={handleDownload}>
-              <Download className="h-3.5 w-3.5" />
-              <span>Download</span>
-            </Button>
-          )}
-          {isRequestMode ? (
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              responsive
-              onClick={() => navigate(`/document-requests/${requestId}${isItemView ? `/items/${itemId}` : `/recipients/${recipientId}`}`)}
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              <span>Open Tasks</span>
-            </Button>
-          ) : (
-            canOpenFlow && (
+    <motion.div
+      initial={{ x: 40, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+      className="flex flex-1 flex-col min-h-0 min-w-0"
+    >
+      <PageFrame
+        title={doc.title}
+        onBack={() => navigate("/documents")}
+        breadcrumbs={parentCrumbs}
+        right={
+          <div className="flex items-center gap-2">
+            {!isRequestMode && (
+              <Button type="button" variant="outline" size="sm" responsive onClick={() => setFlowOpen(true)}>
+                <History className="h-3.5 w-3.5" />
+                <span>Flow History</span>
+              </Button>
+            )}
+            {!isRequestMode && canShare && (
+              <Button type="button" variant="outline" size="sm" responsive onClick={() => setShareOpen(true)}>
+                <Share2 className="h-3.5 w-3.5" />
+                <span>Share</span>
+              </Button>
+            )}
+            {version && (
+              <Button type="button" variant="outline" size="sm" responsive onClick={handleDownload}>
+                <Download className="h-3.5 w-3.5" />
+                <span>Download</span>
+              </Button>
+            )}
+            {isRequestMode ? (
               <Button
                 type="button"
                 variant="primary"
                 size="sm"
                 responsive
-                onClick={() => navigate(`/documents/${docId}${version?.id ? `?version_id=${version.id}` : ""}`, { state: { from: `/documents/${docId}/view`, breadcrumbs: [...parentCrumbs, { label: doc.title, to: `/documents/${docId}/view` }] } })}
+                onClick={() => navigate(`/document-requests/${requestId}${isItemView ? `/items/${itemId}` : `/recipients/${recipientId}`}`)}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-                <span>Open flow</span>
+                <span>Open Tasks</span>
               </Button>
-            )
-          )}
-        </div>
-      }
-      contentClassName="!p-0 lg:overflow-hidden lg:h-full"
-    >
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:h-full min-h-0 p-4 sm:p-5">
-
-        {/* ── LEFT — Preview ── */}
-        <aside className="lg:col-span-8 flex flex-col lg:min-h-0 lg:order-1 order-2">
-          <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 flex flex-col h-[600px] lg:h-full overflow-hidden shadow-sm">
-
-            {/* Preview toolbar */}
-            <div className="shrink-0 px-4 py-2.5 border-b border-slate-100 dark:border-surface-400 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-surface-600/50">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                  Document Preview
-                </span>
-                {version?.original_filename && (
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-48" title={version.original_filename}>
-                    — {version.original_filename}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
+            ) : (
+              canOpenFlow && (
                 <Button
                   type="button"
-                  variant="outline"
-                  size="xs"
-                  onClick={reloadPreview}
-                  tooltip="Reload preview"
+                  variant="primary"
+                  size="sm"
+                  responsive
+                  onClick={() => navigate(`/documents/${docId}${version?.id ? `?version_id=${version.id}` : ""}`, { state: { from: `/documents/${docId}/view`, breadcrumbs: [...parentCrumbs, { label: doc.title, to: `/documents/${docId}/view` }] } })}
                 >
-                  <RefreshCw className="h-3 w-3" />
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  <span>Open flow</span>
                 </Button>
-                {previewUrl && (
+              )
+            )}
+          </div>
+        }
+        contentClassName="!p-0 lg:overflow-hidden lg:h-full"
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:h-full min-h-0 p-4 sm:p-5">
+
+          {/* ── LEFT — Preview ── */}
+          <aside className="lg:col-span-8 flex flex-col lg:min-h-0 lg:order-1 order-2">
+            <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 flex flex-col h-[600px] lg:h-full overflow-hidden ">
+
+              {/* Preview toolbar */}
+              <div className="shrink-0 px-4 py-2.5 border-b border-slate-100 dark:border-surface-400 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-surface-600/50">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                    Document Preview
+                  </span>
+                  {version?.original_filename && (
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-48" title={version.original_filename}>
+                      — {version.original_filename}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
                   <Button
                     type="button"
                     variant="outline"
                     size="xs"
-                    onClick={() => setFullscreen(true)}
-                    tooltip="Fullscreen"
-                  >
-                    <Maximize2 className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Preview body */}
-            <div className="flex-1 min-h-0">
-              {previewLoading ? (
-                <div className="flex h-full flex-col items-center justify-center gap-3">
-                  <div className="h-6 w-6 rounded-full border-2 border-brand-400 border-t-transparent animate-spin" />
-                  <span className="text-xs text-slate-400 dark:text-slate-500">Loading preview…</span>
-                </div>
-              ) : previewError ? (
-                <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 dark:bg-rose-950/30">
-                    <X className="h-5 w-5 text-rose-400" />
-                  </div>
-                  <p className="text-xs text-rose-500 dark:text-rose-400">{previewError}</p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="xs"
                     onClick={reloadPreview}
-                    className="font-bold text-sky-600 dark:text-sky-400"
+                    tooltip="Reload preview"
                   >
-                    Try again
+                    <RefreshCw className="h-3 w-3" />
                   </Button>
-                </div>
-              ) : previewUrl ? (
-                <iframe title="Document preview" src={previewUrl} className="h-full w-full border-0" />
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-2">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-surface-400">
-                    <FileText className="h-5 w-5 text-slate-400 dark:text-slate-500" />
-                  </div>
-                  <p className="text-xs text-slate-400 dark:text-slate-500">No preview available</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </aside>
-
-        {/* ── RIGHT — Sidebar ── */}
-        <section className="lg:col-span-4 flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden lg:order-2 order-1">
-
-          {/* Metadata Card */}
-          <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden shrink-0 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setInfoCollapsed((c) => !c)}
-              className="w-full px-4 py-3 border-b border-slate-100 dark:border-surface-400 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-surface-400/40 transition-colors text-left"
-            >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-100 dark:bg-surface-400 font-bold text-[10px] text-slate-500">
-                {isRequestMode ? "REQ" : "DOC"}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight truncate">
-                  {isRequestMode ? (isItemView ? reqItem?.title : (recipient?.office_name ?? "Request View")) : doc.title}
-                </p>
-                <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
-                  {isRequestMode ? (
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate uppercase tracking-wider">
-                      {isItemView ? "Individual Item" : "Office Submission"}
-                    </p>
-                  ) : (
-                    <>
-                      <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 tracking-wide">
-                        {doc.code}
-                      </span>
-                      <span className="text-[10px] text-slate-300 dark:text-slate-600">•</span>
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        V{version?.version_number ?? 0}
-                      </span>
-                    </>
+                  {previewUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      onClick={() => setFullscreen(true)}
+                      tooltip="Fullscreen"
+                    >
+                      <Maximize2 className="h-3 w-3" />
+                    </Button>
                   )}
                 </div>
               </div>
-              <ChevronDown className={`h-3.5 w-3.5 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${infoCollapsed ? "-rotate-90" : ""}`} />
-            </button>
 
-            {!infoCollapsed && (
-              <>
-                <div className={`px-4 py-1.5 border-b border-slate-100 dark:border-surface-400 flex items-center gap-2 ${isRequestMode ? (version?.status?.toLowerCase() === "accepted" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400" : "bg-slate-50 text-slate-700 dark:bg-surface-400 dark:text-slate-300") : "bg-emerald-50 dark:bg-emerald-950/20"}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full bg-current shrink-0 ${!isRequestMode ? "bg-emerald-500" : ""}`} />
-                  <span className="text-[10px] font-bold uppercase tracking-widest">
-                    {version?.status ?? (isRequestMode ? "Finalized" : "Distributed")}
-                  </span>
-                </div>
-                <div className="px-4 py-3 grid grid-cols-1 gap-y-3">
-                  <div className="grid grid-cols-2 gap-x-4">
-                    <Field label={isRequestMode ? "Requester" : "Custodian"} value={isRequestMode ? (doc as any).created_by_name : ownerOffice?.name} />
-                    <Field label={isRequestMode ? "Request ID" : "Effective"} value={isRequestMode ? `#${requestId}` : formatDate(version?.effective_date)} />
+              {/* Preview body */}
+              <div className="flex-1 min-h-0">
+                {previewLoading ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-3">
+                    <div className="h-6 w-6 rounded-full border-2 border-brand-400 border-t-transparent animate-spin" />
+                    <span className="text-xs text-slate-400 dark:text-slate-500">Loading preview…</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-4">
-                    {isRequestMode ? (
-                      <Field label="Due Date" value={formatDate(isItemView ? ((doc as any).item_due_at ?? (doc as any).due_at) : (recipient?.due_at ?? (doc as any).due_at))} />
-                    ) : (
-                      <Field label="Category" value={<TypeBadge type={doc.doctype} />} />
-                    )}
-                    {(isRequestMode || isAuditor(role)) && (
-                      <Field label={isRequestMode ? "Approved" : "Distributed"} value={formatDate(isRequestMode ? (version as any)?.accepted_at : (doc as any).distributed_at) || "—"} />
-                    )}
+                ) : previewError ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 dark:bg-rose-950/30">
+                      <X className="h-5 w-5 text-rose-400" />
+                    </div>
+                    <p className="text-xs text-rose-500 dark:text-rose-400">{previewError}</p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={reloadPreview}
+                      className="font-semibold text-sky-600 dark:text-sky-400"
+                    >
+                      Try again
+                    </Button>
                   </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Interaction Tabs */}
-          <div className="flex flex-col rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden lg:flex-1 lg:min-h-0 shadow-sm">
-            <div className="shrink-0 flex border-b border-slate-100 dark:border-surface-400">
-              <button
-                onClick={() => setSideTab("comments")}
-                className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-colors ${sideTab === "comments"
-                    ? "text-brand-600 bg-brand-50/50 dark:text-brand-400 dark:bg-brand-950/10 border-b-2 border-brand-500"
-                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                  }`}
-              >
-                <div className="flex items-center justify-center gap-1.5">
-                  <MessageSquare className="h-3 w-3" />
-                  <span>Comments</span>
-                </div>
-              </button>
-              <button
-                onClick={() => setSideTab("activity")}
-                className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-colors ${sideTab === "activity"
-                    ? "text-brand-600 bg-brand-50/50 dark:text-brand-400 dark:bg-brand-950/10 border-b-2 border-brand-500"
-                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                  }`}
-              >
-                <div className="flex items-center justify-center gap-1.5">
-                  <Activity className="h-3 w-3" />
-                  <span>Activity</span>
-                </div>
-              </button>
+                ) : previewUrl ? (
+                  <iframe title="Document preview" src={previewUrl} className="h-full w-full border-0" />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-2">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-surface-400">
+                      <FileText className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+                    </div>
+                    <p className="text-xs text-slate-400 dark:text-slate-500">No preview available</p>
+                  </div>
+                )}
+              </div>
             </div>
+          </aside>
 
-            <div className="flex-1 min-h-0 flex flex-col">
-              {sideTab === "comments" ? (
-                <div className="flex flex-col h-full">
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    {messagesLoading && messages.length === 0 ? (
-                      <div className="flex h-full items-center justify-center">
-                        <div className="h-5 w-5 rounded-full border-2 border-brand-400 border-t-transparent animate-spin" />
-                      </div>
-                    ) : messages.length === 0 ? (
-                      <div className="flex h-full flex-col items-center justify-center gap-2 opacity-40">
-                        <MessageSquare className="h-6 w-6" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">No comments</span>
-                      </div>
+          {/* ── RIGHT — Sidebar ── */}
+          <section className="lg:col-span-4 flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden lg:order-2 order-1">
+
+            {/* Metadata Card */}
+            <div className="rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden shrink-0 ">
+              <button
+                type="button"
+                onClick={() => setInfoCollapsed((c) => !c)}
+                className="w-full px-4 py-3 border-b border-slate-100 dark:border-surface-400 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-surface-400/40 transition-colors text-left"
+              >
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-100 dark:bg-surface-400 font-semibold text-[10px] text-slate-500">
+                  {isRequestMode ? "REQ" : "DOC"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-tight truncate">
+                    {isRequestMode ? (isItemView ? reqItem?.title : (recipient?.office_name ?? "Request View")) : doc.title}
+                  </p>
+                  <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    {isRequestMode ? (
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate uppercase tracking-wider">
+                        {isItemView ? "Individual Item" : "Office Submission"}
+                      </p>
                     ) : (
-                      messages.map((m) => (
-                        <WorkflowCommentBubble
-                          key={m.id}
-                          senderName={m.sender?.full_name ?? "Unknown"}
-                          roleName={m.sender?.role?.name ?? null}
-                          when={formatDateTime(m.created_at)}
-                          message={m.message}
-                          type={m.type}
-                          isMine={m.sender_user_id === myId}
-                          avatarLetter={(m.sender?.full_name ?? "?").charAt(0).toUpperCase()}
-                        />
-                      ))
+                      <>
+                        <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 tracking-wide">
+                          {doc.code}
+                        </span>
+                        <span className="text-[10px] text-slate-300 dark:text-slate-600">•</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                          V{version?.version_number ?? 0}
+                        </span>
+                      </>
                     )}
-                    <div ref={messagesEndRef} />
                   </div>
+                </div>
+                <ChevronDown className={`h-3.5 w-3.5 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${infoCollapsed ? "-rotate-90" : ""}`} />
+              </button>
 
-                  <div className="shrink-0 p-3 border-t border-slate-100 dark:border-surface-400 bg-slate-50/50 dark:bg-surface-600/30">
-                    {postErr && <p className="mb-1 text-[10px] text-rose-500">{postErr}</p>}
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={commentText}
-                        onChange={(e) => setCommentText(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") postComment(); }}
-                        placeholder="Add a comment…"
-                        className="flex-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-600 px-3 py-1.5 text-xs outline-none focus:border-brand-500"
-                      />
-                      <button
-                        onClick={postComment}
-                        disabled={!commentText.trim() || posting}
-                        className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500 text-white hover:bg-brand-600 disabled:opacity-40"
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                      </button>
+              {!infoCollapsed && (
+                <>
+                  <div className={`px-4 py-1.5 border-b border-slate-100 dark:border-surface-400 flex items-center gap-2 ${isRequestMode ? (version?.status?.toLowerCase() === "accepted" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400" : "bg-slate-50 text-slate-700 dark:bg-surface-400 dark:text-slate-300") : "bg-emerald-50 dark:bg-emerald-950/20"}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full bg-current shrink-0 ${!isRequestMode ? "bg-emerald-500" : ""}`} />
+                    <span className="text-[10px] font-semibold uppercase tracking-widest">
+                      {version?.status ?? (isRequestMode ? "Finalized" : "Distributed")}
+                    </span>
+                  </div>
+                  <div className="px-4 py-3 grid grid-cols-1 gap-y-3">
+                    <div className="grid grid-cols-2 gap-x-4">
+                      <Field label={isRequestMode ? "Requester" : "Custodian"} value={isRequestMode ? (doc as any).created_by_name : ownerOffice?.name} />
+                      <Field label={isRequestMode ? "Request ID" : "Effective"} value={isRequestMode ? `#${requestId}` : formatDate(version?.effective_date)} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4">
+                      {isRequestMode ? (
+                        <Field label="Due Date" value={formatDate(isItemView ? ((doc as any).item_due_at ?? (doc as any).due_at) : (recipient?.due_at ?? (doc as any).due_at))} />
+                      ) : (
+                        <Field label="Category" value={<TypeBadge type={doc.doctype} />} />
+                      )}
+                      {(isRequestMode || isAuditor(role)) && (
+                        <Field label={isRequestMode ? "Approved" : "Distributed"} value={formatDate(isRequestMode ? (version as any)?.accepted_at : (doc as any).distributed_at) || "—"} />
+                      )}
                     </div>
                   </div>
-                </div>
-              ) : (
-                <WorkflowActivityPanel logs={timeline} loading={timelineLoading} />
+                </>
               )}
             </div>
-          </div>
-        </section>
-      </div>
 
-      {fullscreen && previewUrl && (
-        <div className="fixed inset-0 z-[100] flex flex-col bg-black/95">
-          <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-white/10">
-            <span className="text-xs text-white/60 truncate">{version?.original_filename ?? "Preview"}</span>
-            <button onClick={() => setFullscreen(false)} className="text-white/60 hover:text-white">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <iframe title="Document preview fullscreen" src={previewUrl} className="flex-1 w-full border-0" />
+            {/* Interaction Tabs */}
+            <div className="flex flex-col rounded-xl border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden lg:flex-1 lg:min-h-0 ">
+              <div className="shrink-0 flex border-b border-slate-100 dark:border-surface-400">
+                <button
+                  type="button"
+                  onClick={() => setSideTab("comments")}
+                  className={`flex-1 py-3 text-[10px] font-semibold uppercase tracking-widest transition-colors ${sideTab === "comments"
+                    ? "text-brand-600 bg-brand-50/50 dark:text-brand-400 dark:bg-brand-950/10 border-b-2 border-brand-500"
+                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    }`}
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <MessageSquare className="h-3 w-3" />
+                    <span>Comments</span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSideTab("activity")}
+                  className={`flex-1 py-3 text-[10px] font-semibold uppercase tracking-widest transition-colors ${sideTab === "activity"
+                    ? "text-brand-600 bg-brand-50/50 dark:text-brand-400 dark:bg-brand-950/10 border-b-2 border-brand-500"
+                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    }`}
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <Activity className="h-3 w-3" />
+                    <span>Activity</span>
+                  </div>
+                </button>
+              </div>
+
+              <div className="flex-1 lg:overflow-y-auto min-h-0">
+                {sideTab === "comments" ? (
+                  <div className="flex flex-col h-full">
+                    <div className="flex-1 divide-y divide-slate-50 dark:divide-surface-400/50 px-4 py-2">
+                      {messagesLoading && messages.length === 0 ? (
+                        <div className="flex h-32 items-center justify-center">
+                          <div className="h-4 w-4 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
+                        </div>
+                      ) : messages.length === 0 ? (
+                        <div className="flex h-32 flex-col items-center justify-center gap-2 opacity-40">
+                          <MessageSquare className="h-5 w-5" />
+                          <span className="text-[10px] uppercase font-bold tracking-widest">No comments</span>
+                        </div>
+                      ) : (
+                        messages.map((m) => (
+                          <WorkflowCommentBubble
+                            key={m.id}
+                            senderName={m.sender?.full_name ?? "User"}
+                            roleName={m.sender?.role?.name}
+                            message={m.message}
+                            when={m.created_at}
+                            isMine={m.sender_user_id === myId}
+                          />
+                        ))
+                      )}
+                      <div ref={messagesEndRef} />
+                    </div>
+
+                    <div className="shrink-0 p-3 bg-slate-50/50 dark:bg-surface-600/50 border-t border-slate-100 dark:border-surface-400">
+                      <div className="relative">
+                        <textarea
+                          rows={2}
+                          value={commentText}
+                          onChange={(e) => setCommentText(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); postComment(); } }}
+                          placeholder="Type a message..."
+                          className="w-full rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-brand-500/30 transition resize-none pr-10"
+                        />
+                        <button
+                          type="button"
+                          disabled={posting || !commentText.trim()}
+                          onClick={postComment}
+                          className="absolute right-2 bottom-2 p-1.5 rounded-md text-brand-600 hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/20 disabled:opacity-40 transition"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      {postErr && <p className="mt-1 text-[10px] text-rose-500">{postErr}</p>}
+                    </div>
+                  </div>
+                ) : (
+                  <WorkflowActivityPanel logs={timeline} loading={timelineLoading} />
+                )}
+              </div>
+            </div>
+          </section>
         </div>
-      )}
 
-      <Modal open={flowOpen} onClose={() => setFlowOpen(false)} title="Document Flow History">
-        <div className="max-h-[70vh] overflow-y-auto px-1 py-1">
-          <WorkflowFlowTimeline logs={timeline} versionNumber={version?.version_number} isLoading={timelineLoading} />
-        </div>
-      </Modal>
+        {fullscreen && previewUrl && (
+          <div className="fixed inset-0 z-[100] flex flex-col bg-black/95">
+            <div className="shrink-0 flex items-center justify-between px-4 py-2.5 border-b border-white/10">
+              <span className="text-xs text-white/60 truncate">{version?.original_filename ?? "Preview"}</span>
+              <button onClick={() => setFullscreen(false)} className="text-white/60 hover:text-white">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <iframe title="Document preview fullscreen" src={previewUrl} className="flex-1 w-full border-0" />
+          </div>
+        )}
 
-      <WorkflowShareModal
-        open={shareOpen}
-        documentId={doc.id}
-        onClose={() => setShareOpen(false)}
-        onSaved={() => { }}
-      />
-    </PageFrame>
+        <Modal open={flowOpen} onClose={() => setFlowOpen(false)} title="Document Flow History">
+          <div className="max-h-[70vh] overflow-y-auto px-1 py-1">
+            <WorkflowFlowTimeline logs={timeline} versionNumber={version?.version_number} isLoading={timelineLoading} />
+          </div>
+        </Modal>
+
+        <WorkflowShareModal
+          open={shareOpen}
+          documentId={doc.id}
+          onClose={() => setShareOpen(false)}
+          onSaved={() => { }}
+        />
+      </PageFrame>
+    </motion.div>
   );
 }

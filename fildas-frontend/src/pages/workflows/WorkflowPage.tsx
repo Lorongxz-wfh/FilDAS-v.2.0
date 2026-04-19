@@ -28,18 +28,17 @@ import BackButton from "../../components/ui/buttons/BackButton";
 import Skeleton from "../../components/ui/loader/Skeleton";
 import { replaceDocumentVersionFileWithProgress } from "../../services/documents";
 import { useToast } from "../../components/ui/toast/ToastContext";
-import { getUserRole } from "../../lib/roleFilters";
+import { getUserRole, isQA } from "../../lib/roleFilters";
 import { getAuthUser } from "../../lib/auth";
 
 
-import { 
+import {
   FileX,
   Share2,
   Library,
   Loader2,
   XCircle,
   Trash2,
-  FileDown,
   ArrowRightToLine,
   ArrowLeftCircle,
   CheckCircle2,
@@ -47,12 +46,55 @@ import {
   Play,
   Layers,
   RefreshCcw,
-  Undo2,
-  History,
 } from "lucide-react";
 import { normalizeError } from "../../lib/normalizeError";
 import WorkflowVersionCompareModal from "../../components/documents/modals/WorkflowVersionCompareModal";
 import { GitCompare } from "lucide-react";
+import { motion } from "framer-motion";
+
+const WorkflowSkeleton: React.FC<{ onBack: () => void }> = ({ onBack }) => (
+  <DocFrame
+    title={<Skeleton className="h-6 w-48" />}
+    onBack={onBack}
+    rightHeader={<Skeleton className="h-8 w-32 rounded-md" />}
+    left={
+      <div className="space-y-6">
+        <div className="flex items-center gap-4 border-b border-slate-100 dark:border-surface-400 pb-4">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-1/3" />
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-2/3" />
+          </div>
+          <Skeleton className="h-[400px] w-full rounded-xl" />
+        </div>
+      </div>
+    }
+    right={
+      <div className="p-4 space-y-6">
+        <div>
+          <Skeleton className="h-3 w-20 mb-3" />
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i}>
+                <Skeleton className="h-2 w-16 mb-2" />
+                <Skeleton className="h-4 w-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 border-t border-slate-100 dark:border-surface-400 pt-6">
+          <Skeleton className="h-40 w-full" />
+        </div>
+      </div>
+    }
+  />
+);
 
 const WorkflowPage: React.FC = () => {
   const params = useParams();
@@ -118,10 +160,6 @@ const WorkflowPage: React.FC = () => {
   const [isLoadingSelectedVersion, setIsLoadingSelectedVersion] =
     useState(false);
 
-
-
-
-
   const refreshAndSelectBest = React.useCallback(
     async (opts?: { preferVersionId?: number | null }) => {
       const [docData, versions] = await Promise.all([
@@ -150,8 +188,6 @@ const WorkflowPage: React.FC = () => {
     [id, setSearchParams],
   );
 
-
-
   const [error, setError] = useState<string | null>(null);
   const [reviseModalOpen, setReviseModalOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -164,14 +200,14 @@ const WorkflowPage: React.FC = () => {
         version={null}
         offices={[]}
         newMessageCount={0}
-        clearNewMessageCount={() => {}}
+        clearNewMessageCount={() => { }}
         activeSideTab="details"
-        setActiveSideTab={() => {}}
+        setActiveSideTab={() => { }}
         isLoadingActivityLogs={true}
         activityLogs={[]}
         isLoadingMessages={true}
         messages={[]}
-        onSendMessage={async () => {}}
+        onSendMessage={async () => { }}
         formatWhen={() => ""}
       />
     ),
@@ -343,6 +379,66 @@ const WorkflowPage: React.FC = () => {
     headerSigRef.current = "";
   }, [selectedVersion?.id]);
 
+  // ── Workflow Callbacks (Moved to top level to follow Rules of Hooks) ─────
+  const onSelectVersion = React.useCallback(
+    (v: any) => {
+      setSearchParams((prev) => {
+        const p = new URLSearchParams(prev);
+        p.set("version_id", String(v.id));
+        return p;
+      });
+      logOpenedVersion(v.id, "versions_panel");
+    },
+    [setSearchParams],
+  );
+
+  const onHeaderStateChange = React.useCallback((s: any) => {
+    const sig =
+      `${s.title}|${s.code}|${s.status}|${s.versionNumber}|${s.canAct}|${s.isTasksReady}|${(s.availableActions ?? []).join(",")}|` +
+      `${(s.headerActions ?? []).map((a: any) => `${a.key}:${a.disabled ? 1 : 0}:${a.variant}`).join(",")}|` +
+      `${(s.versionActions ?? []).map((a: any) => `${a.key}:${a.disabled ? 1 : 0}:${a.variant}`).join(",")}`;
+    if (sig === headerSigRef.current) return;
+    headerSigRef.current = sig;
+    setHeaderState(s);
+  }, []);
+
+  const onAfterActionClose = React.useCallback(async () => {
+    try {
+      await refreshAndSelectBest({
+        preferVersionId: selectedVersion?.id ?? null,
+      });
+    } catch (e: any) {
+      // Document was deleted (404) — navigate back
+      if (e?.response?.status === 404 || e?.status === 404) {
+        navigate(fromPath);
+      }
+    }
+  }, [
+    refreshAndSelectBest,
+    selectedVersion?.id,
+    navigate,
+    fromPath,
+  ]);
+
+  const onChanged = React.useCallback(async () => {
+    const preferId = selectedVersion?.id ?? null;
+    if (preferId) {
+      try {
+        const { version: v, document: d } =
+          await getDocumentVersion(preferId);
+        setDocument(d);
+        setSelectedVersion(v);
+        setAllVersions((prev) =>
+          prev.map((x) => (x.id === v.id ? v : x)),
+        );
+        return;
+      } catch {
+        // Fall through to full refresh
+      }
+    }
+    await refreshAndSelectBest({ preferVersionId: preferId });
+  }, [selectedVersion?.id, refreshAndSelectBest]);
+
   const rightHeader = (
     <div className="flex items-center gap-2">
       {allVersions.length > 1 && (
@@ -382,7 +478,20 @@ const WorkflowPage: React.FC = () => {
     );
   }
 
-  if (!loading && (error || !document)) {
+  if (loading) {
+    return (
+      <motion.div
+        initial={{ x: 40, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+        className="flex flex-1 flex-col min-h-0 min-w-0"
+      >
+        <WorkflowSkeleton onBack={handleBack} />
+      </motion.div>
+    );
+  }
+
+  if (error || !document) {
     const isNotFound =
       !document ||
       (error ?? "").toLowerCase().includes("not found") ||
@@ -413,7 +522,12 @@ const WorkflowPage: React.FC = () => {
   const canActPage = !isAdmin || adminDebugMode;
 
   return (
-    <>
+    <motion.div
+      initial={{ x: 40, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+      className="flex flex-1 flex-col min-h-0 min-w-0"
+    >
       <DocFrame
         breadcrumbs={stateCrumbs}
         title={
@@ -423,7 +537,7 @@ const WorkflowPage: React.FC = () => {
                 <Skeleton className="h-4 w-48 mt-0.5" />
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="min-w-0 whitespace-normal wrap-break-word font-bold text-slate-800 dark:text-white leading-snug">
+                  <span className="min-w-0 whitespace-normal wrap-break-word font-semibold text-slate-800 dark:text-white leading-snug">
                     {headerState?.title ?? document?.title}
                   </span>
                 </div>
@@ -444,12 +558,12 @@ const WorkflowPage: React.FC = () => {
                 type="button"
                 variant="outline"
                 size="sm"
-                responsive
+                reveal
                 disabled={isLoadingSelectedVersion || !canActPage}
                 onClick={() => setShareOpen(true)}
                 tooltip="Share document with other offices"
               >
-                <Share2 className="h-3.5 w-3.5 sm:mr-1" />
+                <Share2 className="h-3.5 w-3.5" />
                 <span>Share</span>
               </Button>
             )}
@@ -458,13 +572,13 @@ const WorkflowPage: React.FC = () => {
                 type="button"
                 variant="outline"
                 size="sm"
-                responsive
+                reveal
                 disabled={isLoadingSelectedVersion}
                 onClick={() => navigate(`/documents/${id}/view`)}
                 tooltip="Open document in Library view"
               >
-                <Library className="h-3.5 w-3.5 sm:mr-1" />
-                <span>View in Library</span>
+                <Library className="h-3.5 w-3.5" />
+                <span>View</span>
               </Button>
             )}
             {current?.status === "Distributed" && isOwner && role !== "AUDITOR" && !isArchived && (
@@ -472,7 +586,7 @@ const WorkflowPage: React.FC = () => {
                 type="button"
                 variant="primary"
                 size="sm"
-                responsive
+                reveal
                 disabled={isLoadingSelectedVersion || !canActPage}
                 onClick={() => {
                   if (selectedVersion) logOpenedVersion(selectedVersion.id, "revise_action");
@@ -480,105 +594,115 @@ const WorkflowPage: React.FC = () => {
                 }}
                 tooltip="Start a new revision for this document"
               >
-                <RefreshCcw className="h-3.5 w-3.5 sm:mr-1" />
+                <RefreshCcw className="h-3.5 w-3.5" />
                 <span>Revise</span>
               </Button>
             )}
             {!headerState?.isTasksReady && current?.status !== "Distributed" ? (
               <div className="h-7 w-28 rounded-sm bg-slate-200 dark:bg-surface-400 animate-pulse" />
             ) : (
-              (headerState?.headerActions ?? []).map((a: any) => {
-                const isThis = processingKey === a.key || a.loading;
-                const isBusy =
-                  !!processingKey ||
-                  a.loading ||
-                  isLoadingSelectedVersion ||
-                  pendingUploadPct !== null;
+              <>
+                {(headerState?.headerActions ?? []).map((a: any) => {
+                  const isThis = processingKey === a.key || a.loading;
+                  const isBusy =
+                    !!processingKey ||
+                    a.loading ||
+                    isLoadingSelectedVersion ||
+                    pendingUploadPct !== null;
 
-                // Contextual Icons for Flow Actions
-                const Icon = 
-                  a.icon ? a.icon :
-                  a.key === "REJECT" ? XCircle :
-                  a.key.includes("CANCEL") || a.key.includes("DELETE") ? Trash2 :
-                  a.key.includes("SEND") || a.key.includes("FORWARD") ? ArrowRightToLine :
-                  a.key.includes("BACK") || a.key.includes("RETURN") ? ArrowLeftCircle :
-                  a.key.includes("APPROVAL") || a.key === "QA_PRESIDENT_APPROVE" || a.key === "OFFICE_PRESIDENT_APPROVE" ? CheckCircle2 :
-                  a.key.includes("REGISTER") ? Hash :
-                  a.key.includes("DISTRIBUTE") ? Share2 :
-                  a.key.includes("FINALIZATION") ? Play :
-                  a.key.includes("APPROVAL") ? Layers : 
-                  ArrowRightToLine;
+                  // Contextual Icons for Flow Actions
+                  const Icon =
+                    a.icon ? a.icon :
+                      a.key === "REJECT" ? XCircle :
+                        a.key.includes("CANCEL") || a.key.includes("DELETE") ? Trash2 :
+                          a.key.includes("SEND") || a.key.includes("FORWARD") ? ArrowRightToLine :
+                            a.key.includes("BACK") || a.key.includes("RETURN") ? ArrowLeftCircle :
+                              a.key.includes("APPROVAL") || a.key === "QA_PRESIDENT_APPROVE" || a.key === "OFFICE_PRESIDENT_APPROVE" ? CheckCircle2 :
+                                a.key.includes("REGISTER") ? Hash :
+                                  a.key.includes("DISTRIBUTE") ? Share2 :
+                                    a.key.includes("FINALIZATION") ? Play :
+                                      a.key.includes("APPROVAL") ? Layers :
+                                        ArrowRightToLine;
 
-                return (
-                  <Button
-                    key={a.key}
-                    type="button"
-                    size="sm"
-                    responsive
-                    variant={
-                      (a.key.includes("DISTRIBUTE") || a.key.includes("FINALIZATION")) ? "success" :
-                      a.variant === "danger" ? "danger" : 
-                      a.variant === "outline" ? "outline" : "primary"
-                    }
-                    disabled={isBusy || a.disabled}
-                    onClick={() => handleHeaderActionClick(a)}
-                    tooltip={a.label}
-                  >
-                    {isThis ? (
-                      <Loader2 className="animate-spin h-3.5 w-3.5" />
-                    ) : (
-                      <Icon className="h-3.5 w-3.5 sm:mr-1" />
-                    )}
-                    <span>{a.label}</span>
-                  </Button>
-                );
-              })
+                  return (
+                    <Button
+                      key={a.key}
+                      type="button"
+                      size="sm"
+                      reveal
+                      variant={
+                        (a.key.includes("DISTRIBUTE") || a.key.includes("FINALIZATION")) ? "success" :
+                          a.variant === "danger" ? "danger" :
+                            a.variant === "outline" ? "outline" : "primary"
+                      }
+                      disabled={isBusy || a.disabled}
+                      onClick={() => handleHeaderActionClick(a)}
+                      tooltip={a.label}
+                    >
+                      {isThis ? (
+                        <Loader2 className="animate-spin h-3.5 w-3.5" />
+                      ) : (
+                        <Icon className="h-3.5 w-3.5" />
+                      )}
+                      <span>{a.label.split(" ")[0]}</span>
+                    </Button>
+                  );
+                })}
+
+                {/* Revise Button */}
+                {(!isArchived && (isOwner || isQA(role) || isAdmin)) &&
+                  selectedVersion?.status === "Distributed" && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setReviseModalOpen(true)}
+                      tooltip="Create New Version"
+                      className="group"
+                    >
+                      <Layers className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors" />
+                    </Button>
+                  )}
+
+                {/* Generic Workflow Actions */}
+                {(headerState?.versionActions ?? []).map((a: any) => {
+                  const Icon = a.icon;
+                  const isThisActionBusy = processingVersionAction === a.key;
+                  return (
+                    <Button
+                      key={a.key}
+                      variant={
+                        a.variant === "primary"
+                          ? "primary"
+                          : a.variant === "danger"
+                            ? "danger"
+                            : "outline"
+                      }
+                      onClick={async () => {
+                        setProcessingVersionAction(a.key);
+                        try {
+                          await a.onClick();
+                        } finally {
+                          setProcessingVersionAction(null);
+                        }
+                      }}
+                      disabled={
+                        !!processingKey ||
+                        !!processingVersionAction ||
+                        isLoadingSelectedVersion ||
+                        pendingUploadPct !== null
+                      }
+                      tooltip={a.label}
+                    >
+                      {isThisActionBusy ? (
+                        <Loader2 className="animate-spin h-3.5 w-3.5" />
+                      ) : (
+                        <Icon className="h-3.5 w-3.5" />
+                      )}
+                      <span>{a.label.split(" ")[0]}</span>
+                    </Button>
+                  );
+                })}
+              </>
             )}
-             {(headerState?.versionActions ?? []).map((a: any) => {
-               const Icon = 
-                 a.key === "download" ? FileDown :
-                 a.key === "delete_draft" ? Trash2 :
-                 a.key === "restore" ? Undo2 :
-                 History;
-
-               const isThisActionBusy = processingVersionAction === a.key;
-
-               return (
-                 <Button
-                   key={a.key}
-                   type="button"
-                   size="sm"
-                   responsive
-                   variant={
-                     a.variant === "danger"
-                       ? "danger"
-                       : "outline"
-                   }
-                   onClick={async () => {
-                     setProcessingVersionAction(a.key);
-                     try {
-                       await a.onClick();
-                     } finally {
-                       setProcessingVersionAction(null);
-                     }
-                   }}
-                   disabled={
-                     !!processingKey ||
-                     !!processingVersionAction ||
-                     isLoadingSelectedVersion ||
-                     pendingUploadPct !== null
-                   }
-                   tooltip={a.label}
-                 >
-                   {isThisActionBusy ? (
-                     <Loader2 className="animate-spin h-3.5 w-3.5 sm:mr-1" />
-                   ) : (
-                     <Icon className="h-3.5 w-3.5 sm:mr-1" />
-                   )}
-                   <span>{a.label}</span>
-                 </Button>
-               );
-             })}
           </PageActions>
         }
         rightHeader={rightHeader}
@@ -619,53 +743,10 @@ const WorkflowPage: React.FC = () => {
               allVersions={allVersions}
               selectedVersion={selectedVersion}
               isLoadingSelectedVersion={isLoadingSelectedVersion}
-              onSelectVersion={React.useCallback((v: any) => {
-                setSearchParams((prev) => {
-                  const p = new URLSearchParams(prev);
-                  p.set("version_id", String(v.id));
-                  return p;
-                });
-                logOpenedVersion(v.id, "versions_panel");
-              }, [setSearchParams])}
-              onHeaderStateChange={React.useCallback((s: any) => {
-                const sig =
-                  `${s.title}|${s.code}|${s.status}|${s.versionNumber}|${s.canAct}|${s.isTasksReady}|${(s.availableActions ?? []).join(",")}|` +
-                  `${(s.headerActions ?? []).map((a: any) => `${a.key}:${a.disabled ? 1 : 0}:${a.variant}`).join(",")}|` +
-                  `${(s.versionActions ?? []).map((a: any) => `${a.key}:${a.disabled ? 1 : 0}:${a.variant}`).join(",")}`;
-                if (sig === headerSigRef.current) return;
-                headerSigRef.current = sig;
-                setHeaderState(s);
-              }, [])}
-              onAfterActionClose={React.useCallback(async () => {
-                try {
-                  await refreshAndSelectBest({
-                    preferVersionId: selectedVersion?.id ?? null,
-                  });
-                } catch (e: any) {
-                  // Document was deleted (404) — navigate back
-                  if (e?.response?.status === 404 || e?.status === 404) {
-                    navigate(fromPath);
-                  }
-                }
-              }, [refreshAndSelectBest, selectedVersion?.id, navigate, fromPath])}
-              onChanged={React.useCallback(async () => {
-                const preferId = selectedVersion?.id ?? null;
-                if (preferId) {
-                  try {
-                    const { version: v, document: d } =
-                      await getDocumentVersion(preferId);
-                    setDocument(d);
-                    setSelectedVersion(v);
-                    setAllVersions((prev) =>
-                      prev.map((x) => (x.id === v.id ? v : x)),
-                    );
-                    return;
-                  } catch {
-                    // Fall through to full refresh
-                  }
-                }
-                await refreshAndSelectBest({ preferVersionId: preferId });
-              }, [selectedVersion?.id, refreshAndSelectBest])}
+              onSelectVersion={onSelectVersion}
+              onHeaderStateChange={onHeaderStateChange}
+              onAfterActionClose={onAfterActionClose}
+              onChanged={onChanged}
               onRightPanelContent={setRightPanelContent}
             />
           </div>
@@ -677,7 +758,7 @@ const WorkflowPage: React.FC = () => {
         open={shareOpen}
         documentId={document?.id ?? null}
         onClose={() => setShareOpen(false)}
-        onSaved={() => {}}
+        onSaved={() => { }}
       />
 
       <WorkflowActionConfirmModal
@@ -698,7 +779,10 @@ const WorkflowPage: React.FC = () => {
         onClose={() => setReviseModalOpen(false)}
         onRevised={(revised) => {
           setAllVersions((prev) => {
-            const next = [revised, ...prev.filter((v) => v.id !== revised.id)];
+            const next = [
+              revised,
+              ...prev.filter((v) => v.id !== revised.id),
+            ];
             next.sort(
               (a, b) => Number(b.version_number) - Number(a.version_number),
             );
@@ -717,11 +801,11 @@ const WorkflowPage: React.FC = () => {
 
       <WorkflowVersionCompareModal
         open={isCompareModalOpen}
-        onClose={() => setIsCompareModalOpen(false)}
         allVersions={allVersions}
         baseVersionId={selectedVersion?.id ?? null}
+        onClose={() => setIsCompareModalOpen(false)}
       />
-    </>
+    </motion.div>
   );
 };
 

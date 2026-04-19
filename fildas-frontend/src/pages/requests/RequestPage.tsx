@@ -3,10 +3,10 @@ import {
   Navigate,
   useNavigate,
   useParams,
-  Link,
 } from "react-router-dom";
 import PageFrame from "../../components/layout/PageFrame";
 import { useRefresh } from "../../lib/RefreshContext";
+import { motion } from "framer-motion";
 
 import { getAuthUser } from "../../lib/auth";
 import { isAdmin } from "../../lib/roleFilters";
@@ -32,9 +32,7 @@ import {
   MessageSquare,
   Activity,
   Megaphone,
-  FileIcon,
 } from "lucide-react";
-import { PageActions } from "../../components/ui/PageActions";
 import { useRealtimeUpdates } from "../../hooks/useRealtimeUpdates";
 import { roleLower, TabBar } from "../../components/documentRequests/shared";
 import RequestHeaderCard from "../../components/documentRequests/RequestHeaderCard";
@@ -47,6 +45,59 @@ import RequestPreviewModal from "../../components/documentRequests/RequestPrevie
 import { inputCls } from "../../utils/formStyles";
 import { useToast } from "../../components/ui/toast/ToastContext";
 import { downloadTemplate, getTemplatePreviewLink } from "../../services/templates";
+import Skeleton from "../../components/ui/loader/Skeleton";
+
+const RequestSkeleton: React.FC<{ onBack: () => void }> = ({ onBack }) => (
+  <PageFrame title="Document Request" onBack={onBack}>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 p-4 sm:p-6 lg:h-full lg:overflow-hidden bg-slate-50 dark:bg-surface-600">
+      <section className="lg:col-span-7 flex flex-col gap-3">
+        <div className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden p-5 space-y-4">
+          <Skeleton className="h-6 w-1/3" />
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-2/3" />
+          </div>
+          <div className="pt-4 border-t border-slate-100 dark:border-surface-400 flex gap-4">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </div>
+        <div className="flex-1 rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex flex-col">
+          <div className="flex border-b border-slate-100 dark:border-surface-400">
+            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-10 w-32" />
+          </div>
+          <div className="p-5 space-y-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex gap-3">
+                <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      <aside className="lg:col-span-5 flex flex-col">
+        <div className="flex-1 rounded-2xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500 overflow-hidden flex flex-col">
+          <div className="flex border-b border-slate-100 dark:border-surface-400">
+            <Skeleton className="h-10 w-1/2" />
+            <Skeleton className="h-10 w-1/2" />
+          </div>
+          <div className="p-6 flex-1 flex flex-col items-center justify-center gap-4">
+            <Skeleton className="h-48 w-full rounded-xl" />
+            <div className="w-full space-y-3">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </PageFrame>
+);
 
 export default function RequestPage() {
   const navigate = useNavigate();
@@ -146,9 +197,9 @@ export default function RequestPage() {
   const [qaNote, setQaNote] = React.useState("");
   const [reviewing, setReviewing] = React.useState(false);
 
-  
+
   const { refreshKey } = useRefresh();
-  const initialMountRef = Object.assign(React.useRef(true), {});
+  const initialMountRef = React.useRef(true);
 
 
   const msgCountRef = React.useRef(messages.length);
@@ -179,64 +230,22 @@ export default function RequestPage() {
     return f0?.id ? Number(f0.id) : null;
   }, [selectedSubmission]);
 
-  // ── Logic: Requester (Reviewer) vs. Requestee (Submitter) ──
-  // A Requester is the user who created the request OR a QA supervisor.
   const isRequesterUser = me.id === Number(req?.created_by_user_id);
-
-  // A Requestee is the office who received the request.
   const isRequestee =
     (me.office_id && Number(me.office_id) === Number(recipient?.office_id)) ||
     (isQa && (recipient?.office_code || "").toUpperCase() === "QA");
-
-  // Privileged user (can override in debug mode)
   const isPrivileged = isQa || isAdminUser;
   const canDebug = isPrivileged && adminDebugMode;
-
-  // Final roles: 
-  // isReviewer determines if they can Accept/Reject and post Announcements.
-  // We grant this to the actual creator AND all third-party QA users.
-  // CRITICAL: A recipient (Requestee) can NEVER be their own Reviewer.
   const isReviewer = isRequesterUser || (isQa && !isRequestee) || canDebug;
-  
-  // isSubmitter determines if they can upload the file.
-  // This is strictly for the intended recipient office.
   const isSubmitter = isRequestee || canDebug;
-
-
-  // canSubmit: Strictly for the designated submitter (or privileged override)
-  const canSubmit =
-    (isSubmitter || canDebug) && req?.status === "open" && !!recipient?.id;
-
+  const canSubmit = (isSubmitter || canDebug) && req?.status === "open" && !!recipient?.id;
   const latestStatus = String(latestSubmission?.status ?? "");
   const hasLocalFile = files.length === 1 && !!localPreviewUrl;
-  const showUploadArea =
-    canSubmit &&
-    (latestStatus === "rejected" || !latestSubmission) &&
-    !hasLocalFile;
-
-
-  // canReview: Strictly for the requester (or privileged override)
-  const canReview =
-    (isReviewer || canDebug) &&
-    !!selectedSubmission?.id &&
-    String(selectedSubmission?.status) === "submitted";
-
-  // canManage: Ability to edit titles/due dates/cancel
+  const showUploadArea = canSubmit && (latestStatus === "rejected" || !latestSubmission) && !hasLocalFile;
+  const canReview = (isReviewer || canDebug) && !!selectedSubmission?.id && String(selectedSubmission?.status) === "submitted";
   const canManage = isReviewer || canDebug;
-
-  // Unused warning cleanup
-  if (isSubmitter && !isSubmitter) console.log(isSubmitter);
-
-  // QA/item-view: go back to batch; office recipient (multi-office): go back to list
-  const backUrl =
-    isQa || isItemView
-      ? `/document-requests/${requestId}`
-      : `/document-requests`;
-
-  // Effective due date — individual override > batch due
-  const effectiveDueAt = isItemView
-    ? (req?.item_due_at ?? req?.due_at ?? null)
-    : (recipient?.due_at ?? req?.due_at ?? null);
+  const backUrl = isQa || isItemView ? `/document-requests/${requestId}` : `/document-requests`;
+  const effectiveDueAt = isItemView ? (req?.item_due_at ?? req?.due_at ?? null) : (recipient?.due_at ?? req?.due_at ?? null);
 
   // ── Load ───────────────────────────────────────────────────────────────────
   const load = React.useCallback(async (silent = false) => {
@@ -262,9 +271,7 @@ export default function RequestPage() {
       });
       if (forceSelectLatestOnce) setForceSelectLatestOnce(false);
     } catch (e: any) {
-      setError(
-        e?.response?.data?.message ?? e?.message ?? "Failed to load request.",
-      );
+      setError(e?.response?.data?.message ?? e?.message ?? "Failed to load request.");
     } finally {
       if (!silent) setLoading(false);
     }
@@ -274,7 +281,6 @@ export default function RequestPage() {
     load().catch(() => { });
   }, [load]);
 
-  // Sync edit fields when data loads
   React.useEffect(() => {
     if (!req) return;
     if (isItemView) {
@@ -284,10 +290,8 @@ export default function RequestPage() {
     } else {
       setEditDueAt(recipient?.due_at ? recipient.due_at.slice(0, 16) : "");
     }
-  }, [req?.id, recipient?.id]);
+  }, [req?.id, recipient?.id, isItemView]);
 
-  // ── Messages ───────────────────────────────────────────────────────────────
-  // Scope: item view → item thread, recipient view → private or broadcast
   const messageScope = React.useMemo(() => {
     if (isItemView) return { item_id: itemId! };
     if (recipientId) {
@@ -314,7 +318,6 @@ export default function RequestPage() {
   }, [loadMessages]);
 
   const loadActivity = React.useCallback(async (silent = false) => {
-    // Only fetch if activity tab is selected OR if it's a silent background poll
     if (!silent && leftTab !== "activity") return;
     if (!silent) setActivityLoading(true);
     try {
@@ -339,9 +342,7 @@ export default function RequestPage() {
       if (diff > 0) return `${diff} new message${diff === 1 ? "" : "s"} received.`;
       return "Already up to date.";
     } catch {
-      // silent
-    } finally {
-      // silent
+      /* silent */
     }
   }, [load, loadMessages]);
 
@@ -363,15 +364,11 @@ export default function RequestPage() {
     let tick = 0;
     const interval = window.setInterval(async () => {
       tick++;
-      // Poll messages every 10s
       await loadMessages().catch(() => { });
-      
-      // Poll full request state every 3 cycles (30s)
       if (tick % 3 === 0) {
         await load(true).catch(() => { });
         await loadActivity(true).catch(() => { });
       }
-
       if (isFirstMsgLoadRef.current) {
         isFirstMsgLoadRef.current = false;
         prevMsgCountRef.current = messages.length;
@@ -379,9 +376,8 @@ export default function RequestPage() {
       }
     }, 10_000);
     return () => window.clearInterval(interval);
-  }, [load, loadMessages, loadActivity]);
+  }, [load, loadMessages, loadActivity, messages.length]);
 
-  // Poll inactive thread for unread indicator — recipient multi-office only
   React.useEffect(() => {
     if (isItemView || !recipientId || isQa) return;
     const pollInactive = async () => {
@@ -394,13 +390,11 @@ export default function RequestPage() {
         const count = msgs.length;
         if (commentThread === "private") {
           const prev = prevBroadcastCountRef.current;
-          if (prev > 0 && count > prev)
-            setBroadcastUnread((u) => u + (count - prev));
+          if (prev > 0 && count > prev) setBroadcastUnread((u) => u + (count - prev));
           prevBroadcastCountRef.current = count;
         } else {
           const prev = prevPrivateCountRef.current;
-          if (prev > 0 && count > prev)
-            setPrivateUnread((u) => u + (count - prev));
+          if (prev > 0 && count > prev) setPrivateUnread((u) => u + (count - prev));
           prevPrivateCountRef.current = count;
         }
       } catch {
@@ -423,39 +417,27 @@ export default function RequestPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-
-  // ── Realtime: instant updates via Pusher ───────────────────────────────
   useRealtimeUpdates({
     requestId,
     onRequestMessage: React.useCallback(
       (msg: any) => {
         const msgRecipientId = msg.recipient_id ? Number(msg.recipient_id) : null;
         const msgItemId = msg.item_id ? Number(msg.item_id) : null;
-
         let isForCurrentThread = false;
-
         if (isItemView) {
           isForCurrentThread = msgItemId === itemId;
         } else {
-          if (commentThread === "broadcast") {
-            isForCurrentThread = msgRecipientId === null;
-          } else {
-            isForCurrentThread = msgRecipientId === recipientId;
-          }
+          if (commentThread === "broadcast") isForCurrentThread = msgRecipientId === null;
+          else isForCurrentThread = msgRecipientId === recipientId;
         }
-
         if (isForCurrentThread) {
           setMessages((prev) => {
             if (prev.find((m) => m.id === msg.id)) return prev;
             return [...prev, msg];
           });
         } else if (!isQa) {
-          // Update unread counts for inactive thread (Office only)
-          if (msgRecipientId === null) {
-            setBroadcastUnread((u) => u + 1);
-          } else if (msgRecipientId === recipientId) {
-            setPrivateUnread((u) => u + 1);
-          }
+          if (msgRecipientId === null) setBroadcastUnread((u) => u + 1);
+          else if (msgRecipientId === recipientId) setPrivateUnread((u) => u + 1);
         }
       },
       [isItemView, itemId, recipientId, commentThread, isQa],
@@ -476,39 +458,27 @@ export default function RequestPage() {
     }, [load, loadActivity]),
   });
 
-  // ── Example preview ────────────────────────────────────────────────────────
   const loadExamplePreview = React.useCallback(async () => {
-    // If no specific preview path AND no template, we can't show anything
     if (!req?.example_preview_path && !req?.template) {
       setExamplePreviewUrl("");
       return;
     }
-
     setExamplePreviewLoading(true);
     setExamplePreviewError(null);
-
     try {
       let url = "";
-
-      // Case A: Specific example file has a preview path
       if (req?.example_preview_path) {
         const res = isItemView && itemId
           ? await getDocumentRequestItemExamplePreviewLink(itemId)
           : await getDocumentRequestExamplePreviewLink(requestId);
         url = res.url;
-      } 
-      // Case B: No example file, but a system template is used
-      else if (req?.template?.id) {
+      } else if (req?.template?.id) {
         const res = await getTemplatePreviewLink(req.template.id);
         url = res.url;
       }
-
       setExamplePreviewUrl(url);
     } catch (err: any) {
-      console.error("Failed to load example preview link", err);
-      setExamplePreviewError(
-        err?.response?.data?.message ?? "Failed to load preview."
-      );
+      setExamplePreviewError(err?.response?.data?.message ?? "Failed to load preview.");
     } finally {
       setExamplePreviewLoading(false);
     }
@@ -518,7 +488,6 @@ export default function RequestPage() {
     loadExamplePreview().catch(() => { });
   }, [loadExamplePreview]);
 
-  // ── Submission preview ─────────────────────────────────────────────────────
   React.useEffect(() => {
     if (!selectedFileId) {
       setSubmissionPreviewUrl("");
@@ -528,11 +497,7 @@ export default function RequestPage() {
     setSubmissionPreviewError(null);
     getDocumentRequestSubmissionFilePreviewLink(selectedFileId)
       .then((r) => setSubmissionPreviewUrl(r.url))
-      .catch((e: any) =>
-        setSubmissionPreviewError(
-          e?.response?.data?.message ?? "Failed to load preview.",
-        ),
-      )
+      .catch((e: any) => setSubmissionPreviewError(e?.response?.data?.message ?? "Failed to load preview."))
       .finally(() => setSubmissionPreviewLoading(false));
   }, [selectedFileId]);
 
@@ -542,30 +507,16 @@ export default function RequestPage() {
       url = URL.createObjectURL(files[0]);
       setLocalPreviewUrl(url);
     } else setLocalPreviewUrl("");
-    return () => {
-      if (url) URL.revokeObjectURL(url);
-    };
+    return () => { if (url) URL.revokeObjectURL(url); };
   }, [files]);
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
   const handleSelectFiles = (picked: FileList | null) => {
     setSubmitMsg(null);
     setSubmitErr(null);
     const arr = picked ? Array.from(picked) : [];
-    if (!arr.length) {
-      setFiles([]);
-      return;
-    }
-    if (arr.length > 1) {
-      setFiles([]);
-      setSubmitErr("Please upload only 1 file.");
-      return;
-    }
-    if (arr[0].size > 10 * 1024 * 1024) {
-      setFiles([]);
-      setSubmitErr("File too large (max 10MB).");
-      return;
-    }
+    if (!arr.length) { setFiles([]); return; }
+    if (arr.length > 1) { setFiles([]); setSubmitErr("Please upload only 1 file."); return; }
+    if (arr[0].size > 10 * 1024 * 1024) { setFiles([]); setSubmitErr("File too large (max 10MB)."); return; }
     setFiles(arr);
   };
 
@@ -575,11 +526,7 @@ export default function RequestPage() {
     setPosting(true);
     setPostErr(null);
     try {
-      const msg = await postDocumentRequestMessage(
-        requestId,
-        text,
-        messageScope,
-      );
+      const msg = await postDocumentRequestMessage(requestId, text, messageScope);
       setMessages((prev) => [...prev, msg]);
       setCommentText("");
     } catch (e: any) {
@@ -594,18 +541,9 @@ export default function RequestPage() {
     setSubmitMsg(null);
     setSubmitErr(null);
     try {
-      if (!recipient?.id) {
-        setSubmitErr("Recipient record missing.");
-        return;
-      }
-      if (!canSubmit) {
-        setSubmitErr("Request is not open.");
-        return;
-      }
-      if (!files.length) {
-        setSubmitErr("Please attach a file.");
-        return;
-      }
+      if (!recipient?.id) { setSubmitErr("Recipient record missing."); return; }
+      if (!canSubmit) { setSubmitErr("Request is not open."); return; }
+      if (!files.length) { setSubmitErr("Please attach a file."); return; }
       await submitDocumentRequestEvidence({
         request_id: requestId,
         recipient_id: Number(recipient.id),
@@ -628,19 +566,13 @@ export default function RequestPage() {
   const qaReview = async (decision: "accepted" | "rejected") => {
     setReviewing(true);
     try {
-      if (!selectedSubmission?.id) {
-        toast.push({ type: "error", message: "No submission selected." });
-        return;
-      }
+      if (!selectedSubmission?.id) { toast.push({ type: "error", message: "No submission selected." }); return; }
       await reviewDocumentRequestSubmission({
         submission_id: Number(selectedSubmission.id),
         decision,
         note: qaNote.trim() || null,
       });
-      toast.push({
-        type: "success",
-        message: decision === "accepted" ? "Submission accepted." : "Submission rejected.",
-      });
+      toast.push({ type: "success", message: decision === "accepted" ? "Submission accepted." : "Submission rejected." });
       setQaNote("");
       await load();
     } catch (e: any) {
@@ -680,327 +612,243 @@ export default function RequestPage() {
     }
   };
 
-  // ── Loading / error ────────────────────────────────────────────────────────
   if (loading && !req) {
     return (
-      <PageFrame title="Document Request" onBack={() => navigate(backUrl)}>
-        <div className="flex h-60 items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-7 w-7 rounded-full border-2 border-sky-500 border-t-transparent animate-spin" />
-            <span className="text-sm text-slate-500 dark:text-slate-400">
-              Loading request…
-            </span>
-          </div>
-        </div>
-      </PageFrame>
+      <motion.div
+        initial={{ x: 40, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+        className="flex flex-1 flex-col min-h-0 min-w-0"
+      >
+        <RequestSkeleton onBack={() => navigate(backUrl)} />
+      </motion.div>
     );
   }
 
   if (error) {
     return (
-      <PageFrame title="Document Request" onBack={() => navigate(backUrl)}>
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
-          {error}
-        </div>
-      </PageFrame>
+      <motion.div
+        initial={{ x: 40, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+        className="flex flex-1 flex-col min-h-0 min-w-0"
+      >
+        <PageFrame title="Document Request" onBack={() => navigate(backUrl)}>
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-400">
+            {error}
+          </div>
+        </PageFrame>
+      </motion.div>
     );
   }
 
   if (!req) return null;
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <PageFrame
-      title={
-        <>
-          <Link
-            to={`/document-requests/${requestId}`}
-            className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 font-semibold transition-colors"
-          >
-            {req.title ?? `Request #${requestId}`}
-          </Link>
-          <span className="mx-1.5 text-slate-300 dark:text-slate-600 font-normal select-none">›</span>
-          {req.item_title ?? recipient?.office_name ?? "—"}
-        </>
-      }
-      onBack={() => navigate(backUrl)}
-      breadcrumbs={[{ label: "Batch", to: "/document-requests" }]}
-      fullHeight
-      right={
-        <PageActions>
-          {latestSubmission?.status?.toLowerCase() === "accepted" && (
+    <motion.div
+      initial={{ x: 40, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+      className="flex flex-1 flex-col min-h-0 min-w-0"
+    >
+      <PageFrame
+        title={isItemView ? req.item_title : req.title}
+        onBack={() => navigate(backUrl)}
+        subtitle={
+          <div className="flex items-center gap-2 overflow-hidden text-xs text-slate-500 dark:text-slate-400">
+            <span className="truncate">{req.code}</span>
+            <span className="shrink-0">•</span>
+            <span className="shrink-0">Due {effectiveDueAt ? new Date(effectiveDueAt).toLocaleDateString() : "No date"}</span>
+          </div>
+        }
+        right={
+          <div className="flex items-center gap-2">
             <Button
-              type="button"
               variant="outline"
               size="sm"
-              onClick={() => {
-                const type = isItemView ? "items" : "recipients";
-                const targetId = isItemView ? itemId : recipientId;
-                navigate(`/documents/view/request/${requestId}/${type}/${targetId}`);
-              }}
-              responsive
+              onClick={handleManualRefresh}
+              className="h-8 w-8 !p-0"
+              tooltip="Refresh data"
             >
-              <FileIcon className="h-3.5 w-3.5" />
-              <span>View in Library</span>
+              <Activity className="h-3.5 w-3.5" />
             </Button>
-          )}
-        </PageActions>
-      }
-    >
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:h-full min-h-0 p-4 sm:p-5">
-        {/* ── LEFT ── */}
-        <section className="lg:col-span-7 min-w-0 flex flex-col gap-5 lg:h-full lg:overflow-hidden">
-          {/* Header + edit panel */}
-          <div className="flex flex-col rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
-            <RequestHeaderCard
-              req={req}
-              recipient={recipient}
-              canManage={canManage}
-              pulseKey={pulseKey}
-              isItemView={isItemView}
-              effectiveDueAt={effectiveDueAt}
-              editOpen={editOpen}
-              editTitle={editTitle}
-              editDesc={editDesc}
-              editDueAt={editDueAt}
-              editSaving={editSaving}
-              editErr={editErr}
-              inputCls={inputCls}
-              onEditToggle={() => setEditOpen((o) => !o)}
-              onEditTitleChange={setEditTitle}
-              onEditDescChange={setEditDesc}
-              onEditDueAtChange={setEditDueAt}
-              onEditSave={saveEdit}
-              onEditCancel={() => { setEditOpen(false); setEditErr(null); }}
-            />
           </div>
+        }
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 p-4 sm:p-6 lg:h-full lg:overflow-hidden bg-slate-50 dark:bg-surface-600">
+          <section className="lg:col-span-7 flex flex-col lg:min-h-0 lg:overflow-hidden gap-3">
+            <div className="rounded-lg border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden">
+              <RequestHeaderCard
+                req={req}
+                recipient={recipient}
+                isItemView={isItemView}
+                effectiveDueAt={effectiveDueAt}
+                editOpen={editOpen}
+                editTitle={editTitle}
+                editDesc={editDesc}
+                editDueAt={editDueAt}
+                editSaving={editSaving}
+                editErr={editErr}
+                inputCls={inputCls}
+                onEditToggle={() => setEditOpen(!editOpen)}
+                onEditTitleChange={setEditTitle}
+                onEditDescChange={setEditDesc}
+                onEditDueAtChange={setEditDueAt}
+                onEditSave={saveEdit}
+                onEditCancel={() => setEditOpen(false)}
+                canManage={canManage}
+                pulseKey={pulseKey}
+              />
+            </div>
 
-          {/* Comments + Activity - Mobile Accordion Style */}
-          <div className="flex flex-col rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex-1 lg:min-h-0 lg:h-125">
-            <div className="shrink-0 flex items-center justify-between border-b border-slate-200 dark:border-surface-400 bg-slate-50/50 dark:bg-surface-600/50 pr-2">
+            <div className="flex flex-col rounded-md border border-slate-200 dark:border-surface-400 bg-white dark:bg-surface-500 overflow-hidden flex-1 lg:min-h-0">
               <TabBar
                 tabs={[
-                  {
-                    value: "comments" as const,
-                    label: "Comments",
-                    icon: <MessageSquare size={12} />,
-                  },
-                  {
-                    value: "activity" as const,
-                    label: "Activity",
-                    icon: <Activity size={12} />,
-                  },
+                  { value: "comments", label: "Comments", icon: <MessageSquare size={12} /> },
+                  { value: "activity", label: "Activity", icon: <Activity size={12} /> },
                 ]}
                 active={leftTab}
                 onChange={setLeftTab}
-                badge={{
-                  comments: messages.length > 0 ? messages.length : undefined,
-                }}
+                badge={{ comments: messages.length > 0 ? messages.length : undefined }}
               />
-            </div>
-            <div className="flex flex-col flex-1 min-h-75 lg:min-h-0 overflow-hidden">
-              {leftTab === "comments" ? (
-                <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                  {/* Private / Broadcast thread switcher — only visible if not an item view */}
-                  {!isItemView && recipientId && (
-                    <div className="shrink-0 border-b border-slate-100 dark:border-surface-400 px-3 py-2 flex flex-col gap-2">
-                      {/* Tab row */}
-                      <div className="flex items-center gap-1 justify-between">
+              <div className="flex flex-col flex-1 min-h-75 lg:min-h-0 overflow-hidden">
+                {leftTab === "comments" ? (
+                  <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                    {!isItemView && recipientId && (
+                      <div className="shrink-0 border-b border-slate-100 dark:border-surface-400 px-3 py-2 flex flex-col gap-2">
                         <div className="flex items-center gap-1">
-                          {(["private", "broadcast"] as const).map((t) => {
-                            const isActive = commentThread === t;
-                            const hasNew =
-                              t === commentThread
-                                ? newMsgCount > 0
-                                : t === "broadcast"
-                                  ? broadcastUnread > 0
-                                  : privateUnread > 0;
-                            const badgeCount =
-                              t === commentThread
-                                ? newMsgCount
-                                : t === "broadcast"
-                                  ? broadcastUnread
-                                  : privateUnread;
-                            return (
-                              <button
-                                key={t}
-                                type="button"
-                                onClick={() => {
-                                  setCommentThread(t);
-                                  setMessages([]);
-                                  setNewMsgCount(0);
-                                  if (t === "broadcast") setBroadcastUnread(0);
-                                  if (t === "private") setPrivateUnread(0);
-                                }}
-                                className={`relative flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[11px] font-medium transition-colors ${isActive
-                                    ? "bg-brand-500 text-white"
-                                    : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400"
-                                  }`}
-                              >
-                                {t === "broadcast" ? (
-                                  <Megaphone className="h-3 w-3 shrink-0" />
-                                ) : (
-                                  <MessageSquare className="h-3 w-3 shrink-0" />
-                                )}
-                                {t === "private" ? "Private" : "Broadcast"}
-                                {hasNew && (
-                                  <span className="inline-flex items-center justify-center h-3.5 min-w-3.5 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white leading-none">
-                                    {badgeCount > 9 ? "9+" : badgeCount}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
+                          {(["private", "broadcast"] as const).map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => {
+                                setCommentThread(t);
+                                setMessages([]);
+                                setNewMsgCount(0);
+                                if (t === "broadcast") setBroadcastUnread(0);
+                                if (t === "private") setPrivateUnread(0);
+                              }}
+                              className={`relative flex items-center gap-1.5 rounded px-2.5 py-1.5 text-[11px] font-medium transition-colors ${commentThread === t ? "bg-brand-500 text-white" : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-surface-400"}`}
+                            >
+                              {t === "broadcast" ? <Megaphone className="h-3 w-3 shrink-0" /> : <MessageSquare className="h-3 w-3 shrink-0" />}
+                              {t === "private" ? "Private" : "Broadcast"}
+                              {(t === commentThread ? newMsgCount : (t === "broadcast" ? broadcastUnread : privateUnread)) > 0 && (
+                                <span className="inline-flex items-center justify-center h-3.5 min-w-3.5 px-1 rounded-full bg-rose-500 text-[9px] font-semibold text-white">
+                                  { (t === commentThread ? newMsgCount : (t === "broadcast" ? broadcastUnread : privateUnread)) > 9 ? "9+" : (t === commentThread ? newMsgCount : (t === "broadcast" ? broadcastUnread : privateUnread)) }
+                                </span>
+                              )}
+                            </button>
+                          ))}
                         </div>
+                        {commentThread === "broadcast" && (
+                          <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 dark:border-amber-800/50 dark:bg-amber-950/20">
+                            <Megaphone className="h-3 w-3 shrink-0 text-amber-500 dark:text-amber-400" />
+                            <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-tight">Announcements from the requester to all offices — read only</p>
+                          </div>
+                        )}
                       </div>
+                    )}
+                    <RequestCommentsPanel
+                      messages={messages}
+                      loading={messagesLoading}
+                      myUserId={myUserId}
+                      commentText={commentText}
+                      posting={posting}
+                      postErr={postErr}
+                      messagesEndRef={messagesEndRef}
+                      onCommentChange={setCommentText}
+                      onPost={postComment}
+                      newMessageCount={newMsgCount}
+                      onClearNewMessages={() => setNewMsgCount(0)}
+                      readOnly={!isReviewer && commentThread === "broadcast"}
+                      readOnlyLabel="This broadcast thread is for announcements from the requester only."
+                    />
+                  </div>
+                ) : (
+                  <RequestActivityPanel logs={activityLogs} loading={activityLoading} />
+                )}
+              </div>
+            </div>
+          </section>
 
-                      {/* Broadcast info banner */}
-                      {commentThread === "broadcast" && (
-                        <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 dark:border-amber-800/50 dark:bg-amber-950/20">
-                          <Megaphone className="h-3 w-3 shrink-0 text-amber-500 dark:text-amber-400" />
-                          <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-tight">
-                            Announcements from the requester to all offices — read only
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <RequestCommentsPanel
-                    messages={messages}
-                    loading={messagesLoading}
-                    myUserId={myUserId}
-                    commentText={commentText}
-                    posting={posting}
-                    postErr={postErr}
-                    messagesEndRef={messagesEndRef}
-                    onCommentChange={setCommentText}
-                    onPost={postComment}
-                    newMessageCount={newMsgCount}
-                    onClearNewMessages={() => setNewMsgCount(0)}
-                    readOnly={
-                      !isReviewer && commentThread === "broadcast"
-                    }
-                    readOnlyLabel="This broadcast thread is for announcements from the requester only."
+          <aside className="lg:col-span-5 flex flex-col lg:min-h-0 lg:overflow-hidden">
+            <div className="flex flex-col lg:flex-1 lg:min-h-0 lg:overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-surface-400 dark:bg-surface-500">
+              <TabBar
+                tabs={[
+                  { value: "example", label: "Example" },
+                  { value: "submission", label: "Submission" },
+                ]}
+                active={rightTab}
+                onChange={(v: any) => setRightTab(v)}
+              />
+              <div className="flex flex-1 flex-col min-h-0 overflow-hidden p-4 gap-3">
+                {rightTab === "example" ? (
+                  <RequestExampleTab
+                    req={req}
+                    examplePreviewUrl={examplePreviewUrl}
+                    examplePreviewLoading={examplePreviewLoading}
+                    examplePreviewError={examplePreviewError}
+                    onViewModal={() => setPreviewModal({ url: examplePreviewUrl, filename: (req.template ? req.template.name : (req.example_original_filename ?? "Attached file")) })}
                   />
-                </div>
-              ) : (
-                <RequestActivityPanel
-                  logs={activityLogs}
-                  loading={activityLoading}
-                />
-              )}
+                ) : (
+                  <RequestSubmissionTab
+                    isReviewer={isReviewer}
+                    isSubmitter={isSubmitter}
+                    req={req}
+                    submissions={submissions}
+                    selectedSubmission={selectedSubmission}
+                    selectedSubmissionId={selectedSubmissionId}
+                    selectedFileId={selectedFileId}
+                    onSelectSubmission={setSelectedSubmissionId}
+                    qaNote={qaNote}
+                    reviewing={reviewing}
+                    canReview={canReview}
+                    onQaNoteChange={setQaNote}
+                    onQaReview={qaReview}
+                    hasExample={!!req?.example_original_filename || !!req?.template}
+                    onDownloadExample={async () => {
+                      let win: Window | null = null;
+                      try {
+                        win = window.open("", "_blank");
+                        if (req?.template?.id) { await downloadTemplate(req.template.id, req.template.original_filename); if (win) win.close(); return; }
+                        const res = isItemView && itemId
+                          ? await getDocumentRequestItemExampleDownloadLink(itemId)
+                          : await getDocumentRequestExampleDownloadLink(requestId);
+                        if (win) win.location.href = res.url;
+                      } catch { if (win) win.close(); }
+                    }}
+                    files={files}
+                    localPreviewUrl={localPreviewUrl}
+                    hasLocalFile={hasLocalFile}
+                    showUploadArea={showUploadArea}
+                    canSubmit={canSubmit}
+                    note={note}
+                    submitting={submitting}
+                    submitMsg={submitMsg}
+                    submitErr={submitErr}
+                    onNoteChange={setNote}
+                    onSelectFiles={handleSelectFiles}
+                    onRemoveFile={() => setFiles([])}
+                    onSubmit={submit}
+                    submissionPreviewUrl={submissionPreviewUrl}
+                    submissionPreviewLoading={submissionPreviewLoading}
+                    submissionPreviewError={submissionPreviewError}
+                    onViewModal={(url: string, filename?: string) => setPreviewModal({ url, filename })}
+                  />
+                )}
+              </div>
             </div>
-          </div>
-        </section>
+          </aside>
+        </div>
 
-        {/* ── RIGHT ── */}
-        <aside className="lg:col-span-5 flex flex-col lg:min-h-0 lg:overflow-hidden">
-          <div className="flex flex-col lg:flex-1 lg:min-h-0 lg:overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-surface-400 dark:bg-surface-500">
-            <TabBar
-              tabs={[
-                { value: "example" as const, label: "Example" },
-                { value: "submission" as const, label: "Submission" },
-              ]}
-              active={rightTab}
-              onChange={setRightTab}
-            />
-            <div className="flex flex-1 flex-col min-h-0 overflow-hidden p-4 gap-3">
-              {rightTab === "example" ? (
-                <RequestExampleTab
-                  req={req}
-                  examplePreviewUrl={examplePreviewUrl}
-                  examplePreviewLoading={examplePreviewLoading}
-                  examplePreviewError={examplePreviewError}
-                  onViewModal={() =>
-                    setPreviewModal({
-                      url: examplePreviewUrl,
-                      filename: req.example_original_filename,
-                    })
-                  }
-                />
-              ) : (
-                <RequestSubmissionTab
-                isReviewer={isReviewer}
-                isSubmitter={isSubmitter}
-                req={req}
-                submissions={submissions}
-                  selectedSubmission={selectedSubmission}
-                  selectedSubmissionId={selectedSubmissionId}
-                  selectedFileId={selectedFileId}
-                  onSelectSubmission={setSelectedSubmissionId}
-                  qaNote={qaNote}
-                  reviewing={reviewing}
-                  canReview={canReview}
-                  onQaNoteChange={setQaNote}
-                  onQaReview={qaReview}
-                  hasExample={!!(isItemView ? (req.item_example_file_path || req.template) : (req.example_file_path || req.template))}
-                  onDownloadExample={async () => {
-                    const win = window.open("about:blank", "_blank");
-                    try {
-                      // If it's a template, use the template download service
-                      if (req.template?.id) {
-                        const templateId = req.template.id;
-                        const templateName = req.template.original_filename;
-                        try {
-                          await downloadTemplate(templateId, templateName);
-                          if (win) win.close();
-                          return;
-                        } catch (err) {
-                           console.error("Template download failed", err);
-                           if (win) win.close();
-                           return;
-                        }
-                      }
-
-                      // Otherwise, use the example file download logic
-                      const res =
-                        isItemView && itemId
-                          ? await getDocumentRequestItemExampleDownloadLink(
-                            itemId,
-                          )
-                          : await getDocumentRequestExampleDownloadLink(
-                            requestId,
-                          );
-                      if (win) win.location.href = res.url;
-                    } catch {
-                      if (win) win.close();
-                    }
-                  }}
-                  files={files}
-                  localPreviewUrl={localPreviewUrl}
-                  hasLocalFile={hasLocalFile}
-                  showUploadArea={showUploadArea}
-
-                  canSubmit={canSubmit}
-                  note={note}
-                  submitting={submitting}
-                  submitMsg={submitMsg}
-                  submitErr={submitErr}
-                  onNoteChange={setNote}
-                  onSelectFiles={handleSelectFiles}
-                  onRemoveFile={() => setFiles([])}
-                  onSubmit={submit}
-                  submissionPreviewUrl={submissionPreviewUrl}
-                  submissionPreviewLoading={submissionPreviewLoading}
-                  submissionPreviewError={submissionPreviewError}
-                  onViewModal={(url, filename) =>
-                    setPreviewModal({ url, filename })
-                  }
-                />
-              )}
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      {previewModal && (
-        <RequestPreviewModal
-          url={previewModal.url}
-          filename={previewModal.filename}
-          onClose={() => setPreviewModal(null)}
-        />
-      )}
-    </PageFrame>
+        {previewModal && (
+          <RequestPreviewModal
+            url={previewModal.url}
+            filename={previewModal.filename}
+            onClose={() => setPreviewModal(null)}
+          />
+        )}
+      </PageFrame>
+    </motion.div>
   );
 }
